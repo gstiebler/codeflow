@@ -3,12 +3,27 @@
  */
 package codeflow
 
+import codeflow.java.AstReader
+import java.io.File
+import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertNotNull
+
 
 class AppTest {
     @Test fun appHasAGreeting() {
         val classUnderTest = App()
         assertNotNull(classUnderTest.greeting, "app should have a greeting")
+    }
+
+    @Test fun codeflow() {
+        val userDirectory = System.getProperty("user.dir")
+        val userDirectory2 = Path.of(userDirectory)
+        val userDirectory3 = userDirectory2
+            .resolve("test")
+            .resolve("resources")
+            .resolve("App.java")
+        print(userDirectory3)
+        AstReader().process(listOf(userDirectory3))
     }
 }

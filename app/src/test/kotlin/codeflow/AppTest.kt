@@ -26,6 +26,14 @@ class AppTest {
             .resolve("test2")
             .resolve("App.java")
         val graph = AstReader().process(listOf(testFilePath))
-        graph.print()
+        // graph.print()
+
+        /*
+        val pathToMermaid =
+        val mermaidFile = pathToMermaid.toFile()
+        mermaidFile.writeText("flowchart TD")
+         */
+
+        graphToMermaid(graph) { println(it) }
     }
 }

@@ -24,7 +24,6 @@ class GraphBuilder() {
     }
 
     fun addInitializer(sourceVar: Int, init: Int) {
-        println("Initializer sourceVar: $sourceVar, Init: $init")
         unmingledEdges.add(UnmingledEdge(init, sourceVar))
     }
 

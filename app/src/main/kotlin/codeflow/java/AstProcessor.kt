@@ -21,13 +21,11 @@ class AstProcessor(val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Void
     override fun visitVariable(node: VariableTree?, p: Void?): GraphNode {
         val name = node?.name
         val newNode = graphBuilder.addVariable(name.hashCode(), name.toString())
-        val init = node?.initializer
-        if (init != null) {
-            val initNode = init.accept(this, null)
-            // TODO: create new method that receives 2 nodes instead of IDs
+        // The return is the init node just because the init is the last item processed in TreeScanner.visitVariable()
+        val initNode = super.visitVariable(node, p)
+        if (initNode != null) {
             graphBuilder.addInitializer(newNode.id, initNode.id)
         }
-        super.visitVariable(node, p)
         return newNode
     }
 

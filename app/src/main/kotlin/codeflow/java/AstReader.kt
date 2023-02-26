@@ -26,7 +26,6 @@ class AstReader {
         // task.call()
         manager.close()
 
-        graphBuilder.mingleEdges()
         return graphBuilder.graph
     }
 

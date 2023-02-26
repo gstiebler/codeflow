@@ -15,4 +15,8 @@ abstract class GraphNode(val id: Int, val label: String) {
             }
         }
     }
+
+    public class BinOp(id: Int, label: String) : GraphNode(id, label) {
+
+    }
 }

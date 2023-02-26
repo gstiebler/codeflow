@@ -1,7 +1,6 @@
 package codeflow.java
 
 import com.sun.source.util.JavacTask
-import java.io.File
 import java.nio.file.Path
 import javax.tools.DiagnosticCollector
 import javax.tools.JavaFileObject
@@ -9,7 +8,7 @@ import javax.tools.ToolProvider
 
 class AstReader {
 
-    public fun process(fileNames: List<Path>) {
+    fun process(fileNames: List<Path>) {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
@@ -21,7 +20,7 @@ class AstReader {
             compUnitTree.accept(AstProcessor(), null)
         }
 
-        task.call()
+        // task.call()
 
         manager.close()
     }

@@ -17,14 +17,15 @@ class AppTest {
 
     @Test fun codeflow() {
         val userDirectory = System.getProperty("user.dir")
-        val userDirectory2 = Path.of(userDirectory)
-        val userDirectory3 = userDirectory2
+        val userDirPath = Path.of(userDirectory)
+        val testResourcesPath = userDirPath
             .resolve("src")
             .resolve("test")
             .resolve("resources")
+        val testFilePath = testResourcesPath
             .resolve("test2")
             .resolve("App.java")
-        println(userDirectory3)
-        AstReader().process(listOf(userDirectory3))
+        val graph = AstReader().process(listOf(testFilePath))
+        graph.print()
     }
 }

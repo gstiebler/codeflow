@@ -11,12 +11,16 @@ class GraphBuilder() {
 
     val graph = Graph()
 
-    fun addLiteral(id: Int, label: String) {
-        graph.addNode(Literal(id, label))
+    fun addLiteral(id: Int, label: String): GraphNode {
+        val newNode = Literal(id, label)
+        graph.addNode(newNode)
+        return newNode
     }
 
-    fun addVariable(id: Int, label: String) {
-        graph.addNode(Variable(id, label))
+    fun addVariable(id: Int, label: String): GraphNode {
+        val newNode = Variable(id, label)
+        graph.addNode(newNode)
+        return newNode
     }
 
     fun addInitializer(sourceVar: Int, init: Int) {

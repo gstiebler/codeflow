@@ -1,7 +1,9 @@
 package codeflow.graph
 
-class Literal(id: Int, label: String) : GraphNode(id, label) {
+import java.nio.file.Path
 
-    override fun toString() = "Literal GraphNode: $label ($id)"
+class Literal(private val base: Base) : GraphNode(base) {
+
+    override fun toString() = "Literal GraphNode: ${base.label} ($id)"
 
 }

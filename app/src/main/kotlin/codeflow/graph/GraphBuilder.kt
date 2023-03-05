@@ -5,14 +5,14 @@ class GraphBuilder() {
 
     val graph = Graph()
 
-    fun addLiteral(id: Int, label: String): GraphNode {
-        val newNode = Literal(id, label)
+    fun addLiteral(base: GraphNode.Base): GraphNode {
+        val newNode = Literal(base)
         graph.addNode(newNode)
         return newNode
     }
 
-    fun addVariable(id: Int, label: String): GraphNode {
-        val newNode = Variable(id, label)
+    fun addVariable(base: GraphNode.Base): GraphNode {
+        val newNode = Variable(base)
         graph.addNode(newNode)
         return newNode
     }
@@ -21,8 +21,8 @@ class GraphBuilder() {
         init.addEdge(sourceVar)
     }
 
-    fun addBinOp(id: Int, label: String, leftNode: GraphNode, rightNode: GraphNode): GraphNode {
-        val binOpNode = GraphNode.BinOp(id, label)
+    fun addBinOp(base: GraphNode.Base, leftNode: GraphNode, rightNode: GraphNode): GraphNode {
+        val binOpNode = GraphNode.BinOp(base)
         graph.addNode(binOpNode)
         leftNode.addEdge(binOpNode)
         rightNode.addEdge(binOpNode)

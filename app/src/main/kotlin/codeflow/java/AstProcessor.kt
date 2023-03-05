@@ -8,7 +8,7 @@ import java.nio.file.Path
 
 class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
 
-    override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
+    override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode {
         println("visitAssignment: $node")
         return super.visitAssignment(node, path)
     }
@@ -19,7 +19,7 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
 
     override fun visitVariable(node: VariableTree, path: Path): GraphNode {
         val name = node.name
-        val newNode = graphBuilder.addVariable(name.hashCode(), name.toString())
+        val newNode = graphBuilder.addVariable(GraphNode.Base(path, name.hashCode(), name.toString()))
         // The return is the init node just because the init is the last item processed in TreeScanner.visitVariable()
         val initNode = super.visitVariable(node, path)
         if (initNode != null) {
@@ -29,18 +29,18 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
     }
 
     override fun visitLiteral(node: LiteralTree, path: Path): GraphNode {
-        val newNode = graphBuilder.addLiteral(node.hashCode(), node.toString())
+        val newNode = graphBuilder.addLiteral(GraphNode.Base(path, node.hashCode(), node.toString()))
         super.visitLiteral(node, path)
         return newNode
     }
 
     override fun visitBinary(node: BinaryTree, path: Path): GraphNode {
-        val rightNode = node.leftOperand.accept(this, null)
-        val leftNode = node.rightOperand.accept(this, null)
+        val rightNode = node.leftOperand.accept(this, path)
+        val leftNode = node.rightOperand.accept(this, path)
         val label = when(node.kind.name) {
             "PLUS" -> "+"
             else -> "UNKNOWN"
         }
-        return graphBuilder.addBinOp(node.hashCode(), label, leftNode, rightNode)
+        return graphBuilder.addBinOp(GraphNode.Base(path, node.hashCode(), label), leftNode, rightNode)
     }
 }

@@ -1,6 +1,6 @@
 package codeflow.graph
 
-class Variable(id: Int, label: String) : GraphNode(id, label) {
+class Variable(base: Base) : GraphNode(base) {
 
     override fun toString() = "Variable GraphNode: $label ($id)"
 

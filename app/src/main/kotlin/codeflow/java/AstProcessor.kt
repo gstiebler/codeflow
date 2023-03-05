@@ -4,36 +4,37 @@ import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphNode
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
+import java.nio.file.Path
 
-class AstProcessor(val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Void>() {
+class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
 
-    override fun visitAssignment(node: AssignmentTree, p: Void?): GraphNode? {
+    override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
         println("visitAssignment: $node")
-        return super.visitAssignment(node, p)
+        return super.visitAssignment(node, path)
     }
 
-    override fun visitIdentifier(node: IdentifierTree, p: Void?): GraphNode? {
+    override fun visitIdentifier(node: IdentifierTree, path: Path): GraphNode? {
         return graphBuilder.graph.getNode(node.name.hashCode())
     }
 
-    override fun visitVariable(node: VariableTree, p: Void?): GraphNode {
+    override fun visitVariable(node: VariableTree, path: Path): GraphNode {
         val name = node.name
         val newNode = graphBuilder.addVariable(name.hashCode(), name.toString())
         // The return is the init node just because the init is the last item processed in TreeScanner.visitVariable()
-        val initNode = super.visitVariable(node, p)
+        val initNode = super.visitVariable(node, path)
         if (initNode != null) {
             graphBuilder.addInitializer(newNode, initNode)
         }
         return newNode
     }
 
-    override fun visitLiteral(node: LiteralTree, p: Void?): GraphNode {
+    override fun visitLiteral(node: LiteralTree, path: Path): GraphNode {
         val newNode = graphBuilder.addLiteral(node.hashCode(), node.toString())
-        super.visitLiteral(node, p)
+        super.visitLiteral(node, path)
         return newNode
     }
 
-    override fun visitBinary(node: BinaryTree, p: Void?): GraphNode {
+    override fun visitBinary(node: BinaryTree, path: Path): GraphNode {
         val rightNode = node.leftOperand.accept(this, null)
         val leftNode = node.rightOperand.accept(this, null)
         val label = when(node.kind.name) {

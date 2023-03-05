@@ -25,7 +25,7 @@ class AppTest {
         val testFilePath = testResourcesPath
             .resolve("test2")
             .resolve("App.java")
-        val graph = AstReader().process(listOf(testFilePath))
+        val graph = AstReader(testResourcesPath).process(listOf(testFilePath))
         // graph.print()
 
         /*

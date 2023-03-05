@@ -7,8 +7,9 @@ import java.nio.file.Path
 import javax.tools.DiagnosticCollector
 import javax.tools.JavaFileObject
 import javax.tools.ToolProvider
+import kotlin.io.path.toPath
 
-class AstReader {
+class AstReader(private val basePath: Path) {
 
     fun process(fileNames: List<Path>): Graph {
         val compiler = ToolProvider.getSystemJavaCompiler()
@@ -21,7 +22,9 @@ class AstReader {
         val graphBuilder = GraphBuilder()
         val astProcessor = AstProcessor(graphBuilder)
         for (compUnitTree in task.parse()) {
-            compUnitTree.accept(astProcessor, null)
+            val compUnitPath = compUnitTree.sourceFile.toUri().toPath()
+            val relativePath = basePath.relativize(compUnitPath)
+            compUnitTree.accept(astProcessor, relativePath)
         }
         // task.call()
         manager.close()

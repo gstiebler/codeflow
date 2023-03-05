@@ -1,3 +1,5 @@
+[![Java CI with Gradle](https://github.com/gstiebler/codeflow/actions/workflows/gradle.yml/badge.svg)](https://github.com/gstiebler/codeflow/actions/workflows/gradle.yml)
+
 # codeflow
 Generates a dataflow representation from Java code.
 

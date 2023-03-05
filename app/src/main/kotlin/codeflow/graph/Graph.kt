@@ -12,4 +12,14 @@ class Graph() {
             entry.value.print()
         }
     }
+
+    fun compare(other: Graph): Boolean {
+        for (entry in nodes.entries) {
+            val otherNode = other.getNode(entry.key)
+            if (entry.value != otherNode) {
+                return false
+            }
+        }
+        return true
+    }
 }

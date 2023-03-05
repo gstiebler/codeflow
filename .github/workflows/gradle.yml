@@ -36,4 +36,4 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: test-report
-        path: app/build/reports/**/*
+        path: codeflow/app/build/reports/**/*

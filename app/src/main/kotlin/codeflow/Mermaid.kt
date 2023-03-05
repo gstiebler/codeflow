@@ -4,6 +4,7 @@ import codeflow.graph.Graph
 
 
 fun graphToMermaid(graph: Graph, writer: (String) -> Unit) {
+    writer("```mermaid")
     writer("flowchart TD")
     for (nodeEntry in graph.nodesIterator()) {
         val node = nodeEntry.value
@@ -11,4 +12,5 @@ fun graphToMermaid(graph: Graph, writer: (String) -> Unit) {
             writer("    ${node.id}[${node.label}] --> ${toNode.id}[${toNode.label}]")
         }
     }
+    writer("```")
 }

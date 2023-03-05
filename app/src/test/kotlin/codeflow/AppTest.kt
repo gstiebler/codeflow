@@ -4,36 +4,39 @@
 package codeflow
 
 import codeflow.java.AstReader
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 
 
 class AppTest {
-    @Test fun appHasAGreeting() {
-        val classUnderTest = App()
-        assertNotNull(classUnderTest.greeting, "app should have a greeting")
-    }
-
     @Test fun codeflow() {
-        val userDirectory = System.getProperty("user.dir")
-        val userDirPath = Path.of(userDirectory)
-        val testResourcesPath = userDirPath
-            .resolve("src")
-            .resolve("test")
-            .resolve("resources")
-        val testFilePath = testResourcesPath
-            .resolve("test2")
-            .resolve("App.java")
-        val graph = AstReader(testResourcesPath).process(listOf(testFilePath))
-        // graph.print()
 
-        /*
-        val pathToMermaid =
-        val mermaidFile = pathToMermaid.toFile()
-        mermaidFile.writeText("flowchart TD")
-         */
+        val tests = listOf("base")
 
-        graphToMermaid(graph) { println(it) }
+        for (test in tests) {
+            val userDirectory = System.getProperty("user.dir")
+            val userDirPath = Path.of(userDirectory)
+            val testResourcesPath = userDirPath
+                .resolve("src")
+                .resolve("test")
+                .resolve("resources")
+            val testDirPath = testResourcesPath
+                .resolve(test)
+            val testFilePath = testDirPath
+                .resolve("App.java")
+            val graph = AstReader(testResourcesPath).process(listOf(testFilePath))
+
+            // declare empty array of strings
+            val result = ArrayList<String>()
+            graphToMermaid(graph) { result.add(it) }
+            val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
+            if (result != truth) {
+                print(result.joinToString("\n"))
+            }
+            assert(result == truth)
+        }
+
     }
 }

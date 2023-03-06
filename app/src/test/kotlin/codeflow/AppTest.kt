@@ -28,7 +28,6 @@ class AppTest {
                 .resolve("App.java")
             val graph = AstReader(testResourcesPath).process(listOf(testFilePath))
 
-            // declare empty array of strings
             val result = ArrayList<String>()
             graphToMermaid(graph) { result.add(it) }
             val truth = Files.readAllLines(testDirPath.resolve("truth.md"))

@@ -2,10 +2,19 @@ package codeflow.graph
 
 class Graph() {
     private val nodes = HashMap<Int, GraphNode>()
+    private val nodesList = HashMap<GraphNode, Int>()
+    private var counter = 0
 
-    fun addNode(node: GraphNode) = nodes.put(node.id, node)
+    fun addNode(node: GraphNode) {
+        nodes[node.id] = node
+        nodesList[node] = counter++
+    }
+
+    fun getNodeExtId(node: GraphNode) = nodesList[node]
+
+    fun getNodesSortedByExtId() = nodesList.keys.sortedBy { nodesList[it] }
+
     fun getNode(id: Int) = nodes[id]
-    fun nodesIterator() = nodes.toSortedMap().iterator()
 
     fun print() {
         for (entry in nodes.entries.iterator()) {

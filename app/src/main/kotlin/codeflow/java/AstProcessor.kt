@@ -8,9 +8,12 @@ import java.nio.file.Path
 
 class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
 
-    override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode {
-        println("visitAssignment: $node")
-        return super.visitAssignment(node, path)
+    override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
+        val variable = node.variable as IdentifierTree
+        val expressionNode = node.expression.accept(this, path)
+        val varNode = graphBuilder.graph.getNode(variable.name.hashCode()) ?: throw Exception("Variable node not found")
+        graphBuilder.addAssignment(varNode, expressionNode)
+        return null
     }
 
     override fun visitIdentifier(node: IdentifierTree, path: Path): GraphNode? {

@@ -29,4 +29,8 @@ class GraphBuilder() {
         return binOpNode
     }
 
+    fun addAssignment(sourceVar: GraphNode, expression: GraphNode) {
+        expression.addEdge(sourceVar)
+    }
+
 }

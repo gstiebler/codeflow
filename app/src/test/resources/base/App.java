@@ -8,6 +8,7 @@ public class App {
         final int a = 5;
         final int b = a;
         final int c = b + 8;
-        System.out.println(b);
+        int d;
+        d = b;
     }
 }

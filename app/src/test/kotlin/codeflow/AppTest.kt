@@ -11,31 +11,28 @@ import kotlin.test.assertNotNull
 
 
 class AppTest {
-    @Test fun codeflow() {
+    private fun codeflow(test: String) {
+        val userDirectory = System.getProperty("user.dir")
+        val userDirPath = Path.of(userDirectory)
+        val testResourcesPath = userDirPath
+            .resolve("src")
+            .resolve("test")
+            .resolve("resources")
+        val testDirPath = testResourcesPath
+            .resolve(test)
+        val testFilePath = testDirPath
+            .resolve("App.java")
+        val graph = AstReader(testResourcesPath).process(listOf(testFilePath))
 
-        val tests = listOf("base")
-
-        for (test in tests) {
-            val userDirectory = System.getProperty("user.dir")
-            val userDirPath = Path.of(userDirectory)
-            val testResourcesPath = userDirPath
-                .resolve("src")
-                .resolve("test")
-                .resolve("resources")
-            val testDirPath = testResourcesPath
-                .resolve(test)
-            val testFilePath = testDirPath
-                .resolve("App.java")
-            val graph = AstReader(testResourcesPath).process(listOf(testFilePath))
-
-            val result = ArrayList<String>()
-            graphToMermaid(graph) { result.add(it) }
-            val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
-            if (result != truth) {
-                print(result.joinToString("\n"))
-            }
-            assert(result == truth)
+        val result = ArrayList<String>()
+        graphToMermaid(graph) { result.add(it) }
+        val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
+        if (result != truth) {
+            print(result.joinToString("\n"))
         }
-
+        assert(result == truth)
     }
+
+    @Test fun base() = codeflow("base")
+    @Test fun funcCall() = codeflow("funcCall")
 }

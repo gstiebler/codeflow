@@ -4,6 +4,7 @@ package codeflow.graph
 class GraphBuilder() {
 
     val graph = Graph()
+    val methods = HashMap<Int, Method>()
 
     fun addLiteral(base: GraphNode.Base): GraphNode {
         val newNode = Literal(base)
@@ -31,6 +32,10 @@ class GraphBuilder() {
 
     fun addAssignment(sourceVar: GraphNode, expression: GraphNode) {
         expression.addEdge(sourceVar)
+    }
+
+    fun addMethod(name: String, parameterNodes: List<GraphNode>, hashCode: Int) {
+        methods[hashCode] = Method(name, parameterNodes)
     }
 
 }

@@ -6,7 +6,18 @@ import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import java.nio.file.Path
 
-class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
+class MethodProcessor(private val graphBuilder: GraphBuilder) : AstProcessor(graphBuilder) {
+
+    // process only the declaration of the method
+    override fun visitMethod(node: MethodTree, p: Path): GraphNode? {
+        val parameterNodes = node.parameters.map { it.accept(this, p) }
+        node.receiverParameter?.accept(this, p)
+        graphBuilder.addMethod(node.name.toString(), parameterNodes, node.name.hashCode())
+        return null
+    }
+}
+
+open class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
 
     override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
         val variable = node.variable as IdentifierTree
@@ -45,5 +56,26 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
             else -> "UNKNOWN"
         }
         return graphBuilder.addBinOp(GraphNode.Base(path, node.hashCode(), label), leftNode, rightNode)
+    }
+
+    override fun visitClass(node: ClassTree, p: Path): GraphNode? {
+        node.modifiers?.accept(this, p)
+        node.typeParameters.forEach { it.accept(this, p) }
+        node.extendsClause?.accept(this, p)
+        node.implementsClause.forEach { it.accept(this, p) }
+        node.permitsClause.forEach { it.accept(this, p) }
+        // process declararations only
+        node.members.forEach { it.accept(MethodProcessor(graphBuilder), p) }
+        // process whole method, including body
+        node.members.forEach { it.accept(this, p) }
+        return null
+    }
+
+    override fun visitMethodInvocation(node: MethodInvocationTree, p: Path): GraphNode? {
+        node.arguments.forEach {
+            var paramExpr = it.accept(this, p)
+        }
+        // TODO: reference the new Method object by node.methodSelect.name, to get the parameters GraphNodes, and return node
+        return null // TODO: return the return variable, if available
     }
 }

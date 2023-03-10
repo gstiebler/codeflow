@@ -72,10 +72,7 @@ open class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<Gr
     }
 
     override fun visitMethodInvocation(node: MethodInvocationTree, p: Path): GraphNode? {
-        node.arguments.forEach {
-            var paramExpr = it.accept(this, p)
-        }
-        // TODO: reference the new Method object by node.methodSelect.name, to get the parameters GraphNodes, and return node
-        return null // TODO: return the return variable, if available
+        val parameterExpressions = node.arguments.map { it.accept(this, p) }
+        return graphBuilder.callMethod(p, node.methodSelect.hashCode(), parameterExpressions)
     }
 }

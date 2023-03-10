@@ -1,5 +1,7 @@
 package codeflow.graph
 
+import java.nio.file.Path
+
 
 class GraphBuilder() {
 
@@ -36,6 +38,14 @@ class GraphBuilder() {
 
     fun addMethod(name: String, parameterNodes: List<GraphNode>, hashCode: Int) {
         methods[hashCode] = Method(name, parameterNodes)
+    }
+
+    fun callMethod(p: Path, methodCode: Int, parameterNodes: List<GraphNode>): GraphNode {
+        val method = methods[methodCode] ?: throw Exception("Method not found")
+        for (i in 0 until method.parameterNodes.size) {
+            parameterNodes[i].addEdge(method.parameterNodes[i])
+        }
+        return GraphNode.MethodReturn(GraphNode.Base(p, , method.name))
     }
 
 }

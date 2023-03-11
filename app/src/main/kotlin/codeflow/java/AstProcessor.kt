@@ -9,7 +9,13 @@ import java.nio.file.Path
 
 class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
 
+    override fun visitCompilationUnit(node: CompilationUnitTree?, p: Path?): GraphNode? {
+        println("Package name: ${node?.packageName}")
+        return super.visitCompilationUnit(node, p)
+    }
+
     override fun visitClass(node: ClassTree, p: Path): GraphNode? {
+        println("Class name: ${node.simpleName}")
         node.modifiers?.accept(this, p)
         node.typeParameters.forEach { it.accept(this, p) }
         node.extendsClause?.accept(this, p)

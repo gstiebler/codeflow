@@ -1,23 +1,34 @@
 package codeflow.java
 
 import codeflow.graph.GraphBuilder
+import codeflow.graph.GraphBuilderMethod
 import codeflow.graph.GraphNode
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import java.nio.file.Path
 
-class MethodProcessor(private val graphBuilder: GraphBuilder) : AstProcessor(graphBuilder) {
+class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
 
-    // process only the declaration of the method
+    override fun visitClass(node: ClassTree, p: Path): GraphNode? {
+        node.modifiers?.accept(this, p)
+        node.typeParameters.forEach { it.accept(this, p) }
+        node.extendsClause?.accept(this, p)
+        node.implementsClause.forEach { it.accept(this, p) }
+        node.permitsClause.forEach { it.accept(this, p) }
+        node.members.forEach { it.accept(this, p) }
+        return null
+    }
+
     override fun visitMethod(node: MethodTree, p: Path): GraphNode? {
         val parameterNodes = node.parameters.map { it.accept(this, p) }
         node.receiverParameter?.accept(this, p)
-        graphBuilder.addMethod(node.name.toString(), parameterNodes, node.name.hashCode())
+        val newMethod = graphBuilder.addMethod(node.name.toString(), parameterNodes, node.name.hashCode())
+        node.accept(AstProcessorMethod(newMethod), p)
         return null
     }
 }
 
-open class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
+open class AstProcessorMethod(private val graphBuilder: GraphBuilderMethod) : TreeScanner<GraphNode, Path>() {
 
     override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
         val variable = node.variable as IdentifierTree
@@ -58,21 +69,12 @@ open class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<Gr
         return graphBuilder.addBinOp(GraphNode.Base(path, node.hashCode(), label), leftNode, rightNode)
     }
 
-    override fun visitClass(node: ClassTree, p: Path): GraphNode? {
-        node.modifiers?.accept(this, p)
-        node.typeParameters.forEach { it.accept(this, p) }
-        node.extendsClause?.accept(this, p)
-        node.implementsClause.forEach { it.accept(this, p) }
-        node.permitsClause.forEach { it.accept(this, p) }
-        // process declararations only
-        node.members.forEach { it.accept(MethodProcessor(graphBuilder), p) }
-        // process whole method, including body
-        node.members.forEach { it.accept(this, p) }
-        return null
-    }
-
     override fun visitMethodInvocation(node: MethodInvocationTree, p: Path): GraphNode? {
         val parameterExpressions = node.arguments.map { it.accept(this, p) }
         return graphBuilder.callMethod(p, node.methodSelect.hashCode(), parameterExpressions)
+    }
+
+    override fun visitReturn(node: ReturnTree, p: Path): GraphNode {
+        return super.visitReturn(node, p)
     }
 }

@@ -2,20 +2,49 @@ package codeflow.graph
 
 import java.nio.file.Path
 
+class MethodCall(val p: Path, val methodCode: Int, val parameterNodes: List<GraphNode>) {
+    val returnNode = GraphNode.MethodReturn(GraphNode.Base(p, 0, "return"))
+}
+
 
 class GraphBuilder() {
+    private val methods = HashMap<Int, GraphBuilderMethod>()
+
+    fun getMethods() = methods.values.toList()
+
+    fun addMethod(name: String, parameterNodes: List<GraphNode>, hashCode: Int): GraphBuilderMethod {
+        val newMethod = GraphBuilderMethod(Method(name, parameterNodes))
+        methods[hashCode] = newMethod
+        return newMethod
+    }
+
+    fun bindMethodCalls() {
+        methods.forEach { (methodCode, method) ->
+            method.methodCalls.forEach { methodCall ->
+                val calledMethod = methods[methodCall.methodCode] ?: throw Exception("Method not found")
+                methodCall.parameterNodes.forEachIndexed { index, parameterNode ->
+                    parameterNode.addEdge(calledMethod.method.parameterNodes[index])
+                }
+                calledMethod.method.returnNode.addEdge(methodCall.returnNode)
+            }
+        }
+    }
+}
+
+class GraphBuilderMethod(val method: Method) {
+
+    val methodCalls = ArrayList<MethodCall>()
 
     val graph = Graph()
-    val methods = HashMap<Int, Method>()
 
     fun addLiteral(base: GraphNode.Base): GraphNode {
-        val newNode = Literal(base)
+        val newNode = GraphNode.Literal(base)
         graph.addNode(newNode)
         return newNode
     }
 
     fun addVariable(base: GraphNode.Base): GraphNode {
-        val newNode = Variable(base)
+        val newNode = GraphNode.Variable(base)
         graph.addNode(newNode)
         return newNode
     }
@@ -36,16 +65,10 @@ class GraphBuilder() {
         expression.addEdge(sourceVar)
     }
 
-    fun addMethod(name: String, parameterNodes: List<GraphNode>, hashCode: Int) {
-        methods[hashCode] = Method(name, parameterNodes)
-    }
-
-    fun callMethod(p: Path, methodCode: Int, parameterNodes: List<GraphNode>): GraphNode {
-        val method = methods[methodCode] ?: throw Exception("Method not found")
-        for (i in 0 until method.parameterNodes.size) {
-            parameterNodes[i].addEdge(method.parameterNodes[i])
-        }
-        return GraphNode.MethodReturn(GraphNode.Base(p, , method.name))
+    fun callMethod(p: Path, methodCode: Int, parameterNodes: List<GraphNode>): GraphNode? {
+        val methodCall = MethodCall(p, methodCode, parameterNodes)
+        methodCalls.add(methodCall)
+        return methodCall.returnNode
     }
 
 }

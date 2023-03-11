@@ -2,6 +2,7 @@ package codeflow.java
 
 import codeflow.graph.Graph
 import codeflow.graph.GraphBuilder
+import codeflow.graph.GraphBuilderMethod
 import com.sun.source.util.JavacTask
 import java.nio.file.Path
 import javax.tools.DiagnosticCollector
@@ -11,7 +12,7 @@ import kotlin.io.path.toPath
 
 class AstReader(private val basePath: Path) {
 
-    fun process(fileNames: List<Path>): Graph {
+    fun process(fileNames: List<Path>): List<GraphBuilderMethod> {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
@@ -29,7 +30,7 @@ class AstReader(private val basePath: Path) {
         // task.call()
         manager.close()
 
-        return graphBuilder.graph
+        return graphBuilder.getMethods()
     }
 
 }

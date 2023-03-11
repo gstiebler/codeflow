@@ -26,6 +26,8 @@ abstract class GraphNode(private val base: Base) {
         }
     }
 
+    class Literal(base: Base) : GraphNode(base) {}
+    class Variable(base: Base) : GraphNode(base) {}
     class BinOp(base: Base) : GraphNode(base) {}
     class Assignment(base: Base) : GraphNode(base) {}
     class MethodReturn(base: Base) : GraphNode(base) {}

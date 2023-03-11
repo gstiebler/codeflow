@@ -1,9 +1,14 @@
 package codeflow.graph
 
 class Graph() {
+    // Node Id -> Node
     private val nodes = HashMap<Int, GraphNode>()
+    // Node -> External Id
     private val nodesList = HashMap<GraphNode, Int>()
-    private var counter = 0
+
+    companion object {
+        var counter = 0
+    }
 
     fun addNode(node: GraphNode) {
         nodes[node.id] = node
@@ -16,19 +21,12 @@ class Graph() {
 
     fun getNode(id: Int) = nodes[id]
 
-    fun print() {
-        for (entry in nodes.entries.iterator()) {
-            entry.value.print()
+    fun merge(other: Graph) {
+        for (node in other.nodes.values) {
+            nodes[node.id] = node
         }
-    }
-
-    fun compare(other: Graph): Boolean {
-        for (entry in nodes.entries) {
-            val otherNode = other.getNode(entry.key)
-            if (entry.value != otherNode) {
-                return false
-            }
+        for (node in other.nodesList.keys) {
+            nodesList[node] = other.nodesList[node]!!
         }
-        return true
     }
 }

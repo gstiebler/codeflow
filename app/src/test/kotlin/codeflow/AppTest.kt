@@ -22,10 +22,10 @@ class AppTest {
             .resolve(test)
         val testFilePath = testDirPath
             .resolve("App.java")
-        val graph = AstReader(testResourcesPath).process(listOf(testFilePath))
+        val methods = AstReader(testResourcesPath).process(listOf(testFilePath))
 
         val result = ArrayList<String>()
-        graphToMermaid(graph) { result.add(it) }
+        methodsToMermaid(methods) { result.add(it) }
         val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
         if (result != truth) {
             print(result.joinToString("\n"))

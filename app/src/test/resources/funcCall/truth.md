@@ -1,11 +1,11 @@
 ```mermaid
 flowchart TD
   subgraph methodA
-5[a] --> 8[+]
-6[b] --> 8[+]
-8[+] --> 7[c]
-end
-subgraph main
-2[5] --> 1[x]
-end
+    13[a] --> 16[+]
+    14[b] --> 16[+]
+    16[+] --> 15[c]
+  end
+  subgraph main
+    10[5] --> 9[x]
+  end
 ```

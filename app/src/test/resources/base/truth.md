@@ -1,12 +1,13 @@
 ```mermaid
 flowchart TD
   subgraph main
-    1[a]:::VARIABLE --> 3[b]:::VARIABLE
-    2[5]:::LITERAL --> 1[a]:::VARIABLE
-    3[b]:::VARIABLE --> 6[+]:::BIN_OP
-    3[b]:::VARIABLE --> 7[d]:::VARIABLE
+    2[5]:::LITERAL --> 3[a]:::VARIABLE
+    3[a]:::VARIABLE --> 4[b]:::VARIABLE
+    4[b]:::VARIABLE --> 6[+]:::BIN_OP
+    4[b]:::VARIABLE --> 8[d]:::VARIABLE
     5[8]:::LITERAL --> 6[+]:::BIN_OP
-    6[+]:::BIN_OP --> 4[c]:::VARIABLE
+    6[+]:::BIN_OP --> 7[c]:::VARIABLE
+    8[d]:::VARIABLE --> 9[e]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

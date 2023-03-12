@@ -42,26 +42,33 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
 open class AstProcessorMethod(private val graphBuilder: GraphBuilderMethod) : TreeScanner<GraphNode, Path>() {
 
     override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
-        val variable = node.variable as IdentifierTree
+        val variable = (node.variable as IdentifierTree).name
         val expressionNode = node.expression.accept(this, path)
-        val varNode = graphBuilder.graph.getNode(variable.name.hashCode()) ?: throw Exception("Variable node not found")
+        val varNode = graphBuilder.addVariable(GraphNode.Base(path, variable.hashCode(), variable.toString()))
         graphBuilder.addAssignment(varNode, expressionNode)
         return null
     }
 
-    override fun visitIdentifier(node: IdentifierTree, path: Path): GraphNode? {
-        return graphBuilder.graph.getNode(node.name.hashCode())
+    override fun visitMemberReference(node: MemberReferenceTree?, p: Path?): GraphNode {
+        return super.visitMemberReference(node, p)
     }
 
-    override fun visitVariable(node: VariableTree, path: Path): GraphNode {
-        val name = node.name
-        val newNode = graphBuilder.addVariable(GraphNode.Base(path, name.hashCode(), name.toString()))
+    override fun visitIdentifier(node: IdentifierTree, path: Path): GraphNode {
+        // the identifier may or may not be initialized at this point
+        val graphNode = graphBuilder.graph.getNode(node.name.hashCode())
+        return graphNode ?: graphBuilder.addVariable(GraphNode.Base(path, node.name.hashCode(), node.name.toString()))
+    }
+
+    override fun visitVariable(node: VariableTree, path: Path): GraphNode? {
         // The return is the init node just because the init is the last item processed in TreeScanner.visitVariable()
-        val initNode = super.visitVariable(node, path)
+        val initNode = node.initializer?.accept(this, path)
         if (initNode != null) {
+            val name = node.name
+            val newNode = graphBuilder.addVariable(GraphNode.Base(path, name.hashCode(), name.toString()))
             graphBuilder.addInitializer(newNode, initNode)
+            return newNode
         }
-        return newNode
+        return null
     }
 
     override fun visitLiteral(node: LiteralTree, path: Path): GraphNode {

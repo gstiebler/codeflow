@@ -36,4 +36,5 @@ class AppTest {
 
     @Test fun base() = codeflow("base")
     @Test fun funcCall() = codeflow("funcCall")
+    @Test fun member() = codeflow("member")
 }

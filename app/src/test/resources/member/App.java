@@ -4,12 +4,11 @@
 package test;
 
 public class App {
+
+    int memberA;
     public static void main(String[] args) {
-        final int a = 5;
-        final int b = a;
-        final int c = b + 8;
-        int d;
-        d = b;
-        int e = d;
+        final int x = 5;
+        memberA = x;
+        final int y = memberA;
     }
 }

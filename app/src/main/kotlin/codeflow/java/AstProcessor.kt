@@ -3,7 +3,6 @@ package codeflow.java
 import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphBuilderMethod
 import codeflow.graph.GraphNode
-import codeflow.graph.Method
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import java.nio.file.Path

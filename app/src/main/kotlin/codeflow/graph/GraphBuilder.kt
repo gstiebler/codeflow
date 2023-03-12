@@ -27,7 +27,8 @@ class GraphBuilder() {
             method.methodCalls.forEach { methodCall ->
                 val calledMethod = methods[methodCall.methodCode] ?: throw Exception("Method not found")
                 methodCall.parameterNodes.forEachIndexed { index, parameterNode ->
-                    parameterNode.addEdge(calledMethod.method.parameterNodes[index])
+                    val toNode = calledMethod.method.parameterNodes[index]
+                    parameterNode.addEdge(toNode)
                 }
                 calledMethod.method.returnNode.addEdge(methodCall.returnNode)
             }
@@ -41,6 +42,12 @@ class GraphBuilderMethod(val method: Method) {
     val methodCalls = ArrayList<MethodCall>()
 
     val graph = Graph()
+
+    fun addParameter(base: GraphNode.Base) {
+        val paramNode = GraphNode.FuncParam(base)
+        graph.addNode(paramNode)
+        method.parameterNodes.add(paramNode)
+    }
 
     fun addLiteral(base: GraphNode.Base): GraphNode {
         val newNode = GraphNode.Literal(base)
@@ -70,7 +77,7 @@ class GraphBuilderMethod(val method: Method) {
         expression.addEdge(sourceVar)
     }
 
-    fun callMethod(p: Path, methodCode: Int, parameterNodes: List<GraphNode>): GraphNode? {
+    fun callMethod(p: Path, methodCode: Int, parameterNodes: List<GraphNode>): GraphNode {
         val methodCall = MethodCall(p, methodCode, parameterNodes)
         methodCalls.add(methodCall)
         return methodCall.returnNode

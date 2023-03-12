@@ -41,6 +41,9 @@ abstract class GraphNode(private val base: Base) {
     class BinOp(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.BIN_OP
     }
+    class FuncParam(base: Base) : GraphNode(base) {
+        override fun getType() = NodeType.FUNC_PARAM
+    }
     class Assignment(base: Base) : GraphNode(base)
     class MethodReturn(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.RETURN

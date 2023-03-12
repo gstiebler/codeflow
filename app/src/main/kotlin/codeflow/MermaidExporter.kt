@@ -16,29 +16,31 @@ class MermaidExporter(private val graph: Graph) {
         }
         writer("```")
     }
-    private fun getNodeStr(node: GraphNode) = "#${graph.getNodeExtId(node)}[${node.label}]:::${node.getType()}"
+    private fun getNodeStr(node: GraphNode) = "${graph.getNodeExtId(node)}[${node.label}]:::${node.getType()}"
 
     private fun getClasses() = listOf(
-        "  classDef LITERAL fill:#00FF0030",
-        "  classDef VARIABLE fill:#80808030",
-        "  classDef BIN_OP fill:#80808080",
-        "  classDef FUNC_PARAM fill:#8080FF80",
-        "  classDef RETURN fill:#FF808080"
+        "classDef LITERAL fill:#00FF0030",
+        "classDef VARIABLE fill:#80808030",
+        "classDef BIN_OP fill:#80808080",
+        "classDef FUNC_PARAM fill:#8080FF80",
+        "classDef RETURN fill:#FF808080"
     )
+
+    private fun genSpaces(n: Int) = " ".repeat(n)
 
     fun methodsToMermaid(methods: List<GraphBuilderMethod>, writer: (String) -> Unit) {
         writer("```mermaid")
         writer("flowchart TD")
         for (method in methods) {
-            writer("  subgraph ${method.method.name}")
+            writer(genSpaces(2) + "subgraph ${method.method.name}")
             for (node in method.graph.getNodesSortedByExtId()) {
                 for (toNode in node.edgesIterator()) {
-                    writer("    ${getNodeStr(node)} --> ${getNodeStr(toNode)}")
+                    writer(genSpaces(4) + "${getNodeStr(node)} --> ${getNodeStr(toNode)}")
                 }
             }
-            writer("  end")
-            getClasses().forEach { writer(it) }
+            writer(genSpaces(2) + "end")
         }
+        getClasses().forEach { writer(genSpaces(2) + it) }
         writer("```")
     }
 }

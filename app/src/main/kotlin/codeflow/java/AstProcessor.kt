@@ -3,6 +3,7 @@ package codeflow.java
 import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphBuilderMethod
 import codeflow.graph.GraphNode
+import codeflow.graph.Method
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import java.nio.file.Path
@@ -26,10 +27,12 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
     }
 
     override fun visitMethod(node: MethodTree, p: Path): GraphNode? {
-        val parameterNodes = node.parameters.map { it.accept(this, p) }
+        val newMethod = graphBuilder.addMethod(node.name.toString(), node.name.hashCode())
+        val methodProcessor = AstProcessorMethod(newMethod)
+        val parameterNodes = node.parameters.map { it.accept(methodProcessor, p) }
+        newMethod.method.parameterNodes = parameterNodes
         node.receiverParameter?.accept(this, p)
-        val newMethod = graphBuilder.addMethod(node.name.toString(), parameterNodes, node.name.hashCode())
-        node.accept(AstProcessorMethod(newMethod), p)
+        node.accept(methodProcessor, p)
         return null
     }
 }
@@ -77,7 +80,8 @@ open class AstProcessorMethod(private val graphBuilder: GraphBuilderMethod) : Tr
 
     override fun visitMethodInvocation(node: MethodInvocationTree, p: Path): GraphNode? {
         val parameterExpressions = node.arguments.map { it.accept(this, p) }
-        return graphBuilder.callMethod(p, node.methodSelect.hashCode(), parameterExpressions)
+        val methodIdentifier = (node.methodSelect as IdentifierTree).name
+        return graphBuilder.callMethod(p, methodIdentifier.hashCode(), parameterExpressions)
     }
 
     override fun visitReturn(node: ReturnTree, p: Path): GraphNode {

@@ -2,6 +2,10 @@ package codeflow.graph
 
 import java.nio.file.Path
 
+enum class NodeType {
+    BASE, LITERAL, VARIABLE, BIN_OP, FUNC_PARAM, RETURN
+}
+
 abstract class GraphNode(private val base: Base) {
     private val edges = ArrayList<GraphNode>()
 
@@ -10,6 +14,8 @@ abstract class GraphNode(private val base: Base) {
 
     val label: String
         get() = base.label
+
+    open fun getType() = NodeType.BASE
 
     data class Base(val path: Path, val hashCode: Int, val label: String)
 
@@ -26,9 +32,17 @@ abstract class GraphNode(private val base: Base) {
         }
     }
 
-    class Literal(base: Base) : GraphNode(base) {}
-    class Variable(base: Base) : GraphNode(base) {}
-    class BinOp(base: Base) : GraphNode(base) {}
-    class Assignment(base: Base) : GraphNode(base) {}
-    class MethodReturn(base: Base) : GraphNode(base) {}
+    class Literal(base: Base) : GraphNode(base) {
+        override fun getType() = NodeType.LITERAL
+    }
+    class Variable(base: Base) : GraphNode(base) {
+        override fun getType() = NodeType.VARIABLE
+    }
+    class BinOp(base: Base) : GraphNode(base) {
+        override fun getType() = NodeType.BIN_OP
+    }
+    class Assignment(base: Base) : GraphNode(base)
+    class MethodReturn(base: Base) : GraphNode(base) {
+        override fun getType() = NodeType.RETURN
+    }
 }

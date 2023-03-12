@@ -22,13 +22,14 @@ class AppTest {
             .resolve(test)
         val testFilePath = testDirPath
             .resolve("App.java")
-        val methods = AstReader(testResourcesPath).process(listOf(testFilePath))
+        val graphBuilder = AstReader(testResourcesPath).process(listOf(testFilePath))
+        val mergedGraph = graphBuilder.bindMethodCalls()
 
         val result = ArrayList<String>()
-        methodsToMermaid(methods) { result.add(it) }
+        MermaidExporter(mergedGraph).methodsToMermaid(graphBuilder.getMethods()) { result.add(it) }
         val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
         if (result != truth) {
-            print(result.joinToString("\n"))
+            Files.write(testDirPath.resolve("result.md"), result)
         }
         assert(result == truth)
     }

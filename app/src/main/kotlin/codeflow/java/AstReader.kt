@@ -12,7 +12,7 @@ import kotlin.io.path.toPath
 
 class AstReader(private val basePath: Path) {
 
-    fun process(fileNames: List<Path>): List<GraphBuilderMethod> {
+    fun process(fileNames: List<Path>): GraphBuilder {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
@@ -30,7 +30,7 @@ class AstReader(private val basePath: Path) {
         // task.call()
         manager.close()
 
-        return graphBuilder.getMethods()
+        return graphBuilder
     }
 
 }

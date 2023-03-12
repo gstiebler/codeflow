@@ -12,13 +12,17 @@ class GraphBuilder() {
 
     fun getMethods() = methods.values.toList()
 
-    fun addMethod(name: String, parameterNodes: List<GraphNode>, hashCode: Int): GraphBuilderMethod {
-        val newMethod = GraphBuilderMethod(Method(name, parameterNodes))
+    fun addMethod(name: String, hashCode: Int): GraphBuilderMethod {
+        val newMethod = GraphBuilderMethod(Method(name))
         methods[hashCode] = newMethod
         return newMethod
     }
 
-    fun bindMethodCalls() {
+    fun bindMethodCalls(): Graph {
+        val mergedGraph = Graph()
+        for (method in methods.values) {
+            mergedGraph.merge(method.graph)
+        }
         methods.forEach { (methodCode, method) ->
             method.methodCalls.forEach { methodCall ->
                 val calledMethod = methods[methodCall.methodCode] ?: throw Exception("Method not found")
@@ -28,6 +32,7 @@ class GraphBuilder() {
                 calledMethod.method.returnNode.addEdge(methodCall.returnNode)
             }
         }
+        return mergedGraph
     }
 }
 

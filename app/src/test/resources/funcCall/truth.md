@@ -1,14 +1,17 @@
 ```mermaid
 flowchart TD
   subgraph methodA
-    13[a]:::FUNC_PARAM --> 16[+]:::BIN_OP
-    14[b]:::FUNC_PARAM --> 16[+]:::BIN_OP
-    16[+]:::BIN_OP --> 15[c]:::VARIABLE
+    7[return]:::RETURN --> 6[return]:::RETURN
+    8[a]:::FUNC_PARAM --> 11[+]:::BIN_OP
+    9[b]:::FUNC_PARAM --> 11[+]:::BIN_OP
+    11[+]:::BIN_OP --> 12[c]:::VARIABLE
+    12[c]:::VARIABLE --> 7[return]:::RETURN
   end
   subgraph main
-    9[x]:::VARIABLE --> 13[a]:::FUNC_PARAM
-    10[5]:::LITERAL --> 9[x]:::VARIABLE
-    12[8]:::LITERAL --> 14[b]:::FUNC_PARAM
+    2[x]:::VARIABLE --> 8[a]:::FUNC_PARAM
+    3[5]:::LITERAL --> 2[x]:::VARIABLE
+    5[8]:::LITERAL --> 9[b]:::FUNC_PARAM
+    6[return]:::RETURN --> 4[y]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

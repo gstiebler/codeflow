@@ -40,8 +40,11 @@ class GraphBuilder() {
 class GraphBuilderMethod(val method: Method) {
 
     val methodCalls = ArrayList<MethodCall>()
-
     val graph = Graph()
+
+    init {
+        graph.addNode(method.returnNode)
+    }
 
     fun addParameter(base: GraphNode.Base) {
         val paramNode = GraphNode.FuncParam(base)
@@ -80,7 +83,13 @@ class GraphBuilderMethod(val method: Method) {
     fun callMethod(p: Path, methodCode: Int, parameterNodes: List<GraphNode>): GraphNode {
         val methodCall = MethodCall(p, methodCode, parameterNodes)
         methodCalls.add(methodCall)
+        graph.addNode(methodCall.returnNode)
         return methodCall.returnNode
+    }
+
+    fun setReturnNode(returnNode: GraphNode) {
+        graph.addNode(returnNode)
+        returnNode.addEdge(method.returnNode)
     }
 
 }

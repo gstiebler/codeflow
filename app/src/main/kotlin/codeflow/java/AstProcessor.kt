@@ -6,6 +6,8 @@ import codeflow.graph.GraphNode
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import java.nio.file.Path
+import javax.tools.Diagnostic
+import javax.tools.JavaFileObject
 
 class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
 
@@ -85,6 +87,8 @@ open class AstProcessorMethod(private val graphBuilder: GraphBuilderMethod) : Tr
     }
 
     override fun visitReturn(node: ReturnTree, p: Path): GraphNode {
-        return super.visitReturn(node, p)
+        val newNode = super.visitReturn(node, p)
+        graphBuilder.setReturnNode(newNode)
+        return newNode
     }
 }

@@ -2,7 +2,7 @@ package codeflow.graph
 
 import java.nio.file.Path
 
-class MethodCall(val p: Path, val methodCode: Int, val parameterNodes: List<GraphNode>) {
+class MethodCall(p: Path, val methodCode: Int, val parameterNodes: List<GraphNode>) {
     val returnNode = GraphNode.MethodReturn(GraphNode.Base(p, 0, "return"))
 }
 

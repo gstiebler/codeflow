@@ -14,10 +14,9 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
 
     override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
         // left side of the assignment
-        val variable = (node.variable as IdentifierTree).name
+        val varNode = node.variable.accept(this, path)
         // right side of the assignment
         val expressionNode = node.expression.accept(this, path)
-        val varNode = graphBuilder.addVariable(GraphNode.Base(path, variable.hashCode(), variable.toString()))
         graphBuilder.addAssignment(varNode, expressionNode)
         return null
     }

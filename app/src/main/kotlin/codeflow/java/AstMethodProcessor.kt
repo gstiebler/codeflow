@@ -62,7 +62,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
     override fun visitMethodInvocation(node: MethodInvocationTree, p: Path): GraphNode? {
         val parameterExpressions = node.arguments.map { it.accept(this, p) }
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), p)
-        return graphBuilder.callMethod(p, methodIdentifier.methodName.hashCode(), parameterExpressions)
+        return graphBuilder.callMethod(p, JavaGraphNodeId(methodIdentifier.methodName), parameterExpressions)
     }
 
     override fun visitReturn(node: ReturnTree, p: Path): GraphNode {

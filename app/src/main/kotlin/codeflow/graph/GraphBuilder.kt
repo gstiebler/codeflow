@@ -2,17 +2,17 @@ package codeflow.graph
 
 import java.nio.file.Path
 
-class MethodCall(p: Path, val methodCode: Int, val parameterNodes: List<GraphNode>) {
+class MethodCall(p: Path, val methodCode: GraphNodeId, val parameterNodes: List<GraphNode>) {
     val returnNode = GraphNode.MethodReturn(GraphNode.Base(p, 0, "return"))
 }
 
 
 class GraphBuilder() {
-    private val methods = HashMap<Int, GraphBuilderMethod>()
+    private val methods = HashMap<GraphNodeId, GraphBuilderMethod>()
 
     fun getMethods() = methods.values.toList()
 
-    fun addMethod(name: String, hashCode: Int): GraphBuilderMethod {
+    fun addMethod(name: String, hashCode: GraphNodeId): GraphBuilderMethod {
         val newMethod = GraphBuilderMethod(Method(name))
         methods[hashCode] = newMethod
         return newMethod
@@ -80,7 +80,7 @@ class GraphBuilderMethod(val method: Method) {
         expression.addEdge(sourceVar)
     }
 
-    fun callMethod(p: Path, methodCode: Int, parameterNodes: List<GraphNode>): GraphNode {
+    fun callMethod(p: Path, methodCode: GraphNodeId, parameterNodes: List<GraphNode>): GraphNode {
         val methodCall = MethodCall(p, methodCode, parameterNodes)
         methodCalls.add(methodCall)
         graph.addNode(methodCall.returnNode)

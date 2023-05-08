@@ -1,5 +1,6 @@
 package codeflow.graph
 
+import mu.KotlinLogging
 import java.nio.file.Path
 
 enum class NodeType {
@@ -7,6 +8,7 @@ enum class NodeType {
 }
 
 abstract class GraphNode(private val base: Base) {
+    private val logger = KotlinLogging.logger {}
     private val edges = ArrayList<GraphNode>()
 
     val id: Int
@@ -23,11 +25,11 @@ abstract class GraphNode(private val base: Base) {
 
     fun addEdge(node: GraphNode) = edges.add(node)
     fun print() {
-        println(this)
+        logger.info { this }
         if (edges.size > 0) {
-            println("Edges:")
+            logger.info { "Edges:" }
             for (edge in edges) {
-                println("  To $edge")
+                logger.info { "  To $edge" }
             }
         }
     }

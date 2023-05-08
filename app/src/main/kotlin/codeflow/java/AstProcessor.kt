@@ -5,16 +5,18 @@ import codeflow.graph.GraphNode
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import java.nio.file.Path
+import mu.KotlinLogging
 
 class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, Path>() {
+    private val logger = KotlinLogging.logger {}
 
     override fun visitCompilationUnit(node: CompilationUnitTree?, p: Path?): GraphNode? {
-        println("Package name: ${node?.packageName}")
+        logger.info { "Package name: ${node?.packageName}" }
         return super.visitCompilationUnit(node, p)
     }
 
     override fun visitClass(node: ClassTree, p: Path): GraphNode? {
-        println("Class name: ${node.simpleName}")
+        logger.info { "Class name: ${node.simpleName}" }
         node.modifiers?.accept(this, p)
         node.typeParameters.forEach { it.accept(this, p) }
         node.extendsClause?.accept(this, p)

@@ -22,7 +22,18 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
         node.extendsClause?.accept(this, p)
         node.implementsClause.forEach { it.accept(this, p) }
         node.permitsClause.forEach { it.accept(this, p) }
-        node.members.forEach { it.accept(this, p) }
+        val memberByType = node.members.groupBy { it.kind }
+        memberByType[Tree.Kind.VARIABLE]?.forEach { it.accept(this, p) }
+        memberByType[Tree.Kind.METHOD]?.forEach { it.accept(this, p) }
+        // TODO: throw exception if there are other types of members
+
+        return null
+    }
+
+    override fun visitVariable(node: VariableTree, p: Path): GraphNode? {
+        val type = node.type
+        val typeKind = type.kind
+        graphBuilder.registerIsPrimitive(node.name.hashCode(), typeKind == Tree.Kind.PRIMITIVE_TYPE)
         return null
     }
 

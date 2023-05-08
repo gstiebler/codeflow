@@ -3,12 +3,34 @@
  */
 package test;
 
+
+class ClassX {
+    public int memberX;
+}
+
+class ClassY {
+    public ClassX x;
+}
+
 public class App {
 
     int memberA;
     public static void main(String[] args) {
-        final int x = 5;
-        memberA = x;
-        final int y = memberA;
+        int a = 5;
+        a = 6;
+        memberA = a;
+        int b = memberA;
+
+        // should associate a name with a mempos
+        ClassY y = new ClassY();
+        // should get the mempos of y
+        // should associate the pair (name (x), mempos (y)) with a mempos (new ClassX)
+        y.x = new ClassX();
+        // should get the mempos of y
+        // should get the mempos of x
+        // should associate the pair (name (memberX), mempos (x)) with a graph node (8)
+        y.x.memberX = 8;
+        ClassY y1 = y;
+        int b = y1.x.memberX;
     }
 }

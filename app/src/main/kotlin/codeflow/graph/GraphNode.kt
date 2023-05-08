@@ -4,7 +4,7 @@ import mu.KotlinLogging
 import java.nio.file.Path
 
 enum class NodeType {
-    BASE, LITERAL, VARIABLE, BIN_OP, FUNC_PARAM, RETURN
+    BASE, LITERAL, VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE
 }
 
 abstract class GraphNode(private val base: Base) {
@@ -45,6 +45,9 @@ abstract class GraphNode(private val base: Base) {
     }
     class FuncParam(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.FUNC_PARAM
+    }
+    class MemSpace(base: Base) : GraphNode(base) {
+        override fun getType() = NodeType.MEM_SPACE
     }
     class Assignment(base: Base) : GraphNode(base)
     class MethodReturn(base: Base) : GraphNode(base) {

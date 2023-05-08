@@ -13,15 +13,57 @@ import java.nio.file.Path
 open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : TreeScanner<GraphNode, Path>() {
 
     override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
-        // left side of the assignment
-        val varNode = node.variable.accept(this, path)
-        // right side of the assignment
-        val expressionNode = node.expression.accept(this, path)
-        graphBuilder.addAssignment(varNode, expressionNode)
+        val lhs = node.variable
+        val rhs = node.expression
+
+        val lhsName = lhs.accept(AstLastNameProcessor(), path)
+        val lhsMemPos = lhs.accept(AstMemPosProcessor(graphBuilder), path)
+
+        val lhsIsPrimitive = graphBuilder.parent.isPrimitive(lhsName.hashCode())
+        if (lhsIsPrimitive) {
+            // for y.x.memberX = 8:
+            // get the memory for y
+            // get the memory for x
+            // associate the pair (name (memberX), mempos (x)) with a new graph node (8)
+
+            val varNode = lhs.accept(this, path)
+            val expressionNode = rhs.accept(this, path)
+            graphBuilder.addAssignment(varNode, expressionNode)
+        } else {
+            val rhsMemPos = rhs.accept(AstMemPosProcessor(graphBuilder), path)
+            graphBuilder.parent.addMemPos(lhs.hashCode(), rhsMemPos)
+        }
         return null
     }
 
-    override fun visitMemberReference(node: MemberReferenceTree?, p: Path?): GraphNode {
+    override fun visitVariable(node: VariableTree, path: Path): GraphNode? {
+        val typeKind = node.type.kind
+
+        val isPrimitive = typeKind == Tree.Kind.PRIMITIVE_TYPE
+        graphBuilder.parent.registerIsPrimitive(node.name.hashCode(), isPrimitive)
+
+        if (isPrimitive) {
+            val initNode = node.initializer?.accept(this, path)
+            if (initNode != null) {
+                val name = node.name
+                val newNode = graphBuilder.addVariable(GraphNode.Base(path, name.hashCode(), name.toString()))
+                graphBuilder.addAssignment(newNode, initNode)
+                return newNode
+            }
+        } else {
+            val memPos = node.accept(AstMemPosProcessor(graphBuilder), path)
+            graphBuilder.parent.addMemPos(node.name.hashCode(), memPos)
+        }
+        return null
+    }
+
+    override fun visitMemberSelect(node: MemberSelectTree, path: Path): GraphNode {
+        val expression = node.expression
+        val identifier = node.identifier
+        return expression.accept(this, path)
+    }
+
+    override fun visitMemberReference(node: MemberReferenceTree?, p: Path): GraphNode? {
         return super.visitMemberReference(node, p)
     }
 
@@ -29,18 +71,6 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
         // the identifier may or may not be initialized at this point
         val graphNode = graphBuilder.graph.getNode(node.name.hashCode())
         return graphNode ?: graphBuilder.addVariable(GraphNode.Base(path, node.name.hashCode(), node.name.toString()))
-    }
-
-    override fun visitVariable(node: VariableTree, path: Path): GraphNode? {
-        // The return is the init node just because the init is the last item processed in TreeScanner.visitVariable()
-        val initNode = node.initializer?.accept(this, path)
-        if (initNode != null) {
-            val name = node.name
-            val newNode = graphBuilder.addVariable(GraphNode.Base(path, name.hashCode(), name.toString()))
-            graphBuilder.addInitializer(newNode, initNode)
-            return newNode
-        }
-        return null
     }
 
     override fun visitLiteral(node: LiteralTree, path: Path): GraphNode {
@@ -69,5 +99,10 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
         val newNode = super.visitReturn(node, p)
         graphBuilder.setReturnNode(newNode)
         return newNode
+    }
+
+    override fun visitExpressionStatement(node: ExpressionStatementTree, path: Path): GraphNode? {
+        val expression = node.expression
+        return super.visitExpressionStatement(node, path)
     }
 }

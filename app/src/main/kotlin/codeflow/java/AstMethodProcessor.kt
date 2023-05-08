@@ -2,8 +2,10 @@ package codeflow.java
 
 import codeflow.graph.GraphBuilderMethod
 import codeflow.graph.GraphNode
+import codeflow.graph.MemPosIdKey
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
+import mu.KotlinLogging
 import java.nio.file.Path
 
 /**
@@ -11,27 +13,32 @@ import java.nio.file.Path
  * It's called for every method in a class.
  */
 open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : TreeScanner<GraphNode, Path>() {
+    private val logger = KotlinLogging.logger {}
 
     override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
         val lhs = node.variable
         val rhs = node.expression
 
         val lhsName = lhs.accept(AstLastNameProcessor(), path)
-        val lhsMemPos = lhs.accept(AstMemPosProcessor(graphBuilder), path)
+        val lhsExpr = lhs.accept(AstExprProcessor(), path)
+        val lhsMemPos = lhsExpr?.accept(AstMemPosProcessor(graphBuilder), path)
 
         val lhsIsPrimitive = graphBuilder.parent.isPrimitive(JavaGraphNodeId(lhsName))
         if (lhsIsPrimitive) {
             // for y.x.memberX = 8:
-            // get the memory for y
             // get the memory for x
-            // associate the pair (name (memberX), mempos (x)) with a new graph node (8)
+            // create a node for memory for x, and memberX
+            // assign the node created above with a new graph node (8)
 
-            val varNode = lhs.accept(this, path)
-            val expressionNode = rhs.accept(this, path)
-            graphBuilder.addAssignment(varNode, expressionNode)
+            val lhsNode = graphBuilder.addVariable(GraphNode.Base(path, JavaGraphNodeId(lhsName), lhsName.toString()))
+
+            val rhsNode = rhs.accept(this, path)
+            graphBuilder.addAssignment(lhsNode, rhsNode)
         } else {
             val rhsMemPos = rhs.accept(AstMemPosProcessor(graphBuilder), path)
-            graphBuilder.parent.addMemPos(JavaGraphNodeId(lhsName), rhsMemPos)
+            val jId = JavaGraphNodeId(lhsName)
+            val lhsId = MemPosIdKey(lhsMemPos, jId)
+            graphBuilder.parent.addMemPos(lhsId, rhsMemPos)
         }
         return null
     }
@@ -41,18 +48,19 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
 
         val isPrimitive = typeKind == Tree.Kind.PRIMITIVE_TYPE
         graphBuilder.parent.registerIsPrimitive(JavaGraphNodeId(node.name), isPrimitive)
+        val name = node.name
 
         if (isPrimitive) {
             val initNode = node.initializer?.accept(this, path)
             if (initNode != null) {
-                val name = node.name
-                val newNode = graphBuilder.addVariable(GraphNode.Base(path, name.hashCode(), name.toString()))
+                val newNode = graphBuilder.addVariable(GraphNode.Base(path, JavaGraphNodeId(name), name.toString()))
                 graphBuilder.addAssignment(newNode, initNode)
                 return newNode
             }
         } else {
-            val memPos = node.accept(AstMemPosProcessor(graphBuilder), path)
-            graphBuilder.parent.addMemPos(JavaGraphNodeId(node.name), memPos)
+            val memPos = node.initializer.accept(AstMemPosProcessor(graphBuilder), path)
+            val jId = JavaGraphNodeId(name)
+            graphBuilder.parent.addMemPos(MemPosIdKey(null, jId), memPos)
         }
         return null
     }
@@ -68,13 +76,14 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
     }
 
     override fun visitIdentifier(node: IdentifierTree, path: Path): GraphNode {
-        // the identifier may or may not be initialized at this point
-        val graphNode = graphBuilder.graph.getNode(node.name.hashCode())
-        return graphNode ?: graphBuilder.addVariable(GraphNode.Base(path, node.name.hashCode(), node.name.toString()))
+        val nId = JavaGraphNodeId(node.name)
+        val graphNode = graphBuilder.graph.getNode(nId)
+        return graphNode ?: throw IllegalStateException("Identifier '${node.name}' not found in graph")
+        // return graphNode ?: graphBuilder.addVariable(GraphNode.Base(path, node.name.hashCode(), node.name.toString()))
     }
 
     override fun visitLiteral(node: LiteralTree, path: Path): GraphNode {
-        val newNode = graphBuilder.addLiteral(GraphNode.Base(path, node.hashCode(), node.toString()))
+        val newNode = graphBuilder.addLiteral(GraphNode.Base(path, RandomGraphNodeId(), node.toString()))
         super.visitLiteral(node, path)
         return newNode
     }
@@ -86,7 +95,9 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
             "PLUS" -> "+"
             else -> "UNKNOWN"
         }
-        return graphBuilder.addBinOp(GraphNode.Base(path, node.hashCode(), label), leftNode, rightNode)
+        val lhsName = node.leftOperand.accept(AstLastNameProcessor(), path)
+        val jId = JavaGraphNodeId(lhsName)
+        return graphBuilder.addBinOp(GraphNode.Base(path, jId, label), leftNode, rightNode)
     }
 
     override fun visitMethodInvocation(node: MethodInvocationTree, p: Path): GraphNode? {
@@ -104,5 +115,14 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
     override fun visitExpressionStatement(node: ExpressionStatementTree, path: Path): GraphNode? {
         val expression = node.expression
         return super.visitExpressionStatement(node, path)
+    }
+
+    override fun visitBlock(node: BlockTree, path: Path): GraphNode? {
+        val statements = node.statements
+        statements.forEach() {
+            logger.debug { "Processing statement: '$it'" }
+            it.accept(this, path)
+        }
+        return null
     }
 }

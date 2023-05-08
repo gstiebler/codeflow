@@ -3,14 +3,14 @@ package codeflow.graph
 import java.nio.file.Path
 
 class MethodCall(p: Path, val methodCode: GraphNodeId, val parameterNodes: List<GraphNode>) {
-    val returnNode = GraphNode.MethodReturn(GraphNode.Base(p, 0, "return"))
+    val returnNode = GraphNode.MethodReturn(GraphNode.Base(p, methodCode, "return"))
 }
 
 
 class GraphBuilder() {
     private val methods = HashMap<GraphNodeId, GraphBuilderMethod>()
     private val isPrimitiveMap = HashMap<GraphNodeId, Boolean>()
-    private val idToMemPos = HashMap<GraphNodeId, MemPos>()
+    private val idToMemPos = HashMap<MemPosIdKey, MemPos>()
 
     fun getMethods() = methods.values.toList()
 
@@ -47,8 +47,8 @@ class GraphBuilder() {
         return isPrimitiveMap[id] ?: throw Exception("Variable not found")
     }
 
-    fun getMemPos(id: GraphNodeId): MemPos {
-        return idToMemPos[id] ?: throw Exception("Variable not found")
+    fun getMemPos(memPosIdKey: MemPosIdKey): MemPos {
+        return idToMemPos[memPosIdKey] ?: throw Exception("Variable not found")
     }
 
     fun createMemPos(label: String): MemPos {
@@ -56,8 +56,8 @@ class GraphBuilder() {
         return MemPos()
     }
 
-    fun addMemPos(varHashCode: GraphNodeId, memPos: MemPos) {
-        idToMemPos[varHashCode] = memPos
+    fun addMemPos(memPosIdKey: MemPosIdKey, rhsMemPos: MemPos) {
+        idToMemPos[memPosIdKey] = rhsMemPos
     }
 }
 

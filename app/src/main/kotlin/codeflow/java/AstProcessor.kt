@@ -41,7 +41,7 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
         val newMethod = graphBuilder.addMethod(node.name.toString(), JavaGraphNodeId(node.name))
         val methodProcessor = AstMethodProcessor(newMethod)
         node.parameters.map {
-            newMethod.addParameter(GraphNode.Base(p, it.name.hashCode(), it.name.toString()))
+            newMethod.addParameter(GraphNode.Base(p, JavaGraphNodeId(it.name), it.name.toString()))
         }
         node.receiverParameter?.accept(this, p)
         node.body.accept(methodProcessor, p)

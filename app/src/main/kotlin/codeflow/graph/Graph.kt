@@ -2,7 +2,7 @@ package codeflow.graph
 
 class Graph() {
     // Node Id -> Node
-    private val nodes = HashMap<Int, GraphNode>()
+    private val nodes = HashMap<GraphNodeId, GraphNode>()
     // Node -> External Id
     private val nodesList = HashMap<GraphNode, Int>()
 
@@ -19,7 +19,7 @@ class Graph() {
 
     fun getNodesSortedByExtId() = nodesList.keys.sortedBy { nodesList[it] }
 
-    fun getNode(id: Int) = nodes[id]
+    fun getNode(id: GraphNodeId) = nodes[id]
 
     fun merge(other: Graph) {
         for (node in other.nodes.values) {

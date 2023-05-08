@@ -7,9 +7,12 @@ import com.sun.source.tree.IdentifierTree
 import com.sun.source.tree.MemberSelectTree
 import com.sun.source.tree.NewClassTree
 import com.sun.source.util.TreeScanner
+import mu.KotlinLogging
 import java.nio.file.Path
 
 class AstMemPosProcessor(private val graphBuilder: GraphBuilderMethod) : TreeScanner<MemPos, Path>()  {
+    private val logger = KotlinLogging.logger {}
+
     override fun visitNewClass(node: NewClassTree, path: Path): MemPos {
         val identifier = node.identifier
         val arguments = node.arguments
@@ -20,15 +23,21 @@ class AstMemPosProcessor(private val graphBuilder: GraphBuilderMethod) : TreeSca
         // Example x.y.z.w
         // x.y.z is the expression
         // w is the identifier
-        val name = node.accept(AstFirstNameProcessor(), path)
         val expr = node.expression
         val ident = node.identifier
-        val memPos = graphBuilder.parent.getMemPos(name.hashCode())
-        return memPos
+        val exprMemPos = expr.accept(this, path)
+        // val memPos = graphBuilder.parent.getMemPos(ident, exprMemPos)
+        return exprMemPos
     }
 
-    override fun visitIdentifier(node: IdentifierTree, path: Path): MemPos {
-        // should return "this" for a local variable
-        return graphBuilder.parent.getMemPos(node.name.hashCode())
+    override fun visitIdentifier(node: IdentifierTree, path: Path): MemPos? {
+        // TODO: should return "this" for a local variable
+        try {
+            val memPos = graphBuilder.parent.getMemPos(JavaGraphNodeId(node.name))
+            return memPos
+        } catch (e: Exception) {
+            logger.warn { "Exception in AstMemPosProcessor: ${e.message}" }
+        }
+        return null
     }
 }

@@ -19,7 +19,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
         val lhsName = lhs.accept(AstLastNameProcessor(), path)
         val lhsMemPos = lhs.accept(AstMemPosProcessor(graphBuilder), path)
 
-        val lhsIsPrimitive = graphBuilder.parent.isPrimitive(lhsName.hashCode())
+        val lhsIsPrimitive = graphBuilder.parent.isPrimitive(JavaGraphNodeId(lhsName))
         if (lhsIsPrimitive) {
             // for y.x.memberX = 8:
             // get the memory for y
@@ -31,7 +31,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
             graphBuilder.addAssignment(varNode, expressionNode)
         } else {
             val rhsMemPos = rhs.accept(AstMemPosProcessor(graphBuilder), path)
-            graphBuilder.parent.addMemPos(lhs.hashCode(), rhsMemPos)
+            graphBuilder.parent.addMemPos(JavaGraphNodeId(lhsName), rhsMemPos)
         }
         return null
     }
@@ -40,7 +40,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
         val typeKind = node.type.kind
 
         val isPrimitive = typeKind == Tree.Kind.PRIMITIVE_TYPE
-        graphBuilder.parent.registerIsPrimitive(node.name.hashCode(), isPrimitive)
+        graphBuilder.parent.registerIsPrimitive(JavaGraphNodeId(node.name), isPrimitive)
 
         if (isPrimitive) {
             val initNode = node.initializer?.accept(this, path)
@@ -52,7 +52,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
             }
         } else {
             val memPos = node.accept(AstMemPosProcessor(graphBuilder), path)
-            graphBuilder.parent.addMemPos(node.name.hashCode(), memPos)
+            graphBuilder.parent.addMemPos(JavaGraphNodeId(node.name), memPos)
         }
         return null
     }

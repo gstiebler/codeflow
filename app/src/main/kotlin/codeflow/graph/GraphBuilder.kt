@@ -9,8 +9,8 @@ class MethodCall(p: Path, val methodCode: GraphNodeId, val parameterNodes: List<
 
 class GraphBuilder() {
     private val methods = HashMap<GraphNodeId, GraphBuilderMethod>()
-    private val isPrimitiveMap = HashMap<Int, Boolean>()
-    private val idToMemPos = HashMap<Int, MemPos>()
+    private val isPrimitiveMap = HashMap<GraphNodeId, Boolean>()
+    private val idToMemPos = HashMap<GraphNodeId, MemPos>()
 
     fun getMethods() = methods.values.toList()
 
@@ -38,16 +38,16 @@ class GraphBuilder() {
         return mergedGraph
     }
 
-    fun registerIsPrimitive(id: Int, isPrimitive: Boolean) {
+    fun registerIsPrimitive(id: GraphNodeId, isPrimitive: Boolean) {
         isPrimitiveMap[id] = isPrimitive
     }
 
-    fun isPrimitive(id: Int): Boolean {
+    fun isPrimitive(id: GraphNodeId): Boolean {
         // return the value, or throw an exception if it's not found
         return isPrimitiveMap[id] ?: throw Exception("Variable not found")
     }
 
-    fun getMemPos(id: Int): MemPos {
+    fun getMemPos(id: GraphNodeId): MemPos {
         return idToMemPos[id] ?: throw Exception("Variable not found")
     }
 
@@ -56,7 +56,7 @@ class GraphBuilder() {
         return MemPos()
     }
 
-    fun addMemPos(varHashCode: Int, memPos: MemPos) {
+    fun addMemPos(varHashCode: GraphNodeId, memPos: MemPos) {
         idToMemPos[varHashCode] = memPos
     }
 }

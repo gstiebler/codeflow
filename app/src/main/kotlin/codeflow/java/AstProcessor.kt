@@ -33,7 +33,7 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
     override fun visitVariable(node: VariableTree, p: Path): GraphNode? {
         val type = node.type
         val typeKind = type.kind
-        graphBuilder.registerIsPrimitive(node.name.hashCode(), typeKind == Tree.Kind.PRIMITIVE_TYPE)
+        graphBuilder.registerIsPrimitive(JavaGraphNodeId(node.name), typeKind == Tree.Kind.PRIMITIVE_TYPE)
         return null
     }
 

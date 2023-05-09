@@ -21,16 +21,11 @@ public class App {
         memberA = a;
         int b = memberA;
 
-        // should associate a name with a mempos
         ClassY y = new ClassY();
-        // should get the mempos of y
-        // should associate the pair (name (x), mempos (y)) with a mempos (new ClassX)
         y.x = new ClassX();
-        // should get the mempos of y
-        // should get the mempos of x
-        // should associate the pair (name (memberX), mempos (x)) with a graph node (8)
         y.x.memberX = 8;
         ClassY y1 = y;
-        int b = y1.x.memberX;
+        int c = y1.x.memberX;
+        ClassX x1 = y1.x;
     }
 }

@@ -69,7 +69,9 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
     override fun visitMemberSelect(node: MemberSelectTree, path: Path): GraphNode {
         val expression = node.expression
         val identifier = node.identifier
-        return expression.accept(this, path)
+        val exprMemPos = expression.accept(AstMemPosProcessor(graphBuilder), path)
+        val nodeId = JNodeId(identifier, exprMemPos)
+        return graphBuilder.graph.getNode(nodeId)
     }
 
     override fun visitMemberReference(node: MemberReferenceTree?, p: Path): GraphNode? {

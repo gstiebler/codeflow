@@ -8,6 +8,7 @@ import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
 import java.nio.file.Path
+import javax.lang.model.element.Name
 
 /**
  * This class is responsible for building the graph for a single method.
@@ -27,17 +28,9 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
 
         val lhsIsPrimitive = graphBuilder.parent.isPrimitive(JIdentifierId(lhsName))
         if (lhsIsPrimitive) {
-            // for y.x.memberX = 8:
-            // get the memory for x
-            // create a node for memory for x, and memberX
-            // assign the node created above with a new graph node (8)
-
-            val lhsNode = graphBuilder.addVariable(GraphNode.Base(path, lhsId, lhsName.toString()))
-            val rhsNode = rhs.accept(this, path)
-            graphBuilder.addAssignment(lhsNode, rhsNode)
+            assignPrimitive(lhsName, lhsId, rhs, path)
         } else {
-            val rhsMemPos = rhs.accept(AstMemPosProcessor(graphBuilder), path)
-            graphBuilder.parent.addMemPos(lhsId, rhsMemPos)
+            assignMemPos(lhsId, rhs, path)
         }
         return null
     }
@@ -49,19 +42,28 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
         graphBuilder.parent.registerIsPrimitive(JIdentifierId(node.name), isPrimitive)
         val name = node.name
 
-        if (isPrimitive) {
-            val initNode = node.initializer?.accept(this, path)
-            if (initNode != null) {
-                val newNode = graphBuilder.addVariable(GraphNode.Base(path, JNodeId(name, null), name.toString()))
-                graphBuilder.addAssignment(newNode, initNode)
-                return newNode
+        if (node.initializer != null) {
+            val variableNodeId = JNodeId(name, null)
+            if (isPrimitive) {
+                return assignPrimitive(name, variableNodeId, node.initializer, path)
+            } else {
+                assignMemPos(variableNodeId, node.initializer, path)
             }
-        } else {
-            val memPos = node.initializer.accept(AstMemPosProcessor(graphBuilder), path)
-            val nodeId = JNodeId(name, null)
-            graphBuilder.parent.addMemPos(nodeId, memPos)
         }
+
         return null
+    }
+
+    private fun assignPrimitive(lhsName: Name, lhsId: JNodeId, rhs: ExpressionTree, path: Path): GraphNode {
+        val lhsNode = graphBuilder.addVariable(GraphNode.Base(path, lhsId, lhsName.toString()))
+        val rhsNode = rhs.accept(this, path)
+        graphBuilder.addAssignment(lhsNode, rhsNode)
+        return lhsNode
+    }
+
+    private fun assignMemPos(lhsId: JNodeId, rhs: ExpressionTree, path: Path) {
+        val rhsMemPos = rhs.accept(AstMemPosProcessor(graphBuilder), path)
+        graphBuilder.parent.addMemPos(lhsId, rhsMemPos)
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, path: Path): GraphNode {

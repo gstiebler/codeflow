@@ -1,9 +1,6 @@
 package codeflow.java
 
-import codeflow.graph.Graph
-import codeflow.graph.GraphBuilderMethod
-import codeflow.graph.GraphException
-import codeflow.graph.GraphNode
+import codeflow.graph.*
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
@@ -23,7 +20,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
 
         val lhsName = lhs.accept(AstLastNameProcessor(), path)
         val lhsExpr = lhs.accept(AstExprProcessor(), path)
-        val lhsMemPos = lhsExpr?.accept(AstMemPosProcessor(graphBuilder), path)
+        val lhsMemPos = getMemPos(lhsExpr, path)
         val lhsId = JNodeId(lhsName, lhsMemPos)
 
         val lhsIsPrimitive = graphBuilder.parent.isPrimitive(JIdentifierId(lhsName))
@@ -62,14 +59,18 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
     }
 
     private fun assignMemPos(lhsId: JNodeId, rhs: ExpressionTree, path: Path) {
-        val rhsMemPos = rhs.accept(AstMemPosProcessor(graphBuilder), path)
+        val rhsMemPos = getMemPos(rhs, path) ?: throw GraphException("Could not find mem pos for $rhs")
         graphBuilder.parent.addMemPos(lhsId, rhsMemPos)
+    }
+
+    private fun getMemPos(node: ExpressionTree?, path: Path): MemPos? {
+        return node?.accept(AstMemPosProcessor(graphBuilder), path)
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, path: Path): GraphNode {
         val expression = node.expression
         val identifier = node.identifier
-        val exprMemPos = expression.accept(AstMemPosProcessor(graphBuilder), path)
+        val exprMemPos = getMemPos(expression, path)
         val nodeId = JNodeId(identifier, exprMemPos)
         return graphBuilder.graph.getNode(nodeId)
     }

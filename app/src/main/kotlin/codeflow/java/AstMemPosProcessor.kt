@@ -2,7 +2,6 @@ package codeflow.java
 
 import codeflow.graph.GraphBuilderMethod
 import codeflow.graph.MemPos
-import codeflow.graph.MemPosIdKey
 import com.sun.source.tree.IdentifierTree
 import com.sun.source.tree.MemberSelectTree
 import com.sun.source.tree.NewClassTree
@@ -26,8 +25,8 @@ class AstMemPosProcessor(private val graphBuilder: GraphBuilderMethod) : TreeSca
         val expr = node.expression
         val ident = node.identifier
         val exprMemPos = expr.accept(this, path)
-        val memPosIdKey = MemPosIdKey(exprMemPos, JavaGraphNodeId(ident))
-        val memPos = graphBuilder.parent.getMemPos(memPosIdKey)
+        val nodeId = JNodeId(ident, exprMemPos)
+        val memPos = graphBuilder.parent.getMemPos(nodeId)
         return memPos
         // return MemPos()
     }
@@ -35,8 +34,8 @@ class AstMemPosProcessor(private val graphBuilder: GraphBuilderMethod) : TreeSca
     override fun visitIdentifier(node: IdentifierTree, path: Path): MemPos? {
         // TODO: should return "this" for a local variable
         try {
-            val id = MemPosIdKey(null, JavaGraphNodeId(node.name))
-            val memPos = graphBuilder.parent.getMemPos(id)
+            val nodeId = JNodeId(node.name, null)
+            val memPos = graphBuilder.parent.getMemPos(nodeId)
             return memPos
         } catch (e: Exception) {
             logger.warn { "Exception in AstMemPosProcessor: ${e.message}" }

@@ -19,7 +19,7 @@ class Graph() {
 
     fun getNodesSortedByExtId() = nodesList.keys.sortedBy { nodesList[it] }
 
-    fun getNode(id: GraphNodeId) = nodes[id]
+    fun getNode(id: GraphNodeId) = nodes[id] ?: throw GraphException("Identifier '${id}' not found in graph")
 
     fun merge(other: Graph) {
         for (node in other.nodes.values) {

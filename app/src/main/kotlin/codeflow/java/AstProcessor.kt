@@ -33,15 +33,16 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
     override fun visitVariable(node: VariableTree, p: Path): GraphNode? {
         val type = node.type
         val typeKind = type.kind
-        graphBuilder.registerIsPrimitive(JavaGraphNodeId(node.name), typeKind == Tree.Kind.PRIMITIVE_TYPE)
+        val nodeId = JIdentifierId(node.name)
+        graphBuilder.registerIsPrimitive(nodeId, typeKind == Tree.Kind.PRIMITIVE_TYPE)
         return null
     }
 
     override fun visitMethod(node: MethodTree, p: Path): GraphNode? {
-        val newMethod = graphBuilder.addMethod(node.name.toString(), JavaGraphNodeId(node.name))
+        val newMethod = graphBuilder.addMethod(node.name.toString(), JMethodId(node.name))
         val methodProcessor = AstMethodProcessor(newMethod)
         node.parameters.map {
-            newMethod.addParameter(GraphNode.Base(p, JavaGraphNodeId(it.name), it.name.toString()))
+            newMethod.addParameter(GraphNode.Base(p, JNodeId(it.name, null), it.name.toString()))
         }
         node.receiverParameter?.accept(this, p)
         node.body.accept(methodProcessor, p)

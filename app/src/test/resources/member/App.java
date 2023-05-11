@@ -19,7 +19,7 @@ public class App {
         int a = 5;
         a = 6;
         memberA = a;
-        int b = memberA;
+        int b = this.memberA;
 
         ClassY y = new ClassY();
         y.x = new ClassX();

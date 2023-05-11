@@ -55,8 +55,8 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
         return null
     }
 
-    private fun assignPrimitive(lhsNode: Tree, lhsName: Name, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
-        val lhsNode = graphBuilder.addVariable(GraphNode.Base(ctx.getPosId(lhsNode), lhsId, lhsName.toString()))
+    private fun assignPrimitive(lhsTree: Tree, lhsName: Name, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
+        val lhsNode = graphBuilder.addVariable(GraphNode.Base(ctx.getPosId(lhsTree), lhsId, lhsName.toString()))
         val rhsNode = rhs.accept(this, ctx)
         graphBuilder.addAssignment(lhsNode, rhsNode)
         return lhsNode

@@ -13,6 +13,10 @@ class GraphBuilder() {
     private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
 
+    init {
+        GraphNode.counter = 0
+    }
+
     fun getMethods() = methods.values.toList()
 
     fun addMethod(name: String, hashCode: MethodId): GraphBuilderMethod {
@@ -68,7 +72,6 @@ class GraphBuilderMethod(val parent: GraphBuilder, val method: Method) {
     val graph = Graph()
 
     init {
-        GraphNode.counter = 0
         graph.addNode(method.returnNode)
     }
 

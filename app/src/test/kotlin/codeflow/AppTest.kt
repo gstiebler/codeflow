@@ -11,22 +11,23 @@ import kotlin.test.assertNotNull
 
 
 class AppTest {
-    private fun codeflow(test: String) {
-        val userDirectory = System.getProperty("user.dir")
-        val userDirPath = Path.of(userDirectory)
-        val testResourcesPath = userDirPath
-            .resolve("src")
-            .resolve("test")
-            .resolve("resources")
-        val testDirPath = testResourcesPath
-            .resolve(test)
-        val testFilePath = testDirPath
-            .resolve("App.java")
-        val graphBuilder = AstReader(testResourcesPath).process(listOf(testFilePath))
+
+    private val userDirectory = System.getProperty("user.dir")
+    private val userDirPath = Path.of(userDirectory)
+    private val testResourcesPath = userDirPath
+        .resolve("src")
+        .resolve("test")
+        .resolve("resources")
+
+    private fun codeflow(testDir: String, testFiles: List<String>) {
+        val testDirPath = testResourcesPath.resolve(testDir)
+        val testFilePaths = testFiles.map { testDirPath.resolve(it) }
+        val graphBuilder = AstReader(testResourcesPath).process(testFilePaths)
         val mergedGraph = graphBuilder.bindMethodCalls()
 
         val result = ArrayList<String>()
         MermaidExporter(mergedGraph).methodsToMermaid(graphBuilder.getMethods()) { result.add(it) }
+
         val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
         if (result != truth) {
             Files.write(testDirPath.resolve("result.md"), result)
@@ -34,7 +35,7 @@ class AppTest {
         assert(result == truth)
     }
 
-    @Test fun base() = codeflow("base")
-    @Test fun funcCall() = codeflow("funcCall")
-    @Test fun member() = codeflow("member")
+    @Test fun base() = codeflow("base", listOf("App.java"))
+    @Test fun funcCall() = codeflow("funcCall", listOf("App.java"))
+    @Test fun member() = codeflow("member", listOf("App.java"))
 }

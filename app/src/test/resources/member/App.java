@@ -27,5 +27,6 @@ public class App {
         ClassY y1 = y;
         int c = y1.x.memberX;
         ClassX x1 = y1.x;
+        int d = x1.memberX;
     }
 }

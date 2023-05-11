@@ -1,9 +1,12 @@
 package codeflow.java
 
 import codeflow.graph.GraphBuilder
+import codeflow.java.processors.AstClassProcessor
 import codeflow.java.processors.AstProcessor
 import codeflow.java.processors.ProcessorContext
+import com.sun.source.tree.CompilationUnitTree
 import com.sun.source.util.JavacTask
+import com.sun.source.util.SourcePositions
 import com.sun.source.util.Trees
 import java.nio.file.Path
 import javax.tools.DiagnosticCollector
@@ -26,18 +29,24 @@ class AstReader(private val basePath: Path) {
         val sourcePositions = trees.sourcePositions
 
         val graphBuilder = GraphBuilder()
-        val astProcessor = AstProcessor(graphBuilder)
-        for (compUnitTree in task.parse()) {
-            val compUnitPath = compUnitTree.sourceFile.toUri().toPath()
-            val relativePath = basePath.relativize(compUnitPath)
-            val ctx = ProcessorContext(relativePath, compUnitTree, sourcePositions)
-            compUnitTree.accept(astProcessor, ctx)
-
-            val test = sourcePositions.getEndPosition(compUnitTree, null)
+        val compUnitTrees = task.parse()
+        for (compUnitTree in compUnitTrees) {
+            val ctx = getContext(compUnitTree, sourcePositions)
+            compUnitTree.accept(AstClassProcessor(graphBuilder), ctx)
+        }
+        for (compUnitTree in compUnitTrees) {
+            val ctx = getContext(compUnitTree, sourcePositions)
+            compUnitTree.accept(AstProcessor(graphBuilder), ctx)
         }
         manager.close()
 
         return graphBuilder
+    }
+
+    private fun getContext(compUnitTree: CompilationUnitTree, sourcePositions: SourcePositions): ProcessorContext {
+        val compUnitPath = compUnitTree.sourceFile.toUri().toPath()
+        val relativePath = basePath.relativize(compUnitPath)
+        return ProcessorContext(relativePath, compUnitTree, sourcePositions)
     }
 
 }

@@ -1,9 +1,13 @@
 ```mermaid
 flowchart TD
   subgraph main
-    2[5]:::LITERAL --> 3[x]:::VARIABLE
-    3[x]:::VARIABLE --> 4[memberA]:::VARIABLE
-    4[memberA]:::VARIABLE --> 5[y]:::VARIABLE
+    3[5]:::LITERAL --> 2[a]:::VARIABLE
+    4[a]:::VARIABLE --> 6[memberA]:::VARIABLE
+    5[6]:::LITERAL --> 4[a]:::VARIABLE
+    6[memberA]:::VARIABLE --> 7[b]:::VARIABLE
+    8[memberX]:::VARIABLE --> 10[c]:::VARIABLE
+    8[memberX]:::VARIABLE --> 11[d]:::VARIABLE
+    9[8]:::LITERAL --> 8[memberX]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

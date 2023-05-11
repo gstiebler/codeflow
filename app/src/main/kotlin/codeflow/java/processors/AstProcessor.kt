@@ -42,10 +42,10 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
     }
 
     override fun visitMethod(node: MethodTree, ctx: ProcessorContext): GraphNode? {
-        val newMethod = graphBuilder.addMethod(node.name.toString(), JMethodId(node.name), ctx)
+        val newMethod = graphBuilder.addMethod(node.name.toString(), JMethodId(node.name), ctx.getPosId(node))
         val methodProcessor = AstMethodProcessor(newMethod)
         node.parameters.map {
-            newMethod.addParameter(GraphNode.Base(ctx, JNodeId(it.name, null), it.name.toString()))
+            newMethod.addParameter(GraphNode.Base(ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
         }
         node.receiverParameter?.accept(this, ctx)
         node.body.accept(methodProcessor, ctx)

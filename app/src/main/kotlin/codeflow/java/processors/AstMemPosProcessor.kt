@@ -8,7 +8,6 @@ import com.sun.source.tree.MemberSelectTree
 import com.sun.source.tree.NewClassTree
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
-import java.nio.file.Path
 
 class AstMemPosProcessor(private val graphBuilder: GraphBuilderMethod) : TreeScanner<MemPos, ProcessorContext>()  {
     private val logger = KotlinLogging.logger {}
@@ -20,16 +19,12 @@ class AstMemPosProcessor(private val graphBuilder: GraphBuilderMethod) : TreeSca
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos {
-        // Example x.y.z.w
-        // x.y.z is the expression
-        // w is the identifier
         val expr = node.expression
         val ident = node.identifier
         val exprMemPos = expr.accept(this, ctx)
         val nodeId = JNodeId(ident, exprMemPos)
         val memPos = graphBuilder.parent.getMemPos(nodeId)
         return memPos
-        // return MemPos()
     }
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): MemPos? {

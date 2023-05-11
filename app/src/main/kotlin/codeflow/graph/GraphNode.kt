@@ -10,11 +10,9 @@ enum class NodeType {
 abstract class GraphNode(private val base: Base) {
     private val logger = KotlinLogging.logger {}
     private val edges = ArrayList<GraphNode>()
-    companion object {
-        var counter = 0
-    }
 
-    val extId = counter++
+    val extId: Long
+        get() = base.posId
 
     val id: GraphNodeId
         get() = base.id
@@ -24,7 +22,7 @@ abstract class GraphNode(private val base: Base) {
 
     open fun getType() = NodeType.BASE
 
-    data class Base(val path: ProcessorContext, val id: GraphNodeId, val label: String)
+    data class Base(val posId: Long, val id: GraphNodeId, val label: String)
 
     fun edgesIterator() = edges.iterator()
 

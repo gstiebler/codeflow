@@ -29,7 +29,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
 
         val lhsIsPrimitive = graphBuilder.parent.isPrimitive(JIdentifierId(lhsName))
         if (lhsIsPrimitive) {
-            assignPrimitive(lhsName, lhsId, rhs, ctx)
+            assignPrimitive(lhs, lhsName, lhsId, rhs, ctx)
         } else {
             assignMemPos(lhsId, rhs, ctx)
         }
@@ -46,7 +46,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
         if (node.initializer != null) {
             val variableNodeId = JNodeId(name, null)
             if (isPrimitive) {
-                return assignPrimitive(name, variableNodeId, node.initializer, ctx)
+                return assignPrimitive(node, name, variableNodeId, node.initializer, ctx)
             } else {
                 assignMemPos(variableNodeId, node.initializer, ctx)
             }
@@ -55,8 +55,8 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
         return null
     }
 
-    private fun assignPrimitive(lhsName: Name, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
-        val lhsNode = graphBuilder.addVariable(GraphNode.Base(ctx, lhsId, lhsName.toString()))
+    private fun assignPrimitive(lhsNode: Tree, lhsName: Name, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
+        val lhsNode = graphBuilder.addVariable(GraphNode.Base(ctx.getPosId(lhsNode), lhsId, lhsName.toString()))
         val rhsNode = rhs.accept(this, ctx)
         graphBuilder.addAssignment(lhsNode, rhsNode)
         return lhsNode
@@ -91,7 +91,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
     }
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {
-        val newNode = graphBuilder.addLiteral(GraphNode.Base(ctx, RandomGraphNodeId(), node.toString()))
+        val newNode = graphBuilder.addLiteral(GraphNode.Base(ctx.getPosId(node), RandomGraphNodeId(), node.toString()))
         super.visitLiteral(node, ctx)
         return newNode
     }
@@ -104,13 +104,13 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
             else -> "UNKNOWN"
         }
         val jId = RandomGraphNodeId()
-        return graphBuilder.addBinOp(GraphNode.Base(ctx, jId, label), leftNode, rightNode)
+        return graphBuilder.addBinOp(GraphNode.Base(ctx.getPosId(node), jId, label), leftNode, rightNode)
     }
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode? {
         val parameterExpressions = node.arguments.map { it.accept(this, ctx) }
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
-        return graphBuilder.callMethod(ctx, JMethodId(methodIdentifier.methodName), parameterExpressions)
+        return graphBuilder.callMethod(ctx.getPosId(node), JMethodId(methodIdentifier.methodName), parameterExpressions)
     }
 
     override fun visitReturn(node: ReturnTree, p: ProcessorContext): GraphNode {

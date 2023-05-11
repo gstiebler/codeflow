@@ -99,8 +99,7 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
             "PLUS" -> "+"
             else -> "UNKNOWN"
         }
-        val lhsName = node.leftOperand.accept(AstLastNameProcessor(), path)
-        val jId = JNodeId(lhsName, null)
+        val jId = RandomGraphNodeId()
         return graphBuilder.addBinOp(GraphNode.Base(path, jId, label), leftNode, rightNode)
     }
 

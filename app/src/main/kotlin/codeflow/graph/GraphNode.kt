@@ -10,7 +10,6 @@ enum class NodeType {
 abstract class GraphNode(private val base: Base) {
     private val logger = KotlinLogging.logger {}
     private val edges = ArrayList<GraphNode>()
-    private val incomingEdges = ArrayList<GraphNode>()
     companion object {
         var counter = 0
     }
@@ -30,11 +29,7 @@ abstract class GraphNode(private val base: Base) {
     fun edgesIterator() = edges.iterator()
 
     fun addEdge(node: GraphNode) {
-        if (node.incomingEdges.isNotEmpty()) {
-            throw GraphException("Node already has incoming edges")
-        }
         edges.add(node)
-        node.incomingEdges.add(this)
     }
     fun print() {
         logger.info { this }
@@ -56,7 +51,7 @@ abstract class GraphNode(private val base: Base) {
     override fun hashCode() = id.hashCode()
 
     override fun toString(): String {
-        return "'$label', ${getType()}"
+        return "'$label', ${getType()}, $extId"
     }
 
     class Literal(base: Base) : GraphNode(base) {

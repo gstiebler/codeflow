@@ -1,50 +1,93 @@
 package codeflow.java
 
-import codeflow.graph.GraphBuilderMethod
-import codeflow.graph.GraphNode
+import codeflow.graph.*
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
+import mu.KotlinLogging
 import java.nio.file.Path
+import javax.lang.model.element.Name
 
 /**
  * This class is responsible for building the graph for a single method.
  * It's called for every method in a class.
  */
 open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : TreeScanner<GraphNode, Path>() {
+    private val logger = KotlinLogging.logger {}
 
     override fun visitAssignment(node: AssignmentTree, path: Path): GraphNode? {
-        // left side of the assignment
-        val varNode = node.variable.accept(this, path)
-        // right side of the assignment
-        val expressionNode = node.expression.accept(this, path)
-        graphBuilder.addAssignment(varNode, expressionNode)
-        return null
-    }
+        val lhs = node.variable
+        val rhs = node.expression
 
-    override fun visitMemberReference(node: MemberReferenceTree?, p: Path?): GraphNode {
-        return super.visitMemberReference(node, p)
-    }
+        val lhsName = lhs.accept(AstLastNameProcessor(), path)
+        val lhsExpr = lhs.accept(AstExprProcessor(), path)
+        val lhsMemPos = getMemPos(lhsExpr, path)
+        val lhsId = JNodeId(lhsName, lhsMemPos)
 
-    override fun visitIdentifier(node: IdentifierTree, path: Path): GraphNode {
-        // the identifier may or may not be initialized at this point
-        val graphNode = graphBuilder.graph.getNode(node.name.hashCode())
-        return graphNode ?: graphBuilder.addVariable(GraphNode.Base(path, node.name.hashCode(), node.name.toString()))
-    }
-
-    override fun visitVariable(node: VariableTree, path: Path): GraphNode? {
-        // The return is the init node just because the init is the last item processed in TreeScanner.visitVariable()
-        val initNode = node.initializer?.accept(this, path)
-        if (initNode != null) {
-            val name = node.name
-            val newNode = graphBuilder.addVariable(GraphNode.Base(path, name.hashCode(), name.toString()))
-            graphBuilder.addInitializer(newNode, initNode)
-            return newNode
+        val lhsIsPrimitive = graphBuilder.parent.isPrimitive(JIdentifierId(lhsName))
+        if (lhsIsPrimitive) {
+            assignPrimitive(lhsName, lhsId, rhs, path)
+        } else {
+            assignMemPos(lhsId, rhs, path)
         }
         return null
     }
 
+    override fun visitVariable(node: VariableTree, path: Path): GraphNode? {
+        val typeKind = node.type.kind
+
+        val isPrimitive = typeKind == Tree.Kind.PRIMITIVE_TYPE
+        graphBuilder.parent.registerIsPrimitive(JIdentifierId(node.name), isPrimitive)
+        val name = node.name
+
+        if (node.initializer != null) {
+            val variableNodeId = JNodeId(name, null)
+            if (isPrimitive) {
+                return assignPrimitive(name, variableNodeId, node.initializer, path)
+            } else {
+                assignMemPos(variableNodeId, node.initializer, path)
+            }
+        }
+
+        return null
+    }
+
+    private fun assignPrimitive(lhsName: Name, lhsId: JNodeId, rhs: ExpressionTree, path: Path): GraphNode {
+        val lhsNode = graphBuilder.addVariable(GraphNode.Base(path, lhsId, lhsName.toString()))
+        val rhsNode = rhs.accept(this, path)
+        graphBuilder.addAssignment(lhsNode, rhsNode)
+        return lhsNode
+    }
+
+    private fun assignMemPos(lhsId: JNodeId, rhs: ExpressionTree, path: Path) {
+        val rhsMemPos = getMemPos(rhs, path) ?: throw GraphException("Could not find mem pos for $rhs")
+        graphBuilder.parent.addMemPos(lhsId, rhsMemPos)
+    }
+
+    private fun getMemPos(node: ExpressionTree?, path: Path): MemPos? {
+        return node?.accept(AstMemPosProcessor(graphBuilder), path)
+    }
+
+    override fun visitMemberSelect(node: MemberSelectTree, path: Path): GraphNode {
+        val expression = node.expression
+        val identifier = node.identifier
+        val exprMemPos = getMemPos(expression, path)
+        val nodeId = JNodeId(identifier, exprMemPos)
+        return graphBuilder.graph.getNode(nodeId)
+    }
+
+    override fun visitMemberReference(node: MemberReferenceTree?, p: Path): GraphNode? {
+        return super.visitMemberReference(node, p)
+    }
+
+    override fun visitIdentifier(node: IdentifierTree, path: Path): GraphNode {
+        val nId = JNodeId(node.name, null)
+        val graphNode = graphBuilder.graph.getNode(nId)
+        return graphNode
+        // return graphNode ?: graphBuilder.addVariable(GraphNode.Base(path, node.name.hashCode(), node.name.toString()))
+    }
+
     override fun visitLiteral(node: LiteralTree, path: Path): GraphNode {
-        val newNode = graphBuilder.addLiteral(GraphNode.Base(path, node.hashCode(), node.toString()))
+        val newNode = graphBuilder.addLiteral(GraphNode.Base(path, RandomGraphNodeId(), node.toString()))
         super.visitLiteral(node, path)
         return newNode
     }
@@ -56,18 +99,34 @@ open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : Tr
             "PLUS" -> "+"
             else -> "UNKNOWN"
         }
-        return graphBuilder.addBinOp(GraphNode.Base(path, node.hashCode(), label), leftNode, rightNode)
+        val lhsName = node.leftOperand.accept(AstLastNameProcessor(), path)
+        val jId = JNodeId(lhsName, null)
+        return graphBuilder.addBinOp(GraphNode.Base(path, jId, label), leftNode, rightNode)
     }
 
     override fun visitMethodInvocation(node: MethodInvocationTree, p: Path): GraphNode? {
         val parameterExpressions = node.arguments.map { it.accept(this, p) }
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), p)
-        return graphBuilder.callMethod(p, methodIdentifier.methodName.hashCode(), parameterExpressions)
+        return graphBuilder.callMethod(p, JMethodId(methodIdentifier.methodName), parameterExpressions)
     }
 
     override fun visitReturn(node: ReturnTree, p: Path): GraphNode {
         val newNode = super.visitReturn(node, p)
         graphBuilder.setReturnNode(newNode)
         return newNode
+    }
+
+    override fun visitExpressionStatement(node: ExpressionStatementTree, path: Path): GraphNode? {
+        val expression = node.expression
+        return super.visitExpressionStatement(node, path)
+    }
+
+    override fun visitBlock(node: BlockTree, path: Path): GraphNode? {
+        val statements = node.statements
+        statements.forEach() {
+            logger.debug { "Processing statement: '$it'" }
+            it.accept(this, path)
+        }
+        return null
     }
 }

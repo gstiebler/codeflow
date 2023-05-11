@@ -4,26 +4,38 @@ import mu.KotlinLogging
 import java.nio.file.Path
 
 enum class NodeType {
-    BASE, LITERAL, VARIABLE, BIN_OP, FUNC_PARAM, RETURN
+    BASE, LITERAL, VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE
 }
 
 abstract class GraphNode(private val base: Base) {
     private val logger = KotlinLogging.logger {}
     private val edges = ArrayList<GraphNode>()
+    private val incomingEdges = ArrayList<GraphNode>()
+    companion object {
+        var counter = 0
+    }
 
-    val id: Int
-        get() = base.hashCode
+    val extId = counter++
+
+    val id: GraphNodeId
+        get() = base.id
 
     val label: String
         get() = base.label
 
     open fun getType() = NodeType.BASE
 
-    data class Base(val path: Path, val hashCode: Int, val label: String)
+    data class Base(val path: Path, val id: GraphNodeId, val label: String)
 
     fun edgesIterator() = edges.iterator()
 
-    fun addEdge(node: GraphNode) = edges.add(node)
+    fun addEdge(node: GraphNode) {
+        if (node.incomingEdges.isNotEmpty()) {
+            throw GraphException("Node already has incoming edges")
+        }
+        edges.add(node)
+        node.incomingEdges.add(this)
+    }
     fun print() {
         logger.info { this }
         if (edges.size > 0) {
@@ -32,6 +44,19 @@ abstract class GraphNode(private val base: Base) {
                 logger.info { "  To $edge" }
             }
         }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (other is GraphNode) {
+            return id == other.id
+        }
+        return false
+    }
+
+    override fun hashCode() = id.hashCode()
+
+    override fun toString(): String {
+        return "'$label', ${getType()}"
     }
 
     class Literal(base: Base) : GraphNode(base) {
@@ -45,6 +70,9 @@ abstract class GraphNode(private val base: Base) {
     }
     class FuncParam(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.FUNC_PARAM
+    }
+    class MemSpace(base: Base) : GraphNode(base) {
+        override fun getType() = NodeType.MEM_SPACE
     }
     class Assignment(base: Base) : GraphNode(base)
     class MethodReturn(base: Base) : GraphNode(base) {

@@ -11,12 +11,12 @@ class MermaidExporter(private val graph: Graph) {
         writer("flowchart TD")
         for (node in graph.getNodesSortedByExtId()) {
             for (toNode in node.edgesIterator()) {
-                writer("    ${graph.getNodeExtId(node)}[${node.label}] --> ${graph.getNodeExtId(toNode)}[${toNode.label}]")
+                writer("    ${node.extId}[${node.label}] --> ${toNode.extId}[${toNode.label}]")
             }
         }
         writer("```")
     }
-    private fun getNodeStr(node: GraphNode) = "${graph.getNodeExtId(node)}[${node.label}]:::${node.getType()}"
+    private fun getNodeStr(node: GraphNode) = "${node.extId}[${node.label}]:::${node.getType()}"
 
     private fun getClasses() = listOf(
         "classDef LITERAL fill:#00FF0030",

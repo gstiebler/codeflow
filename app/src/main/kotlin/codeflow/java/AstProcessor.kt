@@ -22,15 +22,27 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
         node.extendsClause?.accept(this, p)
         node.implementsClause.forEach { it.accept(this, p) }
         node.permitsClause.forEach { it.accept(this, p) }
-        node.members.forEach { it.accept(this, p) }
+        val memberByType = node.members.groupBy { it.kind }
+        memberByType[Tree.Kind.VARIABLE]?.forEach { it.accept(this, p) }
+        memberByType[Tree.Kind.METHOD]?.forEach { it.accept(this, p) }
+        // TODO: throw exception if there are other types of members
+
+        return null
+    }
+
+    override fun visitVariable(node: VariableTree, p: Path): GraphNode? {
+        val type = node.type
+        val typeKind = type.kind
+        val nodeId = JIdentifierId(node.name)
+        graphBuilder.registerIsPrimitive(nodeId, typeKind == Tree.Kind.PRIMITIVE_TYPE)
         return null
     }
 
     override fun visitMethod(node: MethodTree, p: Path): GraphNode? {
-        val newMethod = graphBuilder.addMethod(node.name.toString(), node.name.hashCode())
+        val newMethod = graphBuilder.addMethod(node.name.toString(), JMethodId(node.name))
         val methodProcessor = AstMethodProcessor(newMethod)
         node.parameters.map {
-            newMethod.addParameter(GraphNode.Base(p, it.name.hashCode(), it.name.toString()))
+            newMethod.addParameter(GraphNode.Base(p, JNodeId(it.name, null), it.name.toString()))
         }
         node.receiverParameter?.accept(this, p)
         node.body.accept(methodProcessor, p)

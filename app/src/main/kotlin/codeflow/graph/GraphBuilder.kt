@@ -1,19 +1,22 @@
 package codeflow.graph
 
+import codeflow.java.RandomGraphNodeId
 import java.nio.file.Path
 
-class MethodCall(p: Path, val methodCode: Int, val parameterNodes: List<GraphNode>) {
-    val returnNode = GraphNode.MethodReturn(GraphNode.Base(p, 0, "return"))
+class MethodCall(p: Path, val methodCode: MethodId, val parameterNodes: List<GraphNode>) {
+    val returnNode = GraphNode.MethodReturn(GraphNode.Base(p, RandomGraphNodeId(), "return"))
 }
 
 
 class GraphBuilder() {
-    private val methods = HashMap<Int, GraphBuilderMethod>()
+    private val methods = HashMap<MethodId, GraphBuilderMethod>()
+    private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
+    private val idToMemPos = HashMap<GraphNodeId, MemPos>()
 
     fun getMethods() = methods.values.toList()
 
-    fun addMethod(name: String, hashCode: Int): GraphBuilderMethod {
-        val newMethod = GraphBuilderMethod(Method(name))
+    fun addMethod(name: String, hashCode: MethodId): GraphBuilderMethod {
+        val newMethod = GraphBuilderMethod(this, Method(name))
         methods[hashCode] = newMethod
         return newMethod
     }
@@ -25,7 +28,7 @@ class GraphBuilder() {
         }
         methods.forEach { (methodCode, method) ->
             method.methodCalls.forEach { methodCall ->
-                val calledMethod = methods[methodCall.methodCode] ?: throw Exception("Method not found")
+                val calledMethod = methods[methodCall.methodCode] ?: throw GraphException("Method not found")
                 methodCall.parameterNodes.forEachIndexed { index, parameterNode ->
                     val toNode = calledMethod.method.parameterNodes[index]
                     parameterNode.addEdge(toNode)
@@ -35,9 +38,31 @@ class GraphBuilder() {
         }
         return mergedGraph
     }
+
+    fun registerIsPrimitive(id: IdentifierId, isPrimitive: Boolean) {
+        isPrimitiveMap[id] = isPrimitive
+    }
+
+    fun isPrimitive(id: IdentifierId): Boolean {
+        // return the value, or throw an exception if it's not found
+        return isPrimitiveMap[id] ?: throw GraphException("Variable not found")
+    }
+
+    fun getMemPos(nodeId: GraphNodeId): MemPos {
+        return idToMemPos[nodeId] ?: throw GraphException("Variable not found")
+    }
+
+    fun createMemPos(label: String): MemPos {
+        println("createMemPos: $label")
+        return MemPos()
+    }
+
+    fun addMemPos(nodeId: GraphNodeId, rhsMemPos: MemPos) {
+        idToMemPos[nodeId] = rhsMemPos
+    }
 }
 
-class GraphBuilderMethod(val method: Method) {
+class GraphBuilderMethod(val parent: GraphBuilder, val method: Method) {
 
     val methodCalls = ArrayList<MethodCall>()
     val graph = Graph()
@@ -64,10 +89,6 @@ class GraphBuilderMethod(val method: Method) {
         return newNode
     }
 
-    fun addInitializer(sourceVar: GraphNode, init: GraphNode) {
-        init.addEdge(sourceVar)
-    }
-
     fun addBinOp(base: GraphNode.Base, leftNode: GraphNode, rightNode: GraphNode): GraphNode {
         val binOpNode = GraphNode.BinOp(base)
         graph.addNode(binOpNode)
@@ -76,11 +97,11 @@ class GraphBuilderMethod(val method: Method) {
         return binOpNode
     }
 
-    fun addAssignment(sourceVar: GraphNode, expression: GraphNode) {
-        expression.addEdge(sourceVar)
+    fun addAssignment(lhsNode: GraphNode, rhsNode: GraphNode) {
+        rhsNode.addEdge(lhsNode)
     }
 
-    fun callMethod(p: Path, methodCode: Int, parameterNodes: List<GraphNode>): GraphNode {
+    fun callMethod(p: Path, methodCode: MethodId, parameterNodes: List<GraphNode>): GraphNode {
         val methodCall = MethodCall(p, methodCode, parameterNodes)
         methodCalls.add(methodCall)
         graph.addNode(methodCall.returnNode)

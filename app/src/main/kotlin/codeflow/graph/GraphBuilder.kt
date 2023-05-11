@@ -1,10 +1,12 @@
 package codeflow.graph
 
 import codeflow.java.ids.RandomGraphNodeId
+import codeflow.java.processors.ProcessorContext
 import java.nio.file.Path
+import javax.annotation.processing.Processor
 
-class MethodCall(p: Path, val methodCode: MethodId, val parameterNodes: List<GraphNode>) {
-    val returnNode = GraphNode.MethodReturn(GraphNode.Base(p, RandomGraphNodeId(), "return"))
+class MethodCall(ctx: ProcessorContext, val methodCode: MethodId, val parameterNodes: List<GraphNode>) {
+    val returnNode = GraphNode.MethodReturn(GraphNode.Base(ctx, RandomGraphNodeId(), "return"))
 }
 
 
@@ -19,8 +21,8 @@ class GraphBuilder() {
 
     fun getMethods() = methods.values.toList()
 
-    fun addMethod(name: String, hashCode: MethodId): GraphBuilderMethod {
-        val newMethod = GraphBuilderMethod(this, Method(name))
+    fun addMethod(name: String, hashCode: MethodId, ctx: ProcessorContext): GraphBuilderMethod {
+        val newMethod = GraphBuilderMethod(this, Method(name, ctx))
         methods[hashCode] = newMethod
         return newMethod
     }
@@ -105,8 +107,8 @@ class GraphBuilderMethod(val parent: GraphBuilder, val method: Method) {
         rhsNode.addEdge(lhsNode)
     }
 
-    fun callMethod(p: Path, methodCode: MethodId, parameterNodes: List<GraphNode>): GraphNode {
-        val methodCall = MethodCall(p, methodCode, parameterNodes)
+    fun callMethod(ctx: ProcessorContext, methodCode: MethodId, parameterNodes: List<GraphNode>): GraphNode {
+        val methodCall = MethodCall(ctx, methodCode, parameterNodes)
         methodCalls.add(methodCall)
         graph.addNode(methodCall.returnNode)
         return methodCall.returnNode

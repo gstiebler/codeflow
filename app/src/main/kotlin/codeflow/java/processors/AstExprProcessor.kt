@@ -6,13 +6,13 @@ import com.sun.source.tree.MemberSelectTree
 import com.sun.source.util.TreeScanner
 import java.nio.file.Path
 
-class AstExprProcessor : TreeScanner<ExpressionTree?, Path>()   {
+class AstExprProcessor : TreeScanner<ExpressionTree?, ProcessorContext>()   {
 
-    override fun visitMemberSelect(node: MemberSelectTree, path: Path): ExpressionTree {
+    override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): ExpressionTree {
         return node.expression
     }
 
-    override fun visitIdentifier(node: IdentifierTree, path: Path): ExpressionTree? {
+    override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): ExpressionTree? {
         return null
     }
 

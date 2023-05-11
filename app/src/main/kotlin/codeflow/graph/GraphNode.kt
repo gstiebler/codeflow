@@ -1,7 +1,7 @@
 package codeflow.graph
 
+import codeflow.java.processors.ProcessorContext
 import mu.KotlinLogging
-import java.nio.file.Path
 
 enum class NodeType {
     BASE, LITERAL, VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE
@@ -24,7 +24,7 @@ abstract class GraphNode(private val base: Base) {
 
     open fun getType() = NodeType.BASE
 
-    data class Base(val path: Path, val id: GraphNodeId, val label: String)
+    data class Base(val path: ProcessorContext, val id: GraphNodeId, val label: String)
 
     fun edgesIterator() = edges.iterator()
 

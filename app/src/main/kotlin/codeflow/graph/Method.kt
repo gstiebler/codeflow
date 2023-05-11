@@ -1,6 +1,6 @@
 package codeflow.graph
 
-import codeflow.java.RandomGraphNodeId
+import codeflow.java.ids.RandomGraphNodeId
 import java.nio.file.Path
 
 class Method(val name: String) {

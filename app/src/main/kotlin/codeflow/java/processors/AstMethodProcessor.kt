@@ -1,6 +1,11 @@
-package codeflow.java
+package codeflow.java.processors
 
 import codeflow.graph.*
+import codeflow.java.*
+import codeflow.java.ids.JIdentifierId
+import codeflow.java.ids.JMethodId
+import codeflow.java.ids.JNodeId
+import codeflow.java.ids.RandomGraphNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging

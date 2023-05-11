@@ -1,6 +1,7 @@
 package codeflow.java
 
 import codeflow.graph.GraphBuilder
+import codeflow.java.processors.AstProcessor
 import com.sun.source.util.JavacTask
 import java.nio.file.Path
 import javax.tools.DiagnosticCollector

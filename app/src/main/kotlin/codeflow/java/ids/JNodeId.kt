@@ -1,4 +1,4 @@
-package codeflow.java
+package codeflow.java.ids
 
 import codeflow.graph.GraphNodeId
 import codeflow.graph.MemPos

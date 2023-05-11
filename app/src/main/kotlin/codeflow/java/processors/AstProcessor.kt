@@ -1,7 +1,10 @@
-package codeflow.java
+package codeflow.java.processors
 
 import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphNode
+import codeflow.java.ids.JIdentifierId
+import codeflow.java.ids.JMethodId
+import codeflow.java.ids.JNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import java.nio.file.Path

@@ -1,7 +1,8 @@
-package codeflow.java
+package codeflow.java.processors
 
 import codeflow.graph.GraphBuilderMethod
 import codeflow.graph.MemPos
+import codeflow.java.ids.JNodeId
 import com.sun.source.tree.IdentifierTree
 import com.sun.source.tree.MemberSelectTree
 import com.sun.source.tree.NewClassTree

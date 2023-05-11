@@ -68,6 +68,7 @@ class GraphBuilderMethod(val parent: GraphBuilder, val method: Method) {
     val graph = Graph()
 
     init {
+        GraphNode.counter = 0
         graph.addNode(method.returnNode)
     }
 

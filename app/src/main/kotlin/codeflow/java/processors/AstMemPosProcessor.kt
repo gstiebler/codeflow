@@ -1,6 +1,6 @@
 package codeflow.java.processors
 
-import codeflow.graph.GraphBuilderMethod
+import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.MemPos
 import codeflow.java.ids.JNodeId
 import com.sun.source.tree.IdentifierTree
@@ -9,7 +9,7 @@ import com.sun.source.tree.NewClassTree
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
 
-class AstMemPosProcessor(private val graphBuilder: GraphBuilderMethod) : TreeScanner<MemPos, ProcessorContext>()  {
+class AstMemPosProcessor(private val graphBuilder: GraphBuilderBlock) : TreeScanner<MemPos, ProcessorContext>()  {
     private val logger = KotlinLogging.logger {}
 
     override fun visitNewClass(node: NewClassTree, ctx: ProcessorContext): MemPos {

@@ -14,7 +14,7 @@ import javax.lang.model.element.Name
  * This class is responsible for building the graph for a single method.
  * It's called for every method in a class.
  */
-open class AstMethodProcessor(private val graphBuilder: GraphBuilderMethod) : TreeScanner<GraphNode, ProcessorContext>() {
+open class AstBlockProcessor(private val graphBuilder: GraphBuilderBlock) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
     override fun visitAssignment(node: AssignmentTree, ctx: ProcessorContext): GraphNode? {

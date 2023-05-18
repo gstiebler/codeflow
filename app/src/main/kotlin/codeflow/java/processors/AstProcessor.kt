@@ -2,12 +2,10 @@ package codeflow.java.processors
 
 import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphNode
-import codeflow.java.ids.JIdentifierId
 import codeflow.java.ids.JMethodId
 import codeflow.java.ids.JNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
-import java.nio.file.Path
 import mu.KotlinLogging
 
 class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, ProcessorContext>() {
@@ -23,13 +21,13 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
 
     override fun visitMethod(node: MethodTree, ctx: ProcessorContext): GraphNode? {
         logger.debug { "visitMethod: ${node.name}" }
-        val newMethod = graphBuilder.addMethod(node.name.toString(), JMethodId(node.name), ctx.getPosId(node))
-        val methodProcessor = AstMethodProcessor(newMethod)
+        val newGraphBlock = graphBuilder.addMethod(node.name.toString(), JMethodId(node.name), ctx.getPosId(node))
+        val blockProcessor = AstBlockProcessor(newGraphBlock)
         node.parameters.map {
-            newMethod.addParameter(GraphNode.Base(ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
+            newGraphBlock.addParameter(GraphNode.Base(ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
         }
         node.receiverParameter?.accept(this, ctx)
-        node.body.accept(methodProcessor, ctx)
+        node.body.accept(blockProcessor, ctx)
         return null
     }
 }

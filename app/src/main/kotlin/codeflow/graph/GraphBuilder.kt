@@ -1,9 +1,6 @@
 package codeflow.graph
 
 import codeflow.java.ids.RandomGraphNodeId
-import codeflow.java.processors.ProcessorContext
-import java.nio.file.Path
-import javax.annotation.processing.Processor
 
 class MethodCall(posId: Long, val methodCode: MethodId, val parameterNodes: List<GraphNode>) {
     val returnNode = GraphNode.MethodReturn(GraphNode.Base(posId, RandomGraphNodeId(), "return"))
@@ -11,14 +8,14 @@ class MethodCall(posId: Long, val methodCode: MethodId, val parameterNodes: List
 
 
 class GraphBuilder() {
-    private val methods = HashMap<MethodId, GraphBuilderMethod>()
+    private val methods = HashMap<MethodId, GraphBuilderBlock>()
     private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
 
     fun getMethods() = methods.values.toList()
 
-    fun addMethod(name: String, hashCode: MethodId, posId: Long): GraphBuilderMethod {
-        val newMethod = GraphBuilderMethod(this, Method(name, posId))
+    fun addMethod(name: String, hashCode: MethodId, posId: Long): GraphBuilderBlock {
+        val newMethod = GraphBuilderBlock(this, Method(name, posId))
         methods[hashCode] = newMethod
         return newMethod
     }
@@ -64,7 +61,7 @@ class GraphBuilder() {
     }
 }
 
-class GraphBuilderMethod(val parent: GraphBuilder, val method: Method) {
+class GraphBuilderBlock(val parent: GraphBuilder, val method: Method) {
 
     val methodCalls = ArrayList<MethodCall>()
     val graph = Graph()

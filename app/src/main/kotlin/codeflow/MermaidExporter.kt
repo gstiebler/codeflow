@@ -1,7 +1,7 @@
 package codeflow
 
 import codeflow.graph.Graph
-import codeflow.graph.GraphBuilderMethod
+import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
 
 
@@ -28,7 +28,7 @@ class MermaidExporter(private val graph: Graph) {
 
     private fun genSpaces(n: Int) = " ".repeat(n)
 
-    fun methodsToMermaid(methods: List<GraphBuilderMethod>, writer: (String) -> Unit) {
+    fun methodsToMermaid(methods: List<GraphBuilderBlock>, writer: (String) -> Unit) {
         writer("```mermaid")
         writer("flowchart TD")
         for (method in methods) {

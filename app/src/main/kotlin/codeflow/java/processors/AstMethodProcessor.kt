@@ -1,7 +1,6 @@
 package codeflow.java.processors
 
 import codeflow.graph.*
-import codeflow.java.*
 import codeflow.java.ids.JIdentifierId
 import codeflow.java.ids.JMethodId
 import codeflow.java.ids.JNodeId

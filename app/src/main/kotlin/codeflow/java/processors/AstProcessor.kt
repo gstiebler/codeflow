@@ -21,13 +21,7 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
 
     override fun visitMethod(node: MethodTree, ctx: ProcessorContext): GraphNode? {
         logger.debug { "visitMethod: ${node.name}" }
-        val newGraphBlock = graphBuilder.addMethod(node.name.toString(), JMethodId(node.name), ctx.getPosId(node))
-        val blockProcessor = AstBlockProcessor(newGraphBlock)
-        node.parameters.map {
-            newGraphBlock.addParameter(GraphNode.Base(ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
-        }
-        node.receiverParameter?.accept(this, ctx)
-        node.body.accept(blockProcessor, ctx)
+        graphBuilder.addMethod(node, JMethodId(node.name), ctx.getPosId(node))
         return null
     }
 }

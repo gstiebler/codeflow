@@ -107,9 +107,26 @@ open class AstBlockProcessor(private val graphBuilder: GraphBuilderBlock) : Tree
     }
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode? {
-        val parameterExpressions = node.arguments.map { it.accept(this, ctx) }
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
-        return graphBuilder.callMethod(ctx.getPosId(node), JMethodId(methodIdentifier.methodName), parameterExpressions)
+        val graphBlock = graphBuilder.parent.getMethod(JMethodId(methodIdentifier.methodName))
+        val methodArguments = node.arguments.map { it.accept(this, ctx) }
+
+        val blockProcessor = AstBlockProcessor(graphBlock)
+        val methodName = graphBlock.method.name
+        methodName.parameters.forEach {
+            graphBlock.addParameter(GraphNode.Base(ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
+        }
+        methodName.receiverParameter?.accept(this, ctx)
+        methodName.body.accept(blockProcessor, ctx)
+
+        val returnNode = GraphNode.MethodReturn(GraphNode.Base(ctx.getPosId(node), RandomGraphNodeId(), "return"))
+        methodArguments.forEachIndexed { index, callingParameter ->
+            val methodParameter = graphBlock.method.parameterNodes[index]
+            callingParameter.addEdge(methodParameter)
+        }
+        graphBlock.method.returnNode.addEdge(returnNode)
+
+        return returnNode
     }
 
     override fun visitReturn(node: ReturnTree, p: ProcessorContext): GraphNode {

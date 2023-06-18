@@ -1,6 +1,8 @@
 package codeflow.graph
 
 import codeflow.java.ids.RandomGraphNodeId
+import com.sun.source.tree.MethodTree
+import javax.lang.model.element.Name
 
 class MethodCall(posId: Long, val methodCode: MethodId, val parameterNodes: List<GraphNode>) {
     val returnNode = GraphNode.MethodReturn(GraphNode.Base(posId, RandomGraphNodeId(), "return"))
@@ -14,10 +16,9 @@ class GraphBuilder() {
 
     fun getMethods() = methods.values.toList()
 
-    fun addMethod(name: String, hashCode: MethodId, posId: Long): GraphBuilderBlock {
+    fun addMethod(name: MethodTree, hashCode: MethodId, posId: Long) {
         val newMethod = GraphBuilderBlock(this, Method(name, posId))
         methods[hashCode] = newMethod
-        return newMethod
     }
 
     fun bindMethodCalls(): Graph {
@@ -25,17 +26,11 @@ class GraphBuilder() {
         for (method in methods.values) {
             mergedGraph.merge(method.graph)
         }
-        methods.forEach { (methodCode, method) ->
-            method.methodCalls.forEach { methodCall ->
-                val calledMethod = methods[methodCall.methodCode] ?: throw GraphException("Method not found")
-                methodCall.parameterNodes.forEachIndexed { index, parameterNode ->
-                    val toNode = calledMethod.method.parameterNodes[index]
-                    parameterNode.addEdge(toNode)
-                }
-                calledMethod.method.returnNode.addEdge(methodCall.returnNode)
-            }
-        }
         return mergedGraph
+    }
+
+    fun getMethod(hashCode: MethodId): GraphBuilderBlock {
+        return methods[hashCode] ?: throw GraphException("Method not found")
     }
 
     fun registerIsPrimitive(id: IdentifierId, isPrimitive: Boolean) {
@@ -98,13 +93,6 @@ class GraphBuilderBlock(val parent: GraphBuilder, val method: Method) {
 
     fun addAssignment(lhsNode: GraphNode, rhsNode: GraphNode) {
         rhsNode.addEdge(lhsNode)
-    }
-
-    fun callMethod(posId: Long, methodCode: MethodId, parameterNodes: List<GraphNode>): GraphNode {
-        val methodCall = MethodCall(posId, methodCode, parameterNodes)
-        methodCalls.add(methodCall)
-        graph.addNode(methodCall.returnNode)
-        return methodCall.returnNode
     }
 
     fun setReturnNode(returnNode: GraphNode) {

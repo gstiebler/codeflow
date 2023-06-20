@@ -115,7 +115,7 @@ open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeSca
         val blockProcessor = AstBlockProcessor(graphBlock)
         val returnNode = blockProcessor.process(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
-        graphBuilderBlock.method.returnNode.addEdge(returnNode)
+        returnNode.addEdge(graphBuilderBlock.method.returnNode)
         return returnNode
     }
 

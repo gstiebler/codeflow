@@ -1,6 +1,11 @@
 ```mermaid
 flowchart TD
   subgraph main
+    194344622[return]:::RETURN
+    194344646[args]:::FUNC_PARAM
+    194344737[memberX]:::VARIABLE
+    194344749[5]:::LITERAL
+    194344760[memberY]:::VARIABLE
     194344737[memberX]:::VARIABLE --> 194344760[memberY]:::VARIABLE
     194344749[5]:::LITERAL --> 194344737[memberX]:::VARIABLE
   end

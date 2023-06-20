@@ -17,6 +17,8 @@ import javax.lang.model.element.Name
 open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
+    override fun toString() = graphBuilderBlock.method.name.name.toString()
+
     override fun visitAssignment(node: AssignmentTree, ctx: ProcessorContext): GraphNode? {
         val lhs = node.variable
         val rhs = node.expression
@@ -113,25 +115,21 @@ open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeSca
 
         val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method)
         val blockProcessor = AstBlockProcessor(graphBlock)
-        val returnNode = blockProcessor.process(methodArguments)
+        blockProcessor.process(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
-        returnNode.addEdge(graphBuilderBlock.method.returnNode)
-        return returnNode
+        return graphBlock.returnNode
     }
 
-    fun process(methodArguments: List<GraphNode>): GraphNode {
+    fun process(methodArguments: List<GraphNode>) {
         val method = graphBuilderBlock.method
         val methodName =  method.name
         methodName.receiverParameter?.accept(this, method.ctx)
         methodName.body.accept(this, method.ctx)
 
-        val returnNode = GraphNode.MethodReturn(GraphNode.Base(method.posId, RandomGraphNodeId(), "return"))
         methodArguments.forEachIndexed { index, callingParameter ->
-            val methodParameter = method.parameterNodes[index]
+            val methodParameter = graphBuilderBlock.parameterNodes[index]
             callingParameter.addEdge(methodParameter)
         }
-
-        return returnNode
     }
 
     override fun visitReturn(node: ReturnTree, p: ProcessorContext): GraphNode {

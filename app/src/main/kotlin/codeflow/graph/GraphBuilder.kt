@@ -1,5 +1,7 @@
 package codeflow.graph
 
+import codeflow.java.ids.JNodeId
+import codeflow.java.ids.RandomGraphNodeId
 import codeflow.java.processors.ProcessorContext
 import com.sun.source.tree.MethodTree
 
@@ -51,11 +53,17 @@ class GraphBuilderBlock(val parent: GraphBuilder, val method: Method) {
 
     val graph = Graph()
     val calledMethods = ArrayList<GraphBuilderBlock>()
+    var returnNode = GraphNode.MethodReturn(GraphNode.Base(method.posId, RandomGraphNodeId(), "return"))
+    val parameterNodes = method.name.parameters.map {
+        GraphNode.FuncParam(GraphNode.Base(method.ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
+    }
 
     init {
-        graph.addNode(method.returnNode)
-        method.parameterNodes.forEach { graph.addNode(it) }
+        graph.addNode(returnNode)
+        parameterNodes.forEach { graph.addNode(it) }
     }
+
+    override fun toString() = method.name.name.toString()
 
     fun addCalledMethod(graphBlock: GraphBuilderBlock) {
         calledMethods.add(graphBlock)
@@ -85,9 +93,9 @@ class GraphBuilderBlock(val parent: GraphBuilder, val method: Method) {
         rhsNode.addEdge(lhsNode)
     }
 
-    fun setReturnNode(returnNode: GraphNode) {
-        graph.addNode(returnNode)
-        returnNode.addEdge(method.returnNode)
+    fun setReturnNode(newReturnNode: GraphNode) {
+        graph.addNode(newReturnNode)
+        newReturnNode.addEdge(returnNode)
     }
 
 }

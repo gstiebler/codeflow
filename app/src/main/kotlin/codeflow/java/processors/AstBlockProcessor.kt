@@ -14,7 +14,7 @@ import javax.lang.model.element.Name
  * This class is responsible for building the graph for a single method.
  * It's called for every method in a class.
  */
-open class AstBlockProcessor(val graphBuilder: GraphBuilderBlock) : TreeScanner<GraphNode, ProcessorContext>() {
+open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
     override fun visitAssignment(node: AssignmentTree, ctx: ProcessorContext): GraphNode? {
@@ -26,7 +26,7 @@ open class AstBlockProcessor(val graphBuilder: GraphBuilderBlock) : TreeScanner<
         val lhsMemPos = getMemPos(lhsExpr, ctx)
         val lhsId = JNodeId(lhsName, lhsMemPos)
 
-        val lhsIsPrimitive = graphBuilder.parent.isPrimitive(JIdentifierId(lhsName))
+        val lhsIsPrimitive = graphBuilderBlock.parent.isPrimitive(JIdentifierId(lhsName))
         if (lhsIsPrimitive) {
             assignPrimitive(lhs, lhsName, lhsId, rhs, ctx)
         } else {
@@ -39,7 +39,7 @@ open class AstBlockProcessor(val graphBuilder: GraphBuilderBlock) : TreeScanner<
         val typeKind = node.type.kind
 
         val isPrimitive = typeKind == Tree.Kind.PRIMITIVE_TYPE
-        graphBuilder.parent.registerIsPrimitive(JIdentifierId(node.name), isPrimitive)
+        graphBuilderBlock.parent.registerIsPrimitive(JIdentifierId(node.name), isPrimitive)
         val name = node.name
 
         if (node.initializer != null) {
@@ -55,19 +55,19 @@ open class AstBlockProcessor(val graphBuilder: GraphBuilderBlock) : TreeScanner<
     }
 
     private fun assignPrimitive(lhsTree: Tree, lhsName: Name, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
-        val lhsNode = graphBuilder.addVariable(GraphNode.Base(ctx.getPosId(lhsTree), lhsId, lhsName.toString()))
+        val lhsNode = graphBuilderBlock.addVariable(GraphNode.Base(ctx.getPosId(lhsTree), lhsId, lhsName.toString()))
         val rhsNode = rhs.accept(this, ctx)
-        graphBuilder.addAssignment(lhsNode, rhsNode)
+        graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         return lhsNode
     }
 
     private fun assignMemPos(lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext) {
         val rhsMemPos = getMemPos(rhs, ctx) ?: throw GraphException("Could not find mem pos for $rhs")
-        graphBuilder.parent.addMemPos(lhsId, rhsMemPos)
+        graphBuilderBlock.parent.addMemPos(lhsId, rhsMemPos)
     }
 
     private fun getMemPos(node: ExpressionTree?, ctx: ProcessorContext): MemPos? {
-        return node?.accept(AstMemPosProcessor(graphBuilder), ctx)
+        return node?.accept(AstMemPosProcessor(graphBuilderBlock), ctx)
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): GraphNode {
@@ -75,7 +75,7 @@ open class AstBlockProcessor(val graphBuilder: GraphBuilderBlock) : TreeScanner<
         val identifier = node.identifier
         val exprMemPos = getMemPos(expression, ctx)
         val nodeId = JNodeId(identifier, exprMemPos)
-        return graphBuilder.graph.getNode(nodeId)
+        return graphBuilderBlock.graph.getNode(nodeId)
     }
 
     override fun visitMemberReference(node: MemberReferenceTree?, p: ProcessorContext): GraphNode? {
@@ -84,13 +84,13 @@ open class AstBlockProcessor(val graphBuilder: GraphBuilderBlock) : TreeScanner<
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
         val nId = JNodeId(node.name, null)
-        val graphNode = graphBuilder.graph.getNode(nId)
+        val graphNode = graphBuilderBlock.graph.getNode(nId)
         return graphNode
         // return graphNode ?: graphBuilder.addVariable(GraphNode.Base(ctx, node.name.hashCode(), node.name.toString()))
     }
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {
-        val newNode = graphBuilder.addLiteral(GraphNode.Base(ctx.getPosId(node), RandomGraphNodeId(), node.toString()))
+        val newNode = graphBuilderBlock.addLiteral(GraphNode.Base(ctx.getPosId(node), RandomGraphNodeId(), node.toString()))
         super.visitLiteral(node, ctx)
         return newNode
     }
@@ -103,19 +103,19 @@ open class AstBlockProcessor(val graphBuilder: GraphBuilderBlock) : TreeScanner<
             else -> "UNKNOWN"
         }
         val jId = RandomGraphNodeId()
-        return graphBuilder.addBinOp(GraphNode.Base(ctx.getPosId(node), jId, label), leftNode, rightNode)
+        return graphBuilderBlock.addBinOp(GraphNode.Base(ctx.getPosId(node), jId, label), leftNode, rightNode)
     }
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode? {
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
-        val method = graphBuilder.parent.getMethod(JMethodId(methodIdentifier.methodName))
+        val method = graphBuilderBlock.parent.getMethod(JMethodId(methodIdentifier.methodName))
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
         return callMethod(method, methodArguments)
     }
 
     fun callMethod(method: Method, methodArguments: List<GraphNode>): GraphNode {
-        val graphBlock = GraphBuilderBlock(graphBuilder.parent, method)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method)
         val blockProcessor = AstBlockProcessor(graphBlock)
         val methodName = graphBlock.method.name
         methodName.parameters.forEach {
@@ -131,14 +131,14 @@ open class AstBlockProcessor(val graphBuilder: GraphBuilderBlock) : TreeScanner<
         }
         graphBlock.method.returnNode.addEdge(returnNode)
 
-        graphBuilder.addCalledMethod(graphBlock)
+        graphBuilderBlock.addCalledMethod(graphBlock)
 
         return returnNode
     }
 
     override fun visitReturn(node: ReturnTree, p: ProcessorContext): GraphNode {
         val newNode = super.visitReturn(node, p)
-        graphBuilder.setReturnNode(newNode)
+        graphBuilderBlock.setReturnNode(newNode)
         return newNode
     }
 

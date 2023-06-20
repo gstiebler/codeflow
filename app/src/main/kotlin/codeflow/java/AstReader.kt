@@ -41,13 +41,13 @@ class AstReader(private val basePath: Path) {
             compUnitTree.accept(AstProcessor(graphBuilder), ctx)
         }
 
-        val mainMethod = graphBuilder.getMainMethod()
-        val mainAstBlockProcessor = AstBlockProcessor(mainMethod)
-        mainAstBlockProcessor.callMethod(mainMethod.method, emptyList())
+        val mainMethodGraphBuilderBlock = graphBuilder.getMainMethod()
+        val mainAstBlockProcessor = AstBlockProcessor(mainMethodGraphBuilderBlock)
+        mainAstBlockProcessor.callMethod(mainMethodGraphBuilderBlock.method, emptyList())
 
         manager.close()
 
-        return mainAstBlockProcessor.graphBuilder
+        return mainAstBlockProcessor.graphBuilderBlock
     }
 
     private fun getContext(compUnitTree: CompilationUnitTree, sourcePositions: SourcePositions): ProcessorContext {

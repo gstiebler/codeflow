@@ -28,20 +28,25 @@ class MermaidExporter(private val graph: Graph) {
 
     private fun genSpaces(n: Int) = " ".repeat(n)
 
-    fun methodsToMermaid(methods: List<GraphBuilderBlock>, writer: (String) -> Unit) {
+    fun processMainMethod(mainMethod: GraphBuilderBlock, writer: (String) -> Unit) {
         writer("```mermaid")
         writer("flowchart TD")
-        for (method in methods) {
-            writer(genSpaces(2) + "subgraph ${method.method.name}")
-            for (node in method.graph.getNodesSortedByExtId()) {
-                for (toNode in node.edgesIterator()) {
-                    writer(genSpaces(4) + "${getNodeStr(node)} --> ${getNodeStr(toNode)}")
-                }
-            }
-            writer(genSpaces(2) + "end")
-        }
+        processMethod(mainMethod, 2, writer)
         getClasses().forEach { writer(genSpaces(2) + it) }
         writer("```")
+    }
+
+    private fun processMethod(method: GraphBuilderBlock, depth: Int, writer: (String) -> Unit) {
+        writer(genSpaces(depth) + "subgraph ${method.method.name}")
+        for (node in method.graph.getNodesSortedByExtId()) {
+            for (toNode in node.edgesIterator()) {
+                writer(genSpaces(depth + 2) + "${getNodeStr(node)} --> ${getNodeStr(toNode)}")
+            }
+        }
+        for (calledMethod in method.calledMethods) {
+            processMethod(calledMethod, depth + 2, writer)
+        }
+        writer(genSpaces(depth) + "end")
     }
 }
 

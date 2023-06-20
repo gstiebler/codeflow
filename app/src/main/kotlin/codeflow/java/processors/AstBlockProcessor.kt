@@ -14,7 +14,7 @@ import javax.lang.model.element.Name
  * This class is responsible for building the graph for a single method.
  * It's called for every method in a class.
  */
-open class AstBlockProcessor(private val graphBuilder: GraphBuilderBlock) : TreeScanner<GraphNode, ProcessorContext>() {
+open class AstBlockProcessor(val graphBuilder: GraphBuilderBlock) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
     override fun visitAssignment(node: AssignmentTree, ctx: ProcessorContext): GraphNode? {
@@ -108,23 +108,30 @@ open class AstBlockProcessor(private val graphBuilder: GraphBuilderBlock) : Tree
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode? {
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
-        val graphBlock = graphBuilder.parent.getMethod(JMethodId(methodIdentifier.methodName))
+        val method = graphBuilder.parent.getMethod(JMethodId(methodIdentifier.methodName))
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
+        return callMethod(method, methodArguments)
+    }
+
+    fun callMethod(method: Method, methodArguments: List<GraphNode>): GraphNode {
+        val graphBlock = GraphBuilderBlock(graphBuilder.parent, method)
         val blockProcessor = AstBlockProcessor(graphBlock)
         val methodName = graphBlock.method.name
         methodName.parameters.forEach {
-            graphBlock.addParameter(GraphNode.Base(ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
+            graphBlock.addParameter(GraphNode.Base(method.ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
         }
-        methodName.receiverParameter?.accept(this, ctx)
-        methodName.body.accept(blockProcessor, ctx)
+        methodName.receiverParameter?.accept(this, method.ctx)
+        methodName.body.accept(blockProcessor, method.ctx)
 
-        val returnNode = GraphNode.MethodReturn(GraphNode.Base(ctx.getPosId(node), RandomGraphNodeId(), "return"))
+        val returnNode = GraphNode.MethodReturn(GraphNode.Base(method.posId, RandomGraphNodeId(), "return"))
         methodArguments.forEachIndexed { index, callingParameter ->
             val methodParameter = graphBlock.method.parameterNodes[index]
             callingParameter.addEdge(methodParameter)
         }
         graphBlock.method.returnNode.addEdge(returnNode)
+
+        graphBuilder.addCalledMethod(graphBlock)
 
         return returnNode
     }

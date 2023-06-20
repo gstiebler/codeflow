@@ -1,6 +1,8 @@
 package codeflow.java
 
 import codeflow.graph.GraphBuilder
+import codeflow.graph.GraphBuilderBlock
+import codeflow.java.processors.AstBlockProcessor
 import codeflow.java.processors.AstClassProcessor
 import codeflow.java.processors.AstProcessor
 import codeflow.java.processors.ProcessorContext
@@ -17,7 +19,7 @@ import kotlin.io.path.toPath
 
 class AstReader(private val basePath: Path) {
 
-    fun process(fileNames: List<Path>): GraphBuilder {
+    fun process(fileNames: List<Path>): GraphBuilderBlock {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
@@ -38,9 +40,14 @@ class AstReader(private val basePath: Path) {
             val ctx = getContext(compUnitTree, sourcePositions)
             compUnitTree.accept(AstProcessor(graphBuilder), ctx)
         }
+
+        val mainMethod = graphBuilder.getMainMethod()
+        val mainAstBlockProcessor = AstBlockProcessor(mainMethod)
+        mainAstBlockProcessor.callMethod(mainMethod.method, emptyList())
+
         manager.close()
 
-        return graphBuilder
+        return mainAstBlockProcessor.graphBuilder
     }
 
     private fun getContext(compUnitTree: CompilationUnitTree, sourcePositions: SourcePositions): ProcessorContext {

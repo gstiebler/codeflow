@@ -22,11 +22,11 @@ class AppTest {
     private fun codeflow(testDir: String, testFiles: List<String>) {
         val testDirPath = testResourcesPath.resolve(testDir)
         val testFilePaths = testFiles.map { testDirPath.resolve(it) }
-        val graphBuilder = AstReader(testResourcesPath).process(testFilePaths)
-        val mergedGraph = graphBuilder.bindMethodCalls()
+        val mainMethod = AstReader(testResourcesPath).process(testFilePaths)
 
         val result = ArrayList<String>()
-        MermaidExporter(mergedGraph).methodsToMermaid(graphBuilder.getMethods()) { result.add(it) }
+        MermaidExporter(mainMethod.graph)
+            .processMainMethod(mainMethod) { result.add(it) }
 
         val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
         if (result != truth) {

@@ -1,36 +1,29 @@
 package codeflow.graph
 
-import codeflow.java.ids.RandomGraphNodeId
+import codeflow.java.processors.ProcessorContext
 import com.sun.source.tree.MethodTree
-import javax.lang.model.element.Name
-
-class MethodCall(posId: Long, val methodCode: MethodId, val parameterNodes: List<GraphNode>) {
-    val returnNode = GraphNode.MethodReturn(GraphNode.Base(posId, RandomGraphNodeId(), "return"))
-}
 
 
 class GraphBuilder() {
-    private val methods = HashMap<MethodId, GraphBuilderBlock>()
+    private val methods = HashMap<MethodId, Method>()
     private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
 
     fun getMethods() = methods.values.toList()
 
-    fun addMethod(name: MethodTree, hashCode: MethodId, posId: Long) {
-        val newMethod = GraphBuilderBlock(this, Method(name, posId))
-        methods[hashCode] = newMethod
+    fun addMethod(methodTree: MethodTree, hashCode: MethodId, posId: Long, ctx: ProcessorContext) {
+        methods[hashCode] = Method(methodTree, posId, ctx)
     }
 
-    fun bindMethodCalls(): Graph {
-        val mergedGraph = Graph()
-        for (method in methods.values) {
-            mergedGraph.merge(method.graph)
-        }
-        return mergedGraph
-    }
-
-    fun getMethod(hashCode: MethodId): GraphBuilderBlock {
+    fun getMethod(hashCode: MethodId): Method {
         return methods[hashCode] ?: throw GraphException("Method not found")
+    }
+
+    fun getMainMethod(): GraphBuilderBlock {
+        val method = methods.firstNotNullOf {
+            if (it.value.name.name.toString() == "main") it.value else null
+        }
+        return GraphBuilderBlock(this, method)
     }
 
     fun registerIsPrimitive(id: IdentifierId, isPrimitive: Boolean) {
@@ -58,11 +51,17 @@ class GraphBuilder() {
 
 class GraphBuilderBlock(val parent: GraphBuilder, val method: Method) {
 
-    val methodCalls = ArrayList<MethodCall>()
     val graph = Graph()
+
+    val calledMethods = ArrayList<GraphBuilderBlock>()
 
     init {
         graph.addNode(method.returnNode)
+    }
+
+    fun addCalledMethod(graphBlock: GraphBuilderBlock) {
+        calledMethods.add(graphBlock)
+        graph.merge(graphBlock.graph)
     }
 
     fun addParameter(base: GraphNode.Base) {

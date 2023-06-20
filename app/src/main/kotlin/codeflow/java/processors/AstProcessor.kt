@@ -21,7 +21,7 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
 
     override fun visitMethod(node: MethodTree, ctx: ProcessorContext): GraphNode? {
         logger.debug { "visitMethod: ${node.name}" }
-        graphBuilder.addMethod(node, JMethodId(node.name), ctx.getPosId(node))
+        graphBuilder.addMethod(node, JMethodId(node.name), ctx.getPosId(node), ctx)
         return null
     }
 }

@@ -41,9 +41,10 @@ class AstReader(private val basePath: Path) {
             compUnitTree.accept(AstProcessor(graphBuilder), ctx)
         }
 
-        val mainMethodGraphBuilderBlock = graphBuilder.getMainMethod()
+        val mainMethod = graphBuilder.getMainMethod()
+        val mainMethodGraphBuilderBlock = GraphBuilderBlock(graphBuilder, mainMethod)
         val mainAstBlockProcessor = AstBlockProcessor(mainMethodGraphBuilderBlock)
-        mainAstBlockProcessor.callMethod(mainMethodGraphBuilderBlock.method, emptyList())
+        mainAstBlockProcessor.process(emptyList())
 
         manager.close()
 

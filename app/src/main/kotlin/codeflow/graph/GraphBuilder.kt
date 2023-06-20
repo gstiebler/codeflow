@@ -9,8 +9,6 @@ class GraphBuilder() {
     private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
 
-    fun getMethods() = methods.values.toList()
-
     fun addMethod(methodTree: MethodTree, hashCode: MethodId, posId: Long, ctx: ProcessorContext) {
         methods[hashCode] = Method(methodTree, posId, ctx)
     }
@@ -19,11 +17,11 @@ class GraphBuilder() {
         return methods[hashCode] ?: throw GraphException("Method not found")
     }
 
-    fun getMainMethod(): GraphBuilderBlock {
+    fun getMainMethod(): Method {
         val method = methods.firstNotNullOf {
             if (it.value.name.name.toString() == "main") it.value else null
         }
-        return GraphBuilderBlock(this, method)
+        return method
     }
 
     fun registerIsPrimitive(id: IdentifierId, isPrimitive: Boolean) {
@@ -52,22 +50,15 @@ class GraphBuilder() {
 class GraphBuilderBlock(val parent: GraphBuilder, val method: Method) {
 
     val graph = Graph()
-
     val calledMethods = ArrayList<GraphBuilderBlock>()
 
     init {
         graph.addNode(method.returnNode)
+        method.parameterNodes.forEach { graph.addNode(it) }
     }
 
     fun addCalledMethod(graphBlock: GraphBuilderBlock) {
         calledMethods.add(graphBlock)
-        graph.merge(graphBlock.graph)
-    }
-
-    fun addParameter(base: GraphNode.Base) {
-        val paramNode = GraphNode.FuncParam(base)
-        graph.addNode(paramNode)
-        method.parameterNodes.add(paramNode)
     }
 
     fun addLiteral(base: GraphNode.Base): GraphNode {

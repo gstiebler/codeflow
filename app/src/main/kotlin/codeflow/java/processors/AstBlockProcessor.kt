@@ -111,27 +111,25 @@ open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeSca
         val method = graphBuilderBlock.parent.getMethod(JMethodId(methodIdentifier.methodName))
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
-        return callMethod(method, methodArguments)
-    }
-
-    fun callMethod(method: Method, methodArguments: List<GraphNode>): GraphNode {
         val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method)
         val blockProcessor = AstBlockProcessor(graphBlock)
-        val methodName = graphBlock.method.name
-        methodName.parameters.forEach {
-            graphBlock.addParameter(GraphNode.Base(method.ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
-        }
+        val returnNode = blockProcessor.process(methodArguments)
+        graphBuilderBlock.addCalledMethod(graphBlock)
+        return returnNode
+    }
+
+    fun process(methodArguments: List<GraphNode>): GraphNode {
+        val method = graphBuilderBlock.method
+        val methodName =  method.name
         methodName.receiverParameter?.accept(this, method.ctx)
-        methodName.body.accept(blockProcessor, method.ctx)
+        methodName.body.accept(this, method.ctx)
 
         val returnNode = GraphNode.MethodReturn(GraphNode.Base(method.posId, RandomGraphNodeId(), "return"))
         methodArguments.forEachIndexed { index, callingParameter ->
-            val methodParameter = graphBlock.method.parameterNodes[index]
+            val methodParameter = method.parameterNodes[index]
             callingParameter.addEdge(methodParameter)
         }
-        graphBlock.method.returnNode.addEdge(returnNode)
-
-        graphBuilderBlock.addCalledMethod(graphBlock)
+        method.returnNode.addEdge(returnNode)
 
         return returnNode
     }

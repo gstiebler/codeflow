@@ -14,22 +14,37 @@ import javax.lang.model.element.Name
  * This class is responsible for building the graph for a single method.
  * It's called for every method in a class.
  */
-open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeScanner<GraphNode, ProcessorContext>() {
+open class AstBlockProcessor(
+    val graphBuilderBlock: GraphBuilderBlock,
+    private val memPos: MemPos?
+) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
     override fun toString() = graphBuilderBlock.method.name.name.toString()
 
+    /**
+     * Examples:
+     * - int a = 1;
+     * - int a = b;
+     * - int a = b + c;
+     * - int memberA = 5;
+     */
     override fun visitAssignment(node: AssignmentTree, ctx: ProcessorContext): GraphNode? {
         val lhs = node.variable
         val rhs = node.expression
 
         val lhsName = lhs.accept(AstLastNameProcessor(), ctx)
-        val lhsExpr = lhs.accept(AstExprProcessor(), ctx)
-        val lhsMemPos = getMemPos(lhsExpr, ctx)
-        val lhsId = JNodeId(lhsName, lhsMemPos)
-
         val lhsIsPrimitive = graphBuilderBlock.parent.isPrimitive(JIdentifierId(lhsName))
+
+        val lhsParentExpr = lhs.accept(AstParentExprProcessor(), ctx)
+        val lhsMemPos = if (lhsParentExpr == null) {
+            memPos
+        } else {
+            getMemPos(lhsParentExpr, ctx)
+        }
+        val lhsId = JNodeId(lhsName, lhsMemPos)
         if (lhsIsPrimitive) {
+            // val lhsId = JNodeId(lhsName, memPos)
             assignPrimitive(lhs, lhsName, lhsId, rhs, ctx)
         } else {
             assignMemPos(lhsId, rhs, ctx)
@@ -45,7 +60,7 @@ open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeSca
         val name = node.name
 
         if (node.initializer != null) {
-            val variableNodeId = JNodeId(name, null)
+            val variableNodeId = JNodeId(name, memPos)
             if (isPrimitive) {
                 return assignPrimitive(node, name, variableNodeId, node.initializer, ctx)
             } else {
@@ -63,14 +78,21 @@ open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeSca
         return lhsNode
     }
 
+    /**
+     * Assigns the mem pos of the rhs to the lhs.
+     */
     private fun assignMemPos(lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext) {
-        val rhsMemPos = getMemPos(rhs, ctx) ?: throw GraphException("Could not find mem pos for $rhs")
+        val rhsMemPos = getMemPos(rhs, ctx) ?: throw GraphException("Mem pos of $rhs is null")
         graphBuilderBlock.parent.addMemPos(lhsId, rhsMemPos)
     }
 
+    /**
+     * Returns the mem pos of the given expression.
+     */
     private fun getMemPos(node: ExpressionTree?, ctx: ProcessorContext): MemPos? {
-        return node?.accept(AstMemPosProcessor(graphBuilderBlock), ctx)
+        return node?.accept(AstMemPosProcessor(graphBuilderBlock, memPos), ctx)
     }
+
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): GraphNode {
         val expression = node.expression
@@ -85,7 +107,7 @@ open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeSca
     }
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
-        val nId = JNodeId(node.name, null)
+        val nId = JNodeId(node.name, memPos)
         val graphNode = graphBuilderBlock.graph.getNode(nId)
         return graphNode
         // return graphNode ?: graphBuilder.addVariable(GraphNode.Base(ctx, node.name.hashCode(), node.name.toString()))
@@ -113,8 +135,15 @@ open class AstBlockProcessor(val graphBuilderBlock: GraphBuilderBlock) : TreeSca
         val method = graphBuilderBlock.parent.getMethod(JMethodId(methodIdentifier.methodName))
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method)
-        val blockProcessor = AstBlockProcessor(graphBlock)
+        val instanceName = methodIdentifier.instanceName
+        val memPosLocal = if (instanceName == null) {
+            null
+        } else {
+            graphBuilderBlock.parent.getMemPos(JNodeId(instanceName, memPos))
+        }
+
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, memPosLocal)
+        val blockProcessor = AstBlockProcessor(graphBlock, memPosLocal)
         blockProcessor.process(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode

@@ -9,7 +9,7 @@ import com.sun.source.tree.NewClassTree
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
 
-class AstMemPosProcessor(private val graphBuilder: GraphBuilderBlock) : TreeScanner<MemPos, ProcessorContext>()  {
+class AstMemPosProcessor(private val graphBuilder: GraphBuilderBlock, private val memPos: MemPos?) : TreeScanner<MemPos, ProcessorContext>()  {
     private val logger = KotlinLogging.logger {}
 
     override fun visitNewClass(node: NewClassTree, ctx: ProcessorContext): MemPos {
@@ -20,19 +20,18 @@ class AstMemPosProcessor(private val graphBuilder: GraphBuilderBlock) : TreeScan
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos {
         val expr = node.expression
-        val ident = node.identifier
         val exprMemPos = expr.accept(this, ctx)
-        val nodeId = JNodeId(ident, exprMemPos)
-        val memPos = graphBuilder.parent.getMemPos(nodeId)
-        return memPos
+        val nodeId = JNodeId(node.identifier, exprMemPos)
+        return graphBuilder.parent.getMemPos(nodeId)
     }
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): MemPos? {
-        // TODO: should return "this" for a local variable
-        try {
-            val nodeId = JNodeId(node.name, null)
-            val memPos = graphBuilder.parent.getMemPos(nodeId)
+        if (node.name.toString() == "this") {
             return memPos
+        }
+        try {
+            val nodeId = JNodeId(node.name, memPos)
+            return graphBuilder.parent.getMemPos(nodeId)
         } catch (e: Exception) {
             logger.warn { "Exception in AstMemPosProcessor: ${e.message}" }
         }

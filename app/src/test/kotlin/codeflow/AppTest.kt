@@ -7,7 +7,6 @@ import codeflow.java.AstReader
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
-import kotlin.test.assertNotNull
 
 
 class AppTest {

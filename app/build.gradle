@@ -24,8 +24,8 @@ repositories {
 dependencies {
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:31.1-jre'
-    implementation 'io.github.microutils:kotlin-logging-jvm:2.0.11'
-    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.6'
+    implementation 'io.github.microutils:kotlin-logging-jvm:3.0.5'
+    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.4.8'
 }
 
 testing {
@@ -37,6 +37,13 @@ testing {
         }
     }
 }
+
+test {
+    testLogging {
+        showStandardStreams = true
+    }
+}
+
 
 application {
     // Define the main class for the application.

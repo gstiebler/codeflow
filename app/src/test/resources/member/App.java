@@ -16,6 +16,11 @@ public class App {
 
     int memberA;
     public static void main(String[] args) {
+        App app = new App();
+        app.func1();
+    }
+
+    private void func1() {
         int a = 5;
         a = 6;
         memberA = a;

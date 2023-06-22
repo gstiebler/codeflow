@@ -1,6 +1,6 @@
 package codeflow.graph
 
-class MemPos {
+class MemPos(private val label: String) {
     companion object {
         var counter = 0
     }
@@ -8,6 +8,6 @@ class MemPos {
     val id = counter++
 
     override fun toString(): String {
-        return "MemPos($id)"
+        return "MemPos($id, '$label')"
     }
 }

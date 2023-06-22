@@ -4,12 +4,14 @@ import codeflow.java.ids.JNodeId
 import codeflow.java.ids.RandomGraphNodeId
 import codeflow.java.processors.ProcessorContext
 import com.sun.source.tree.MethodTree
+import mu.KotlinLogging
 
 
 class GraphBuilder() {
     private val methods = HashMap<MethodId, Method>()
     private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
+    private val logger = KotlinLogging.logger {}
 
     fun addMethod(methodTree: MethodTree, hashCode: MethodId, posId: Long, ctx: ProcessorContext) {
         methods[hashCode] = Method(methodTree, posId, ctx)
@@ -36,26 +38,28 @@ class GraphBuilder() {
     }
 
     fun getMemPos(nodeId: GraphNodeId): MemPos {
-        return idToMemPos[nodeId] ?: throw GraphException("Variable not found")
+        return idToMemPos[nodeId] ?: throw GraphException("Variable not found: $nodeId")
     }
 
     fun createMemPos(label: String): MemPos {
-        println("createMemPos: $label")
-        return MemPos()
+        val newMemPos = MemPos(label)
+        logger.debug { "createMemPos: $label, $newMemPos" }
+        return newMemPos
     }
 
     fun addMemPos(nodeId: GraphNodeId, rhsMemPos: MemPos) {
+        logger.debug { "addMemPos: $nodeId -> $rhsMemPos" }
         idToMemPos[nodeId] = rhsMemPos
     }
 }
 
-class GraphBuilderBlock(val parent: GraphBuilder, val method: Method) {
+class GraphBuilderBlock(val parent: GraphBuilder, val method: Method, private val memPos: MemPos?) {
 
     val graph = Graph()
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = GraphNode.MethodReturn(GraphNode.Base(method.posId, RandomGraphNodeId(), "return"))
     val parameterNodes = method.name.parameters.map {
-        GraphNode.FuncParam(GraphNode.Base(method.ctx.getPosId(it), JNodeId(it.name, null), it.name.toString()))
+        GraphNode.FuncParam(GraphNode.Base(method.ctx.getPosId(it), JNodeId(it.name, memPos), it.name.toString()))
     }
 
     init {

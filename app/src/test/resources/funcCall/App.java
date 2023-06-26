@@ -7,10 +7,22 @@ public class App {
     public static void main(String[] args) {
         final int x = 5;
         final int y = methodA(x, 8);
+        App app = new App();
+        int e = app.methodB();
     }
 
-    public static void methodA(final int a, final int b) {
+    public static void methodA(int a, int b) {
         final int c = a + b;
         return c;
+    }
+
+    public int methodB() {
+        int d = methodC();
+        int f = methodC();
+        return d;
+    }
+
+    public int methodC() {
+        return 6;
     }
 }

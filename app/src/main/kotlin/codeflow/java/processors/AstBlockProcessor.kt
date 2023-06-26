@@ -8,6 +8,7 @@ import codeflow.java.ids.RandomGraphNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
+import java.nio.file.Path
 import javax.lang.model.element.Name
 
 /**
@@ -15,20 +16,22 @@ import javax.lang.model.element.Name
  * It's called for every method in a class.
  */
 open class AstBlockProcessor(
+    private val parent: AstBlockProcessor?,
     val graphBuilderBlock: GraphBuilderBlock,
+    private val pos: Position,
     private val memPos: MemPos?
 ) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
+    data class Position(val pos: Long, val path: Path)
+
     override fun toString() = graphBuilderBlock.method.name.name.toString()
 
-    /**
-     * Examples:
-     * - int a = 1;
-     * - int a = b;
-     * - int a = b + c;
-     * - int memberA = 5;
-     */
+    fun getStack(): List<String> {
+        val parentStack = parent?.getStack() ?: emptyList()
+        return parentStack + "${pos.path}:${pos.pos}"
+    }
+
     override fun visitAssignment(node: AssignmentTree, ctx: ProcessorContext): GraphNode? {
         val lhs = node.variable
         val rhs = node.expression
@@ -42,10 +45,11 @@ open class AstBlockProcessor(
         } else {
             getMemPos(lhsParentExpr, ctx)
         }
-        val lhsId = JNodeId(lhsName, lhsMemPos)
+        val stack = getStack()
+        val lhsId = JNodeId(lhsName, lhsMemPos, stack)
         if (lhsIsPrimitive) {
             // val lhsId = JNodeId(lhsName, memPos)
-            assignPrimitive(lhs, lhsName, lhsId, rhs, ctx)
+            assignPrimitive(lhsName, lhsId, rhs, ctx)
         } else {
             assignMemPos(lhsId, rhs, ctx)
         }
@@ -60,9 +64,9 @@ open class AstBlockProcessor(
         val name = node.name
 
         if (node.initializer != null) {
-            val variableNodeId = JNodeId(name, memPos)
+            val variableNodeId = JNodeId(name, memPos, getStack())
             if (isPrimitive) {
-                return assignPrimitive(node, name, variableNodeId, node.initializer, ctx)
+                return assignPrimitive(name, variableNodeId, node.initializer, ctx)
             } else {
                 assignMemPos(variableNodeId, node.initializer, ctx)
             }
@@ -71,8 +75,8 @@ open class AstBlockProcessor(
         return null
     }
 
-    private fun assignPrimitive(lhsTree: Tree, lhsName: Name, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
-        val lhsNode = graphBuilderBlock.addVariable(GraphNode.Base(ctx.getPosId(lhsTree), lhsId, lhsName.toString()))
+    private fun assignPrimitive(lhsName: Name, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
+        val lhsNode = graphBuilderBlock.addVariable(GraphNode.Base(getStack(), lhsId, lhsName.toString()))
         val rhsNode = rhs.accept(this, ctx)
         graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         return lhsNode
@@ -90,7 +94,7 @@ open class AstBlockProcessor(
      * Returns the mem pos of the given expression.
      */
     private fun getMemPos(node: ExpressionTree?, ctx: ProcessorContext): MemPos? {
-        return node?.accept(AstMemPosProcessor(graphBuilderBlock, memPos), ctx)
+        return node?.accept(AstMemPosProcessor(graphBuilderBlock, getStack(), memPos), ctx)
     }
 
 
@@ -98,7 +102,7 @@ open class AstBlockProcessor(
         val expression = node.expression
         val identifier = node.identifier
         val exprMemPos = getMemPos(expression, ctx)
-        val nodeId = JNodeId(identifier, exprMemPos)
+        val nodeId = JNodeId(identifier, exprMemPos, getStack())
         return graphBuilderBlock.graph.getNode(nodeId)
     }
 
@@ -107,14 +111,14 @@ open class AstBlockProcessor(
     }
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
-        val nId = JNodeId(node.name, memPos)
+        val nId = JNodeId(node.name, memPos, getStack())
         val graphNode = graphBuilderBlock.graph.getNode(nId)
         return graphNode
         // return graphNode ?: graphBuilder.addVariable(GraphNode.Base(ctx, node.name.hashCode(), node.name.toString()))
     }
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {
-        val newNode = graphBuilderBlock.addLiteral(GraphNode.Base(ctx.getPosId(node), RandomGraphNodeId(), node.toString()))
+        val newNode = graphBuilderBlock.addLiteral(GraphNode.Base(getStack(), RandomGraphNodeId(), node.toString()))
         super.visitLiteral(node, ctx)
         return newNode
     }
@@ -127,7 +131,7 @@ open class AstBlockProcessor(
             else -> "UNKNOWN"
         }
         val jId = RandomGraphNodeId()
-        return graphBuilderBlock.addBinOp(GraphNode.Base(ctx.getPosId(node), jId, label), leftNode, rightNode)
+        return graphBuilderBlock.addBinOp(GraphNode.Base(getStack(), jId, label), leftNode, rightNode)
     }
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode? {
@@ -139,11 +143,12 @@ open class AstBlockProcessor(
         val memPosLocal = if (instanceName == null) {
             null
         } else {
-            graphBuilderBlock.parent.getMemPos(JNodeId(instanceName, memPos))
+            graphBuilderBlock.parent.getMemPos(JNodeId(instanceName, memPos, getStack()))
         }
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, memPosLocal)
-        val blockProcessor = AstBlockProcessor(graphBlock, memPosLocal)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, getStack(), memPosLocal)
+        val localPos = Position(ctx.getPos(node), ctx.path)
+        val blockProcessor = AstBlockProcessor(this, graphBlock, localPos, memPosLocal)
         blockProcessor.process(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode

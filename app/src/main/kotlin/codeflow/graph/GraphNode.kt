@@ -11,9 +11,6 @@ abstract class GraphNode(private val base: Base) {
     private val logger = KotlinLogging.logger {}
     private val edges = ArrayList<GraphNode>()
 
-    val extId: Long
-        get() = base.posId
-
     val id: GraphNodeId
         get() = base.id
 
@@ -22,7 +19,7 @@ abstract class GraphNode(private val base: Base) {
 
     open fun getType() = NodeType.BASE
 
-    data class Base(val posId: Long, val id: GraphNodeId, val label: String)
+    data class Base(val stack: List<String>, val id: GraphNodeId, val label: String)
 
     fun edgesIterator() = edges.iterator()
 
@@ -49,7 +46,7 @@ abstract class GraphNode(private val base: Base) {
     override fun hashCode() = id.hashCode()
 
     override fun toString(): String {
-        return "'$label', ${getType()}, $extId"
+        return "'$label', ${getType()}, $id"
     }
 
     class Literal(base: Base) : GraphNode(base) {

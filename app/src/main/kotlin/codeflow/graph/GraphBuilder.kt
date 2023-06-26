@@ -2,6 +2,7 @@ package codeflow.graph
 
 import codeflow.java.ids.JNodeId
 import codeflow.java.ids.RandomGraphNodeId
+import codeflow.java.processors.AstBlockProcessor
 import codeflow.java.processors.ProcessorContext
 import com.sun.source.tree.MethodTree
 import mu.KotlinLogging
@@ -53,13 +54,13 @@ class GraphBuilder() {
     }
 }
 
-class GraphBuilderBlock(val parent: GraphBuilder, val method: Method, private val memPos: MemPos?) {
+class GraphBuilderBlock(val parent: GraphBuilder, val method: Method, stack: List<String>, private val memPos: MemPos?) {
 
     val graph = Graph()
     val calledMethods = ArrayList<GraphBuilderBlock>()
-    var returnNode = GraphNode.MethodReturn(GraphNode.Base(method.posId, RandomGraphNodeId(), "return"))
+    var returnNode = GraphNode.MethodReturn(GraphNode.Base(stack, RandomGraphNodeId(), "return"))
     val parameterNodes = method.name.parameters.map {
-        GraphNode.FuncParam(GraphNode.Base(method.ctx.getPosId(it), JNodeId(it.name, memPos), it.name.toString()))
+        GraphNode.FuncParam(GraphNode.Base(stack, JNodeId(it.name, memPos, stack), it.name.toString()))
     }
 
     init {

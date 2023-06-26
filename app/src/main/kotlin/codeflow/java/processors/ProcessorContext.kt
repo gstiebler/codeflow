@@ -7,7 +7,7 @@ import java.nio.file.Path
 import kotlin.math.absoluteValue
 
 class ProcessorContext(
-    private val path: Path,
+    val path: Path,
     private val cut: CompilationUnitTree,
     private val sourcePos: SourcePositions
 ) {
@@ -16,7 +16,9 @@ class ProcessorContext(
      */
     fun getPosId(tree: Tree): Long {
         val hash = path.toString().hashCode().absoluteValue
-        val pos = sourcePos.getStartPosition(cut, tree)
+        val pos = getPos(tree)
         return hash + pos
     }
+
+    fun getPos(node: Tree) = sourcePos.getStartPosition(cut, node)
 }

@@ -8,12 +8,12 @@ class Graph() {
         nodes[node.id] = node
     }
 
-    fun getNodesSortedByExtId() = nodes.values.sortedBy { it.extId }
-    fun getNode(id: GraphNodeId) = nodes[id] ?: throw GraphException("Identifier '${id}' not found in graph")
+    fun getNodesSortedByExtId() = nodes.values.sortedBy { it.id.getIntId() }
 
-    fun merge(other: Graph) {
-        for (node in other.nodes.values) {
-            nodes[node.id] = node
-        }
+    private fun getFormattedNodes(): String {
+        return nodes.keys.joinToString(separator = "\n") { it.toString() }
+    }
+    fun getNode(id: GraphNodeId): GraphNode {
+        return nodes[id] ?: throw GraphException("Identifier '${id}' not found in graph: \n${getFormattedNodes()}")
     }
 }

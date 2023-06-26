@@ -9,7 +9,11 @@ import com.sun.source.tree.NewClassTree
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
 
-class AstMemPosProcessor(private val graphBuilder: GraphBuilderBlock, private val memPos: MemPos?) : TreeScanner<MemPos, ProcessorContext>()  {
+class AstMemPosProcessor(
+    private val graphBuilder: GraphBuilderBlock,
+    private val stack: List<String>,
+    private val memPos: MemPos?
+) : TreeScanner<MemPos, ProcessorContext>()  {
     private val logger = KotlinLogging.logger {}
 
     override fun visitNewClass(node: NewClassTree, ctx: ProcessorContext): MemPos {
@@ -21,7 +25,7 @@ class AstMemPosProcessor(private val graphBuilder: GraphBuilderBlock, private va
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos {
         val expr = node.expression
         val exprMemPos = expr.accept(this, ctx)
-        val nodeId = JNodeId(node.identifier, exprMemPos)
+        val nodeId = JNodeId(node.identifier, exprMemPos, stack)
         return graphBuilder.parent.getMemPos(nodeId)
     }
 
@@ -30,7 +34,7 @@ class AstMemPosProcessor(private val graphBuilder: GraphBuilderBlock, private va
             return memPos
         }
         try {
-            val nodeId = JNodeId(node.name, memPos)
+            val nodeId = JNodeId(node.name, memPos, stack)
             return graphBuilder.parent.getMemPos(nodeId)
         } catch (e: Exception) {
             logger.warn { "Exception in AstMemPosProcessor: ${e.message}" }

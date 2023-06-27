@@ -3,13 +3,17 @@ package codeflow.java.processors
 import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphNode
 import codeflow.java.ids.JMethodId
-import codeflow.java.ids.JNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
+import javax.lang.model.element.Name
 
 class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
+
+    // mutable list of method names
+    var methodNames = mutableListOf<Name>()
+
     override fun visitClass(node: ClassTree, ctx: ProcessorContext): GraphNode? {
         logger.info { "Class name: ${node.simpleName}" }
         val memberByType = node.members.groupBy { it.kind }
@@ -21,6 +25,7 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
 
     override fun visitMethod(node: MethodTree, ctx: ProcessorContext): GraphNode? {
         logger.debug { "visitMethod: ${node.name}" }
+        methodNames.add(node.name)
         graphBuilder.addMethod(node, JMethodId(node.name), ctx.getPosId(node), ctx)
         return null
     }

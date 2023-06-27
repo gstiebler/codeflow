@@ -5,18 +5,8 @@ import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
 
 
-class MermaidExporter(private val graph: Graph) {
-    fun graphToMermaid(writer: (String) -> Unit) {
-        writer("```mermaid")
-        writer("flowchart TD")
-        for (node in graph.getNodesSortedByExtId()) {
-            for (toNode in node.edgesIterator()) {
-                writer("    ${node.id.getIntId()}[${node.label}] --> ${toNode.id.getIntId()}[${toNode.label}]")
-            }
-        }
-        writer("```")
-    }
-    private fun getNodeStr(node: GraphNode) = "${node.id.getIntId()}[${node.label}]:::${node.getType()}"
+class MermaidExporter() {
+    private fun getNodeStr(node: GraphNode) = "${node.id.getExtId()}[${node.label}]:::${node.getType()}"
 
     private fun getClasses() = listOf(
         "classDef LITERAL fill:#00FF0030",

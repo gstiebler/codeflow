@@ -54,13 +54,18 @@ class GraphBuilder() {
     }
 }
 
-class GraphBuilderBlock(val parent: GraphBuilder, val method: Method, stack: List<String>, private val memPos: MemPos?) {
+class GraphBuilderBlock(
+    val parent: GraphBuilder,
+    val method: Method, stack: List<String>,
+    private val memPos: MemPos?,
+    private val ctx: ProcessorContext
+) {
 
     val graph = Graph()
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = GraphNode.MethodReturn(GraphNode.Base(stack, RandomGraphNodeId(), "return"))
     val parameterNodes = method.name.parameters.map {
-        GraphNode.FuncParam(GraphNode.Base(stack, JNodeId(it.name, memPos, stack), it.name.toString()))
+        GraphNode.FuncParam(GraphNode.Base(stack, JNodeId(it.name, memPos, stack, ctx.getPosId(it)), it.name.toString()))
     }
 
     init {

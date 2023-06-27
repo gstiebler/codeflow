@@ -24,7 +24,7 @@ class AppTest {
         val mainMethod = AstReader(testResourcesPath).process(testFilePaths)
 
         val result = ArrayList<String>()
-        MermaidExporter(mainMethod.graph)
+        MermaidExporter()
             .processMainMethod(mainMethod) { result.add(it) }
 
         val truth = Files.readAllLines(testDirPath.resolve("truth.md"))

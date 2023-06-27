@@ -46,7 +46,7 @@ open class AstBlockProcessor(
             getMemPos(lhsParentExpr, ctx)
         }
         val stack = getStack()
-        val lhsId = JNodeId(lhsName, lhsMemPos, stack)
+        val lhsId = JNodeId(lhsName, lhsMemPos, stack, ctx.getPosId(lhs))
         if (lhsIsPrimitive) {
             // val lhsId = JNodeId(lhsName, memPos)
             assignPrimitive(lhsName, lhsId, rhs, ctx)
@@ -64,7 +64,7 @@ open class AstBlockProcessor(
         val name = node.name
 
         if (node.initializer != null) {
-            val variableNodeId = JNodeId(name, memPos, getStack())
+            val variableNodeId = JNodeId(name, memPos, getStack(), ctx.getPosId(node))
             if (isPrimitive) {
                 return assignPrimitive(name, variableNodeId, node.initializer, ctx)
             } else {
@@ -102,7 +102,7 @@ open class AstBlockProcessor(
         val expression = node.expression
         val identifier = node.identifier
         val exprMemPos = getMemPos(expression, ctx)
-        val nodeId = JNodeId(identifier, exprMemPos, getStack())
+        val nodeId = JNodeId(identifier, exprMemPos, getStack(), ctx.getPosId(node))
         return graphBuilderBlock.graph.getNode(nodeId)
     }
 
@@ -111,7 +111,7 @@ open class AstBlockProcessor(
     }
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
-        val nId = JNodeId(node.name, memPos, getStack())
+        val nId = JNodeId(node.name, memPos, getStack(), ctx.getPosId(node))
         val graphNode = graphBuilderBlock.graph.getNode(nId)
         return graphNode
         // return graphNode ?: graphBuilder.addVariable(GraphNode.Base(ctx, node.name.hashCode(), node.name.toString()))
@@ -143,10 +143,10 @@ open class AstBlockProcessor(
         val memPosLocal = if (instanceName == null) {
             null
         } else {
-            graphBuilderBlock.parent.getMemPos(JNodeId(instanceName, memPos, getStack()))
+            graphBuilderBlock.parent.getMemPos(JNodeId(instanceName, memPos, getStack(), ctx.getPosId(node)))
         }
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, getStack(), memPosLocal)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, getStack(), memPosLocal, ctx)
         val localPos = Position(ctx.getPos(node), ctx.path)
         val blockProcessor = AstBlockProcessor(this, graphBlock, localPos, memPosLocal)
         blockProcessor.process(methodArguments)

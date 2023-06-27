@@ -1,9 +1,15 @@
 package codeflow.graph
 
-abstract class GraphNodeId {
+open class GraphNodeId(private val stack: List<String>, private val posId: Long) {
 
-    abstract fun getIntId(): Long
-    abstract fun getExtId(): Long
+    open fun getIntId() = getExtId()
+
+    fun getExtId(): Long {
+        var hash: Long = 31
+        hash = hash * 17 + posId
+        hash = hash * 17 + stack.hashCode()
+        return hash
+    }
     override fun hashCode(): Int = getIntId().toInt()
     override fun equals(other: Any?): Boolean {
         if (other is GraphNodeId) {
@@ -12,4 +18,5 @@ abstract class GraphNodeId {
         return false
     }
 
+    override fun toString() = "$posId, $stack"
 }

@@ -3,6 +3,10 @@
  */
 package test;
 
+class ClassX {
+    public int memberX;
+}
+
 public class App {
     public static void main(String[] args) {
         final int x = 5;
@@ -17,12 +21,16 @@ public class App {
     }
 
     public int methodB() {
-        int d = methodC();
-        int f = methodC();
+        int d = methodC(11);
+        int f = methodC(13);
         return d;
     }
 
-    public int methodC() {
-        return 6;
+    public int methodC(int paramH) {
+        int g = 6 + paramH;
+        ClassX X1 = new ClassX();
+        X1.memberX = g;
+        ClassX X2 = X1;
+        return X2.memberX;
     }
 }

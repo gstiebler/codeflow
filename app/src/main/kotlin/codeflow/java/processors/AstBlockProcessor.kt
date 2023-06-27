@@ -4,7 +4,6 @@ import codeflow.graph.*
 import codeflow.java.ids.JIdentifierId
 import codeflow.java.ids.JMethodId
 import codeflow.java.ids.JNodeId
-import codeflow.java.ids.RandomGraphNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
@@ -118,7 +117,8 @@ open class AstBlockProcessor(
     }
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {
-        val newNode = graphBuilderBlock.addLiteral(GraphNode.Base(getStack(), RandomGraphNodeId(), node.toString()))
+        val gNode = GraphNode.Base(getStack(), GraphNodeId(getStack(), ctx.getPosId(node)), node.toString())
+        val newNode = graphBuilderBlock.addLiteral(gNode)
         super.visitLiteral(node, ctx)
         return newNode
     }
@@ -130,7 +130,7 @@ open class AstBlockProcessor(
             "PLUS" -> "+"
             else -> "UNKNOWN"
         }
-        val jId = RandomGraphNodeId()
+        val jId = GraphNodeId(getStack(), ctx.getPosId(node))
         return graphBuilderBlock.addBinOp(GraphNode.Base(getStack(), jId, label), leftNode, rightNode)
     }
 
@@ -139,15 +139,16 @@ open class AstBlockProcessor(
         val method = graphBuilderBlock.parent.getMethod(JMethodId(methodIdentifier.methodName))
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
+        val invocationPos = ctx.getPosId(node)
         val instanceName = methodIdentifier.instanceName
         val memPosLocal = if (instanceName == null) {
             null
         } else {
-            graphBuilderBlock.parent.getMemPos(JNodeId(instanceName, memPos, getStack(), ctx.getPosId(node)))
+            graphBuilderBlock.parent.getMemPos(JNodeId(instanceName, memPos, getStack(), invocationPos))
         }
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, getStack(), memPosLocal, ctx)
-        val localPos = Position(ctx.getPos(node), ctx.path)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, getStack(), invocationPos, memPosLocal, ctx)
+        val localPos = Position(invocationPos, ctx.path)
         val blockProcessor = AstBlockProcessor(this, graphBlock, localPos, memPosLocal)
         blockProcessor.process(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
@@ -168,7 +169,7 @@ open class AstBlockProcessor(
 
     override fun visitReturn(node: ReturnTree, p: ProcessorContext): GraphNode {
         val newNode = super.visitReturn(node, p)
-        graphBuilderBlock.setReturnNode(newNode)
+        graphBuilderBlock.addReturnNode(newNode)
         return newNode
     }
 

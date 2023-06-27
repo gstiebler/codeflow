@@ -2,7 +2,6 @@ package codeflow.java
 
 import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphBuilderBlock
-import codeflow.graph.Method
 import codeflow.java.processors.AstBlockProcessor
 import codeflow.java.processors.AstClassProcessor
 import codeflow.java.processors.AstProcessor
@@ -53,7 +52,8 @@ class AstReader(private val basePath: Path) {
         }
 
         val mainMethod = graphBuilder.getMainMethod()
-        val mainMethodGraphBuilderBlock = GraphBuilderBlock(graphBuilder, mainMethod, emptyList(),null, mainCtx)
+        val mainMethodGraphBuilderBlock =
+            GraphBuilderBlock(graphBuilder, mainMethod, emptyList(), -1,null, mainCtx)
         val pos = AstBlockProcessor.Position(0, Path.of(""))
         val mainAstBlockProcessor = AstBlockProcessor(null, mainMethodGraphBuilderBlock, pos, null)
         mainAstBlockProcessor.process(emptyList())

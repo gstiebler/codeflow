@@ -14,11 +14,7 @@ class ProcessorContext(
     /**
      * Not the best place to put it, but it's good for now
      */
-    fun getPosId(tree: Tree): Long {
-        val hash = path.toString().hashCode().absoluteValue
-        val pos = getPos(tree)
-        return hash + pos
-    }
+    fun getPosId(tree: Tree) = getPos(tree)
 
     fun getPos(node: Tree) = sourcePos.getStartPosition(cut, node)
 }

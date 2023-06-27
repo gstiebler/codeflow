@@ -9,18 +9,11 @@ class JNodeId(
     private val memPos: MemPos?,
     private val stack: List<String>,
     private val posId: Long
-) : GraphNodeId() {
+) : GraphNodeId(stack, posId) {
     override fun getIntId(): Long {
         var hash: Long = 31
         hash = hash * 17 + memPos.hashCode()
         hash = hash * 17 + name.hashCode()
-        return hash
-    }
-
-    override fun getExtId(): Long {
-        var hash: Long = 31
-        hash = hash * 17 + posId
-        hash = hash * 17 + stack.hashCode()
         return hash
     }
 

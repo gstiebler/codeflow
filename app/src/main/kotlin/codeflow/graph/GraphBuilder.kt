@@ -1,8 +1,6 @@
 package codeflow.graph
 
 import codeflow.java.ids.JNodeId
-import codeflow.java.ids.RandomGraphNodeId
-import codeflow.java.processors.AstBlockProcessor
 import codeflow.java.processors.ProcessorContext
 import com.sun.source.tree.MethodTree
 import mu.KotlinLogging
@@ -56,21 +54,31 @@ class GraphBuilder() {
 
 class GraphBuilderBlock(
     val parent: GraphBuilder,
-    val method: Method, stack: List<String>,
+    val method: Method,
+    stack: List<String>,
+    invocationPos: Long,
     private val memPos: MemPos?,
     private val ctx: ProcessorContext
 ) {
 
     val graph = Graph()
     val calledMethods = ArrayList<GraphBuilderBlock>()
-    var returnNode = GraphNode.MethodReturn(GraphNode.Base(stack, RandomGraphNodeId(), "return"))
+    var returnNode = createReturnNode(stack, invocationPos)
     val parameterNodes = method.name.parameters.map {
-        GraphNode.FuncParam(GraphNode.Base(stack, JNodeId(it.name, memPos, stack, ctx.getPosId(it)), it.name.toString()))
+        // posId should be unique for each parameter, each invocation
+        val posId = ctx.getPosId(it) + invocationPos * 37 + 4308977
+        GraphNode.FuncParam(GraphNode.Base(stack, JNodeId(it.name, memPos, stack, posId), it.name.toString()))
     }
 
     init {
         graph.addNode(returnNode)
         parameterNodes.forEach { graph.addNode(it) }
+    }
+
+    private fun createReturnNode(stack: List<String>, invocationPos: Long): GraphNode {
+        val nodeId = JNodeId(method.name.name, memPos, stack, invocationPos)
+        val nodeBase = GraphNode.Base(stack, nodeId, "return")
+        return GraphNode.MethodReturn(nodeBase)
     }
 
     override fun toString() = method.name.name.toString()
@@ -103,7 +111,7 @@ class GraphBuilderBlock(
         rhsNode.addEdge(lhsNode)
     }
 
-    fun setReturnNode(newReturnNode: GraphNode) {
+    fun addReturnNode(newReturnNode: GraphNode) {
         graph.addNode(newReturnNode)
         newReturnNode.addEdge(returnNode)
     }

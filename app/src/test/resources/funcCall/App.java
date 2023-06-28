@@ -27,7 +27,7 @@ public class App {
     }
 
     public int methodC(int paramH) {
-        int g = 6 + paramH;
+        int g = 6 / paramH;
         ClassX X1 = new ClassX();
         X1.memberX = g;
         ClassX X2 = X1;

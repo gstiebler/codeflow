@@ -8,7 +8,7 @@ class Graph() {
         nodes[node.id] = node
     }
 
-    fun getNodesSortedByExtId() = nodes.values.sortedBy { it.id.getIntId() }
+    fun getNodesSortedByExtId() = nodes.values.sortedBy { it.id.getExtId() }
 
     private fun getFormattedNodes(): String {
         return nodes.keys.joinToString(separator = "\n") { it.toString() }

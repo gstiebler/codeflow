@@ -19,7 +19,10 @@ abstract class GraphNode(private val base: Base) {
 
     open fun getType() = NodeType.BASE
 
-    data class Base(val stack: List<String>, val id: GraphNodeId, val label: String)
+    class Base(val id: GraphNodeId) {
+        val label: String
+            get() = id.label
+    }
 
     fun edgesIterator() = edges.iterator()
 

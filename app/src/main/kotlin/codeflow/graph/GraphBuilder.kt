@@ -62,12 +62,13 @@ class GraphBuilderBlock(
 ) {
 
     val graph = Graph()
+    val localId = invocationPos * 37 + 4308977
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = createReturnNode(stack, invocationPos)
     val parameterNodes = method.name.parameters.map {
         // posId should be unique for each parameter, each invocation
-        val posId = ctx.getPosId(it) + invocationPos * 37 + 4308977
-        GraphNode.FuncParam(GraphNode.Base(stack, JNodeId(it.name, memPos, stack, posId), it.name.toString()))
+        val posId = ctx.getPosId(it) + localId
+        GraphNode.FuncParam(GraphNode.Base(JNodeId(stack, posId, it.name, memPos)))
     }
 
     init {
@@ -76,8 +77,8 @@ class GraphBuilderBlock(
     }
 
     private fun createReturnNode(stack: List<String>, invocationPos: Long): GraphNode {
-        val nodeId = JNodeId(method.name.name, memPos, stack, invocationPos)
-        val nodeBase = GraphNode.Base(stack, nodeId, "return")
+        val nodeId = JNodeId(stack, invocationPos, method.name.name, memPos)
+        val nodeBase = GraphNode.Base(nodeId)
         return GraphNode.MethodReturn(nodeBase)
     }
 

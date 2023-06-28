@@ -27,11 +27,12 @@ class MermaidExporter() {
     }
 
     private fun processMethod(method: GraphBuilderBlock, depth: Int, writer: (String) -> Unit) {
-        writer(genSpaces(depth) + "subgraph ${method.method.name.name}")
-        for (node in method.graph.getNodesSortedByExtId()) {
+        writer(genSpaces(depth) + "subgraph ${method.localId}[\"${method.method.name.name}\"]")
+        val sortedNodes = method.graph.getNodesSortedByExtId()
+        for (node in sortedNodes) {
             writer(genSpaces(depth + 2) + "${getNodeStr(node)}")
         }
-        for (node in method.graph.getNodesSortedByExtId()) {
+        for (node in sortedNodes) {
             for (toNode in node.edgesIterator()) {
                 writer(genSpaces(depth + 2) + "${getNodeStr(node)} --> ${getNodeStr(toNode)}")
             }

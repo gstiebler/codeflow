@@ -1,45 +1,65 @@
 ```mermaid
 flowchart TD
-  subgraph main
-    13677[args]:::FUNC_PARAM
-    13681[x]:::VARIABLE
-    13682[y]:::VARIABLE
-    13693[e]:::VARIABLE
-    232102[8]:::LITERAL
-    364914[return]:::RETURN
-    764292[5]:::LITERAL
-    13681[x]:::VARIABLE --> 13701[a]:::FUNC_PARAM
-    232102[8]:::LITERAL --> 13702[b]:::FUNC_PARAM
-    764292[5]:::LITERAL --> 13681[x]:::VARIABLE
-    subgraph methodA
-      13701[a]:::FUNC_PARAM
-      13702[b]:::FUNC_PARAM
-      13703[c]:::VARIABLE
-      594709[return]:::RETURN
-      785695[+]:::BIN_OP
-      13701[a]:::FUNC_PARAM --> 785695[+]:::BIN_OP
-      13702[b]:::FUNC_PARAM --> 785695[+]:::BIN_OP
-      13703[c]:::VARIABLE --> 594709[return]:::RETURN
-      594709[return]:::RETURN --> 13682[y]:::VARIABLE
-      785695[+]:::BIN_OP --> 13703[c]:::VARIABLE
+  subgraph 4308940["main"]
+    214598[x]:::VARIABLE
+    217505[5]:::LITERAL
+    221840[y]:::VARIABLE
+    227960[8]:::LITERAL
+    240574[e]:::VARIABLE
+    56996632[main]:::RETURN
+    1296531130[args]:::FUNC_PARAM
+    214598[x]:::VARIABLE --> 1248129501[a]:::FUNC_PARAM
+    217505[5]:::LITERAL --> 214598[x]:::VARIABLE
+    227960[8]:::LITERAL --> 1248131541[b]:::FUNC_PARAM
+    subgraph 4317894["methodA"]
+      1248129501[a]:::FUNC_PARAM
+      1248131541[b]:::FUNC_PARAM
+      1347809112[c]:::VARIABLE
+      1347812206[+]:::BIN_OP
+      16244305365[methodA]:::RETURN
+      1248129501[a]:::FUNC_PARAM --> 1347812206[+]:::BIN_OP
+      1248131541[b]:::FUNC_PARAM --> 1347812206[+]:::BIN_OP
+      1347809112[c]:::VARIABLE --> 16244305365[methodA]:::RETURN
+      1347812206[+]:::BIN_OP --> 1347809112[c]:::VARIABLE
+      16244305365[methodA]:::RETURN --> 221840[y]:::VARIABLE
     end
-    subgraph methodB
-      -894336856[d]:::VARIABLE
-      -894336848[f]:::VARIABLE
-      680146[return]:::RETURN
-      -894336856[d]:::VARIABLE --> 680146[return]:::RETURN
-      680146[return]:::RETURN --> 13693[e]:::VARIABLE
-      subgraph methodC
-        708522[return]:::RETURN
-        713444[6]:::LITERAL
-        708522[return]:::RETURN --> -894336856[d]:::VARIABLE
-        713444[6]:::LITERAL --> 708522[return]:::RETURN
+    subgraph 4320114["methodB"]
+      1347833375[d]:::VARIABLE
+      1347841790[f]:::VARIABLE
+      1347862955[11]:::LITERAL
+      1347871370[13]:::LITERAL
+      16244322722[methodB]:::RETURN
+      1347833375[d]:::VARIABLE --> 16244322722[methodB]:::RETURN
+      1347862955[11]:::LITERAL --> -14324128104[paramH]:::FUNC_PARAM
+      1347871370[13]:::LITERAL --> -14323818007[paramH]:::FUNC_PARAM
+      16244322722[methodB]:::RETURN --> 240574[e]:::VARIABLE
+      subgraph 4326256["methodC"]
+        -14324128104[paramH]:::FUNC_PARAM
+        172086463[g]:::VARIABLE
+        172087942[6]:::LITERAL
+        173778065[div]:::BIN_OP
+        16303090884[memberX]:::VARIABLE
+        17591915557[methodC]:::RETURN
+        -14324128104[paramH]:::FUNC_PARAM --> 173778065[div]:::BIN_OP
+        172086463[g]:::VARIABLE --> 16303090884[memberX]:::VARIABLE
+        172087942[6]:::LITERAL --> 173778065[div]:::BIN_OP
+        173778065[div]:::BIN_OP --> 172086463[g]:::VARIABLE
+        16303090884[memberX]:::VARIABLE --> 17591915557[methodC]:::RETURN
+        17591915557[methodC]:::RETURN --> 1347833375[d]:::VARIABLE
       end
-      subgraph methodC
-        183287[6]:::LITERAL
-        875257[return]:::RETURN
-        183287[6]:::LITERAL --> 875257[return]:::RETURN
-        875257[return]:::RETURN --> -894336848[f]:::VARIABLE
+      subgraph 4327329["methodC"]
+        -14323818007[paramH]:::FUNC_PARAM
+        172086555[g]:::VARIABLE
+        172088034[6]:::LITERAL
+        173778157[div]:::BIN_OP
+        16303090976[memberX]:::VARIABLE
+        17591923938[methodC]:::RETURN
+        -14323818007[paramH]:::FUNC_PARAM --> 173778157[div]:::BIN_OP
+        172086555[g]:::VARIABLE --> 16303090976[memberX]:::VARIABLE
+        172088034[6]:::LITERAL --> 173778157[div]:::BIN_OP
+        173778157[div]:::BIN_OP --> 172086555[g]:::VARIABLE
+        16303090976[memberX]:::VARIABLE --> 17591923938[methodC]:::RETURN
+        17591923938[methodC]:::RETURN --> 1347841790[f]:::VARIABLE
       end
     end
   end

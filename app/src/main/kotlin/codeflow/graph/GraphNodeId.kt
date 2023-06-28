@@ -1,12 +1,13 @@
 package codeflow.graph
 
-open class GraphNodeId(private val stack: List<String>, private val posId: Long) {
+open class GraphNodeId(val stack: List<String>, private val posId: Long, val label: String) {
 
     open fun getIntId() = getExtId()
 
     fun getExtId(): Long {
         var hash: Long = 31
         hash = hash * 17 + posId
+        hash = hash * 17 + label.hashCode()
         hash = hash * 17 + stack.hashCode()
         return hash
     }
@@ -18,5 +19,5 @@ open class GraphNodeId(private val stack: List<String>, private val posId: Long)
         return false
     }
 
-    override fun toString() = "$posId, $stack"
+    override fun toString() = "'$label', $posId, $stack"
 }

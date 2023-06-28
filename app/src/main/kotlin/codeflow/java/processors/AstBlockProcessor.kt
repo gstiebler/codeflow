@@ -92,7 +92,7 @@ open class AstBlockProcessor(
     /**
      * Returns the mem pos of the given expression.
      */
-    private fun getMemPos(node: ExpressionTree?, ctx: ProcessorContext): MemPos? {
+    private fun getMemPos(node: Tree?, ctx: ProcessorContext): MemPos? {
         return node?.accept(AstMemPosProcessor(graphBuilderBlock, getStack(), memPos), ctx)
     }
 
@@ -142,16 +142,11 @@ open class AstBlockProcessor(
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
         val invocationPos = ctx.getPosId(node)
-        val instanceName = methodIdentifier.instanceName
-        val memPosLocal = if (instanceName == null) {
-            null
-        } else {
-            graphBuilderBlock.parent.getMemPos(JNodeId(getStack(), invocationPos, instanceName, memPos))
-        }
+        val exprMemPos = getMemPos(methodIdentifier.expression, ctx)
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, getStack(), invocationPos, memPosLocal, ctx)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, getStack(), invocationPos, exprMemPos, ctx)
         val localPos = Position(invocationPos, ctx.path)
-        val blockProcessor = AstBlockProcessor(this, graphBlock, localPos, memPosLocal)
+        val blockProcessor = AstBlockProcessor(this, graphBlock, localPos, exprMemPos)
         blockProcessor.process(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode

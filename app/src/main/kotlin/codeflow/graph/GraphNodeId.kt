@@ -19,5 +19,5 @@ open class GraphNodeId(val stack: List<String>, private val posId: Long, val lab
         return false
     }
 
-    override fun toString() = "'$label', $posId, $stack"
+    override fun toString() = "GraphNodeId=('$label', ${getExtId()}, $stack)"
 }

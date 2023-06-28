@@ -36,7 +36,7 @@ open class AstBlockProcessor(
         val rhs = node.expression
 
         val lhsName = lhs.accept(AstLastNameProcessor(), ctx)
-        val lhsIsPrimitive = graphBuilderBlock.parent.isPrimitive(JIdentifierId(lhsName))
+        val lhsIsPrimitive = graphBuilderBlock.parentGB.isPrimitive(JIdentifierId(lhsName))
 
         val lhsParentExpr = lhs.accept(AstParentExprProcessor(), ctx)
         val lhsMemPos = if (lhsParentExpr == null) {
@@ -59,7 +59,7 @@ open class AstBlockProcessor(
         val typeKind = node.type.kind
 
         val isPrimitive = typeKind == Tree.Kind.PRIMITIVE_TYPE
-        graphBuilderBlock.parent.registerIsPrimitive(JIdentifierId(node.name), isPrimitive)
+        graphBuilderBlock.parentGB.registerIsPrimitive(JIdentifierId(node.name), isPrimitive)
         val name = node.name
 
         if (node.initializer != null) {
@@ -86,7 +86,7 @@ open class AstBlockProcessor(
      */
     private fun assignMemPos(lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext) {
         val rhsMemPos = getMemPos(rhs, ctx) ?: throw GraphException("Mem pos of $rhs is null")
-        graphBuilderBlock.parent.addMemPos(lhsId, rhsMemPos)
+        graphBuilderBlock.parentGB.addMemPos(lhsId, rhsMemPos)
     }
 
     /**
@@ -138,13 +138,13 @@ open class AstBlockProcessor(
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode? {
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
-        val method = graphBuilderBlock.parent.getMethod(JMethodId(methodIdentifier.methodName))
+        val method = graphBuilderBlock.parentGB.getMethod(JMethodId(methodIdentifier.methodName))
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
         val invocationPos = ctx.getPosId(node)
         val exprMemPos = getMemPos(methodIdentifier.expression, ctx)
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parent, method, getStack(), invocationPos, exprMemPos, ctx)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock.parentGB, graphBuilderBlock, method, getStack(), invocationPos, exprMemPos, ctx)
         val localPos = Position(invocationPos, ctx.path)
         val blockProcessor = AstBlockProcessor(this, graphBlock, localPos, exprMemPos)
         blockProcessor.process(methodArguments)

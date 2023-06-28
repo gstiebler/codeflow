@@ -6,6 +6,10 @@ package test;
 
 class ClassX {
     public int memberX;
+
+    public int getMemberX() {
+        return memberX;
+    }
 }
 
 class ClassY {
@@ -30,8 +34,10 @@ public class App {
         y.x = new ClassX();
         y.x.memberX = 8;
         ClassY y1 = y;
-        int c = y1.x.memberX;
+        // int c = y1.x.memberX;
+        int c = y1.x.getMemberX();
         ClassX x1 = y1.x;
         int d = x1.memberX;
+        int j = c;
     }
 }

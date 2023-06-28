@@ -53,7 +53,7 @@ class AstReader(private val basePath: Path) {
 
         val mainMethod = graphBuilder.getMainMethod()
         val mainMethodGraphBuilderBlock =
-            GraphBuilderBlock(graphBuilder, mainMethod, emptyList(), -1,null, mainCtx)
+            GraphBuilderBlock(graphBuilder, null, mainMethod, emptyList(), -1,null, mainCtx)
         val pos = AstBlockProcessor.Position(0, Path.of(""))
         val mainAstBlockProcessor = AstBlockProcessor(null, mainMethodGraphBuilderBlock, pos, null)
         mainAstBlockProcessor.process(emptyList())

@@ -1,10 +1,13 @@
 package codeflow.graph
 
-class Graph() {
-    // Node Id -> Node
+import mu.KotlinLogging
+
+class Graph(private val parent: Graph?) {
+    private val logger = KotlinLogging.logger {}
     private val nodes = HashMap<GraphNodeId, GraphNode>()
 
     fun addNode(node: GraphNode) {
+        logger.debug { "addNode: $node" }
         nodes[node.id] = node
     }
 
@@ -13,7 +16,13 @@ class Graph() {
     private fun getFormattedNodes(): String {
         return nodes.keys.joinToString(separator = "\n") { it.toString() }
     }
+
     fun getNode(id: GraphNodeId): GraphNode {
-        return nodes[id] ?: throw GraphException("Identifier '${id}' not found in graph: \n${getFormattedNodes()}")
+        return nodes[id] ?: parent?.getNode(id) ?:
+            throw GraphException("Identifier '${id}' not found in graph: \n${getFormattedNodes()}")
+    }
+
+    override fun toString(): String {
+        return "Graph(nodes=${nodes.values.joinToString { "\n    $it" }})"
     }
 }

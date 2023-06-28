@@ -17,5 +17,5 @@ class JNodeId(
         return hash
     }
 
-    override fun toString() = "'$name', '$memPos', $posId, $stack"
+    override fun toString() = "JNodeId=('$name', ${getIntId()}, ${getExtId()}, '$memPos', $stack)"
 }

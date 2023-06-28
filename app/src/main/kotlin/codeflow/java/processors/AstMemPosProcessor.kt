@@ -19,14 +19,14 @@ class AstMemPosProcessor(
     override fun visitNewClass(node: NewClassTree, ctx: ProcessorContext): MemPos {
         val identifier = node.identifier
         val arguments = node.arguments
-        return graphBuilder.parent.createMemPos(identifier.toString())
+        return graphBuilder.parentGB.createMemPos(identifier.toString())
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos {
         val expr = node.expression
         val exprMemPos = expr.accept(this, ctx)
         val nodeId = JNodeId(stack, ctx.getPosId(node), node.identifier, exprMemPos)
-        return graphBuilder.parent.getMemPos(nodeId)
+        return graphBuilder.parentGB.getMemPos(nodeId)
     }
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): MemPos? {
@@ -35,7 +35,7 @@ class AstMemPosProcessor(
         }
         try {
             val nodeId = JNodeId(stack, ctx.getPosId(node), node.name, memPos)
-            return graphBuilder.parent.getMemPos(nodeId)
+            return graphBuilder.parentGB.getMemPos(nodeId)
         } catch (e: Exception) {
             logger.warn { "Exception in AstMemPosProcessor: ${e.message}" }
         }

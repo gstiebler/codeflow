@@ -27,8 +27,10 @@ abstract class GraphNode(private val base: Base) {
     fun edgesIterator() = edges.iterator()
 
     fun addEdge(node: GraphNode) {
+        logger.debug { "addEdge: $this -> $node" }
         edges.add(node)
     }
+
     fun print() {
         logger.info { this }
         if (edges.size > 0) {
@@ -49,7 +51,7 @@ abstract class GraphNode(private val base: Base) {
     override fun hashCode() = id.hashCode()
 
     override fun toString(): String {
-        return "'$label', ${getType()}, $id"
+        return "('$label', $id, ${getType()})"
     }
 
     class Literal(base: Base) : GraphNode(base) {

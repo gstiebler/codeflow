@@ -3,9 +3,11 @@ package codeflow
 import codeflow.graph.Graph
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
+import mu.KotlinLogging
 
 
 class MermaidExporter() {
+    private val logger = KotlinLogging.logger {}
     private fun getNodeStr(node: GraphNode) = "${node.id.getExtId()}[${node.label}]:::${node.getType()}"
 
     private fun getClasses() = listOf(
@@ -27,8 +29,10 @@ class MermaidExporter() {
     }
 
     private fun processMethod(method: GraphBuilderBlock, depth: Int, writer: (String) -> Unit) {
-        writer(genSpaces(depth) + "subgraph ${method.localId}[\"${method.method.name.name}\"]")
         val sortedNodes = method.graph.getNodesSortedByExtId()
+        writer(genSpaces(depth) + "subgraph ${method.localId}[\"${method.method.name.name}\"]")
+        logger.debug { "processMethod: ${method.method.name.name}" }
+        logger.debug { "Graph: ${method.graph}" }
         for (node in sortedNodes) {
             writer(genSpaces(depth + 2) + "${getNodeStr(node)}")
         }

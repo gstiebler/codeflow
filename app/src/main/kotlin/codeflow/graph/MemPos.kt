@@ -1,6 +1,9 @@
 package codeflow.graph
 
-class MemPos(private val label: String) {
+import com.sun.source.tree.ExpressionTree
+
+class MemPos(val expr: ExpressionTree) {
+
     companion object {
         var counter = 0
     }
@@ -8,6 +11,6 @@ class MemPos(private val label: String) {
     val id = counter++
 
     override fun toString(): String {
-        return "MemPos($id, '$label')"
+        return "MemPos($id, '$expr')"
     }
 }

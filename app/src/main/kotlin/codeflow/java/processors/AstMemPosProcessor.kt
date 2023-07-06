@@ -19,7 +19,16 @@ class AstMemPosProcessor(
     override fun visitNewClass(node: NewClassTree, ctx: ProcessorContext): MemPos {
         val identifier = node.identifier
         val arguments = node.arguments
-        return graphBuilder.parentGB.createMemPos(identifier.toString())
+        val argumentTypes = arguments.map {
+            val nodeName = it.accept(NameExtractor(), ctx) ?: return@map null
+            val nodeId = JNodeId(stack, ctx.getPosId(it), nodeName, memPos)
+            val gNode = graphBuilder.parentGB.getMemPos(nodeId)
+            gNode.expr.accept(NameExtractor(), ctx)
+        }
+
+        val constructor = graphBuilder.parentGB.constructors[argumentTypes]
+        logger.debug { "visitNewClass: $identifier, argument types: $argumentTypes" }
+        return graphBuilder.parentGB.createMemPos(identifier)
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos {

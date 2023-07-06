@@ -6,3 +6,4 @@ app/bin/*
 build
 .idea
 result.md
+*.class

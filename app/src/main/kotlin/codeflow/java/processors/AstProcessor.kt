@@ -12,7 +12,7 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
     private val logger = KotlinLogging.logger {}
 
     // mutable list of method names
-    var methodNames = mutableListOf<Name>()
+    val methodNames = mutableListOf<Name>()
 
     override fun visitClass(node: ClassTree, ctx: ProcessorContext): GraphNode? {
         logger.info { "Class name: ${node.simpleName}" }
@@ -27,6 +27,14 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
         logger.debug { "visitMethod: ${node.name}" }
         methodNames.add(node.name)
         graphBuilder.addMethod(node, JMethodId(node.name), ctx.getPosId(node), ctx)
+        val isConstructor = node.name.contentEquals("<init>")
+        if (isConstructor) {
+            val types = node.parameters.map { it.type }
+            val typesNames = types.map {
+                it.accept(NameExtractor(), ctx)
+            }
+            graphBuilder.constructors[typesNames] = node
+        }
         return null
     }
 }

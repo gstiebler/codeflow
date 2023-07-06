@@ -2,8 +2,10 @@ package codeflow.graph
 
 import codeflow.java.ids.JNodeId
 import codeflow.java.processors.ProcessorContext
+import com.sun.source.tree.ExpressionTree
 import com.sun.source.tree.MethodTree
 import mu.KotlinLogging
+import javax.lang.model.element.Name
 
 
 class GraphBuilder() {
@@ -11,6 +13,7 @@ class GraphBuilder() {
     private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
     private val logger = KotlinLogging.logger {}
+    val constructors = HashMap<List<Name>, MethodTree>()
 
     fun addMethod(methodTree: MethodTree, hashCode: MethodId, posId: Long, ctx: ProcessorContext) {
         methods[hashCode] = Method(methodTree, posId, ctx)
@@ -40,7 +43,7 @@ class GraphBuilder() {
         return idToMemPos[nodeId] ?: throw GraphException("Variable not found: $nodeId")
     }
 
-    fun createMemPos(label: String): MemPos {
+    fun createMemPos(label: ExpressionTree): MemPos {
         val newMemPos = MemPos(label)
         logger.debug { "createMemPos: $label, $newMemPos" }
         return newMemPos

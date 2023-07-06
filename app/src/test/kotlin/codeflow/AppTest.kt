@@ -38,4 +38,5 @@ class AppTest {
     @Test fun funcCall() = codeflow("funcCall", listOf("App.java"))
     @Test fun member() = codeflow("member", listOf("App.java"))
     @Test fun files() = codeflow("files", listOf("App.java", "ClassX.java", "ClassY.java"))
+    @Test fun constructor() = codeflow("constructor", listOf("App.java"))
 }

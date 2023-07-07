@@ -1,6 +1,5 @@
 package codeflow.java
 
-import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphBuilderBlock
 import codeflow.java.processors.*
 import com.sun.source.tree.CompilationUnitTree
@@ -34,10 +33,9 @@ class AstReader(private val basePath: Path) {
             compUnitTree.accept(AstClassProcessor(globalCtx), ctx)
         }
         var mainCtx: ProcessorContext? = null
-        val graphBuilder = GraphBuilder()
         for (compUnitTree in compUnitTrees) {
             val ctx = getContext(compUnitTree, sourcePositions)
-            val astProcessor = AstProcessor(graphBuilder)
+            val astProcessor = AstProcessor(globalCtx)
             compUnitTree.accept(astProcessor, ctx)
             if (astProcessor.methodNames.any { it.toString() == "main" }) {
                 mainCtx = ctx
@@ -49,9 +47,9 @@ class AstReader(private val basePath: Path) {
             throw Exception("No main method found")
         }
 
-        val mainMethod = graphBuilder.getMainMethod()
+        val mainMethod = globalCtx.getMainMethod()
         val mainMethodGraphBuilderBlock =
-            GraphBuilderBlock(graphBuilder, null, mainMethod, emptyList(), -1,null, mainCtx)
+            GraphBuilderBlock( null, mainMethod, emptyList(), -1,null, mainCtx)
         val pos = AstBlockProcessor.Position(0, Path.of(""))
         val mainAstBlockProcessor = AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null)
         mainAstBlockProcessor.invokeMethod(emptyList())

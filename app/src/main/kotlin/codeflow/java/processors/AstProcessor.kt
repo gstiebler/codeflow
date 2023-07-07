@@ -1,6 +1,5 @@
 package codeflow.java.processors
 
-import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphNode
 import codeflow.java.ids.JMethodId
 import com.sun.source.tree.*
@@ -8,7 +7,7 @@ import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
 import javax.lang.model.element.Name
 
-class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, ProcessorContext>() {
+class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
     // mutable list of method names
@@ -26,14 +25,14 @@ class AstProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNo
     override fun visitMethod(node: MethodTree, ctx: ProcessorContext): GraphNode? {
         logger.debug { "visitMethod: ${node.name}" }
         methodNames.add(node.name)
-        graphBuilder.addMethod(node, JMethodId(node.name), ctx.getPosId(node), ctx)
+        globalCtx.addMethod(node, JMethodId(node.name), ctx.getPosId(node), ctx)
         val isConstructor = node.name.contentEquals("<init>")
         if (isConstructor) {
             val types = node.parameters.map { it.type }
             val typesNames = types.map {
                 it.accept(NameExtractor(), ctx)
             }
-            graphBuilder.constructors[typesNames] = node
+            globalCtx.constructors[typesNames] = node
         }
         return null
     }

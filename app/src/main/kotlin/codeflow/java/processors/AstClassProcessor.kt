@@ -1,6 +1,5 @@
 package codeflow.java.processors
 
-import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphNode
 import codeflow.java.ids.JIdentifierId
 import com.sun.source.tree.ClassTree

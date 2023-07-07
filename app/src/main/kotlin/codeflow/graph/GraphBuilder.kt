@@ -1,52 +1,15 @@
 package codeflow.graph
 
 import codeflow.java.ids.JNodeId
+import codeflow.java.processors.GlobalContext
 import codeflow.java.processors.ProcessorContext
 import com.sun.source.tree.ExpressionTree
 import com.sun.source.tree.MethodTree
 import mu.KotlinLogging
 import javax.lang.model.element.Name
 
-
-class GraphBuilder() {
-    private val methods = HashMap<MethodId, Method>()
-    private val idToMemPos = HashMap<GraphNodeId, MemPos>()
-    private val logger = KotlinLogging.logger {}
-    val constructors = HashMap<List<Name>, MethodTree>()
-
-    fun addMethod(methodTree: MethodTree, hashCode: MethodId, posId: Long, ctx: ProcessorContext) {
-        methods[hashCode] = Method(methodTree, posId, ctx)
-    }
-
-    fun getMethod(hashCode: MethodId): Method {
-        return methods[hashCode] ?: throw GraphException("Method not found")
-    }
-
-    fun getMainMethod(): Method {
-        val method = methods.firstNotNullOf {
-            if (it.value.name.name.toString() == "main") it.value else null
-        }
-        return method
-    }
-
-    fun getMemPos(nodeId: GraphNodeId): MemPos {
-        return idToMemPos[nodeId] ?: throw GraphException("Variable not found: $nodeId")
-    }
-
-    fun createMemPos(label: ExpressionTree): MemPos {
-        val newMemPos = MemPos(label)
-        logger.debug { "createMemPos: $label, $newMemPos" }
-        return newMemPos
-    }
-
-    fun addMemPos(nodeId: GraphNodeId, rhsMemPos: MemPos) {
-        logger.debug { "addMemPos: $nodeId -> $rhsMemPos" }
-        idToMemPos[nodeId] = rhsMemPos
-    }
-}
-
 class GraphBuilderBlock(
-    val parentGB: GraphBuilder,
+    // val globalCtx: GlobalContext,
     val parent: GraphBuilderBlock?,
     val method: Method,
     stack: List<String>,

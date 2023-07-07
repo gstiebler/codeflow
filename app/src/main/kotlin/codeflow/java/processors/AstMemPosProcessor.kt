@@ -24,21 +24,20 @@ class AstMemPosProcessor(
         val identifier = node.identifier
         val arguments = node.arguments
 
-        val createdMemPos = graphBuilder.parentGB.createMemPos(identifier)
+        val createdMemPos = globalCtx.createMemPos(identifier)
         val invocationPos = ctx.getPosId(node)
 
         val argumentTypes = arguments.map {
             val nodeName = it.accept(NameExtractor(), ctx) ?: return@map null
             val nodeId = JNodeId(stack, ctx.getPosId(it), nodeName, memPos)
-            val gNode = graphBuilder.parentGB.getMemPos(nodeId)
+            val gNode = globalCtx.getMemPos(nodeId)
 
             gNode.expr.accept(NameExtractor(), ctx)
         }
-        val constructor = graphBuilder.parentGB.constructors[argumentTypes]
+        val constructor = globalCtx.constructors[argumentTypes]
         if (constructor != null) {
             val method = Method(constructor, invocationPos, ctx)
-            val graphBlock = GraphBuilderBlock(graphBuilder.parentGB, graphBuilder, method, stack, invocationPos,
-                createdMemPos, ctx)
+            val graphBlock = GraphBuilderBlock(graphBuilder, method, stack, invocationPos, createdMemPos, ctx)
             val localPos = AstBlockProcessor.Position(invocationPos, ctx.path)
             val blockProcessor = AstBlockProcessor(globalCtx, blockProcesor, graphBlock, localPos, createdMemPos)
             val argumentNodes = arguments.map {
@@ -57,7 +56,7 @@ class AstMemPosProcessor(
         val expr = node.expression
         val exprMemPos = expr.accept(this, ctx)
         val nodeId = JNodeId(stack, ctx.getPosId(node), node.identifier, exprMemPos)
-        return graphBuilder.parentGB.getMemPos(nodeId)
+        return globalCtx.getMemPos(nodeId)
     }
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): MemPos? {
@@ -66,7 +65,7 @@ class AstMemPosProcessor(
         }
         try {
             val nodeId = JNodeId(stack, ctx.getPosId(node), node.name, memPos)
-            return graphBuilder.parentGB.getMemPos(nodeId)
+            return globalCtx.getMemPos(nodeId)
         } catch (e: Exception) {
             logger.warn { "Exception in AstMemPosProcessor: ${e.message}" }
         }

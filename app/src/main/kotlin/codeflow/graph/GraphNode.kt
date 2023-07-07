@@ -51,7 +51,7 @@ abstract class GraphNode(private val base: Base) {
     override fun hashCode() = id.hashCode()
 
     override fun toString(): String {
-        return "('$label', $id, ${getType()})"
+        return "(label: '$label', id: $id, type: ${getType()})"
     }
 
     class Literal(base: Base) : GraphNode(base) {

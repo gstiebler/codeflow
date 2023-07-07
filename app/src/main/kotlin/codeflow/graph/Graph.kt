@@ -2,7 +2,7 @@ package codeflow.graph
 
 import mu.KotlinLogging
 
-class Graph(private val parent: Graph?) {
+class Graph(private val parentGBB: GraphBuilderBlock) {
     private val logger = KotlinLogging.logger {}
     private val nodes = HashMap<GraphNodeId, GraphNode>()
 
@@ -18,7 +18,7 @@ class Graph(private val parent: Graph?) {
     }
 
     fun getNode(id: GraphNodeId): GraphNode {
-        return nodes[id] ?: parent?.getNode(id) ?:
+        return nodes[id] ?: parentGBB.parent?.graph?.getNode(id) ?:
             throw GraphException("Identifier '${id}' not found in graph: \n${getFormattedNodes()}")
     }
 

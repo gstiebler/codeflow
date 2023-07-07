@@ -93,7 +93,7 @@ open class AstBlockProcessor(
      * Returns the mem pos of the given expression.
      */
     private fun getMemPos(node: Tree?, ctx: ProcessorContext): MemPos? {
-        return node?.accept(AstMemPosProcessor(graphBuilderBlock, getStack(), memPos), ctx)
+        return node?.accept(AstMemPosProcessor(graphBuilderBlock, this, getStack(), memPos), ctx)
     }
 
 
@@ -136,7 +136,7 @@ open class AstBlockProcessor(
         return graphBuilderBlock.addBinOp(GraphNode.Base(jId), leftNode, rightNode)
     }
 
-    override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode? {
+    override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode {
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
         val method = graphBuilderBlock.parentGB.getMethod(JMethodId(methodIdentifier.methodName))
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
@@ -147,12 +147,12 @@ open class AstBlockProcessor(
         val graphBlock = GraphBuilderBlock(graphBuilderBlock.parentGB, graphBuilderBlock, method, getStack(), invocationPos, exprMemPos, ctx)
         val localPos = Position(invocationPos, ctx.path)
         val blockProcessor = AstBlockProcessor(this, graphBlock, localPos, exprMemPos)
-        blockProcessor.process(methodArguments)
+        blockProcessor.invokeMethod(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode
     }
 
-    fun process(methodArguments: List<GraphNode>) {
+    fun invokeMethod(methodArguments: List<GraphNode>) {
         val method = graphBuilderBlock.method
         val methodName =  method.name
         methodName.receiverParameter?.accept(this, method.ctx)

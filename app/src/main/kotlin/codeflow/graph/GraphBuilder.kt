@@ -57,14 +57,14 @@ class GraphBuilder() {
 
 class GraphBuilderBlock(
     val parentGB: GraphBuilder,
-    parent: GraphBuilderBlock?,
+    val parent: GraphBuilderBlock?,
     val method: Method,
     stack: List<String>,
     invocationPos: Long,
     private val memPos: MemPos?,
     private val ctx: ProcessorContext
 ) {
-    val graph: Graph = Graph(parent?.graph)
+    val graph: Graph = Graph(this)
     val localId = invocationPos * 37 + 4308977
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = createReturnNode(stack, invocationPos)

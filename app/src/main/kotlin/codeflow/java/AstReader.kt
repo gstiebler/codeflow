@@ -2,10 +2,7 @@ package codeflow.java
 
 import codeflow.graph.GraphBuilder
 import codeflow.graph.GraphBuilderBlock
-import codeflow.java.processors.AstBlockProcessor
-import codeflow.java.processors.AstClassProcessor
-import codeflow.java.processors.AstProcessor
-import codeflow.java.processors.ProcessorContext
+import codeflow.java.processors.*
 import com.sun.source.tree.CompilationUnitTree
 import com.sun.source.util.JavacTask
 import com.sun.source.util.SourcePositions
@@ -30,13 +27,14 @@ class AstReader(private val basePath: Path) {
         val trees = Trees.instance(task)
         val sourcePositions = trees.sourcePositions
 
-        val graphBuilder = GraphBuilder()
         val compUnitTrees = task.parse()
+        val globalCtx = GlobalContext()
         for (compUnitTree in compUnitTrees) {
             val ctx = getContext(compUnitTree, sourcePositions)
-            compUnitTree.accept(AstClassProcessor(graphBuilder), ctx)
+            compUnitTree.accept(AstClassProcessor(globalCtx), ctx)
         }
         var mainCtx: ProcessorContext? = null
+        val graphBuilder = GraphBuilder()
         for (compUnitTree in compUnitTrees) {
             val ctx = getContext(compUnitTree, sourcePositions)
             val astProcessor = AstProcessor(graphBuilder)
@@ -55,7 +53,7 @@ class AstReader(private val basePath: Path) {
         val mainMethodGraphBuilderBlock =
             GraphBuilderBlock(graphBuilder, null, mainMethod, emptyList(), -1,null, mainCtx)
         val pos = AstBlockProcessor.Position(0, Path.of(""))
-        val mainAstBlockProcessor = AstBlockProcessor(null, mainMethodGraphBuilderBlock, pos, null)
+        val mainAstBlockProcessor = AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null)
         mainAstBlockProcessor.invokeMethod(emptyList())
 
         manager.close()

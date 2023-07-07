@@ -10,7 +10,9 @@ import com.sun.source.tree.VariableTree
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
 
-class AstClassProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<GraphNode, ProcessorContext>() {
+class AstClassProcessor(
+    private val globalCtx: GlobalContext
+) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
     override fun visitCompilationUnit(node: CompilationUnitTree?, ctx: ProcessorContext?): GraphNode? {
@@ -38,7 +40,7 @@ class AstClassProcessor(private val graphBuilder: GraphBuilder) : TreeScanner<Gr
         val type = node.type
         val typeKind = type.kind
         val nodeId = JIdentifierId(node.name)
-        graphBuilder.registerIsPrimitive(nodeId, typeKind == Tree.Kind.PRIMITIVE_TYPE)
+        globalCtx.registerIsPrimitive(nodeId, typeKind == Tree.Kind.PRIMITIVE_TYPE)
         return null
     }
 }

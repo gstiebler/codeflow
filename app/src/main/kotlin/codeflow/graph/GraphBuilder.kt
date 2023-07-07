@@ -10,7 +10,6 @@ import javax.lang.model.element.Name
 
 class GraphBuilder() {
     private val methods = HashMap<MethodId, Method>()
-    private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
     private val logger = KotlinLogging.logger {}
     val constructors = HashMap<List<Name>, MethodTree>()
@@ -28,15 +27,6 @@ class GraphBuilder() {
             if (it.value.name.name.toString() == "main") it.value else null
         }
         return method
-    }
-
-    fun registerIsPrimitive(id: IdentifierId, isPrimitive: Boolean) {
-        isPrimitiveMap[id] = isPrimitive
-    }
-
-    fun isPrimitive(id: IdentifierId): Boolean {
-        // return the value, or throw an exception if it's not found
-        return isPrimitiveMap[id] ?: throw GraphException("Variable not found")
     }
 
     fun getMemPos(nodeId: GraphNodeId): MemPos {

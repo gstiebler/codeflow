@@ -15,6 +15,7 @@ import javax.lang.model.element.Name
  * It's called for every method in a class.
  */
 open class AstBlockProcessor(
+    private val globalCtx: GlobalContext,
     private val parent: AstBlockProcessor?,
     val graphBuilderBlock: GraphBuilderBlock,
     private val pos: Position,
@@ -36,7 +37,7 @@ open class AstBlockProcessor(
         val rhs = node.expression
 
         val lhsName = lhs.accept(AstLastNameProcessor(), ctx)
-        val lhsIsPrimitive = graphBuilderBlock.parentGB.isPrimitive(JIdentifierId(lhsName))
+        val lhsIsPrimitive = globalCtx.isPrimitive(JIdentifierId(lhsName))
 
         val lhsParentExpr = lhs.accept(AstParentExprProcessor(), ctx)
         val lhsMemPos = if (lhsParentExpr == null) {
@@ -59,7 +60,7 @@ open class AstBlockProcessor(
         val typeKind = node.type.kind
 
         val isPrimitive = typeKind == Tree.Kind.PRIMITIVE_TYPE
-        graphBuilderBlock.parentGB.registerIsPrimitive(JIdentifierId(node.name), isPrimitive)
+        globalCtx.registerIsPrimitive(JIdentifierId(node.name), isPrimitive)
         val name = node.name
 
         if (node.initializer != null) {
@@ -93,7 +94,7 @@ open class AstBlockProcessor(
      * Returns the mem pos of the given expression.
      */
     private fun getMemPos(node: Tree?, ctx: ProcessorContext): MemPos? {
-        return node?.accept(AstMemPosProcessor(graphBuilderBlock, this, getStack(), memPos), ctx)
+        return node?.accept(AstMemPosProcessor(globalCtx, graphBuilderBlock, this, getStack(), memPos), ctx)
     }
 
 
@@ -146,7 +147,7 @@ open class AstBlockProcessor(
 
         val graphBlock = GraphBuilderBlock(graphBuilderBlock.parentGB, graphBuilderBlock, method, getStack(), invocationPos, exprMemPos, ctx)
         val localPos = Position(invocationPos, ctx.path)
-        val blockProcessor = AstBlockProcessor(this, graphBlock, localPos, exprMemPos)
+        val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos)
         blockProcessor.invokeMethod(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode

@@ -24,7 +24,7 @@ class AstMemPosProcessor(
         val identifier = node.identifier
         val arguments = node.arguments
 
-        val createdMemPos = globalCtx.createMemPos(identifier)
+        val createdMemPos = globalCtx.createMemPos(identifier, graphBuilder)
         val invocationPos = ctx.getPosId(node)
 
         val argumentTypes = arguments.map {
@@ -45,6 +45,8 @@ class AstMemPosProcessor(
             }
             blockProcessor.invokeMethod(argumentNodes)
             graphBuilder.addCalledMethod(graphBlock)
+        } else {
+            logger.debug { "No constructor found: $node" }
         }
 
         logger.debug { "visitNewClass: $identifier, argument types: $argumentTypes" }

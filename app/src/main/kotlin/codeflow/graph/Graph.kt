@@ -17,9 +17,8 @@ class Graph(private val parentGBB: GraphBuilderBlock) {
         return nodes.keys.joinToString(separator = "\n") { it.toString() }
     }
 
-    fun getNode(id: GraphNodeId): GraphNode {
-        return nodes[id] ?: parentGBB.parent?.graph?.getNode(id) ?:
-            throw GraphException("Identifier '${id}' not found in graph: \n${getFormattedNodes()}")
+    fun getNode(id: GraphNodeId): GraphNode? {
+        return nodes[id] ?: parentGBB.parent?.graph?.getNode(id)
     }
 
     override fun toString(): String {

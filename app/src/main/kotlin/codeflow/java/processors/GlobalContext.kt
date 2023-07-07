@@ -41,8 +41,8 @@ class GlobalContext {
         return idToMemPos[nodeId] ?: throw GraphException("Variable not found: $nodeId")
     }
 
-    fun createMemPos(label: ExpressionTree): MemPos {
-        val newMemPos = MemPos(label)
+    fun createMemPos(label: ExpressionTree, graphBuilder: GraphBuilderBlock): MemPos {
+        val newMemPos = MemPos(label, graphBuilder)
         logger.debug { "createMemPos: $label, $newMemPos" }
         return newMemPos
     }

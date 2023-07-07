@@ -97,13 +97,17 @@ open class AstBlockProcessor(
         return node?.accept(AstMemPosProcessor(globalCtx, graphBuilderBlock, this, getStack(), memPos), ctx)
     }
 
+    private fun getNode(id: GraphNodeId): GraphNode {
+        return graphBuilderBlock.graph.getNode(id) ?: memPos?.getNode(id) ?:
+                throw GraphException("Identifier '${id}' not found in graph}")
+    }
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): GraphNode {
         val expression = node.expression
         val identifier = node.identifier
         val exprMemPos = getMemPos(expression, ctx)
         val nodeId = JNodeId(getStack(), ctx.getPosId(node), identifier, exprMemPos)
-        return graphBuilderBlock.graph.getNode(nodeId)
+        return getNode(nodeId)
     }
 
     override fun visitMemberReference(node: MemberReferenceTree?, p: ProcessorContext): GraphNode? {
@@ -112,7 +116,7 @@ open class AstBlockProcessor(
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
         val nId = JNodeId(getStack(), ctx.getPosId(node), node.name, memPos)
-        val graphNode = graphBuilderBlock.graph.getNode(nId)
+        val graphNode = getNode(nId)
         return graphNode
         // return graphNode ?: graphBuilder.addVariable(GraphNode.Base(ctx, node.name.hashCode(), node.name.toString()))
     }

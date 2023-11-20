@@ -25,11 +25,15 @@ open class AstBlockProcessor(
 
     data class Position(val pos: Long, val path: Path)
 
+    init {
+        logger.debug { "AstBlockProcessor created: $memPos" }
+    }
+
     override fun toString() = graphBuilderBlock.method.name.name.toString()
 
-    fun getStack(): List<String> {
-        val parentStack = parent?.getStack() ?: emptyList()
-        return parentStack + "${pos.path}:${pos.pos}"
+    private fun getStack(): PosStack {
+        val parentStack = parent?.getStack() ?: PosStack()
+        return parentStack.push(pos)
     }
 
     override fun visitAssignment(node: AssignmentTree, ctx: ProcessorContext): GraphNode? {
@@ -99,12 +103,15 @@ open class AstBlockProcessor(
 
     private fun getNode(id: GraphNodeId): GraphNode {
         return graphBuilderBlock.graph.getNode(id) ?: memPos?.getNode(id) ?:
-                throw GraphException("Identifier '${id}' not found in graph}")
+                throw GraphException("Identifier '${id}' not found in graph: ${graphBuilderBlock.graph}")
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): GraphNode {
+        // before the dot
         val expression = node.expression
+        // after the dot
         val identifier = node.identifier
+        // memory position of the class instance
         val exprMemPos = getMemPos(expression, ctx)
         val nodeId = JNodeId(getStack(), ctx.getPosId(node), identifier, exprMemPos)
         return getNode(nodeId)

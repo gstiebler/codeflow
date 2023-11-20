@@ -11,6 +11,7 @@ class GlobalContext {
     private val methods = HashMap<MethodId, Method>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
     val constructors = HashMap<List<Name>, MethodTree>()
+    private val logger = KotlinLogging.logger {}
 
     fun registerIsPrimitive(id: IdentifierId, isPrimitive: Boolean) {
         isPrimitiveMap[id] = isPrimitive
@@ -34,17 +35,14 @@ class GlobalContext {
             if (it.value.name.name.toString() == "main") it.value else null
         }
         return method
-    }    private val logger = KotlinLogging.logger {}
-
+    }
 
     fun getMemPos(nodeId: GraphNodeId): MemPos {
         return idToMemPos[nodeId] ?: throw GraphException("Variable not found: $nodeId")
     }
 
     fun createMemPos(label: ExpressionTree, graphBuilder: GraphBuilderBlock): MemPos {
-        val newMemPos = MemPos(label, graphBuilder)
-        logger.debug { "createMemPos: $label, $newMemPos" }
-        return newMemPos
+        return MemPos(label, graphBuilder)
     }
 
     fun addMemPos(nodeId: GraphNodeId, rhsMemPos: MemPos) {

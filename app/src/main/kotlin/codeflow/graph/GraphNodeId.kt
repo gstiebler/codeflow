@@ -1,6 +1,6 @@
 package codeflow.graph
 
-open class GraphNodeId(val stack: List<String>, private val posId: Long, val label: String) {
+open class GraphNodeId(private val stack: PosStack, private val posId: Long, val label: String) {
 
     open fun getIntId() = getExtId()
 
@@ -19,5 +19,5 @@ open class GraphNodeId(val stack: List<String>, private val posId: Long, val lab
         return false
     }
 
-    override fun toString() = "GraphNodeId=('$label', ${getExtId()}, $stack)"
+    override fun toString() = "GraphNodeId=(posId: '$posId', '$label', $stack, ${getExtId()})"
 }

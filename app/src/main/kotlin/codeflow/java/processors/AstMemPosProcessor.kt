@@ -1,9 +1,6 @@
 package codeflow.java.processors
 
-import codeflow.graph.GraphBuilderBlock
-import codeflow.graph.GraphException
-import codeflow.graph.MemPos
-import codeflow.graph.Method
+import codeflow.graph.*
 import codeflow.java.ids.JNodeId
 import com.sun.source.tree.IdentifierTree
 import com.sun.source.tree.MemberSelectTree
@@ -15,7 +12,7 @@ class AstMemPosProcessor(
     private val globalCtx: GlobalContext,
     private val graphBuilder: GraphBuilderBlock,
     private val blockProcesor: AstBlockProcessor,
-    private val stack: List<String>,
+    private val stack: PosStack,
     private val memPos: MemPos?
 ) : TreeScanner<MemPos, ProcessorContext>()  {
     private val logger = KotlinLogging.logger {}

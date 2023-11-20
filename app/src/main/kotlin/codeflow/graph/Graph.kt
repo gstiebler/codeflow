@@ -6,6 +6,9 @@ class Graph(private val parentGBB: GraphBuilderBlock) {
     private val logger = KotlinLogging.logger {}
     private val nodes = HashMap<GraphNodeId, GraphNode>()
 
+    /**
+     * A node is created when an assignment is made.
+     */
     fun addNode(node: GraphNode) {
         logger.debug { "addNode: $node" }
         nodes[node.id] = node

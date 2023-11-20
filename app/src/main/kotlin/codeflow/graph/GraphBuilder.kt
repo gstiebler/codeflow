@@ -12,7 +12,7 @@ class GraphBuilderBlock(
     // val globalCtx: GlobalContext,
     val parent: GraphBuilderBlock?,
     val method: Method,
-    stack: List<String>,
+    stack: PosStack,
     invocationPos: Long,
     private val memPos: MemPos?,
     private val ctx: ProcessorContext
@@ -32,7 +32,7 @@ class GraphBuilderBlock(
         parameterNodes.forEach { graph.addNode(it) }
     }
 
-    private fun createReturnNode(stack: List<String>, invocationPos: Long): GraphNode {
+    private fun createReturnNode(stack: PosStack, invocationPos: Long): GraphNode {
         val nodeId = JNodeId(stack, invocationPos, method.name.name, memPos)
         val nodeBase = GraphNode.Base(nodeId)
         return GraphNode.MethodReturn(nodeBase)

@@ -26,17 +26,16 @@ class AstMemPosProcessor(
 
         val argumentTypes = arguments.map {
             val nodeName = it.accept(NameExtractor(), ctx) ?: return@map null
-            val nodeId = JNodeId(stack, ctx.getPosId(it), nodeName, memPos)
+            val nodeId = JNodeId(stack, nodeName, memPos)
             val gNode = globalCtx.getMemPos(nodeId)
 
             gNode.expr.accept(NameExtractor(), ctx)
         }
         val constructor = globalCtx.constructors[argumentTypes]
         if (constructor != null) {
-            val method = Method(constructor, invocationPos, ctx)
-            val newStack = stack.push(AstBlockProcessor.Position(invocationPos, ctx.path))
-            val graphBlock = GraphBuilderBlock(graphBuilder, method, newStack, invocationPos, createdMemPos, ctx)
-            val localPos = AstBlockProcessor.Position(invocationPos, ctx.path)
+            val method = Method(constructor, ctx)
+            val graphBlock = GraphBuilderBlock(graphBuilder, method, stack.push(ctx, node), createdMemPos, ctx)
+            val localPos = Position(invocationPos, ctx.path)
             val blockProcessor = AstBlockProcessor(globalCtx, blockProcesor, graphBlock, localPos, createdMemPos)
             val argumentNodes = arguments.map {
                 it.accept(blockProcessor, ctx)
@@ -55,7 +54,7 @@ class AstMemPosProcessor(
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos {
         val expr = node.expression
         val exprMemPos = expr.accept(this, ctx)
-        val nodeId = JNodeId(stack, ctx.getPosId(node), node.identifier, exprMemPos)
+        val nodeId = JNodeId(stack, node.identifier, exprMemPos)
         return globalCtx.getMemPos(nodeId)
     }
 
@@ -64,7 +63,7 @@ class AstMemPosProcessor(
             return memPos
         }
         try {
-            val nodeId = JNodeId(stack, ctx.getPosId(node), node.name, memPos)
+            val nodeId = JNodeId(stack, node.name, memPos)
             return globalCtx.getMemPos(nodeId)
         } catch (e: Exception) {
             logger.warn { "Exception in AstMemPosProcessor: ${e.message}" }

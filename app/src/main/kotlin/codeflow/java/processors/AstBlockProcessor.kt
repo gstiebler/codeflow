@@ -7,7 +7,6 @@ import codeflow.java.ids.JNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
-import java.nio.file.Path
 import javax.lang.model.element.Name
 
 /**
@@ -22,8 +21,6 @@ open class AstBlockProcessor(
     private val memPos: MemPos?
 ) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
-
-    data class Position(val pos: Long, val path: Path)
 
     init {
         logger.debug { "AstBlockProcessor created: $memPos" }
@@ -49,8 +46,7 @@ open class AstBlockProcessor(
         } else {
             getMemPos(lhsParentExpr, ctx)
         }
-        val stack = getStack()
-        val lhsId = JNodeId(stack, ctx.getPosId(lhs), lhsName, lhsMemPos)
+        val lhsId = JNodeId(getStack(), lhsName, lhsMemPos)
         if (lhsIsPrimitive) {
             // val lhsId = JNodeId(lhsName, memPos)
             assignPrimitive(lhsName, lhsId, rhs, ctx)
@@ -68,7 +64,7 @@ open class AstBlockProcessor(
         val name = node.name
 
         if (node.initializer != null) {
-            val variableNodeId = JNodeId(getStack(), ctx.getPosId(node), name, memPos)
+            val variableNodeId = JNodeId(getStack().push(ctx, node), name, memPos)
             if (isPrimitive) {
                 return assignPrimitive(name, variableNodeId, node.initializer, ctx)
             } else {
@@ -113,7 +109,7 @@ open class AstBlockProcessor(
         val identifier = node.identifier
         // memory position of the class instance
         val exprMemPos = getMemPos(expression, ctx)
-        val nodeId = JNodeId(getStack(), ctx.getPosId(node), identifier, exprMemPos)
+        val nodeId = JNodeId(getStack().push(ctx, node), identifier, exprMemPos)
         return getNode(nodeId)
     }
 
@@ -122,14 +118,14 @@ open class AstBlockProcessor(
     }
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
-        val nId = JNodeId(getStack(), ctx.getPosId(node), node.name, memPos)
+        val nId = JNodeId(getStack().push(ctx, node), node.name, memPos)
         val graphNode = getNode(nId)
         return graphNode
         // return graphNode ?: graphBuilder.addVariable(GraphNode.Base(ctx, node.name.hashCode(), node.name.toString()))
     }
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {
-        val nodeId = GraphNodeId(getStack(), ctx.getPosId(node), node.toString())
+        val nodeId = GraphNodeId(getStack().push(ctx, node), node.toString())
         val gNode = GraphNode.Base(nodeId)
         val newNode = graphBuilderBlock.addLiteral(gNode)
         super.visitLiteral(node, ctx)
@@ -144,7 +140,7 @@ open class AstBlockProcessor(
             "DIVIDE" -> "div"
             else -> "UNKNOWN"
         }
-        val jId = GraphNodeId(getStack(), ctx.getPosId(node), label)
+        val jId = GraphNodeId(getStack().push(ctx, node), label)
         return graphBuilderBlock.addBinOp(GraphNode.Base(jId), leftNode, rightNode)
     }
 
@@ -154,11 +150,10 @@ open class AstBlockProcessor(
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
         val invocationPos = ctx.getPosId(node)
+        val localPos = Position(invocationPos, ctx.path)
         val exprMemPos = getMemPos(methodIdentifier.expression, ctx)
 
-        val newStack = getStack().push(Position(invocationPos, ctx.path))
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, newStack, invocationPos, exprMemPos, ctx)
-        val localPos = Position(invocationPos, ctx.path)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, ctx)
         val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos)
         blockProcessor.invokeMethod(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
@@ -184,7 +179,6 @@ open class AstBlockProcessor(
     }
 
     override fun visitExpressionStatement(node: ExpressionStatementTree, ctx: ProcessorContext): GraphNode? {
-        val expression = node.expression
         return super.visitExpressionStatement(node, ctx)
     }
 

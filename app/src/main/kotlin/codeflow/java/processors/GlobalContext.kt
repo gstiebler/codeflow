@@ -23,7 +23,7 @@ class GlobalContext {
     }
 
     fun addMethod(methodTree: MethodTree, hashCode: MethodId, posId: Long, ctx: ProcessorContext) {
-        methods[hashCode] = Method(methodTree, posId, ctx)
+        methods[hashCode] = Method(methodTree, ctx)
     }
 
     fun getMethod(hashCode: MethodId): Method {

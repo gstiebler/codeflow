@@ -27,7 +27,7 @@ abstract class GraphNode(private val base: Base) {
     fun edgesIterator() = edges.iterator()
 
     fun addEdge(node: GraphNode) {
-        logger.debug { "addEdge: $this -> $node" }
+        logger.debug { "addEdge:\n\t $this ->\n\t $node" }
         edges.add(node)
     }
 

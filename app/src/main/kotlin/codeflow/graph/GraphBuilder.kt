@@ -14,7 +14,6 @@ class GraphBuilderBlock(
     // should it be here? or on a MethodBlock class?
     val method: Method,
     stack: PosStack,
-    invocationPos: Long,
     // instance of the class that contains the method
     private val memPos: MemPos?,
     private val ctx: ProcessorContext
@@ -22,13 +21,11 @@ class GraphBuilderBlock(
     val graph: Graph = Graph(this)
     val localId = stack.hashCode() * 37 + 4308977
     val calledMethods = ArrayList<GraphBuilderBlock>()
-    var returnNode = createReturnNode(stack, invocationPos)
+    var returnNode = createReturnNode(stack)
 
     // should it be here? or on a MethodBlock class?
     val parameterNodes = method.name.parameters.map {
-        // posId should be unique for each parameter, each invocation
-        val posId = ctx.getPosId(it) + localId
-        GraphNode.FuncParam(GraphNode.Base(JNodeId(stack, posId, it.name, memPos)))
+        GraphNode.FuncParam(GraphNode.Base(JNodeId(stack.push(ctx, it), it.name, memPos)))
     }
 
     init {
@@ -36,8 +33,8 @@ class GraphBuilderBlock(
         parameterNodes.forEach { graph.addNode(it) }
     }
 
-    private fun createReturnNode(stack: PosStack, invocationPos: Long): GraphNode {
-        val nodeId = JNodeId(stack, invocationPos, method.name.name, memPos)
+    private fun createReturnNode(stack: PosStack): GraphNode {
+        val nodeId = JNodeId(stack, method.name.name, memPos)
         val nodeBase = GraphNode.Base(nodeId)
         return GraphNode.MethodReturn(nodeBase)
     }

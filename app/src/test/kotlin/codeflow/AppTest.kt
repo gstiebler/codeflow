@@ -27,11 +27,16 @@ class AppTest {
         MermaidExporter()
             .processMainMethod(mainMethod) { result.add(it) }
 
-        val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
-        if (result != truth) {
+        try {
+            val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
+            if (result != truth) {
+                Files.write(testDirPath.resolve("result.md"), result)
+            }
+            assert(result == truth)
+        } catch (e: Exception) {
             Files.write(testDirPath.resolve("result.md"), result)
+            throw e
         }
-        assert(result == truth)
     }
 
     @Test fun base() = codeflow("base", listOf("App.java"))

@@ -42,7 +42,7 @@ class GlobalContext {
     }
 
     fun createMemPos(label: ExpressionTree, graphBuilder: GraphBuilderBlock): MemPos {
-        return MemPos(label, graphBuilder)
+        return MemPos(label)
     }
 
     fun addMemPos(nodeId: GraphNodeId, rhsMemPos: MemPos) {

@@ -51,9 +51,10 @@ class GraphBuilderBlock(
         return newNode
     }
 
-    fun addVariable(base: GraphNode.Base): GraphNode {
+    fun addVariable(base: GraphNode.Base, memPos: MemPos?): GraphNode {
         val newNode = GraphNode.Variable(base)
         graph.addNode(newNode)
+        memPos?.addNode(newNode)
         return newNode
     }
 

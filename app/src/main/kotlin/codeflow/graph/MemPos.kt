@@ -22,8 +22,4 @@ class MemPos(val expr: ExpressionTree, private val graphBuilder: GraphBuilderBlo
     override fun toString(): String {
         return "MemPos($id, '$expr')"
     }
-
-    fun getNode(id: GraphNodeId): GraphNode? {
-        return graphBuilder.graph.getNode(id);
-    }
 }

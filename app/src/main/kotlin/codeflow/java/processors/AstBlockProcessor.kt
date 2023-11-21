@@ -98,7 +98,7 @@ open class AstBlockProcessor(
     }
 
     private fun getNode(id: GraphNodeId): GraphNode {
-        return graphBuilderBlock.graph.getNode(id) ?: memPos?.getNode(id) ?:
+        return graphBuilderBlock.graph.getNode(id) ?:
                 throw GraphException("Identifier '${id}' not found in graph: ${graphBuilderBlock.graph}")
     }
 

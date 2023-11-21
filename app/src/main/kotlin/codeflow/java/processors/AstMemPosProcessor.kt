@@ -34,7 +34,8 @@ class AstMemPosProcessor(
         val constructor = globalCtx.constructors[argumentTypes]
         if (constructor != null) {
             val method = Method(constructor, invocationPos, ctx)
-            val graphBlock = GraphBuilderBlock(graphBuilder, method, stack, invocationPos, createdMemPos, ctx)
+            val newStack = stack.push(AstBlockProcessor.Position(invocationPos, ctx.path))
+            val graphBlock = GraphBuilderBlock(graphBuilder, method, newStack, invocationPos, createdMemPos, ctx)
             val localPos = AstBlockProcessor.Position(invocationPos, ctx.path)
             val blockProcessor = AstBlockProcessor(globalCtx, blockProcesor, graphBlock, localPos, createdMemPos)
             val argumentNodes = arguments.map {

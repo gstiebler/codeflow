@@ -20,7 +20,7 @@ class GraphBuilderBlock(
     private val ctx: ProcessorContext
 ) {
     val graph: Graph = Graph(this)
-    val localId = invocationPos * 37 + 4308977
+    val localId = stack.hashCode() * 37 + 4308977
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = createReturnNode(stack, invocationPos)
 

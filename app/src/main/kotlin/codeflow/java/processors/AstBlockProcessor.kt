@@ -156,7 +156,8 @@ open class AstBlockProcessor(
         val invocationPos = ctx.getPosId(node)
         val exprMemPos = getMemPos(methodIdentifier.expression, ctx)
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack(), invocationPos, exprMemPos, ctx)
+        val newStack = getStack().push(Position(invocationPos, ctx.path))
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, newStack, invocationPos, exprMemPos, ctx)
         val localPos = Position(invocationPos, ctx.path)
         val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos)
         blockProcessor.invokeMethod(methodArguments)

@@ -11,9 +11,11 @@ import javax.lang.model.element.Name
 class GraphBuilderBlock(
     // val globalCtx: GlobalContext,
     val parent: GraphBuilderBlock?,
+    // should it be here? or on a MethodBlock class?
     val method: Method,
     stack: PosStack,
     invocationPos: Long,
+    // instance of the class that contains the method
     private val memPos: MemPos?,
     private val ctx: ProcessorContext
 ) {
@@ -21,6 +23,8 @@ class GraphBuilderBlock(
     val localId = invocationPos * 37 + 4308977
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = createReturnNode(stack, invocationPos)
+
+    // should it be here? or on a MethodBlock class?
     val parameterNodes = method.name.parameters.map {
         // posId should be unique for each parameter, each invocation
         val posId = ctx.getPosId(it) + localId

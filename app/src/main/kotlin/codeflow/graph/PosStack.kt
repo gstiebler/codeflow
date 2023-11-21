@@ -2,6 +2,10 @@ package codeflow.graph
 
 import codeflow.java.processors.AstBlockProcessor
 
+/**
+ * It's used to differentiate between nodes for primitive types created in different calls to the method,
+ * from different places.
+ */
 class PosStack {
     private val stack = ArrayList<String>()
 

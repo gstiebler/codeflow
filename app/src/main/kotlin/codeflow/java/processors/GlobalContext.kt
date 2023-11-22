@@ -1,6 +1,7 @@
 package codeflow.java.processors
 
 import codeflow.graph.*
+import codeflow.java.Constructors
 import com.sun.source.tree.ExpressionTree
 import com.sun.source.tree.MethodTree
 import mu.KotlinLogging
@@ -10,7 +11,7 @@ class GlobalContext {
     private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val methods = HashMap<MethodId, Method>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
-    val constructors = HashMap<List<Name>, MethodTree>()
+    val constructors = Constructors()
     private val logger = KotlinLogging.logger {}
 
     fun registerIsPrimitive(id: IdentifierId, isPrimitive: Boolean) {

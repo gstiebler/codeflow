@@ -21,17 +21,24 @@ class AstMemPosProcessor(
         val identifier = node.identifier
         val arguments = node.arguments
 
+        val className = node.identifier.toString()
+
         val createdMemPos = globalCtx.createMemPos(identifier, graphBuilder)
         val invocationPos = ctx.getPosId(node)
 
-        val argumentTypes = arguments.map {
-            val nodeName = it.accept(NameExtractor(), ctx) ?: return@map null
-            val nodeId = JNodeId(stack, nodeName, memPos)
-            val gNode = globalCtx.getMemPos(nodeId)
+        val argumentsTypes = arguments.map {
+            val nodeName = it.accept(NameExtractor(), ctx)
+            if (nodeName != null) {
+                val nodeId = JNodeId(stack, nodeName, memPos)
+                val gNode = globalCtx.getMemPos(nodeId)
 
-            gNode.expr.accept(NameExtractor(), ctx)
+                val typeName = gNode.expr.accept(NameExtractor(), ctx)
+                typeName.toString()
+            } else {
+                it.accept(TypeNameExtractor(), ctx)
+            }
         }
-        val constructor = globalCtx.constructors[argumentTypes]
+        val constructor = globalCtx.constructors.get(className, argumentsTypes)
         if (constructor != null) {
             val method = Method(constructor, ctx)
             val graphBlock = GraphBuilderBlock(graphBuilder, method, stack.push(ctx, node), createdMemPos, ctx)
@@ -46,7 +53,7 @@ class AstMemPosProcessor(
             logger.debug { "No constructor found: $node" }
         }
 
-        logger.debug { "visitNewClass: $identifier, argument types: $argumentTypes" }
+        logger.debug { "visitNewClass: $identifier, argument types: $argumentsTypes" }
 
         return createdMemPos
     }

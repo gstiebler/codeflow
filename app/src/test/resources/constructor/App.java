@@ -26,5 +26,8 @@ public class App {
         ClassParam cp = new ClassParam();
         final ClassX x = new ClassX(5, cp);
         int b = x.memberX;
+
+        final ClassX x2 = new ClassX(13, "test");
+        int c = x2.memberX;
     }
 }

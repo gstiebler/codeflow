@@ -11,10 +11,17 @@ class ProcessorContext(
     private val cut: CompilationUnitTree,
     private val sourcePos: SourcePositions
 ) {
+    private var className: String? = null
+    constructor(other: ProcessorContext, className: String) : this(other.path, other.cut, other.sourcePos) {
+        this.className = className
+    }
+
+    fun getClassName() = className
+
     /**
      * Not the best place to put it, but it's good for now
      */
     fun getPosId(tree: Tree) = getPos(tree)
 
-    fun getPos(node: Tree) = sourcePos.getStartPosition(cut, node)
+    private fun getPos(node: Tree) = sourcePos.getStartPosition(cut, node)
 }

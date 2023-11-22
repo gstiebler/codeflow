@@ -1,6 +1,7 @@
 package codeflow.java.processors
 
 import codeflow.graph.GraphNode
+import codeflow.java.Constructors
 import codeflow.java.ids.JMethodId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
@@ -14,25 +15,30 @@ class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode
     val methodNames = mutableListOf<Name>()
 
     override fun visitClass(node: ClassTree, ctx: ProcessorContext): GraphNode? {
-        logger.info { "Class name: ${node.simpleName}" }
+        val className = node.simpleName.toString()
+        logger.info { "Class name: $className" }
         val memberByType = node.members.groupBy { it.kind }
-        memberByType[Tree.Kind.METHOD]?.forEach { it.accept(this, ctx) }
+        memberByType[Tree.Kind.METHOD]?.forEach { it.accept(this, ProcessorContext(ctx, className)) }
         // TODO: throw exception if there are other types of members
 
         return null
     }
 
     override fun visitMethod(node: MethodTree, ctx: ProcessorContext): GraphNode? {
-        logger.debug { "visitMethod: ${node.name}" }
+        val paramsStr = node.parameters.joinToString(", ") {
+            "${it.type} ${it.name}"
+        }
+        logger.debug { "visitMethod: ${node.name}, params: ($paramsStr)" }
         methodNames.add(node.name)
         globalCtx.addMethod(node, JMethodId(node.name), ctx.getPosId(node), ctx)
         val isConstructor = node.name.contentEquals("<init>")
         if (isConstructor) {
             val types = node.parameters.map { it.type }
             val typesNames = types.map {
-                it.accept(NameExtractor(), ctx)
+                it.accept(TypeNameExtractor(), ctx)
             }
-            globalCtx.constructors[typesNames] = node
+            val className = ctx.getClassName()!!
+            globalCtx.constructors.add(className, Constructors.JavaConstructor(typesNames, node))
         }
         return null
     }

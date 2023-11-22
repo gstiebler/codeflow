@@ -119,9 +119,7 @@ open class AstBlockProcessor(
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
         val nId = JNodeId(getStack().push(ctx, node), node.name, memPos)
-        val graphNode = getNode(nId)
-        return graphNode
-        // return graphNode ?: graphBuilder.addVariable(GraphNode.Base(ctx, node.name.hashCode(), node.name.toString()))
+        return getNode(nId)
     }
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {
@@ -153,7 +151,7 @@ open class AstBlockProcessor(
         val localPos = Position(invocationPos, ctx.path)
         val exprMemPos = getMemPos(methodIdentifier.expression, ctx)
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, ctx)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, "noneClass", ctx)
         val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos)
         blockProcessor.invokeMethod(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)

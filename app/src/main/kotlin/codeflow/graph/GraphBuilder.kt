@@ -16,6 +16,7 @@ class GraphBuilderBlock(
     stack: PosStack,
     // instance of the class that contains the method
     private val memPos: MemPos?,
+    private val className: String,
     private val ctx: ProcessorContext
 ) {
     val graph: Graph = Graph(this)
@@ -72,6 +73,13 @@ class GraphBuilderBlock(
 
     fun addReturnNode(newReturnNode: GraphNode) {
         newReturnNode.addEdge(returnNode)
+    }
+
+    fun getMethodName(): String {
+        val methodName = method.name.name.toString()
+        return if (methodName == "<init>") {
+            "$className.constructor"
+        } else methodName
     }
 
 }

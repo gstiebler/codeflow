@@ -11,7 +11,7 @@ import mu.KotlinLogging
 class AstMemPosProcessor(
     private val globalCtx: GlobalContext,
     private val graphBuilder: GraphBuilderBlock,
-    private val blockProcesor: AstBlockProcessor,
+    private val blockProcessor: AstBlockProcessor,
     private val stack: PosStack,
     private val memPos: MemPos?
 ) : TreeScanner<MemPos, ProcessorContext>()  {
@@ -43,7 +43,7 @@ class AstMemPosProcessor(
             val method = Method(constructor, ctx)
             val graphBlock = GraphBuilderBlock(graphBuilder, method, stack.push(ctx, node), createdMemPos, className, ctx)
             val localPos = Position(invocationPos, ctx.path)
-            val blockProcessor = AstBlockProcessor(globalCtx, blockProcesor, graphBlock, localPos, createdMemPos)
+            val blockProcessor = AstBlockProcessor(globalCtx, blockProcessor, graphBlock, localPos, createdMemPos, blockProcessor.ifConditionNode)
             val argumentNodes = arguments.map {
                 it.accept(blockProcessor, ctx)
             }

@@ -17,7 +17,8 @@ open class AstBlockProcessor(
     private val parent: AstBlockProcessor?,
     val graphBuilderBlock: GraphBuilderBlock,
     private val pos: Position,
-    private val memPos: MemPos?
+    private val memPos: MemPos?,
+    val ifConditionNode: GraphNode?
 ) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
@@ -136,6 +137,7 @@ open class AstBlockProcessor(
         val label = when(node.kind.name) {
             "PLUS" -> "+"
             "DIVIDE" -> "div"
+            "EQUAL_TO" -> "=="
             else -> "UNKNOWN"
         }
         val jId = GraphNodeId(getStack().push(ctx, node), label)
@@ -152,7 +154,7 @@ open class AstBlockProcessor(
         val exprMemPos = getMemPos(methodIdentifier.expression, ctx)
 
         val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, "noneClass", ctx)
-        val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos)
+        val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos, ifConditionNode)
         blockProcessor.invokeMethod(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode
@@ -170,6 +172,21 @@ open class AstBlockProcessor(
         val newNode = super.visitReturn(node, p)
         graphBuilderBlock.addReturnNode(newNode)
         return newNode
+    }
+
+    override fun visitIf(node: IfTree, ctx: ProcessorContext): GraphNode {
+        val conditionNode = node.condition.accept(this, ctx)
+
+        val thenBlockProcessor = AstBlockProcessor(globalCtx, this, graphBuilderBlock, pos, memPos, conditionNode)
+        node.thenStatement.accept(thenBlockProcessor, ctx)
+
+        if (node.elseStatement != null) {
+            val elseBlockProcessor = AstBlockProcessor(globalCtx, this, graphBuilderBlock, pos, memPos, conditionNode)
+            node.elseStatement.accept(elseBlockProcessor, ctx)
+        }
+
+        val nodeId = GraphNodeId(getStack().push(ctx, node), "if")
+        return graphBuilderBlock.addIf(GraphNode.Base(nodeId), conditionNode)
     }
 
     override fun visitExpressionStatement(node: ExpressionStatementTree, ctx: ProcessorContext): GraphNode? {

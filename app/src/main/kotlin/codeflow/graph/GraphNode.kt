@@ -83,7 +83,7 @@ abstract class GraphNode(private val base: Base) {
     class MemSpace(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.MEM_SPACE
     }
-    class Assignment(base: Base) : GraphNode(base)
+    class If(base: Base) : GraphNode(base)
     class MethodReturn(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.RETURN
     }

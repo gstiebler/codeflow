@@ -99,4 +99,11 @@ class GraphBuilderBlock(
         return if (methodName == "<init>") "$className.constructor" else methodName
     }
 
+    fun addIf(base: GraphNode.Base, conditionNode: GraphNode): GraphNode {
+        val ifNode = GraphNode.If(base)
+        graph.addNode(ifNode)
+        conditionNode.addEdge(ifNode)
+        return ifNode
+    }
+
 }

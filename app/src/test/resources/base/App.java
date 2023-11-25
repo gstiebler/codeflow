@@ -11,5 +11,6 @@ public class App {
         int d;
         d = b;
         int e = d;
+        a = 6;
     }
 }

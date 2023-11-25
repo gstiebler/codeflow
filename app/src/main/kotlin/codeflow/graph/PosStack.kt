@@ -30,7 +30,7 @@ class PosStack {
         return stack.hashCode()
     }
 
-    override fun toString() = "PosStack(${stack.joinToString(separator = "\n")}"
+    override fun toString() = "PosStack(${stack.joinToString(separator = "  \n")}"
 
     override fun equals(other: Any?): Boolean {
         other as PosStack

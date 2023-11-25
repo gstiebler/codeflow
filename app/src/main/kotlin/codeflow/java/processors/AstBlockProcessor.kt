@@ -7,7 +7,6 @@ import codeflow.java.ids.JNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
-import javax.lang.model.element.Name
 
 /**
  * This class is responsible for building the graph for a single method.
@@ -97,8 +96,8 @@ open class AstBlockProcessor(
         return node?.accept(AstMemPosProcessor(globalCtx, graphBuilderBlock, this, getStack(), memPos), ctx)
     }
 
-    private fun getNode(id: GraphNodeId): GraphNode {
-        return graphBuilderBlock.graph.getNode(id) ?:
+    private fun getLastNodeOfVariable(id: GraphNodeId): GraphNode {
+        return graphBuilderBlock.getLastNodeOfVariable(id) ?:
                 throw GraphException("Identifier '${id}' not found in graph: ${graphBuilderBlock.graph}")
     }
 
@@ -110,7 +109,7 @@ open class AstBlockProcessor(
         // memory position of the class instance
         val exprMemPos = getMemPos(expression, ctx)
         val nodeId = JNodeId(getStack().push(ctx, node), identifier, exprMemPos)
-        return exprMemPos?.getNode(nodeId) ?: getNode(nodeId)
+        return exprMemPos?.getNode(nodeId) ?: getLastNodeOfVariable(nodeId)
     }
 
     override fun visitMemberReference(node: MemberReferenceTree?, p: ProcessorContext): GraphNode? {
@@ -119,7 +118,7 @@ open class AstBlockProcessor(
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
         val nId = JNodeId(getStack().push(ctx, node), node.name, memPos)
-        return getNode(nId)
+        return getLastNodeOfVariable(nId)
     }
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {

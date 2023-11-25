@@ -4,27 +4,17 @@ import mu.KotlinLogging
 
 class Graph(private val parentGBB: GraphBuilderBlock) {
     private val logger = KotlinLogging.logger {}
-    private val nodes = HashMap<GraphNodeId, GraphNode>()
+    private val nodes = ArrayList<GraphNode>()
 
-    /**
-     * A node is created when an assignment is made.
-     */
-    fun addNode(node: GraphNode) {
-        logger.debug { "addNode: $node" }
-        nodes[node.id] = node
+    fun createGraphNode(type: NodeType, base: GraphNode.Base): GraphNode {
+        val newNode = GraphNode.createNode(type, base)
+        nodes.add(newNode)
+        return newNode;
     }
 
-    fun getNodesSortedByExtId() = nodes.values.sortedBy { it.id.getExtId() }
-
-    private fun getFormattedNodes(): String {
-        return nodes.keys.joinToString(separator = "\n") { it.toString() }
-    }
-
-    fun getNode(id: GraphNodeId): GraphNode? {
-        return nodes[id] ?: parentGBB.parent?.graph?.getNode(id)
-    }
+    fun getNodesSortedByExtId() = nodes.sortedBy { it.id.getExtId() }
 
     override fun toString(): String {
-        return "Graph(nodes=${nodes.values.joinToString { "\n    $it" }})"
+        return "Graph(nodes=${nodes.joinToString { "\n    $it" }})"
     }
 }

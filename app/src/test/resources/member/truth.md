@@ -6,6 +6,7 @@ flowchart TD
     subgraph 1150435712["func1"]
       -1330406687[5]:::LITERAL
       -1330406634[6]:::LITERAL
+      -1330405968[a]:::VARIABLE
       -1330405770[b]:::VARIABLE
       -1330405517[8]:::LITERAL
       -1330403921[c]:::VARIABLE

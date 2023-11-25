@@ -54,6 +54,21 @@ abstract class GraphNode(private val base: Base) {
         return "(label: '$label', id: $id, type: ${getType()})"
     }
 
+    companion object {
+        fun createNode(type: NodeType, base: Base): GraphNode {
+            return when (type) {
+                NodeType.LITERAL -> Literal(base)
+                NodeType.VARIABLE -> Variable(base)
+                NodeType.BIN_OP -> BinOp(base)
+                NodeType.FUNC_PARAM -> FuncParam(base)
+                NodeType.MEM_SPACE -> MemSpace(base)
+                NodeType.RETURN -> MethodReturn(base)
+                NodeType.BASE -> TODO()
+            }
+
+        }
+    }
+
     class Literal(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.LITERAL
     }

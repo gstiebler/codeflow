@@ -1,16 +1,12 @@
 package codeflow.graph
 
 import codeflow.java.ids.JNodeId
-import codeflow.java.processors.GlobalContext
 import codeflow.java.processors.ProcessorContext
-import com.sun.source.tree.ExpressionTree
-import com.sun.source.tree.MethodTree
 import mu.KotlinLogging
-import javax.lang.model.element.Name
 
 class GraphBuilderBlock(
     // val globalCtx: GlobalContext,
-    val parent: GraphBuilderBlock?,
+    private val parent: GraphBuilderBlock?,
     // should it be here? or on a MethodBlock class?
     val method: Method,
     stack: PosStack,
@@ -19,25 +15,36 @@ class GraphBuilderBlock(
     private val className: String,
     private val ctx: ProcessorContext
 ) {
+    private val logger = KotlinLogging.logger {}
     val graph: Graph = Graph(this)
+    private val nodeIdToLastNodeOfVariable = HashMap<GraphNodeId, GraphNode>()
     val localId = stack.hashCode() * 37 + 4308977
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = createReturnNode(stack)
 
     // should it be here? or on a MethodBlock class?
     val parameterNodes = method.name.parameters.map {
-        GraphNode.FuncParam(GraphNode.Base(JNodeId(stack.push(ctx, it), it.name, memPos)))
+        val baseNode = GraphNode.Base(JNodeId(stack.push(ctx, it), it.name, memPos))
+        graph.createGraphNode(NodeType.FUNC_PARAM, baseNode)
     }
 
     init {
-        graph.addNode(returnNode)
-        parameterNodes.forEach { graph.addNode(it) }
+        setVarAssignmentNode(returnNode)
+        parameterNodes.forEach { setVarAssignmentNode(it) }
+    }
+
+    private fun setVarAssignmentNode(node: GraphNode) {
+        logger.debug { "setVarAssignmentNode: $node" }
+        nodeIdToLastNodeOfVariable[node.id] = node
+    }
+
+    fun getLastNodeOfVariable(id: GraphNodeId): GraphNode? {
+        return nodeIdToLastNodeOfVariable[id] ?: parent?.getLastNodeOfVariable(id)
     }
 
     private fun createReturnNode(stack: PosStack): GraphNode {
-        val nodeId = JNodeId(stack, method.name.name, memPos)
-        val nodeBase = GraphNode.Base(nodeId)
-        return GraphNode.MethodReturn(nodeBase)
+        val nodeBase = GraphNode.Base(JNodeId(stack, method.name.name, memPos))
+        return graph.createGraphNode(NodeType.RETURN, nodeBase)
     }
 
     override fun toString() = method.name.name.toString()
@@ -47,21 +54,21 @@ class GraphBuilderBlock(
     }
 
     fun addLiteral(base: GraphNode.Base): GraphNode {
-        val newNode = GraphNode.Literal(base)
-        graph.addNode(newNode)
+        val newNode = graph.createGraphNode(NodeType.LITERAL, base)
+        setVarAssignmentNode(newNode)
         return newNode
     }
 
     fun addVariable(base: GraphNode.Base, memPos: MemPos?): GraphNode {
-        val newNode = GraphNode.Variable(base)
-        graph.addNode(newNode)
+        val newNode = graph.createGraphNode(NodeType.VARIABLE, base)
+        setVarAssignmentNode(newNode)
         memPos?.addNode(newNode)
         return newNode
     }
 
     fun addBinOp(base: GraphNode.Base, leftNode: GraphNode, rightNode: GraphNode): GraphNode {
-        val binOpNode = GraphNode.BinOp(base)
-        graph.addNode(binOpNode)
+        val binOpNode = graph.createGraphNode(NodeType.BIN_OP, base)
+        setVarAssignmentNode(binOpNode)
         leftNode.addEdge(binOpNode)
         rightNode.addEdge(binOpNode)
         return binOpNode
@@ -77,9 +84,7 @@ class GraphBuilderBlock(
 
     fun getMethodName(): String {
         val methodName = method.name.name.toString()
-        return if (methodName == "<init>") {
-            "$className.constructor"
-        } else methodName
+        return if (methodName == "<init>") "$className.constructor" else methodName
     }
 
 }

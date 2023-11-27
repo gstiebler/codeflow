@@ -1,6 +1,7 @@
 ```mermaid
 flowchart TD
   subgraph 4309014["main"]
+    12485[a]:::VARIABLE
     12536[d]:::VARIABLE
     56853577[main]:::RETURN
     390731536[5]:::LITERAL
@@ -8,6 +9,7 @@ flowchart TD
     390732249[a]:::VARIABLE
     390732333[b]:::VARIABLE
     390732397[8]:::LITERAL
+    390732574[6]:::LITERAL
     390733089[c]:::VARIABLE
     390733287[e]:::VARIABLE
     441716369[args]:::FUNC_PARAM
@@ -18,6 +20,7 @@ flowchart TD
     390732333[b]:::VARIABLE --> 390732172[+]:::BIN_OP
     390732333[b]:::VARIABLE --> 12536[d]:::VARIABLE
     390732397[8]:::LITERAL --> 390732172[+]:::BIN_OP
+    390732574[6]:::LITERAL --> 12485[a]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

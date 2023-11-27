@@ -100,8 +100,7 @@ class GraphBuilderBlock(
     }
 
     fun addIf(base: GraphNode.Base, conditionNode: GraphNode): GraphNode {
-        val ifNode = GraphNode.If(base)
-        graph.addNode(ifNode)
+        val ifNode = graph.createGraphNode(NodeType.IF, base)
         conditionNode.addEdge(ifNode)
         return ifNode
     }

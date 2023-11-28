@@ -7,12 +7,16 @@ public class App {
     public static void main(String[] args) {
         int a = 5;
         int b = a;
-        if (b == 7) {
+        int f = 21;
+        int c = 23;
+        int d = 29;
+        if (a == 7) {
             b = 13;
+            f = b;
         } else {
             a = 17;
         }
-        final int c = b;
-        final int d = a;
+        c = f;
+        d = a;
     }
 }

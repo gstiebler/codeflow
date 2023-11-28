@@ -39,7 +39,7 @@ class GraphBuilderBlock(
     }
 
     fun getLastNodeOfVariable(id: GraphNodeId): GraphNode? {
-        return nodeIdToLastNodeOfVariable[id] ?: parent?.getLastNodeOfVariable(id)
+        return nodeIdToLastNodeOfVariable[id]
     }
 
     private fun createReturnNode(stack: PosStack): GraphNode {
@@ -95,7 +95,7 @@ class GraphBuilderBlock(
     }
 
     fun addIf(base: GraphNode.Base, conditionNode: GraphNode): GraphNode {
-        val ifNode = graph.createGraphNode(NodeType.IF, base)
+        val ifNode = graph.createGraphNode(NodeType.IF_OP, base)
         conditionNode.addEdge(ifNode)
         return ifNode
     }

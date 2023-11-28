@@ -98,7 +98,7 @@ open class AstBlockProcessor(
     }
 
     private fun getLastNodeOfVariable(id: GraphNodeId): GraphNode {
-        return graphBuilderBlock.getLastNodeOfVariable(id) ?:
+        return graphBuilderBlock.getLastNodeOfVariable(id) ?: parent?.getLastNodeOfVariable(id) ?:
                 throw GraphException("Identifier '${id}' not found in graph: ${graphBuilderBlock.graph}")
     }
 

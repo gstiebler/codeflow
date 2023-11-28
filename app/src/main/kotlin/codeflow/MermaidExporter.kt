@@ -15,7 +15,8 @@ class MermaidExporter() {
         "classDef VARIABLE fill:#80808030",
         "classDef BIN_OP fill:#80808080",
         "classDef FUNC_PARAM fill:#8080FF30",
-        "classDef RETURN fill:#FF808080"
+        "classDef RETURN fill:#FF808080",
+        "classDef IF_OP fill:#FF8080FF",
     )
 
     private fun genSpaces(n: Int) = " ".repeat(n)

@@ -1,10 +1,9 @@
 package codeflow.graph
 
-import codeflow.java.processors.ProcessorContext
 import mu.KotlinLogging
 
 enum class NodeType {
-    BASE, LITERAL, VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE, IF
+    BASE, LITERAL, VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE, IF_OP
 }
 
 abstract class GraphNode(private val base: Base) {
@@ -63,7 +62,7 @@ abstract class GraphNode(private val base: Base) {
                 NodeType.FUNC_PARAM -> FuncParam(base)
                 NodeType.MEM_SPACE -> MemSpace(base)
                 NodeType.RETURN -> MethodReturn(base)
-                NodeType.IF -> If(base)
+                NodeType.IF_OP -> If(base)
                 NodeType.BASE -> TODO()
             }
 
@@ -86,7 +85,7 @@ abstract class GraphNode(private val base: Base) {
         override fun getType() = NodeType.MEM_SPACE
     }
     class If(base: Base) : GraphNode(base) {
-        override fun getType() = NodeType.IF
+        override fun getType() = NodeType.IF_OP
     }
     class MethodReturn(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.RETURN

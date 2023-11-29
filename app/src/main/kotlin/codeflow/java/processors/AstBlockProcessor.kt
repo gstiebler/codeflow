@@ -96,10 +96,19 @@ open class AstBlockProcessor(
     private fun getMemPos(node: Tree?, ctx: ProcessorContext): MemPos? {
         return node?.accept(AstMemPosProcessor(globalCtx, graphBuilderBlock, this, getStack(), memPos), ctx)
     }
-
     private fun getLastNodeOfVariable(id: GraphNodeId): GraphNode {
-        return graphBuilderBlock.getLastNodeOfVariable(id) ?: parent?.getLastNodeOfVariable(id) ?:
-                throw GraphException("Identifier '${id}' not found in graph: ${graphBuilderBlock.graph}")
+        return getLastNodeOfVariableRecursive(id, emptyList())
+    }
+
+    private fun getLastNodeOfVariableRecursive(id: GraphNodeId, nestedConditionNode: GraphNode?): GraphNode {
+        val lastNode = graphBuilderBlock.getLastNodeOfVariable(id) ?:
+            parent?.getLastNodeOfVariableRecursive(id, ifConditionNode) ?:
+            throw GraphException("Identifier '${id}' not found in graph: ${graphBuilderBlock.graph}")
+
+        return if (conditionNodes.isNotEmpty()) {
+            val nodeId = GraphNodeId(getStack(), "if")
+            return graphBuilderBlock.addIf(GraphNode.Base(nodeId), conditionNode, lastNode)
+        } else lastNode
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): GraphNode {
@@ -183,9 +192,7 @@ open class AstBlockProcessor(
             val elseBlockProcessor = AstBlockProcessor(globalCtx, this, graphBuilderBlock, pos, memPos, conditionNode)
             node.elseStatement.accept(elseBlockProcessor, ctx)
         }
-
-        val nodeId = GraphNodeId(getStack().push(ctx, node), "if")
-        return graphBuilderBlock.addIf(GraphNode.Base(nodeId), conditionNode)
+        return conditionNode
     }
 
     override fun visitExpressionStatement(node: ExpressionStatementTree, ctx: ProcessorContext): GraphNode? {

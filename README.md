@@ -23,3 +23,8 @@ flowchart TD
     33233312[8] --> 65488937[+]
     65488937[+] --> 4746[c]
 ```
+
+## Build and run tests
+```shell
+./gradlew build
+```

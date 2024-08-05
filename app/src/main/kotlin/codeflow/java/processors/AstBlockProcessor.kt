@@ -162,11 +162,7 @@ open class AstBlockProcessor(
         val methodName =  method.name
         methodName.receiverParameter?.accept(this, method.ctx)
         methodName.body.accept(this, method.ctx)
-
-        methodArguments.forEachIndexed { index, callingParameter ->
-            val methodParameter = graphBuilderBlock.parameterNodes[index]
-            callingParameter.addEdge(methodParameter)
-        }
+        graphBuilderBlock.connectParameters(methodArguments)
     }
 
     override fun visitReturn(node: ReturnTree, p: ProcessorContext): GraphNode {

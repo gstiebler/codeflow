@@ -49,6 +49,13 @@ class GraphBuilderBlock(
 
     override fun toString() = method.name.name.toString()
 
+    fun connectParameters(methodArguments: List<GraphNode>) {
+        methodArguments.forEachIndexed { index, callingParameter ->
+            val methodParameter = parameterNodes[index]
+            callingParameter.addEdge(methodParameter)
+        }
+    }
+
     fun addCalledMethod(graphBlock: GraphBuilderBlock) {
         calledMethods.add(graphBlock)
     }

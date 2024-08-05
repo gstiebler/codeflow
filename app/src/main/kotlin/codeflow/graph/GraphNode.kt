@@ -1,6 +1,5 @@
 package codeflow.graph
 
-import codeflow.java.processors.ProcessorContext
 import mu.KotlinLogging
 
 enum class NodeType {

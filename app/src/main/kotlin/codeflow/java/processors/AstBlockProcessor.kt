@@ -97,8 +97,9 @@ open class AstBlockProcessor(
     }
 
     private fun getLastNodeOfVariable(id: GraphNodeId): GraphNode {
-        return graphBuilderBlock.getLastNodeOfVariable(id) ?:
-                throw GraphException("Identifier '${id}' not found in graph: ${graphBuilderBlock.graph}")
+        val variable = graphBuilderBlock.getVariable(id)
+        return variable?.lastNode ?:
+            throw GraphException("Identifier '${id}' not found in graph: ${graphBuilderBlock.graph}")
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): GraphNode {

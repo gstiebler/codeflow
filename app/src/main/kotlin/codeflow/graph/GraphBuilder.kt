@@ -17,7 +17,7 @@ class GraphBuilderBlock(
 ) {
     private val logger = KotlinLogging.logger {}
     val graph: Graph = Graph(this)
-    private val nodeIdToLastNodeOfVariable = HashMap<GraphNodeId, GraphNode>()
+    private val nodeIdToVariable = HashMap<GraphNodeId, Variable>()
     val localId = stack.hashCode() * 37 + 4308977
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = createReturnNode(stack)
@@ -35,11 +35,16 @@ class GraphBuilderBlock(
 
     private fun setVarAssignmentNode(node: GraphNode) {
         logger.debug { "setVarAssignmentNode: $node" }
-        nodeIdToLastNodeOfVariable[node.id] = node
+        val previousVariable = nodeIdToVariable[node.id]
+        if (previousVariable == null) {
+            nodeIdToVariable[node.id] = Variable(node)
+        } else {
+            previousVariable.lastNode = node
+        }
     }
 
-    fun getLastNodeOfVariable(id: GraphNodeId): GraphNode? {
-        return nodeIdToLastNodeOfVariable[id] ?: parent?.getLastNodeOfVariable(id)
+    fun getVariable(id: GraphNodeId): Variable? {
+        return nodeIdToVariable[id] ?: parent?.getVariable(id)
     }
 
     private fun createReturnNode(stack: PosStack): GraphNode {

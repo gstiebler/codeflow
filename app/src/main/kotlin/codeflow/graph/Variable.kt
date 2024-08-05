@@ -12,17 +12,30 @@ class IfCondition() {
  * There are multiple variables that can point to the same Java variable.
  * It happens when the same variable is called with different call stacks.
  */
-class Variable() {
+class Variable(lastNode: GraphNode) {
 
     private val ifCondition: IfCondition = IfCondition()
 
-    var lastNode: GraphNode?
+    val latestNode: GraphNode?
         get() = ifCondition.directNode
-        set(value) {
-            ifCondition.directNode = value
-        }
 
-    constructor(lastNode: GraphNode) : this() {
+    init {
         ifCondition.directNode = lastNode
+    }
+
+    fun setLatestNode(latestNode: GraphNode, ifNode: GraphNode?, ifSide: Boolean) {
+        if (ifNode == null) {
+            ifCondition.directNode = latestNode
+            return
+        }
+        ifCondition.directNode = null
+        ifCondition.ifNode = ifNode
+        if (ifSide) {
+            ifCondition.trueNode = IfCondition()
+            ifCondition.trueNode!!.directNode = latestNode
+        } else {
+            ifCondition.falseNode = IfCondition()
+            ifCondition.falseNode!!.directNode = latestNode
+        }
     }
 }

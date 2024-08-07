@@ -18,8 +18,7 @@ open class AstBlockProcessor(
     val graphBuilderBlock: GraphBuilderBlock,
     private val pos: Position,
     private val memPos: MemPos?,
-    val ifConditionNode: GraphNode?,
-    val ifSide: Boolean
+    val ifStack: List<IfItem>,
 ) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
@@ -77,7 +76,7 @@ open class AstBlockProcessor(
     }
 
     private fun assignPrimitive(lhsMemPos: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
-        val lhsNode = graphBuilderBlock.addVariable(GraphNode.Base(lhsId), lhsMemPos, ifConditionNode, ifSide)
+        val lhsNode = graphBuilderBlock.addVariable(GraphNode.Base(lhsId), lhsMemPos, ifStack)
         val rhsNode = rhs.accept(this, ctx)
         graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         return lhsNode
@@ -98,9 +97,9 @@ open class AstBlockProcessor(
         return node?.accept(AstMemPosProcessor(globalCtx, graphBuilderBlock, this, getStack(), memPos), ctx)
     }
 
-    private fun getLastNodeOfVariable(id: GraphNodeId): GraphNode {
+    private fun getLastNodeOfVariable(id: GraphNodeId, node: Tree, ctx: ProcessorContext): GraphNode {
         val variable = graphBuilderBlock.getVariable(id)
-        return variable?.latestNode ?:
+        return variable?.getLatestNode(graphBuilderBlock, getStack().push(ctx, node)) ?:
             throw GraphException("Identifier '${id}' not found in graph: ${graphBuilderBlock.graph}")
     }
 
@@ -112,7 +111,7 @@ open class AstBlockProcessor(
         // memory position of the class instance
         val exprMemPos = getMemPos(expression, ctx)
         val nodeId = JNodeId(getStack().push(ctx, node), identifier, exprMemPos)
-        return exprMemPos?.getNode(nodeId) ?: getLastNodeOfVariable(nodeId)
+        return exprMemPos?.getNode(nodeId) ?: getLastNodeOfVariable(nodeId, node, ctx)
     }
 
     override fun visitMemberReference(node: MemberReferenceTree?, p: ProcessorContext): GraphNode? {
@@ -121,13 +120,13 @@ open class AstBlockProcessor(
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
         val nId = JNodeId(getStack().push(ctx, node), node.name, memPos)
-        return getLastNodeOfVariable(nId)
+        return getLastNodeOfVariable(nId, node, ctx)
     }
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {
         val nodeId = GraphNodeId(getStack().push(ctx, node), node.toString())
         val gNode = GraphNode.Base(nodeId)
-        val newNode = graphBuilderBlock.addLiteral(gNode, ifConditionNode, ifSide)
+        val newNode = graphBuilderBlock.addLiteral(gNode, ifStack)
         super.visitLiteral(node, ctx)
         return newNode
     }
@@ -142,7 +141,7 @@ open class AstBlockProcessor(
             else -> "UNKNOWN"
         }
         val jId = GraphNodeId(getStack().push(ctx, node), label)
-        return graphBuilderBlock.addBinOp(GraphNode.Base(jId), leftNode, rightNode, ifConditionNode, ifSide)
+        return graphBuilderBlock.addBinOp(GraphNode.Base(jId), leftNode, rightNode, ifStack)
     }
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode {
@@ -154,8 +153,8 @@ open class AstBlockProcessor(
         val localPos = Position(invocationPos, ctx.path)
         val exprMemPos = getMemPos(methodIdentifier.expression, ctx)
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, "noneClass", ctx, ifConditionNode, ifSide)
-        val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos, ifConditionNode, ifSide)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, "noneClass", ctx, ifStack)
+        val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos, ifStack)
         blockProcessor.invokeMethod(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode
@@ -178,16 +177,18 @@ open class AstBlockProcessor(
     override fun visitIf(node: IfTree, ctx: ProcessorContext): GraphNode {
         val conditionNode = node.condition.accept(this, ctx)
 
-        val thenBlockProcessor = AstBlockProcessor(globalCtx, this, graphBuilderBlock, pos, memPos, conditionNode, true)
+        // create a if stack list with a new item
+        val thenIfStack = ifStack + IfItem(conditionNode, true)
+        val thenBlockProcessor = AstBlockProcessor(globalCtx, this, graphBuilderBlock, pos, memPos, thenIfStack)
         node.thenStatement.accept(thenBlockProcessor, ctx)
 
         if (node.elseStatement != null) {
-            val elseBlockProcessor = AstBlockProcessor(globalCtx, this, graphBuilderBlock, pos, memPos, conditionNode, false)
+            val elseIfStack = ifStack + IfItem(conditionNode, false)
+            val elseBlockProcessor = AstBlockProcessor(globalCtx, this, graphBuilderBlock, pos, memPos, elseIfStack)
             node.elseStatement.accept(elseBlockProcessor, ctx)
         }
 
-        val nodeId = GraphNodeId(getStack().push(ctx, node), "if")
-        return graphBuilderBlock.addIf(GraphNode.Base(nodeId), conditionNode)
+        return conditionNode
     }
 
     override fun visitExpressionStatement(node: ExpressionStatementTree, ctx: ProcessorContext): GraphNode? {

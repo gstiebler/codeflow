@@ -51,10 +51,10 @@ class AstReader(private val basePath: Path) {
 
         val mainMethod = globalCtx.getMainMethod()
         val mainMethodGraphBuilderBlock =
-            GraphBuilderBlock(null, mainMethod, PosStack(), null, "main", mainCtx, null, false)
+            GraphBuilderBlock(null, mainMethod, PosStack(), null, "main", mainCtx, emptyList())
         val pos = Position(0, Path.of(""))
         val mainAstBlockProcessor =
-            AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null, null, false)
+            AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null, emptyList())
         mainAstBlockProcessor.invokeMethod(emptyList())
 
         manager.close()

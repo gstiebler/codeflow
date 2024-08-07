@@ -4,7 +4,25 @@ class IfCondition() {
     var directNode: GraphNode? = null
     var trueNode: IfCondition? = null
     var falseNode: IfCondition? = null
-    var ifNode: GraphNode? = null
+    var conditionNode: GraphNode? = null
+}
+
+data class GetTopMatchingIfConditionReturn(val ifCondition: IfCondition, val ifStack: List<IfItem>)
+private fun getTopMatchingIfCondition(
+    ifCondition: IfCondition,
+    ifStack: List<IfItem>
+): GetTopMatchingIfConditionReturn {
+    if (ifStack.isEmpty()) {
+        return GetTopMatchingIfConditionReturn(ifCondition, emptyList())
+    }
+    val currentIf = ifStack[0]
+    if (currentIf.conditionNode != ifCondition.conditionNode) {
+        return GetTopMatchingIfConditionReturn(ifCondition, ifStack)
+    }
+    if (currentIf.ifSide) {
+        return getTopMatchingIfCondition(ifCondition.trueNode!!, ifStack.drop(1))
+    }
+    return getTopMatchingIfCondition(ifCondition.falseNode!!, ifStack.drop(1))
 }
 
 /**
@@ -14,28 +32,44 @@ class IfCondition() {
  */
 class Variable(lastNode: GraphNode) {
 
+    // binary tree
     private val ifCondition: IfCondition = IfCondition()
-
-    val latestNode: GraphNode?
-        get() = ifCondition.directNode
 
     init {
         ifCondition.directNode = lastNode
     }
 
-    fun setLatestNode(latestNode: GraphNode, ifNode: GraphNode?, ifSide: Boolean) {
-        if (ifNode == null) {
-            ifCondition.directNode = latestNode
-            return
-        }
-        ifCondition.directNode = null
-        ifCondition.ifNode = ifNode
-        if (ifSide) {
-            ifCondition.trueNode = IfCondition()
-            ifCondition.trueNode!!.directNode = latestNode
+    fun setLatestNode(latestNode: GraphNode, ifStack: List<IfItem>) {
+        val topMatchingIfCondition = getTopMatchingIfCondition(ifCondition, ifStack)
+        val currentIf = ifStack[0]
+        topMatchingIfCondition.ifCondition.conditionNode = currentIf.conditionNode
+        topMatchingIfCondition.ifCondition.trueNode = IfCondition()
+        topMatchingIfCondition.ifCondition.falseNode = IfCondition()
+        if (currentIf.ifSide) {
+            topMatchingIfCondition.ifCondition.trueNode!!.directNode = latestNode
+            topMatchingIfCondition.ifCondition.falseNode!!.directNode = topMatchingIfCondition.ifCondition.directNode
         } else {
-            ifCondition.falseNode = IfCondition()
-            ifCondition.falseNode!!.directNode = latestNode
+            topMatchingIfCondition.ifCondition.falseNode!!.directNode = latestNode
+            topMatchingIfCondition.ifCondition.trueNode!!.directNode = topMatchingIfCondition.ifCondition.directNode
+        }
+        topMatchingIfCondition.ifCondition.directNode = null
+    }
+
+    fun getLatestNode(graphBuilderBlock: GraphBuilderBlock, stack: PosStack): GraphNode {
+        return if (ifCondition.directNode != null) {
+            ifCondition.directNode!!
+        } else {
+            val trueNode = ifCondition.trueNode!!.directNode
+            val falseNode = ifCondition.falseNode!!.directNode
+
+            val nodeId = GraphNodeId(stack, "if")
+            val ifNode = graphBuilderBlock.addIf(GraphNode.Base(nodeId), ifCondition.conditionNode!!)
+            trueNode!!.addEdge(ifNode)
+            falseNode!!.addEdge(ifNode)
+            val varId = GraphNodeId(stack, trueNode.label)
+            val variable = graphBuilderBlock.addVariable(GraphNode.Base(varId), null, emptyList())
+            ifNode.addEdge(variable)
+            variable
         }
     }
 }

@@ -48,8 +48,7 @@ class AstMemPosProcessor(
                 createdMemPos,
                 className,
                 ctx,
-                blockProcessor.ifConditionNode,
-                blockProcessor.ifSide
+                blockProcessor.ifStack
             )
             val localPos = Position(invocationPos, ctx.path)
             val blockProcessor = AstBlockProcessor(
@@ -58,8 +57,7 @@ class AstMemPosProcessor(
                 graphBlock,
                 localPos,
                 createdMemPos,
-                blockProcessor.ifConditionNode,
-                blockProcessor.ifSide
+                blockProcessor.ifStack
             )
             val argumentNodes = arguments.map {
                 it.accept(blockProcessor, ctx)

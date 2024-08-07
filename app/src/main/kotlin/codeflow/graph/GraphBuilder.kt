@@ -14,8 +14,7 @@ class GraphBuilderBlock(
     private val memPos: MemPos?,
     private val className: String,
     private val ctx: ProcessorContext,
-    ifNode: GraphNode?,
-    ifSide: Boolean
+    ifStack: List<IfItem>,
 ) {
     private val logger = KotlinLogging.logger {}
     val graph: Graph = Graph(this)
@@ -31,17 +30,17 @@ class GraphBuilderBlock(
     }
 
     init {
-        setVarAssignmentNode(returnNode, ifNode, ifSide)
-        parameterNodes.forEach { setVarAssignmentNode(it, ifNode, ifSide) }
+        setVarAssignmentNode(returnNode, ifStack)
+        parameterNodes.forEach { setVarAssignmentNode(it, ifStack) }
     }
 
-    private fun setVarAssignmentNode(node: GraphNode, ifNode: GraphNode?, ifSide: Boolean) {
+    private fun setVarAssignmentNode(node: GraphNode, ifStack: List<IfItem>) {
         logger.debug { "setVarAssignmentNode: $node" }
         val previousVariable = nodeIdToVariable[node.id]
         if (previousVariable == null) {
             nodeIdToVariable[node.id] = Variable(node)
         } else {
-            previousVariable.setLatestNode(node, ifNode, ifSide)
+            previousVariable.setLatestNode(node, ifStack)
         }
     }
 
@@ -67,15 +66,15 @@ class GraphBuilderBlock(
         calledMethods.add(graphBlock)
     }
 
-    fun addLiteral(base: GraphNode.Base, ifNode: GraphNode?, ifSide: Boolean): GraphNode {
+    fun addLiteral(base: GraphNode.Base, ifStack: List<IfItem>): GraphNode {
         val newNode = graph.createGraphNode(NodeType.LITERAL, base)
-        setVarAssignmentNode(newNode, ifNode, ifSide)
+        setVarAssignmentNode(newNode, ifStack)
         return newNode
     }
 
-    fun addVariable(base: GraphNode.Base, memPos: MemPos?, ifNode: GraphNode?, ifSide: Boolean): GraphNode {
+    fun addVariable(base: GraphNode.Base, memPos: MemPos?, ifStack: List<IfItem>): GraphNode {
         val newNode = graph.createGraphNode(NodeType.VARIABLE, base)
-        setVarAssignmentNode(newNode, ifNode, ifSide)
+        setVarAssignmentNode(newNode, ifStack)
         memPos?.addNode(newNode)
         return newNode
     }
@@ -84,11 +83,10 @@ class GraphBuilderBlock(
         base: GraphNode.Base,
         leftNode: GraphNode,
         rightNode: GraphNode,
-        ifNode: GraphNode?,
-        ifSide: Boolean
+        ifStack: List<IfItem>
     ): GraphNode {
         val binOpNode = graph.createGraphNode(NodeType.BIN_OP, base)
-        setVarAssignmentNode(binOpNode, ifNode, ifSide)
+        setVarAssignmentNode(binOpNode, ifStack)
         leftNode.addEdge(binOpNode)
         rightNode.addEdge(binOpNode)
         return binOpNode

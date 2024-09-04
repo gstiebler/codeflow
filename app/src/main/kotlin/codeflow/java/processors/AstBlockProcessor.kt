@@ -137,6 +137,7 @@ open class AstBlockProcessor(
             "PLUS" -> "+"
             "DIVIDE" -> "div"
             "EQUAL_TO" -> "=="
+            "LESS_THAN" -> "<"
             else -> "UNKNOWN"
         }
         val jId = GraphNodeId(getStack().push(ctx, node), label)

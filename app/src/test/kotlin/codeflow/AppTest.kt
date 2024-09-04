@@ -30,11 +30,11 @@ class AppTest {
         try {
             val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
             if (result != truth) {
-                Files.write(testDirPath.resolve("result.md"), result)
+                Files.write(testDirPath.resolve("truth.md"), result)
             }
             assert(result == truth)
         } catch (e: Exception) {
-            Files.write(testDirPath.resolve("result.md"), result)
+            Files.write(testDirPath.resolve("truth.md"), result)
             throw e
         }
     }
@@ -45,4 +45,5 @@ class AppTest {
     @Test fun files() = codeflow("files", listOf("App.java", "ClassX.java", "ClassY.java"))
     @Test fun constructor() = codeflow("constructor", listOf("App.java"))
     @Test fun if1() = codeflow("if1", listOf("App.java"))
+    @Test fun forLoop() = codeflow("forLoop", listOf("App.java"))
 }

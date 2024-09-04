@@ -1,10 +1,16 @@
 package codeflow.graph
 
+import mu.KotlinLogging
+
 class IfCondition() {
     var directNode: GraphNode? = null
     var trueNode: IfCondition? = null
     var falseNode: IfCondition? = null
     var conditionNode: GraphNode? = null
+
+    override fun toString(): String {
+        return "IfCondition(directNode=$directNode, trueNode=$trueNode, falseNode=$falseNode, conditionNode=$conditionNode)"
+    }
 }
 
 data class GetTopMatchingIfConditionReturn(val ifCondition: IfCondition, val ifStack: List<IfItem>)
@@ -31,7 +37,7 @@ private fun getTopMatchingIfCondition(
  * It happens when the same variable is called with different call stacks.
  */
 class Variable(lastNode: GraphNode) {
-
+    private val logger = KotlinLogging.logger {}
     // binary tree
     private val ifCondition: IfCondition = IfCondition()
 
@@ -45,12 +51,15 @@ class Variable(lastNode: GraphNode) {
         topMatchingIfCondition.ifCondition.conditionNode = currentIf.conditionNode
         topMatchingIfCondition.ifCondition.trueNode = IfCondition()
         topMatchingIfCondition.ifCondition.falseNode = IfCondition()
+        logger.debug { "setLatestNode: $latestNode, $ifCondition" }
         if (currentIf.ifSide) {
             topMatchingIfCondition.ifCondition.trueNode!!.directNode = latestNode
-            topMatchingIfCondition.ifCondition.falseNode!!.directNode = topMatchingIfCondition.ifCondition.directNode
+            topMatchingIfCondition.ifCondition.falseNode!!.directNode =
+                topMatchingIfCondition.ifCondition.falseNode!!.directNode ?: topMatchingIfCondition.ifCondition.directNode
         } else {
             topMatchingIfCondition.ifCondition.falseNode!!.directNode = latestNode
-            topMatchingIfCondition.ifCondition.trueNode!!.directNode = topMatchingIfCondition.ifCondition.directNode
+            topMatchingIfCondition.ifCondition.trueNode!!.directNode =
+                topMatchingIfCondition.ifCondition.trueNode!!.directNode ?: topMatchingIfCondition.ifCondition.directNode
         }
         topMatchingIfCondition.ifCondition.directNode = null
     }

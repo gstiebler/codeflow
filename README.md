@@ -28,3 +28,8 @@ flowchart TD
 ```shell
 ./gradlew build
 ```
+
+## Run the application
+```shell
+./gradlew run --args="path/to/java/dir"
+```

@@ -2,7 +2,10 @@
 flowchart TD
   subgraph 4309014["main"]
     -1362738615[b]:::VARIABLE
+    -1362738390[x]:::OBJ_VARIABLE
     -1362737701[c]:::VARIABLE
+    -1362687130[cp]:::OBJ_VARIABLE
+    -1362676100[x2]:::OBJ_VARIABLE
     -1311755417[args]:::FUNC_PARAM
     56853577[main]:::RETURN
     subgraph 1122191319["ClassX.constructor"]

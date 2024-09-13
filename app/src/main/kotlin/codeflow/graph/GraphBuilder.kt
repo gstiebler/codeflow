@@ -29,11 +29,11 @@ class GraphBuilderBlock(
     }
 
     init {
-        setVarAssignmentNode(returnNode)
-        parameterNodes.forEach { setVarAssignmentNode(it) }
+        setLastNode(returnNode)
+        parameterNodes.forEach { setLastNode(it) }
     }
 
-    private fun setVarAssignmentNode(node: GraphNode) {
+    private fun setLastNode(node: GraphNode) {
         logger.debug { "setVarAssignmentNode: $node" }
         val previousVariable = nodeIdToVariable[node.id]
         if (previousVariable == null) {
@@ -67,20 +67,20 @@ class GraphBuilderBlock(
 
     fun addLiteral(base: GraphNode.Base): GraphNode {
         val newNode = graph.createGraphNode(NodeType.LITERAL, base)
-        setVarAssignmentNode(newNode)
+        setLastNode(newNode)
         return newNode
     }
 
-    fun addVariable(base: GraphNode.Base, memPos: MemPos?): GraphNode {
+    fun addPrimitiveVariable(base: GraphNode.Base, owner: MemPos?): GraphNode {
         val newNode = graph.createGraphNode(NodeType.VARIABLE, base)
-        setVarAssignmentNode(newNode)
-        memPos?.addNode(newNode)
+        setLastNode(newNode)
+        owner?.addNode(newNode)
         return newNode
     }
 
     fun addBinOp(base: GraphNode.Base, leftNode: GraphNode, rightNode: GraphNode): GraphNode {
         val binOpNode = graph.createGraphNode(NodeType.BIN_OP, base)
-        setVarAssignmentNode(binOpNode)
+        setLastNode(binOpNode)
         leftNode.addEdge(binOpNode)
         rightNode.addEdge(binOpNode)
         return binOpNode

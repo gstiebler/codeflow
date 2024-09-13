@@ -75,7 +75,7 @@ open class AstBlockProcessor(
     }
 
     private fun assignPrimitive(lhsMemPos: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
-        val lhsNode = graphBuilderBlock.addVariable(GraphNode.Base(lhsId), lhsMemPos)
+        val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), lhsMemPos)
         val rhsNode = rhs.accept(this, ctx)
         graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         return lhsNode

@@ -6,5 +6,6 @@ public class App {
         ClassY y = new ClassY();
         x.memberX = 5;
         y.memberY = x.memberX;
+        ClassY y2 = y;
     }
 }

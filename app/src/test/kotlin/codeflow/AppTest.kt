@@ -30,11 +30,11 @@ class AppTest {
         try {
             val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
             if (result != truth) {
-                Files.write(testDirPath.resolve("truth.md"), result)
+                Files.write(testDirPath.resolve("result.md"), result)
             }
             assert(result == truth)
         } catch (e: Exception) {
-            Files.write(testDirPath.resolve("truth.md"), result)
+            Files.write(testDirPath.resolve("result.md"), result)
             throw e
         }
     }

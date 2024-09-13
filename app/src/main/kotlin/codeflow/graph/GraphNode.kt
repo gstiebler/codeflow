@@ -3,7 +3,7 @@ package codeflow.graph
 import mu.KotlinLogging
 
 enum class NodeType {
-    BASE, LITERAL, VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE
+    BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE
 }
 
 abstract class GraphNode(private val base: Base) {
@@ -58,6 +58,7 @@ abstract class GraphNode(private val base: Base) {
             return when (type) {
                 NodeType.LITERAL -> Literal(base)
                 NodeType.VARIABLE -> Variable(base)
+                NodeType.OBJ_VARIABLE -> ObjVariable(base)
                 NodeType.BIN_OP -> BinOp(base)
                 NodeType.FUNC_PARAM -> FuncParam(base)
                 NodeType.MEM_SPACE -> MemSpace(base)
@@ -73,6 +74,9 @@ abstract class GraphNode(private val base: Base) {
     }
     class Variable(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.VARIABLE
+    }
+    class ObjVariable(base: Base) : GraphNode(base) {
+        override fun getType() = NodeType.OBJ_VARIABLE
     }
     class BinOp(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.BIN_OP

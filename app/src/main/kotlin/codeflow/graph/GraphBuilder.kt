@@ -34,7 +34,7 @@ class GraphBuilderBlock(
     }
 
     private fun setLastNode(node: GraphNode) {
-        logger.debug { "setVarAssignmentNode: $node" }
+        logger.debug { "setLastNode: $node" }
         val previousVariable = nodeIdToVariable[node.id]
         if (previousVariable == null) {
             nodeIdToVariable[node.id] = Variable(node)
@@ -71,8 +71,18 @@ class GraphBuilderBlock(
         return newNode
     }
 
+    /*
+    In x.memberX = 5;, x is the owner of memberX
+     */
     fun addPrimitiveVariable(base: GraphNode.Base, owner: MemPos?): GraphNode {
         val newNode = graph.createGraphNode(NodeType.VARIABLE, base)
+        setLastNode(newNode)
+        owner?.addNode(newNode)
+        return newNode
+    }
+
+    fun addObjectVariable(base: GraphNode.Base, owner: MemPos?): GraphNode {
+        val newNode = graph.createGraphNode(NodeType.OBJ_VARIABLE, base)
         setLastNode(newNode)
         owner?.addNode(newNode)
         return newNode

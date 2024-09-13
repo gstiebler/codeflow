@@ -17,12 +17,12 @@ open class AstBlockProcessor(
     private val parent: AstBlockProcessor?,
     val graphBuilderBlock: GraphBuilderBlock,
     private val pos: Position,
-    private val memPos: MemPos?
+    private val owner: MemPos? // instance of the class that contains the method, null for static methods
 ) : TreeScanner<GraphNode, ProcessorContext>() {
     private val logger = KotlinLogging.logger {}
 
     init {
-        logger.debug { "AstBlockProcessor created: $memPos" }
+        logger.debug { "AstBlockProcessor created: $owner" }
     }
 
     override fun toString() = graphBuilderBlock.method.name.name.toString()
@@ -41,7 +41,7 @@ open class AstBlockProcessor(
 
         val lhsParentExpr = lhs.accept(AstParentExprProcessor(), ctx)
         val lhsMemPos = if (lhsParentExpr == null) {
-            memPos
+            owner
         } else {
             getMemPos(lhsParentExpr, ctx)
         }
@@ -50,7 +50,7 @@ open class AstBlockProcessor(
             // val lhsId = JNodeId(lhsName, memPos)
             assignPrimitive(lhsMemPos, lhsId, rhs, ctx)
         } else {
-            assignMemPos(lhsId, rhs, ctx)
+            assignMemPos(lhsMemPos, lhsId, rhs, ctx)
         }
         return null
     }
@@ -63,19 +63,19 @@ open class AstBlockProcessor(
         val name = node.name
 
         if (node.initializer != null) {
-            val variableNodeId = JNodeId(getStack().push(ctx, node), name, memPos)
+            val variableNodeId = JNodeId(getStack().push(ctx, node), name, owner)
             if (isPrimitive) {
-                return assignPrimitive(memPos, variableNodeId, node.initializer, ctx)
+                return assignPrimitive(owner, variableNodeId, node.initializer, ctx)
             } else {
-                assignMemPos(variableNodeId, node.initializer, ctx)
+                assignMemPos(owner, variableNodeId, node.initializer, ctx)
             }
         }
 
         return null
     }
 
-    private fun assignPrimitive(lhsMemPos: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
-        val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), lhsMemPos)
+    private fun assignPrimitive(owner: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
+        val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), owner)
         val rhsNode = rhs.accept(this, ctx)
         graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         return lhsNode
@@ -84,8 +84,17 @@ open class AstBlockProcessor(
     /**
      * Assigns the mem pos of the rhs to the lhs.
      */
-    private fun assignMemPos(lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext) {
+    private fun assignMemPos(owner: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext) {
+        val lhsNode = graphBuilderBlock.addObjectVariable(GraphNode.Base(lhsId), owner)
         val rhsMemPos = getMemPos(rhs, ctx) ?: throw GraphException("Mem pos of $rhs is null")
+        val rhsNode = try {
+            rhs.accept(this, ctx)
+        } catch(e: Exception) {
+            null
+        }
+        if (rhsNode != null) {
+            graphBuilderBlock.addAssignment(lhsNode, rhsNode)
+        }
         globalCtx.addMemPos(lhsId, rhsMemPos)
     }
 
@@ -93,7 +102,7 @@ open class AstBlockProcessor(
      * Returns the mem pos of the given expression.
      */
     private fun getMemPos(node: Tree?, ctx: ProcessorContext): MemPos? {
-        return node?.accept(AstMemPosProcessor(globalCtx, graphBuilderBlock, this, getStack(), memPos), ctx)
+        return node?.accept(AstMemPosProcessor(globalCtx, graphBuilderBlock, this, getStack(), owner), ctx)
     }
 
     private fun getLastNodeOfVariable(id: GraphNodeId): GraphNode {
@@ -118,7 +127,7 @@ open class AstBlockProcessor(
     }
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
-        val nId = JNodeId(getStack().push(ctx, node), node.name, memPos)
+        val nId = JNodeId(getStack().push(ctx, node), node.name, owner)
         return getLastNodeOfVariable(nId)
     }
 

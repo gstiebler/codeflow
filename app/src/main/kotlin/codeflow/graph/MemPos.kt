@@ -8,6 +8,9 @@ import mu.KotlinLogging
  */
 class MemPos(val expr: ExpressionTree) {
 
+    // nodes for primitive variables inside this instance
+    // In x.memberX = 5; a node is created for memberX, and receives 5
+    // x is a MemPos
     private val referencedNodes = HashMap<GraphNodeId, GraphNode>()
 
     private val logger = KotlinLogging.logger {}

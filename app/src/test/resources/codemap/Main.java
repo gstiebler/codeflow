@@ -3,7 +3,7 @@ package member.Main;
 abstract class BaseClass {
     int baseMember;
 
-    public BaseClass(int init, int dummy) {
+    public BaseClass(int init, int baseParam) {
         this.baseMember = init;
     }
 

@@ -68,8 +68,8 @@ flowchart TD
         end
     end
     subgraph sub4["ClassA.process"]
-        baseParam[baseParam]:::FUNC_PARAM --> binop1["\+"]:::BIN_OP
-        bm[this.baseMember]:::VARIABLE --> binop1["\+"]:::BIN_OP
+        baseParam[baseParam]:::FUNC_PARAM --> binop1["#43;"]:::BIN_OP
+        bm[this.baseMember]:::VARIABLE --> binop1["#43;"]:::BIN_OP
         binop1["\+"]:::BIN_OP --> return1["ClassA.process"]:::RETURN
     end
     a:::VARIABLE

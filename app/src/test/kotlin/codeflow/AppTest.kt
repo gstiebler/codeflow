@@ -5,8 +5,12 @@ package codeflow
 
 import codeflow.graph.GraphException
 import codeflow.java.AstReader
+import org.w3c.dom.Document
+import org.w3c.dom.Element
+import java.io.ByteArrayInputStream
 import java.nio.file.Files
 import java.nio.file.Path
+import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -31,6 +35,60 @@ class AppTest {
         MermaidExporter()
             .processMainMethod(mainMethod) { result.add(it) }
         return result
+    }
+
+    /**
+     * The GraphML rendering, parsed.
+     *
+     * Parsing with a real XML parser rather than matching text is the point: a label that is XML
+     * syntax has to come back out as its own characters, and the document has to be something a
+     * viewer can actually open.
+     */
+    private fun buildGraphml(testDir: String, testFiles: List<String>): Document {
+        val testDirPath = testResourcesPath.resolve(testDir)
+        val testFilePaths = testFiles.map { testDirPath.resolve(it) }
+        val mainMethod = AstReader(testResourcesPath).process(testFilePaths)
+
+        val text = StringBuilder()
+        GraphmlExporter()
+            .processMainMethod(mainMethod) { text.append(it).append("\n") }
+        return DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder()
+            .parse(ByteArrayInputStream(text.toString().toByteArray()))
+    }
+
+    private fun elements(doc: Document, tag: String): List<Element> {
+        val found = doc.getElementsByTagName(tag)
+        return (0 until found.length).map { found.item(it) as Element }
+    }
+
+    /** A node's own `data`, not that of the nodes nested inside it. */
+    private fun dataOf(node: Element, key: String): String? {
+        val children = node.childNodes
+        return (0 until children.length)
+            .mapNotNull { children.item(it) as? Element }
+            .firstOrNull { it.tagName == "data" && it.getAttribute("key") == key }
+            ?.textContent
+    }
+
+    private fun labelOf(node: Element) = dataOf(node, "label") ?: ""
+
+    /** The label of the block this node is nested in, or null for the outermost one. */
+    private fun enclosingBlockLabel(node: Element): String? {
+        var ancestor = node.parentNode
+        while (ancestor != null) {
+            if (ancestor is Element && ancestor.tagName == "node") return labelOf(ancestor)
+            ancestor = ancestor.parentNode
+        }
+        return null
+    }
+
+    /** The GraphML edges as (source label, target label) pairs, to compare against [edgeLabels]. */
+    private fun graphmlEdgeLabels(doc: Document): List<Pair<String, String>> {
+        val labels = elements(doc, "node").associate { it.getAttribute("id") to labelOf(it) }
+        return elements(doc, "edge").map {
+            (labels[it.getAttribute("source")] ?: "?") to (labels[it.getAttribute("target")] ?: "?")
+        }
     }
 
     /** The declared nodes as (label, type) pairs, ignoring the generated ids. */
@@ -278,6 +336,57 @@ class AppTest {
         assertTrue(reaches(graph, "1", "afterwards"), "outer's own value does not reach it: $graph")
         assertTrue(!reaches(graph, "2", "afterwards"), "the callee's value leaked into the caller: $graph")
         assertTrue(reaches(graph, "2", "consumed"), "inner's value does not reach its own read: $graph")
+    }
+
+    /**
+     * The method boundary is what a viewer draws as a rectangle, so a call has to come out as a
+     * node nested inside its caller's node - that containment *is* the boundary in GraphML, there
+     * is no separate notion of a group. Flat output would still render, as a correct graph with
+     * every method boundary silently gone.
+     */
+    @Test
+    fun graphmlNestsACallInsideItsCaller() {
+        val doc = buildGraphml("funcCall", listOf("App.java"))
+        val blocks = elements(doc, "node").filter { dataOf(it, "type") == "METHOD" }
+        val methodC = blocks.filter { labelOf(it) == "methodC" }
+        assertEquals(2, methodC.size, "methodC is inlined at two call sites and should appear twice")
+        assertTrue(methodC.all { enclosingBlockLabel(it) == "methodB" }, "methodC is not nested in methodB")
+
+        val methodB = blocks.single { labelOf(it) == "methodB" }
+        assertEquals("main", enclosingBlockLabel(methodB), "methodB is not nested in main")
+
+        val paramH = elements(doc, "node").filter { labelOf(it) == "paramH" }
+        assertTrue(paramH.isNotEmpty(), "methodC's parameter is missing")
+        assertTrue(paramH.all { enclosingBlockLabel(it) == "methodC" }, "a node escaped its own method")
+    }
+
+    /**
+     * `<init>`, `<`, `>` and a quoted literal are all real labels, and all of them are XML syntax.
+     * Written raw they produce a document a viewer refuses to open, or worse, one it opens with the
+     * label truncated at the first bad character.
+     */
+    @Test
+    fun graphmlEscapesLabelsThatAreXmlSyntax() {
+        val constructor = elements(buildGraphml("constructor", listOf("App.java")), "node").map { labelOf(it) }
+        assertTrue("<init>" in constructor, "the constructor's return label did not survive: $constructor")
+        assertTrue("\"test\"" in constructor, "the string literal's label did not survive: $constructor")
+
+        val operators = elements(buildGraphml("operators", listOf("App.java")), "node").map { labelOf(it) }
+        assertTrue("<" in operators, "the less-than operator did not survive: $operators")
+        assertTrue(">=" in operators, "the greater-or-equal operator did not survive: $operators")
+    }
+
+    /**
+     * The two exporters render one graph, so they have to agree on it. The risk is specific: an
+     * edge can cross a method boundary - a return flows to the variable in the caller - and GraphML
+     * requires such an edge to be declared in a graph enclosing both ends, unlike Mermaid, which
+     * takes it anywhere. Getting that wrong drops exactly the edges that join methods together.
+     */
+    @Test
+    fun graphmlKeepsEveryEdgeTheMermaidGraphHas() {
+        val mermaid = edgeLabels(buildGraph("funcCall", listOf("App.java"))).sortedBy { it.toString() }
+        val graphml = graphmlEdgeLabels(buildGraphml("funcCall", listOf("App.java"))).sortedBy { it.toString() }
+        assertEquals(mermaid, graphml, "the two renderings of one graph disagree on its edges")
     }
 
     @Test fun base() = codeflow("base", listOf("App.java"))

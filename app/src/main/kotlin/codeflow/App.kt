@@ -9,7 +9,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 fun main(args: Array<String>) {
-    val javaRootDir = args[0]
+    val javaRootDir = args.first { !it.startsWith("--") }
     // Source paths come back from javac as absolute URIs, and AstReader relativizes them
     // against this one. Path.relativize throws if only one of the two is absolute.
     val javaRootDirPath = Path.of(javaRootDir).toAbsolutePath().normalize()
@@ -18,8 +18,13 @@ fun main(args: Array<String>) {
     val mainMethod = AstReader(javaRootDirPath).process(filesPaths)
 
     val result = ArrayList<String>()
-    MermaidExporter()
-        .processMainMethod(mainMethod) { result.add(it) }
+    // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on
+    // stderr, so redirecting stdout to a file gives something a viewer can open directly.
+    if (args.contains("--graphml")) {
+        GraphmlExporter().processMainMethod(mainMethod) { result.add(it) }
+    } else {
+        MermaidExporter().processMainMethod(mainMethod) { result.add(it) }
+    }
 
     result.forEach { println(it) }
 }

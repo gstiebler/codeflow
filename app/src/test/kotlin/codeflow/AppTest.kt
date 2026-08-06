@@ -49,6 +49,32 @@ class AppTest {
         }
     }
 
+    /**
+     * Whether a value can reach another node by following edges.
+     *
+     * Labels alone cannot answer this when two distinct variables share a name, which is exactly
+     * the case worth testing, so this walks the ids and only uses labels for the two endpoints.
+     */
+    private fun reaches(graph: List<String>, fromLabel: String, toLabel: String): Boolean {
+        val edge = Regex("""(n\d+)\[([^]]*)]:::\w+ --> (n\d+)\[([^]]*)]""")
+        val edges = graph.mapNotNull { edge.find(it) }
+        val outgoing = edges.groupBy({ it.groupValues[1] }, { it.groupValues[3] })
+        val labelOf = HashMap<String, String>()
+        edges.forEach {
+            labelOf[it.groupValues[1]] = it.groupValues[2]
+            labelOf[it.groupValues[3]] = it.groupValues[4]
+        }
+        val seen = HashSet<String>()
+        val queue = ArrayDeque(labelOf.filterValues { it == fromLabel }.keys)
+        while (queue.isNotEmpty()) {
+            val id = queue.removeFirst()
+            if (!seen.add(id)) continue
+            if (labelOf[id] == toLabel && seen.size > 1) return true
+            outgoing[id]?.forEach { queue.addLast(it) }
+        }
+        return false
+    }
+
     private fun codeflow(testDir: String, testFiles: List<String>) {
         val testDirPath = testResourcesPath.resolve(testDir)
         val result = buildGraph(testDir, testFiles)
@@ -236,6 +262,22 @@ class AppTest {
         assertTrue("create" to "widget" in edges, "call result does not reach the variable: $edges")
         assertTrue("widget" to "measure" in edges, "receiver does not reach the call made on it: $edges")
         assertTrue("+" to "total" in edges, "flow does not continue past the unresolvable type: $edges")
+    }
+
+    /**
+     * outer() and inner() each declare a local `amount` on the same instance. They are two
+     * variables, and the value read back in outer() is the one outer() assigned.
+     *
+     * Keyed by name and instance they were one, and both were filed on the same MemPos under that
+     * one key, so the callee's assignment overwrote the caller's and outer() read inner()'s value.
+     * The labels cannot tell the two apart, which is the point: on the diagram this was invisible.
+     */
+    @Test
+    fun localsOfTheSameNameInTwoMethodsStayApart() {
+        val graph = buildGraph("collidingLocals", listOf("App.java"))
+        assertTrue(reaches(graph, "1", "afterwards"), "outer's own value does not reach it: $graph")
+        assertTrue(!reaches(graph, "2", "afterwards"), "the callee's value leaked into the caller: $graph")
+        assertTrue(reaches(graph, "2", "consumed"), "inner's value does not reach its own read: $graph")
     }
 
     @Test fun base() = codeflow("base", listOf("App.java"))

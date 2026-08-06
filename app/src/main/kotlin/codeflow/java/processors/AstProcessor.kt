@@ -5,6 +5,7 @@ import codeflow.graph.GraphNode
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
+import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.Name
 
 class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode, ProcessorContext>() {
@@ -36,7 +37,7 @@ class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode
         // The declaration is the key every call site will be resolved to. Without one there is
         // nothing to register the body under, so no call could ever find it and the method would
         // silently vanish from every diagram that should have shown it.
-        val element = globalCtx.symbols.element(node)
+        val element = globalCtx.symbols.element(node) as? ExecutableElement
             ?: throw GraphException("javac resolved no declaration for '${node.name}' at ${ctx.location(node)}")
         globalCtx.addMethod(node, element, ctx)
         return null

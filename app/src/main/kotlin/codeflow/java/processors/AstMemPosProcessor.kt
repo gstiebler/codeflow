@@ -56,7 +56,7 @@ class AstMemPosProcessor(
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos? {
         val expr = node.expression
         val exprMemPos = expr.accept(this, ctx)
-        val nodeId = JNodeId(stack, node.identifier, exprMemPos)
+        val nodeId = JNodeId(stack, node.identifier, globalCtx.symbols.element(node), exprMemPos)
         // Null for a field of an object we know nothing about, and for the `System.out` half of a
         // call on a type from outside the analysed sources.
         return globalCtx.findMemPos(nodeId)
@@ -74,7 +74,7 @@ class AstMemPosProcessor(
             return memPos
         }
         try {
-            val nodeId = JNodeId(stack, node.name, memPos)
+            val nodeId = JNodeId(stack, node.name, globalCtx.symbols.element(node), memPos)
             return globalCtx.getMemPos(nodeId)
         } catch (e: Exception) {
             logger.warn { "Exception in AstMemPosProcessor: ${e.message}" }

@@ -6,6 +6,7 @@ import com.sun.source.tree.ExpressionTree
 import com.sun.source.tree.MethodTree
 import mu.KotlinLogging
 import javax.lang.model.element.Element
+import javax.lang.model.element.ExecutableElement
 
 class GlobalContext(val symbols: Symbols) {
     /**
@@ -19,7 +20,7 @@ class GlobalContext(val symbols: Symbols) {
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
     private val logger = KotlinLogging.logger {}
 
-    fun addMethod(methodTree: MethodTree, element: Element, ctx: ProcessorContext) {
+    fun addMethod(methodTree: MethodTree, element: ExecutableElement, ctx: ProcessorContext) {
         methods[element] = Method(methodTree, ctx, element)
     }
 

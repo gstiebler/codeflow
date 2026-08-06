@@ -2,7 +2,7 @@ package codeflow.graph
 
 import codeflow.java.processors.ProcessorContext
 import com.sun.source.tree.MethodTree
-import javax.lang.model.element.Element
+import javax.lang.model.element.ExecutableElement
 
 /**
  * A method whose body the graph can be built from.
@@ -15,7 +15,7 @@ import javax.lang.model.element.Element
 data class Method(
     val name: MethodTree,
     val ctx: ProcessorContext,
-    val element: Element
+    val element: ExecutableElement
 ) {
     /** `<init>` says nothing on a diagram; the class whose constructor it is does. */
     fun displayName(): String {

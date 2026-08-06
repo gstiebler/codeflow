@@ -57,9 +57,8 @@ open class AstBlockProcessor(
         } else {
             getMemPos(lhsParentExpr, ctx)
         }
-        val lhsId = JNodeId(getStack(), lhsName, lhsMemPos)
+        val lhsId = JNodeId(getStack(), lhsName, globalCtx.symbols.element(lhs), lhsMemPos)
         if (lhsIsPrimitive) {
-            // val lhsId = JNodeId(lhsName, memPos)
             assignPrimitive(lhsMemPos, lhsId, rhs, ctx)
         } else {
             assignMemPos(lhsMemPos, lhsId, rhs, ctx)
@@ -72,7 +71,7 @@ open class AstBlockProcessor(
         val name = node.name
 
         if (node.initializer != null) {
-            val variableNodeId = JNodeId(getStack().push(ctx, node), name, owner)
+            val variableNodeId = JNodeId(getStack().push(ctx, node), name, globalCtx.symbols.element(node), owner)
             if (isPrimitive) {
                 return assignPrimitive(owner, variableNodeId, node.initializer, ctx)
             } else {
@@ -130,7 +129,7 @@ open class AstBlockProcessor(
         val identifier = node.identifier
         // memory position of the class instance
         val exprMemPos = getMemPos(expression, ctx)
-        val nodeId = JNodeId(getStack().push(ctx, node), identifier, exprMemPos)
+        val nodeId = JNodeId(getStack().push(ctx, node), identifier, globalCtx.symbols.element(node), exprMemPos)
         exprMemPos?.getNode(nodeId)?.let { return it }
         // With a memory position we are tracking the object, so failing to find the field is a
         // real problem and should be reported. Without one the receiver is something from outside
@@ -171,7 +170,7 @@ open class AstBlockProcessor(
      * the block parent chain searched by getLastNodeOfVariable does not span sibling methods.
      */
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
-        val nId = JNodeId(getStack().push(ctx, node), node.name, owner)
+        val nId = JNodeId(getStack().push(ctx, node), node.name, globalCtx.symbols.element(node), owner)
         return owner?.getNode(nId) ?: getLastNodeOfVariable(nId)
     }
 
@@ -236,7 +235,7 @@ open class AstBlockProcessor(
         val opNode = graphBuilderBlock.addBinOp(GraphNode.Base(opId), currentNode, rhsNode)
 
         val lhsName = node.variable.accept(AstLastNameProcessor(), ctx)
-        val lhsId = JNodeId(getStack().push(ctx, node), lhsName, owner)
+        val lhsId = JNodeId(getStack().push(ctx, node), lhsName, globalCtx.symbols.element(node.variable), owner)
         val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), owner)
         graphBuilderBlock.addAssignment(lhsNode, opNode)
         return lhsNode

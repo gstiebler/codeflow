@@ -46,9 +46,11 @@ class GraphBuilderBlock(
     var returnNode = createReturnNode(stack)
 
     // should it be here? or on a MethodBlock class?
-    val parameterNodes = method.name.parameters.map {
-        val baseNode = GraphNode.Base(JNodeId(stack.push(ctx, it), it.name, memPos))
-        graph.createGraphNode(NodeType.FUNC_PARAM, baseNode)
+    // The parameter's declaration comes off the method's own element rather than being looked up
+    // per tree, and is what a read of the parameter inside the body resolves to.
+    val parameterNodes = method.name.parameters.mapIndexed { index, parameter ->
+        val id = JNodeId(stack.push(ctx, parameter), parameter.name, method.element.parameters[index], memPos)
+        graph.createGraphNode(NodeType.FUNC_PARAM, GraphNode.Base(id))
     }
 
     init {
@@ -70,8 +72,13 @@ class GraphBuilderBlock(
         return nodeIdToVariable[id] ?: parent?.getVariable(id)
     }
 
+    /**
+     * A return is not a variable and has no declaration to be keyed by, so it uses the plain
+     * label-and-stack key. The stack is this block's, which is unique to this invocation, and
+     * nothing looks the node up: whatever returns a value reaches it through [addReturnNode].
+     */
     private fun createReturnNode(stack: PosStack): GraphNode {
-        val nodeBase = GraphNode.Base(JNodeId(stack, method.name.name, memPos))
+        val nodeBase = GraphNode.Base(GraphNodeId(stack, method.name.name.toString()))
         return graph.createGraphNode(NodeType.RETURN, nodeBase)
     }
 

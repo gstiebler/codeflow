@@ -49,8 +49,6 @@ class Symbols private constructor(
     fun element(tree: Tree, expected: ElementKind): Element? =
         elements[tree]?.takeIf { it.kind == expected }
 
-    fun type(tree: Tree): TypeMirror? = types[tree]
-
     /** Whether the tree's type is a primitive, and so holds a value rather than a reference. */
     fun isPrimitive(tree: Tree): Boolean = types[tree]?.kind?.isPrimitive ?: false
 

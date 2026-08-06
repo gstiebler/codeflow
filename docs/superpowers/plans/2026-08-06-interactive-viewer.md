@@ -325,12 +325,14 @@ In `package.json`, replace the `scripts` block with:
 
 ```json
   "scripts": {
-    "test": "node --test app/src/test/js/unit/",
+    "test": "node --test app/src/test/js/unit/*.test.mjs",
     "test:browser": "playwright test --config=app/src/test/js/playwright.config.mjs"
   },
 ```
 
 The unit tests live in their own directory so `node --test` cannot pick up the Playwright spec, which needs a browser it does not have.
+
+The glob is not decoration: `node --test <dir>` is broken on Node 23.11 — it tries to load the directory itself as a module and dies with `MODULE_NOT_FOUND` before running anything. The shell expands the glob instead, and new test files are still picked up automatically.
 
 - [ ] **Step 2: Write the failing test**
 

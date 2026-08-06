@@ -3,7 +3,7 @@
   "private": true,
   "description": "Tooling for the interactive viewer: vendored browser libraries and the JS tests. The Kotlin build does not depend on any of this.",
   "scripts": {
-    "test": "node --test app/src/test/js/",
+    "test": "node --test app/src/test/js/unit/*.test.mjs",
     "test:browser": "playwright test --config=app/src/test/js/playwright.config.mjs"
   },
   "devDependencies": {

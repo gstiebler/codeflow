@@ -93,6 +93,42 @@ class AppTest {
         assertTrue("ternary" to "guarded" in edges, "selection does not reach the variable: $edges")
     }
 
+    /**
+     * A call to a method outside the analysed sources has no body to inline, so it becomes one
+     * node that the arguments flow into and the result flows out of. Values still have to be
+     * traceable through it.
+     */
+    @Test
+    fun externalCallBecomesOpaqueNode() {
+        val edges = edgeLabels(buildGraph("externalCall", listOf("App.java")))
+        assertTrue("a" to "abs" in edges, "argument does not reach the external call: $edges")
+        assertTrue("abs" to "b" in edges, "external call result does not reach the variable: $edges")
+        assertTrue("b" to "println" in edges, "argument does not reach the external call: $edges")
+        assertTrue("+" to "c" in edges, "flow does not continue past the external call: $edges")
+    }
+
+    /**
+     * An object returned by a method outside the analysed sources has no constructor to run, so
+     * nothing is known about its memory position. It still has to be usable as a receiver.
+     */
+    @Test
+    fun externalObjectIsUsableAsReceiver() {
+        val edges = edgeLabels(buildGraph("externalObject", listOf("App.java")))
+        assertTrue("of" to "items" in edges, "external call result does not reach the variable: $edges")
+        assertTrue("items" to "size" in edges, "receiver does not reach the call made on it: $edges")
+        assertTrue("+" to "doubled" in edges, "flow does not continue past the external object: $edges")
+    }
+
+    /** The receiver of a call can be another call, so a value has to stay traceable along a chain. */
+    @Test
+    fun chainedCallsStayConnected() {
+        val edges = edgeLabels(buildGraph("chainedCall", listOf("App.java")))
+        assertTrue("items" to "stream" in edges, "receiver does not reach the first call: $edges")
+        assertTrue("stream" to "toList" in edges, "first call does not reach the second: $edges")
+        assertTrue("toList" to "size" in edges, "second call does not reach the third: $edges")
+        assertTrue("size" to "size" in edges, "call result does not reach the variable: $edges")
+    }
+
     @Test fun base() = codeflow("base", listOf("App.java"))
     @Test fun funcCall() = codeflow("funcCall", listOf("App.java"))
     @Test fun member() = codeflow("member", listOf("App.java"))
@@ -105,4 +141,7 @@ class AppTest {
     @Test fun chainedBinOp() = codeflow("chainedBinOp", listOf("App.java"))
     @Test fun operators() = codeflow("operators", listOf("App.java"))
     @Test fun ternary() = codeflow("ternary", listOf("App.java"))
+    @Test fun externalCall() = codeflow("externalCall", listOf("App.java"))
+    @Test fun externalObject() = codeflow("externalObject", listOf("App.java"))
+    @Test fun chainedCall() = codeflow("chainedCall", listOf("App.java"))
 }

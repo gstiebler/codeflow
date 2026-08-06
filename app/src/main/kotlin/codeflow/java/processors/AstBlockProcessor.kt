@@ -86,7 +86,10 @@ open class AstBlockProcessor(
      */
     private fun assignMemPos(owner: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext) {
         val lhsNode = graphBuilderBlock.addObjectVariable(GraphNode.Base(lhsId), owner)
-        val rhsMemPos = getMemPos(rhs, ctx) ?: throw GraphException("Mem pos of $rhs is null")
+        // An object we know nothing about: it came from outside the analysed sources, or from a
+        // call whose returns we do not follow. It still gets a memory position of its own, so that
+        // fields set on it and calls made on it have somewhere to hang.
+        val rhsMemPos = getMemPos(rhs, ctx) ?: globalCtx.createMemPos(rhs, graphBuilderBlock)
         val rhsNode = try {
             rhs.accept(this, ctx)
         } catch(e: Exception) {
@@ -119,7 +122,16 @@ open class AstBlockProcessor(
         // memory position of the class instance
         val exprMemPos = getMemPos(expression, ctx)
         val nodeId = JNodeId(getStack().push(ctx, node), identifier, exprMemPos)
-        return exprMemPos?.getNode(nodeId) ?: getLastNodeOfVariable(nodeId)
+        exprMemPos?.getNode(nodeId)?.let { return it }
+        // With a memory position we are tracking the object, so failing to find the field is a
+        // real problem and should be reported. Without one the receiver is something from outside
+        // the analysed sources, such as the enum in `LoanCapitalizedIncomeStrategy.EQUAL_AMORTIZATION`,
+        // and the value it selects is opaque rather than missing.
+        if (exprMemPos != null) {
+            return getLastNodeOfVariable(nodeId)
+        }
+        return graphBuilderBlock.getVariable(nodeId)?.lastNode
+            ?: graphBuilderBlock.addExternal(GraphNode.Base(nodeId), emptyList())
     }
 
     override fun visitMemberReference(node: MemberReferenceTree?, p: ProcessorContext): GraphNode? {
@@ -207,7 +219,8 @@ open class AstBlockProcessor(
         if (methodIdentifier.expression == null && (methodName == "super" || methodName == "this")) {
             return invokeConstructorDelegation(methodName, node, ctx)
         }
-        val method = globalCtx.getMethod(JMethodId(methodIdentifier.methodName))
+        val method = globalCtx.findMethod(JMethodId(methodIdentifier.methodName))
+            ?: return invokeExternalMethod(methodIdentifier, node, ctx)
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
         val invocationPos = ctx.getPosId(node)
@@ -219,6 +232,27 @@ open class AstBlockProcessor(
         blockProcessor.invokeMethod(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode
+    }
+
+    /**
+     * Represents a call to a method outside the analysed sources as a single node.
+     *
+     * There is no body to inline, so the call is opaque: the arguments and the receiver flow into
+     * it and its result flows out. That keeps a value traceable across the call instead of ending
+     * the analysis, which is what matters for real code, where almost every method eventually
+     * reaches the standard library.
+     */
+    private fun invokeExternalMethod(
+        methodIdentifier: MethodRefs,
+        node: MethodInvocationTree,
+        ctx: ProcessorContext
+    ): GraphNode {
+        val argumentNodes = node.arguments.map { it.accept(this, ctx) }
+        // The receiver is a value flowing into the call only when it is something we track. For a
+        // static call it is a type name, as in `Math.abs`, which is not a node in the graph.
+        val receiverNode = methodIdentifier.expression?.let { runCatching { it.accept(this, ctx) }.getOrNull() }
+        val jId = GraphNodeId(getStack().push(ctx, node), methodIdentifier.methodName.toString())
+        return graphBuilderBlock.addExternal(GraphNode.Base(jId), listOfNotNull(receiverNode) + argumentNodes)
     }
 
     /**

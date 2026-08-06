@@ -99,6 +99,18 @@ class GraphBuilderBlock(
     }
 
     /**
+     * The node standing for something outside the analysed sources. A call has no body to inline,
+     * so it is opaque: its inputs flow in and whatever it produces flows out. A value such as an
+     * enum constant has no inputs at all.
+     */
+    fun addExternal(base: GraphNode.Base, inputs: List<GraphNode>): GraphNode {
+        val externalNode = graph.createGraphNode(NodeType.EXTERNAL, base)
+        setLastNode(externalNode)
+        inputs.forEach { it.addEdge(externalNode) }
+        return externalNode
+    }
+
+    /**
      * The node standing for `condition ? ifTrue : ifFalse`. Either branch can produce the value of
      * the expression and the condition decides which, so all three flow into it.
      */

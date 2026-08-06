@@ -3,7 +3,7 @@ package codeflow.graph
 import mu.KotlinLogging
 
 enum class NodeType {
-    BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE
+    BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE, EXTERNAL
 }
 
 abstract class GraphNode(private val base: Base) {
@@ -63,6 +63,7 @@ abstract class GraphNode(private val base: Base) {
                 NodeType.FUNC_PARAM -> FuncParam(base)
                 NodeType.MEM_SPACE -> MemSpace(base)
                 NodeType.RETURN -> MethodReturn(base)
+                NodeType.EXTERNAL -> External(base)
                 NodeType.BASE -> TODO()
             }
 
@@ -86,6 +87,11 @@ abstract class GraphNode(private val base: Base) {
     }
     class MemSpace(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.MEM_SPACE
+    }
+    /** Something from outside the analysed sources: a call with no body to inline, or a value
+     *  such as an enum constant, that we can only treat as opaque. */
+    class External(base: Base) : GraphNode(base) {
+        override fun getType() = NodeType.EXTERNAL
     }
     class Assignment(base: Base) : GraphNode(base)
     class MethodReturn(base: Base) : GraphNode(base) {

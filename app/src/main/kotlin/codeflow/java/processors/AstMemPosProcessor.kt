@@ -4,6 +4,7 @@ import codeflow.graph.*
 import codeflow.java.ids.JNodeId
 import com.sun.source.tree.IdentifierTree
 import com.sun.source.tree.MemberSelectTree
+import com.sun.source.tree.MethodInvocationTree
 import com.sun.source.tree.NewClassTree
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
@@ -52,12 +53,21 @@ class AstMemPosProcessor(
         return createdMemPos
     }
 
-    override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos {
+    override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos? {
         val expr = node.expression
         val exprMemPos = expr.accept(this, ctx)
         val nodeId = JNodeId(stack, node.identifier, exprMemPos)
-        return globalCtx.getMemPos(nodeId)
+        // Null for a field of an object we know nothing about, and for the `System.out` half of a
+        // call on a type from outside the analysed sources.
+        return globalCtx.findMemPos(nodeId)
     }
+
+    /**
+     * The object a call returns is not one of the memory positions being tracked: an external
+     * method has no body to look into, and a local one would mean following every return. The
+     * caller gives the result a memory position of its own instead.
+     */
+    override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): MemPos? = null
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): MemPos? {
         if (node.name.toString() == "this") {

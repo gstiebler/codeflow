@@ -80,4 +80,5 @@ flowchart TD
   classDef BIN_OP fill:#80808080
   classDef FUNC_PARAM fill:#8080FF30
   classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
 ```

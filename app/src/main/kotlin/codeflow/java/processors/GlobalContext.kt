@@ -36,9 +36,8 @@ class GlobalContext {
         methods[hashCode] = Method(methodTree, ctx)
     }
 
-    fun getMethod(hashCode: MethodId): Method {
-        return methods[hashCode] ?: throw GraphException("Method not found")
-    }
+    /** Null for a method outside the analysed sources, which has no body to inline. */
+    fun findMethod(hashCode: MethodId): Method? = methods[hashCode]
 
     fun getMainMethod(): Method {
         val method = methods.firstNotNullOf {
@@ -50,6 +49,9 @@ class GlobalContext {
     fun getMemPos(nodeId: GraphNodeId): MemPos {
         return idToMemPos[nodeId] ?: throw GraphException("Variable not found: $nodeId")
     }
+
+    /** Null for anything whose memory position is not tracked, such as an object from outside. */
+    fun findMemPos(nodeId: GraphNodeId): MemPos? = idToMemPos[nodeId]
 
     fun createMemPos(label: ExpressionTree, graphBuilder: GraphBuilderBlock): MemPos {
         return MemPos(label)

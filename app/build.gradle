@@ -35,6 +35,10 @@ dependencies {
     implementation 'com.google.guava:guava:31.1-jre'
     implementation 'io.github.microutils:kotlin-logging-jvm:3.0.5'
     implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.4.8'
+
+    // Test-only. The exporter writes JSON by hand like the other two exporters; this is here so
+    // the tests parse it with something that did not write it.
+    testImplementation 'com.google.code.gson:gson:2.11.0'
 }
 
 testing {

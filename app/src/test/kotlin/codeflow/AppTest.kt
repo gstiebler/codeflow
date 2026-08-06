@@ -5,6 +5,8 @@ package codeflow
 
 import codeflow.graph.GraphException
 import codeflow.java.AstReader
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import java.io.ByteArrayInputStream
@@ -55,6 +57,31 @@ class AppTest {
         return DocumentBuilderFactory.newInstance()
             .newDocumentBuilder()
             .parse(ByteArrayInputStream(text.toString().toByteArray()))
+    }
+
+    /** The JSON rendering, parsed with a library that did not write it. */
+    private fun buildJson(testDir: String, testFiles: List<String>): JsonObject {
+        val testDirPath = testResourcesPath.resolve(testDir)
+        val testFilePaths = testFiles.map { testDirPath.resolve(it) }
+        val mainMethod = AstReader(testResourcesPath).process(testFilePaths)
+
+        val text = StringBuilder()
+        JsonExporter().processMainMethod(mainMethod) { text.append(it).append("\n") }
+        return JsonParser.parseString(text.toString()).asJsonObject
+    }
+
+    private fun jsonNodes(doc: JsonObject) = doc.getAsJsonArray("nodes").map { it.asJsonObject }
+
+    private fun jsonLabel(node: JsonObject) = node.get("label").asString
+
+    private fun jsonParent(node: JsonObject) = node.get("parent")?.asString
+
+    /** The JSON edges as (source label, target label) pairs, to compare against [edgeLabels]. */
+    private fun jsonEdgeLabels(doc: JsonObject): List<Pair<String, String>> {
+        val labels = jsonNodes(doc).associate { it.get("id").asString to jsonLabel(it) }
+        return doc.getAsJsonArray("edges").map { it.asJsonObject }.map {
+            (labels[it.get("source").asString] ?: "?") to (labels[it.get("target").asString] ?: "?")
+        }
     }
 
     private fun elements(doc: Document, tag: String): List<Element> {
@@ -387,6 +414,54 @@ class AppTest {
         val mermaid = edgeLabels(buildGraph("funcCall", listOf("App.java"))).sortedBy { it.toString() }
         val graphml = graphmlEdgeLabels(buildGraphml("funcCall", listOf("App.java"))).sortedBy { it.toString() }
         assertEquals(mermaid, graphml, "the two renderings of one graph disagree on its edges")
+    }
+
+    /**
+     * `parent` is what Cytoscape draws as a containing box, so it is the method boundary and
+     * nothing else carries it. A payload with the nesting flattened renders as a correct graph
+     * with every boundary silently gone.
+     */
+    @Test
+    fun jsonNestsACallInsideItsCaller() {
+        val doc = buildJson("funcCall", listOf("App.java"))
+        val nodes = jsonNodes(doc)
+        val byId = nodes.associateBy { it.get("id").asString }
+
+        val root = nodes.single { jsonParent(it) == null }
+        assertEquals("main", jsonLabel(root), "the parentless node should be the outermost method")
+
+        val methodC = nodes.filter { jsonLabel(it) == "methodC" && it.get("type").asString == "METHOD" }
+        assertEquals(2, methodC.size, "methodC is inlined at two call sites and should appear twice")
+        assertTrue(
+            methodC.all { jsonLabel(byId.getValue(jsonParent(it)!!)) == "methodB" },
+            "methodC is not nested in methodB"
+        )
+
+        val paramH = nodes.filter { jsonLabel(it) == "paramH" }
+        assertTrue(paramH.isNotEmpty(), "methodC's parameter is missing")
+        assertTrue(
+            paramH.all { jsonLabel(byId.getValue(jsonParent(it)!!)) == "methodC" },
+            "a node escaped its own method"
+        )
+    }
+
+    /**
+     * A label carrying a quote ends the JSON string early and the rest of the payload becomes
+     * syntax errors, so the page renders nothing at all.
+     */
+    @Test
+    fun jsonEscapesLabelsThatAreJsonSyntax() {
+        val labels = jsonNodes(buildJson("constructor", listOf("App.java"))).map { jsonLabel(it) }
+        assertTrue("\"test\"" in labels, "the string literal's label did not survive: $labels")
+        assertTrue("<init>" in labels, "the constructor's return label did not survive: $labels")
+    }
+
+    /** The three exporters render one graph, so they have to agree on its edges. */
+    @Test
+    fun jsonKeepsEveryEdgeTheMermaidGraphHas() {
+        val mermaid = edgeLabels(buildGraph("funcCall", listOf("App.java"))).sortedBy { it.toString() }
+        val json = jsonEdgeLabels(buildJson("funcCall", listOf("App.java"))).sortedBy { it.toString() }
+        assertEquals(mermaid, json, "the two renderings of one graph disagree on its edges")
     }
 
     @Test fun base() = codeflow("base", listOf("App.java"))

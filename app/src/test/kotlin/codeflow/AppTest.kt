@@ -33,6 +33,14 @@ class AppTest {
         return result
     }
 
+    /** The declared nodes as (label, type) pairs, ignoring the generated ids. */
+    private fun nodeTypes(graph: List<String>): List<Pair<String, String>> {
+        val declaration = Regex("""^\s*n\d+\[([^]]*)]:::(\w+)$""")
+        return graph.mapNotNull { line ->
+            declaration.find(line)?.let { it.groupValues[1] to it.groupValues[2] }
+        }
+    }
+
     /** The graph's edges as (source label, target label) pairs, ignoring the generated ids. */
     private fun edgeLabels(graph: List<String>): List<Pair<String, String>> {
         val edge = Regex("""n\d+\[([^]]*)]:::\w+ --> n\d+\[([^]]*)]""")
@@ -173,6 +181,61 @@ class AppTest {
         val message = error.message ?: ""
         assertTrue("LAMBDA_EXPRESSION" in message, "error does not name the construct: $message")
         assertTrue("unsupported/App.java:16" in message, "error does not give file and line: $message")
+    }
+
+    /**
+     * Two methods named `twice`, one taking an int and one a String. Which body runs at a call
+     * site is decided by the argument types, so a lookup by name has to pick one and be wrong at
+     * half the call sites - silently, since the body it inlines is real code that reads fine.
+     */
+    @Test
+    fun overloadsResolveToTheBodyThatRuns() {
+        val edges = edgeLabels(buildGraph("overload", listOf("App.java")))
+        assertTrue("number" to "value" in edges, "int argument does not reach the int parameter: $edges")
+        assertTrue("value" to "*" in edges, "the int overload's body was not inlined: $edges")
+        assertTrue("*" to "scaled" in edges, "the int overload's body was not inlined: $edges")
+        assertTrue("\"abc\"" to "text" in edges, "String argument does not reach the String parameter: $edges")
+        assertTrue("text" to "length" in edges, "the String overload's body was not inlined: $edges")
+        assertTrue("length" to "counted" in edges, "the String overload's body was not inlined: $edges")
+    }
+
+    /**
+     * `Account.close()` and `Connection.close()` are different methods that happen to share a name.
+     * Keyed by name they were one entry, so both call sites were drawn with the same body.
+     */
+    @Test
+    fun sameMethodNameOnTwoClassesStaysTwoMethods() {
+        val edges = edgeLabels(buildGraph("sameName", listOf("App.java")))
+        assertTrue("-" to "settled" in edges, "Account.close's body is missing: $edges")
+        assertTrue("+" to "flushed" in edges, "Connection.close's body is missing: $edges")
+        assertTrue("settled" to "close" in edges, "Account.close does not return its value: $edges")
+        assertTrue("flushed" to "close" in edges, "Connection.close does not return its value: $edges")
+    }
+
+    /**
+     * `total` names both an int field and a Holder local. Whether a variable holds a value or a
+     * reference decides how it is modelled, and reading that off a map keyed by bare name let the
+     * last declaration parsed answer for every `total` in the sources.
+     */
+    @Test
+    fun sameNameWithTwoTypesIsModelledByType() {
+        val nodes = nodeTypes(buildGraph("shadowedType", listOf("App.java")))
+        assertTrue("total" to "OBJ_VARIABLE" in nodes, "the Holder local is not an object: $nodes")
+        assertTrue("total" to "VARIABLE" in nodes, "the int field is not a value: $nodes")
+    }
+
+    /**
+     * The tool is pointed at sources with no classpath, so most of a real file's types cannot be
+     * resolved. That has to degrade to the opaque external node, not to a failure and not to a
+     * guess - this is the guard on codeflow still working on the input it exists for.
+     */
+    @Test
+    fun unresolvableTypeStaysOpaqueAndTraceable() {
+        val edges = edgeLabels(buildGraph("unresolvedType", listOf("App.java")))
+        assertTrue("size" to "create" in edges, "argument does not reach the unresolvable call: $edges")
+        assertTrue("create" to "widget" in edges, "call result does not reach the variable: $edges")
+        assertTrue("widget" to "measure" in edges, "receiver does not reach the call made on it: $edges")
+        assertTrue("+" to "total" in edges, "flow does not continue past the unresolvable type: $edges")
     }
 
     @Test fun base() = codeflow("base", listOf("App.java"))

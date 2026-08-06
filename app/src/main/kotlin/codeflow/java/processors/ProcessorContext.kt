@@ -11,13 +11,6 @@ class ProcessorContext(
     private val cut: CompilationUnitTree,
     private val sourcePos: SourcePositions
 ) {
-    private var className: String? = null
-    constructor(other: ProcessorContext, className: String) : this(other.path, other.cut, other.sourcePos) {
-        this.className = className
-    }
-
-    fun getClassName() = className
-
     /**
      * Identifies an AST node by its source span.
      *

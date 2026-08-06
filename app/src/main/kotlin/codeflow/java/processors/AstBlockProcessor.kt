@@ -1,8 +1,8 @@
 package codeflow.java.processors
 
 import codeflow.graph.*
-import codeflow.java.ids.JIdentifierId
-import codeflow.java.ids.JMethodId
+import javax.lang.model.element.Element
+import javax.lang.model.element.ElementKind
 import codeflow.java.ids.JNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
@@ -46,7 +46,10 @@ open class AstBlockProcessor(
         val rhs = node.expression
 
         val lhsName = lhs.accept(AstLastNameProcessor(), ctx)
-        val lhsIsPrimitive = globalCtx.isPrimitive(JIdentifierId(lhsName))
+        // An lhs javac could not resolve is not primitive as far as this can tell, so it takes the
+        // object path: that tracks a memory position and tolerates an rhs it cannot evaluate,
+        // where the primitive path would drop the assignment.
+        val lhsIsPrimitive = globalCtx.symbols.isPrimitive(lhs)
 
         val lhsParentExpr = lhs.accept(AstParentExprProcessor(), ctx)
         val lhsMemPos = if (lhsParentExpr == null) {
@@ -65,10 +68,7 @@ open class AstBlockProcessor(
     }
 
     override fun visitVariable(node: VariableTree, ctx: ProcessorContext): GraphNode? {
-        val typeKind = node.type.kind
-
-        val isPrimitive = typeKind == Tree.Kind.PRIMITIVE_TYPE
-        globalCtx.registerIsPrimitive(JIdentifierId(node.name), isPrimitive)
+        val isPrimitive = globalCtx.symbols.isPrimitive(node)
         val name = node.name
 
         if (node.initializer != null) {
@@ -325,13 +325,14 @@ open class AstBlockProcessor(
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode? {
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
-        val methodName = methodIdentifier.methodName.toString()
         // `super(...)` and `this(...)` are parsed as invocations of a method literally named
-        // "super"/"this", which no lookup by name can ever resolve.
-        if (methodIdentifier.expression == null && (methodName == "super" || methodName == "this")) {
-            return invokeConstructorDelegation(methodName, node, ctx)
+        // "super"/"this", so no lookup by name could ever resolve them. Attribution resolves both
+        // to the constructor they delegate to, and the kind is what says which case this is.
+        val target = globalCtx.symbols.element(node)
+        if (target?.kind == ElementKind.CONSTRUCTOR) {
+            return invokeConstructorDelegation(target, node, ctx)
         }
-        val method = globalCtx.findMethod(JMethodId(methodIdentifier.methodName))
+        val method = globalCtx.findMethod(globalCtx.symbols.element(node, ElementKind.METHOD))
             ?: return invokeExternalMethod(methodIdentifier, node, ctx)
         val methodArguments = node.arguments.map { evaluate(it, ctx) }
 
@@ -339,7 +340,7 @@ open class AstBlockProcessor(
         val localPos = Position(invocationPos, ctx.path)
         val exprMemPos = getMemPos(methodIdentifier.expression, ctx)
 
-        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, "noneClass", ctx)
+        val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, ctx)
         val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos)
         blockProcessor.invokeMethod(methodArguments)
         graphBuilderBlock.addCalledMethod(graphBlock)
@@ -375,26 +376,18 @@ open class AstBlockProcessor(
      * inherited field assigned in the superclass constructor be read from the subclass.
      */
     private fun invokeConstructorDelegation(
-        keyword: String,
+        target: Element,
         node: MethodInvocationTree,
         ctx: ProcessorContext
     ): GraphNode? {
-        val currentClass = graphBuilderBlock.className
-        val targetClass = if (keyword == "super") globalCtx.getSuperclass(currentClass) else currentClass
-        // A superclass outside the analysed sources, which for a class that extends nothing is
-        // java.lang.Object. There is no body to inline and, since the delegation is a statement,
+        // A constructor outside the analysed sources, which for a class that extends nothing is
+        // java.lang.Object's. There is no body to inline and, since the delegation is a statement,
         // no value for anything to read, so it contributes nothing rather than an opaque node.
-        if (targetClass == null) {
-            return null
-        }
-
-        val argumentTypes = resolveArgumentTypeNames(node.arguments, globalCtx, getStack(), owner, ctx)
-        val constructor = globalCtx.constructors.get(targetClass, argumentTypes)
-            ?: throw GraphException("Constructor '$targetClass(${argumentTypes.joinToString(", ")})' not found")
+        val constructor = globalCtx.findMethod(target) ?: return null
 
         val localPos = Position(ctx.getPosId(node), ctx.path)
         val graphBlock = GraphBuilderBlock(
-            graphBuilderBlock, Method(constructor, ctx), getStack().push(localPos), owner, targetClass, ctx
+            graphBuilderBlock, constructor, getStack().push(localPos), owner, ctx
         )
         val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, owner)
         val argumentNodes = node.arguments.map { evaluate(it, ctx) }

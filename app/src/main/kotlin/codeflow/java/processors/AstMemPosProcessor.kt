@@ -7,6 +7,7 @@ import com.sun.source.tree.MemberSelectTree
 import com.sun.source.tree.MethodInvocationTree
 import com.sun.source.tree.NewClassTree
 import com.sun.source.util.TreeScanner
+import javax.lang.model.element.ElementKind
 import mu.KotlinLogging
 
 class AstMemPosProcessor(
@@ -22,16 +23,15 @@ class AstMemPosProcessor(
         val identifier = node.identifier
         val arguments = node.arguments
 
-        val className = node.identifier.toString()
-
         val createdMemPos = globalCtx.createMemPos(identifier)
         val invocationPos = ctx.getPosId(node)
 
-        val argumentsTypes = resolveArgumentTypeNames(arguments, globalCtx, stack, memPos, ctx)
-        val constructor = globalCtx.constructors.get(className, argumentsTypes)
-        if (constructor != null) {
-            val method = Method(constructor, ctx)
-            val graphBlock = GraphBuilderBlock(graphBuilder, method, stack.push(ctx, node), createdMemPos, className, ctx)
+        // Which overload `new X(...)` selects is javac's answer to give. Comparing the argument
+        // types as uppercased strings, which is what this did, guessed - and said so in its own
+        // TODO.
+        val method = globalCtx.findMethod(globalCtx.symbols.element(node, ElementKind.CONSTRUCTOR))
+        if (method != null) {
+            val graphBlock = GraphBuilderBlock(graphBuilder, method, stack.push(ctx, node), createdMemPos, ctx)
             val localPos = Position(invocationPos, ctx.path)
             val constructorBlockProcessor =
                 AstBlockProcessor(globalCtx, callerBlockProcessor, graphBlock, localPos, createdMemPos)
@@ -48,7 +48,7 @@ class AstMemPosProcessor(
             logger.debug { "No constructor found: $node" }
         }
 
-        logger.debug { "visitNewClass: $identifier, argument types: $argumentsTypes" }
+        logger.debug { "visitNewClass: $identifier" }
 
         return createdMemPos
     }

@@ -1,8 +1,7 @@
 package codeflow.java.processors
 
+import codeflow.graph.GraphException
 import codeflow.graph.GraphNode
-import codeflow.java.Constructors
-import codeflow.java.ids.JMethodId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
 import mu.KotlinLogging
@@ -15,10 +14,9 @@ class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode
     val methodNames = mutableListOf<Name>()
 
     override fun visitClass(node: ClassTree, ctx: ProcessorContext): GraphNode? {
-        val className = node.simpleName.toString()
-        logger.info { "Class name: $className" }
+        logger.info { "Class name: ${node.simpleName}" }
         val memberByType = node.members.groupBy { it.kind }
-        memberByType[Tree.Kind.METHOD]?.forEach { it.accept(this, ProcessorContext(ctx, className)) }
+        memberByType[Tree.Kind.METHOD]?.forEach { it.accept(this, ctx) }
         // TODO: throw exception if there are other types of members
 
         return null
@@ -35,17 +33,12 @@ class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode
         }
         logger.debug { "visitMethod: ${node.name}, params: ($paramsStr)" }
         methodNames.add(node.name)
-        globalCtx.addMethod(node, JMethodId(node.name), ctx)
-        val isConstructor = node.name.contentEquals("<init>")
-        if (isConstructor) {
-            val types = node.parameters.map { it.type }
-            val typesNames = types.map {
-                it.accept(TypeNameExtractor(), ctx)
-            }
-            val className = ctx.getClassName()!!
-            globalCtx.constructors.add(className, Constructors.JavaConstructor(typesNames, node))
-        }
+        // The declaration is the key every call site will be resolved to. Without one there is
+        // nothing to register the body under, so no call could ever find it and the method would
+        // silently vanish from every diagram that should have shown it.
+        val element = globalCtx.symbols.element(node)
+            ?: throw GraphException("javac resolved no declaration for '${node.name}' at ${ctx.location(node)}")
+        globalCtx.addMethod(node, element, ctx)
         return null
     }
 }
-

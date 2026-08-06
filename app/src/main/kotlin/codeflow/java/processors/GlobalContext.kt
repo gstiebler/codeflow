@@ -1,44 +1,30 @@
 package codeflow.java.processors
 
 import codeflow.graph.*
-import codeflow.java.Constructors
 import codeflow.java.Symbols
 import com.sun.source.tree.ExpressionTree
 import com.sun.source.tree.MethodTree
 import mu.KotlinLogging
-import javax.lang.model.element.Name
+import javax.lang.model.element.Element
 
 class GlobalContext(val symbols: Symbols) {
-    private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
-    private val methods = HashMap<MethodId, Method>()
+    /**
+     * Keyed by the declaration javac resolved, not by the method's name.
+     *
+     * A name cannot tell `Account.close()` from `Connection.close()`, nor `helper(int)` from
+     * `helper(String)`, so keying by one silently inlined whichever body happened to be registered
+     * last for every call to either.
+     */
+    private val methods = HashMap<Element, Method>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
-    // Simple class name -> simple name of its superclass. Needed to resolve `super(...)`.
-    private val superclasses = HashMap<String, String>()
-    val constructors = Constructors()
     private val logger = KotlinLogging.logger {}
 
-    fun registerSuperclass(className: String, superclassName: String) {
-        logger.debug { "registerSuperclass: $className extends $superclassName" }
-        superclasses[className] = superclassName
-    }
-
-    fun getSuperclass(className: String?): String? = superclasses[className]
-
-    fun registerIsPrimitive(id: IdentifierId, isPrimitive: Boolean) {
-        isPrimitiveMap[id] = isPrimitive
-    }
-
-    fun isPrimitive(id: IdentifierId): Boolean {
-        // return the value, or throw an exception if it's not found
-        return isPrimitiveMap[id] ?: throw GraphException("Variable not found")
-    }
-
-    fun addMethod(methodTree: MethodTree, hashCode: MethodId, ctx: ProcessorContext) {
-        methods[hashCode] = Method(methodTree, ctx)
+    fun addMethod(methodTree: MethodTree, element: Element, ctx: ProcessorContext) {
+        methods[element] = Method(methodTree, ctx, element)
     }
 
     /** Null for a method outside the analysed sources, which has no body to inline. */
-    fun findMethod(hashCode: MethodId): Method? = methods[hashCode]
+    fun findMethod(element: Element?): Method? = element?.let { methods[it] }
 
     fun getMainMethod(): Method {
         val method = methods.firstNotNullOf {

@@ -12,9 +12,6 @@ class GraphBuilderBlock(
     stack: PosStack,
     // instance of the class that contains the method
     private val memPos: MemPos?,
-    // Class whose constructor this block is running, for blocks created by AstMemPosProcessor.
-    // Used to resolve `super(...)` / `this(...)` delegation. "noneClass" for plain method calls.
-    val className: String,
     private val ctx: ProcessorContext
 ) {
     private val logger = KotlinLogging.logger {}
@@ -165,9 +162,6 @@ class GraphBuilderBlock(
         newReturnNode.addEdge(returnNode)
     }
 
-    fun getMethodName(): String {
-        val methodName = method.name.name.toString()
-        return if (methodName == "<init>") "$className.constructor" else methodName
-    }
+    fun getMethodName(): String = method.displayName()
 
 }

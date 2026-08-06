@@ -47,10 +47,6 @@ class AstReader(private val basePath: Path) {
             "codeflow: ${symbols.unresolved} of ${symbols.total} references unresolved"
         )
         val globalCtx = GlobalContext(symbols)
-        for (compUnitTree in compUnitTrees) {
-            val ctx = getContext(compUnitTree, sourcePositions)
-            compUnitTree.accept(AstClassProcessor(globalCtx), ctx)
-        }
         var mainCtx: ProcessorContext? = null
         for (compUnitTree in compUnitTrees) {
             val ctx = getContext(compUnitTree, sourcePositions)
@@ -68,7 +64,7 @@ class AstReader(private val basePath: Path) {
 
         val mainMethod = globalCtx.getMainMethod()
         val mainMethodGraphBuilderBlock =
-            GraphBuilderBlock( null, mainMethod, PosStack(), null, "main", mainCtx)
+            GraphBuilderBlock(null, mainMethod, PosStack(), null, mainCtx)
         val pos = Position(0, Path.of(""))
         val mainAstBlockProcessor = AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null)
         mainAstBlockProcessor.invokeMethod(emptyList())

@@ -35,7 +35,7 @@ class AppTest {
 
     /** The graph's edges as (source label, target label) pairs, ignoring the generated ids. */
     private fun edgeLabels(graph: List<String>): List<Pair<String, String>> {
-        val edge = Regex("""-?\d+\[([^]]*)]:::\w+ --> -?\d+\[([^]]*)]""")
+        val edge = Regex("""n\d+\[([^]]*)]:::\w+ --> n\d+\[([^]]*)]""")
         return graph.mapNotNull { line ->
             edge.find(line)?.let { it.groupValues[1] to it.groupValues[2] }
         }
@@ -59,6 +59,7 @@ class AppTest {
 
         assertNoSelfEdges(testDir, result)
         assertNoUnknownOperators(testDir, result)
+        assertNoDuplicateNodeIds(testDir, result)
     }
 
     /**
@@ -66,12 +67,28 @@ class AppTest {
      * were merged into one. Nothing in the language produces a value that flows into itself.
      */
     private fun assertNoSelfEdges(testDir: String, graph: List<String>) {
-        val edge = Regex("""(-?\d+)\[[^]]*]:::\w+ --> (-?\d+)\[""")
+        val edge = Regex("""n(\d+)\[[^]]*]:::\w+ --> n(\d+)\[""")
         val selfEdges = graph.filter { line ->
             val match = edge.find(line)
             match != null && match.groupValues[1] == match.groupValues[2]
         }
         assertTrue(selfEdges.isEmpty(), "Graph for '$testDir' has nodes with an edge to themselves: $selfEdges")
+    }
+
+    /**
+     * Two nodes rendered under one id are drawn as one box, and every edge of both lands on it, so
+     * the diagram claims values flow between things that never touched. Identity used to be a hash
+     * of the node's label and call stack, which could always collide; it is now a serial handed out
+     * at creation, which cannot. This is here to notice if a derived id is ever reintroduced.
+     *
+     * Only the declaration lines are checked. The exporter repeats a node's full string on every
+     * edge line it appears in, which is not a duplicate declaration.
+     */
+    private fun assertNoDuplicateNodeIds(testDir: String, graph: List<String>) {
+        val declaration = Regex("""^\s*(n\d+)\[[^]]*]:::\w+$""")
+        val ids = graph.mapNotNull { declaration.find(it)?.groupValues?.get(1) }
+        val duplicates = ids.groupBy { it }.filterValues { it.size > 1 }.keys
+        assertTrue(duplicates.isEmpty(), "Graph for '$testDir' declares the same node id twice: $duplicates")
     }
 
     /** An unlabelled operator makes the graph of a calculation unreadable. */

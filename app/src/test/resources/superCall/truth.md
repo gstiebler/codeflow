@@ -1,31 +1,31 @@
 ```mermaid
 flowchart TD
-  subgraph 4309014["main"]
-    -17794003978[result]:::VARIABLE
-    -1857827291[args]:::FUNC_PARAM
-    56853577[main]:::RETURN
-    24545323222[derived]:::OBJ_VARIABLE
-    subgraph -1901390193["Derived.constructor"]
-      -766858752[10]:::LITERAL
-      -766827506[20]:::LITERAL
-      14834387532[derivedMember]:::VARIABLE
-      28998926167[<init>]:::RETURN
-      -766858752[10]:::LITERAL --> 326944729[init]:::FUNC_PARAM
-      -766827506[20]:::LITERAL --> 14834387532[derivedMember]:::VARIABLE
-      14834387532[derivedMember]:::VARIABLE --> -765818948[+]:::BIN_OP
-      subgraph 1693920094["Base.constructor"]
-        -17826880477[baseMember]:::VARIABLE
-        326944729[init]:::FUNC_PARAM
-        30140818490[<init>]:::RETURN
-        -17826880477[baseMember]:::VARIABLE --> -765818948[+]:::BIN_OP
-        326944729[init]:::FUNC_PARAM --> -17826880477[baseMember]:::VARIABLE
+  subgraph b0["main"]
+    n1[main]:::RETURN
+    n2[args]:::FUNC_PARAM
+    n3[derived]:::OBJ_VARIABLE
+    n13[result]:::VARIABLE
+    subgraph b4["Derived.constructor"]
+      n5[<init>]:::RETURN
+      n9[10]:::LITERAL
+      n11[derivedMember]:::VARIABLE
+      n12[20]:::LITERAL
+      n9[10]:::LITERAL --> n8[init]:::FUNC_PARAM
+      n11[derivedMember]:::VARIABLE --> n16[+]:::BIN_OP
+      n12[20]:::LITERAL --> n11[derivedMember]:::VARIABLE
+      subgraph b6["Base.constructor"]
+        n7[<init>]:::RETURN
+        n8[init]:::FUNC_PARAM
+        n10[baseMember]:::VARIABLE
+        n8[init]:::FUNC_PARAM --> n10[baseMember]:::VARIABLE
+        n10[baseMember]:::VARIABLE --> n16[+]:::BIN_OP
       end
     end
-    subgraph -1900222399["total"]
-      -765818948[+]:::BIN_OP
-      -29400941[total]:::RETURN
-      -765818948[+]:::BIN_OP --> -29400941[total]:::RETURN
-      -29400941[total]:::RETURN --> -17794003978[result]:::VARIABLE
+    subgraph b14["total"]
+      n15[total]:::RETURN
+      n16[+]:::BIN_OP
+      n15[total]:::RETURN --> n13[result]:::VARIABLE
+      n16[+]:::BIN_OP --> n15[total]:::RETURN
     end
   end
   classDef LITERAL fill:#00FF0030

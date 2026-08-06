@@ -1,29 +1,29 @@
 ```mermaid
 flowchart TD
-  subgraph 4309014["main"]
-    -14940633005[afterIncrement]:::VARIABLE
-    -5696010009[postInc]:::BIN_OP
-    56853577[main]:::RETURN
-    954821337[7]:::LITERAL
-    954944284[0]:::LITERAL
-    956733147[neg]:::BIN_OP
-    956771344[not]:::BIN_OP
-    1005752563[args]:::FUNC_PARAM
-    1008298390[flag]:::VARIABLE
-    1015523929[true]:::LITERAL
-    2858330860[value]:::VARIABLE
-    11625359449[inverted]:::VARIABLE
-    17238060612[counter]:::VARIABLE
-    32078938741[negated]:::VARIABLE
-    954821337[7]:::LITERAL --> 2858330860[value]:::VARIABLE
-    954944284[0]:::LITERAL --> 17238060612[counter]:::VARIABLE
-    956733147[neg]:::BIN_OP --> 32078938741[negated]:::VARIABLE
-    956771344[not]:::BIN_OP --> 11625359449[inverted]:::VARIABLE
-    1008298390[flag]:::VARIABLE --> 956771344[not]:::BIN_OP
-    1015523929[true]:::LITERAL --> 1008298390[flag]:::VARIABLE
-    2858330860[value]:::VARIABLE --> 956733147[neg]:::BIN_OP
-    17238060612[counter]:::VARIABLE --> -5696010009[postInc]:::BIN_OP
-    17238060612[counter]:::VARIABLE --> -14940633005[afterIncrement]:::VARIABLE
+  subgraph b0["main"]
+    n1[main]:::RETURN
+    n2[args]:::FUNC_PARAM
+    n3[value]:::VARIABLE
+    n4[7]:::LITERAL
+    n5[flag]:::VARIABLE
+    n6[true]:::LITERAL
+    n7[negated]:::VARIABLE
+    n8[neg]:::BIN_OP
+    n9[inverted]:::VARIABLE
+    n10[not]:::BIN_OP
+    n11[counter]:::VARIABLE
+    n12[0]:::LITERAL
+    n13[postInc]:::BIN_OP
+    n14[afterIncrement]:::VARIABLE
+    n3[value]:::VARIABLE --> n8[neg]:::BIN_OP
+    n4[7]:::LITERAL --> n3[value]:::VARIABLE
+    n5[flag]:::VARIABLE --> n10[not]:::BIN_OP
+    n6[true]:::LITERAL --> n5[flag]:::VARIABLE
+    n8[neg]:::BIN_OP --> n7[negated]:::VARIABLE
+    n10[not]:::BIN_OP --> n9[inverted]:::VARIABLE
+    n11[counter]:::VARIABLE --> n13[postInc]:::BIN_OP
+    n11[counter]:::VARIABLE --> n14[afterIncrement]:::VARIABLE
+    n12[0]:::LITERAL --> n11[counter]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

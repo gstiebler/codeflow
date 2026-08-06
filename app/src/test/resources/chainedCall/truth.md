@@ -1,19 +1,19 @@
 ```mermaid
 flowchart TD
-  subgraph 4309014["main"]
-    -14919308514[stream]:::EXTERNAL
-    -14530282235[toList]:::EXTERNAL
-    56853577[main]:::RETURN
-    244553230[of]:::EXTERNAL
-    295442462[args]:::FUNC_PARAM
-    304541899[size]:::VARIABLE
-    304547444[size]:::EXTERNAL
-    1953406652[items]:::OBJ_VARIABLE
-    -14919308514[stream]:::EXTERNAL --> -14530282235[toList]:::EXTERNAL
-    -14530282235[toList]:::EXTERNAL --> 304547444[size]:::EXTERNAL
-    244553230[of]:::EXTERNAL --> 1953406652[items]:::OBJ_VARIABLE
-    304547444[size]:::EXTERNAL --> 304541899[size]:::VARIABLE
-    1953406652[items]:::OBJ_VARIABLE --> -14919308514[stream]:::EXTERNAL
+  subgraph b0["main"]
+    n1[main]:::RETURN
+    n2[args]:::FUNC_PARAM
+    n3[items]:::OBJ_VARIABLE
+    n4[of]:::EXTERNAL
+    n5[size]:::VARIABLE
+    n6[stream]:::EXTERNAL
+    n7[toList]:::EXTERNAL
+    n8[size]:::EXTERNAL
+    n3[items]:::OBJ_VARIABLE --> n6[stream]:::EXTERNAL
+    n4[of]:::EXTERNAL --> n3[items]:::OBJ_VARIABLE
+    n6[stream]:::EXTERNAL --> n7[toList]:::EXTERNAL
+    n7[toList]:::EXTERNAL --> n8[size]:::EXTERNAL
+    n8[size]:::EXTERNAL --> n5[size]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

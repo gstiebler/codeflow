@@ -1,23 +1,23 @@
 ```mermaid
 flowchart TD
-  subgraph 4309014["main"]
-    -11739945406[zClass]:::OBJ_VARIABLE
-    56853577[main]:::RETURN
-    789346967[x]:::OBJ_VARIABLE
-    789376936[y]:::OBJ_VARIABLE
-    789463220[6]:::LITERAL
-    789490882[5]:::LITERAL
-    789552596[z]:::VARIABLE
-    789587455[y2]:::OBJ_VARIABLE
-    840323043[args]:::FUNC_PARAM
-    16130999090[memberX]:::VARIABLE
-    16130999090[memberX]:::VARIABLE
-    16130999107[memberY]:::VARIABLE
-    789376936[y]:::OBJ_VARIABLE --> 789587455[y2]:::OBJ_VARIABLE
-    789463220[6]:::LITERAL --> 16130999090[memberX]:::VARIABLE
-    789490882[5]:::LITERAL --> 16130999090[memberX]:::VARIABLE
-    16130999090[memberX]:::VARIABLE --> 16130999107[memberY]:::VARIABLE
-    16130999107[memberY]:::VARIABLE --> 789552596[z]:::VARIABLE
+  subgraph b0["main"]
+    n1[main]:::RETURN
+    n2[args]:::FUNC_PARAM
+    n3[x]:::OBJ_VARIABLE
+    n4[y]:::OBJ_VARIABLE
+    n5[zClass]:::OBJ_VARIABLE
+    n6[memberX]:::VARIABLE
+    n7[6]:::LITERAL
+    n8[memberX]:::VARIABLE
+    n9[5]:::LITERAL
+    n10[memberY]:::VARIABLE
+    n11[y2]:::OBJ_VARIABLE
+    n12[z]:::VARIABLE
+    n4[y]:::OBJ_VARIABLE --> n11[y2]:::OBJ_VARIABLE
+    n7[6]:::LITERAL --> n6[memberX]:::VARIABLE
+    n8[memberX]:::VARIABLE --> n10[memberY]:::VARIABLE
+    n9[5]:::LITERAL --> n8[memberX]:::VARIABLE
+    n10[memberY]:::VARIABLE --> n12[z]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

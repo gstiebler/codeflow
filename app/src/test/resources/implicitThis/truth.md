@@ -1,28 +1,28 @@
 ```mermaid
 flowchart TD
-  subgraph 4309014["main"]
-    -16976734907[result]:::VARIABLE
-    -1091460147[10]:::LITERAL
-    -1040558433[args]:::FUNC_PARAM
-    56853577[main]:::RETURN
-    15191604726[counter]:::OBJ_VARIABLE
-    -1091460147[10]:::LITERAL --> 34579102621[initial]:::FUNC_PARAM
-    subgraph -1727213445["Counter.constructor"]
-      -1031319091[step]:::VARIABLE
-      812025538[value]:::VARIABLE
-      1457348510[3]:::LITERAL
-      29816195027[<init>]:::RETURN
-      34579102621[initial]:::FUNC_PARAM
-      -1031319091[step]:::VARIABLE --> -568050062[+]:::BIN_OP
-      812025538[value]:::VARIABLE --> -568050062[+]:::BIN_OP
-      1457348510[3]:::LITERAL --> -1031319091[step]:::VARIABLE
-      34579102621[initial]:::FUNC_PARAM --> 812025538[value]:::VARIABLE
+  subgraph b0["main"]
+    n1[main]:::RETURN
+    n2[args]:::FUNC_PARAM
+    n3[counter]:::OBJ_VARIABLE
+    n7[10]:::LITERAL
+    n11[result]:::VARIABLE
+    n7[10]:::LITERAL --> n6[initial]:::FUNC_PARAM
+    subgraph b4["Counter.constructor"]
+      n5[<init>]:::RETURN
+      n6[initial]:::FUNC_PARAM
+      n8[value]:::VARIABLE
+      n9[step]:::VARIABLE
+      n10[3]:::LITERAL
+      n6[initial]:::FUNC_PARAM --> n8[value]:::VARIABLE
+      n8[value]:::VARIABLE --> n14[+]:::BIN_OP
+      n9[step]:::VARIABLE --> n14[+]:::BIN_OP
+      n10[3]:::LITERAL --> n9[step]:::VARIABLE
     end
-    subgraph -1726037844["advance"]
-      -20328117504[advance]:::RETURN
-      -568050062[+]:::BIN_OP
-      -20328117504[advance]:::RETURN --> -16976734907[result]:::VARIABLE
-      -568050062[+]:::BIN_OP --> -20328117504[advance]:::RETURN
+    subgraph b12["advance"]
+      n13[advance]:::RETURN
+      n14[+]:::BIN_OP
+      n13[advance]:::RETURN --> n11[result]:::VARIABLE
+      n14[+]:::BIN_OP --> n13[advance]:::RETURN
     end
   end
   classDef LITERAL fill:#00FF0030

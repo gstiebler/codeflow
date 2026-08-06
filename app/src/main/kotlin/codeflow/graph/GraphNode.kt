@@ -6,7 +6,13 @@ enum class NodeType {
     BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE, EXTERNAL
 }
 
-abstract class GraphNode(private val base: Base) {
+/**
+ * @param serial what makes this node itself, handed out by [Graph.createGraphNode] when the node
+ *   is created. It is a constructor parameter rather than something set afterwards so that a node
+ *   cannot exist without one, and it does not live on [Base] because Base is built at the call
+ *   sites in AstBlockProcessor, before the graph has seen it.
+ */
+abstract class GraphNode(private val base: Base, val serial: Int) {
     private val logger = KotlinLogging.logger {}
     private val edges = ArrayList<GraphNode>()
 
@@ -40,60 +46,60 @@ abstract class GraphNode(private val base: Base) {
         }
     }
 
-    override fun equals(other: Any?): Boolean {
-        if (other is GraphNode) {
-            return id == other.id
-        }
-        return false
-    }
+    /**
+     * Two nodes are the same node when they were created as the same node. Comparing the lookup
+     * key instead would make every occurrence of a variable equal to every other, since that is
+     * exactly what the key is for.
+     */
+    override fun equals(other: Any?): Boolean = other is GraphNode && other.serial == serial
 
-    override fun hashCode() = id.hashCode()
+    override fun hashCode() = serial
 
     override fun toString(): String {
-        return "(label: '$label', id: $id, type: ${getType()})"
+        return "(serial: $serial, label: '$label', id: $id, type: ${getType()})"
     }
 
     companion object {
-        fun createNode(type: NodeType, base: Base): GraphNode {
+        fun createNode(type: NodeType, base: Base, serial: Int): GraphNode {
             return when (type) {
-                NodeType.LITERAL -> Literal(base)
-                NodeType.VARIABLE -> Variable(base)
-                NodeType.OBJ_VARIABLE -> ObjVariable(base)
-                NodeType.BIN_OP -> BinOp(base)
-                NodeType.FUNC_PARAM -> FuncParam(base)
-                NodeType.MEM_SPACE -> MemSpace(base)
-                NodeType.RETURN -> MethodReturn(base)
-                NodeType.EXTERNAL -> External(base)
-                NodeType.BASE -> TODO()
+                NodeType.LITERAL -> Literal(base, serial)
+                NodeType.VARIABLE -> Variable(base, serial)
+                NodeType.OBJ_VARIABLE -> ObjVariable(base, serial)
+                NodeType.BIN_OP -> BinOp(base, serial)
+                NodeType.FUNC_PARAM -> FuncParam(base, serial)
+                NodeType.MEM_SPACE -> MemSpace(base, serial)
+                NodeType.RETURN -> MethodReturn(base, serial)
+                NodeType.EXTERNAL -> External(base, serial)
+                NodeType.BASE -> throw GraphException("BASE is the abstract case and has no node")
             }
 
         }
     }
 
-    class Literal(base: Base) : GraphNode(base) {
+    class Literal(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.LITERAL
     }
-    class Variable(base: Base) : GraphNode(base) {
+    class Variable(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.VARIABLE
     }
-    class ObjVariable(base: Base) : GraphNode(base) {
+    class ObjVariable(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.OBJ_VARIABLE
     }
-    class BinOp(base: Base) : GraphNode(base) {
+    class BinOp(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.BIN_OP
     }
-    class FuncParam(base: Base) : GraphNode(base) {
+    class FuncParam(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.FUNC_PARAM
     }
-    class MemSpace(base: Base) : GraphNode(base) {
+    class MemSpace(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.MEM_SPACE
     }
     /** Something from outside the analysed sources: a call with no body to inline, or a value
      *  such as an enum constant, that we can only treat as opaque. */
-    class External(base: Base) : GraphNode(base) {
+    class External(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.EXTERNAL
     }
-    class MethodReturn(base: Base) : GraphNode(base) {
+    class MethodReturn(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.RETURN
     }
 }

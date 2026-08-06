@@ -1,25 +1,25 @@
 ```mermaid
 flowchart TD
-  subgraph 4309014["main"]
-    -7043408724[println]:::EXTERNAL
-    -1693260311[a]:::VARIABLE
-    -1693257119[5]:::LITERAL
-    -1693232394[b]:::VARIABLE
-    -1693171807[c]:::VARIABLE
-    -1693168168[+]:::BIN_OP
-    -1693167039[1]:::LITERAL
-    -1691591830[abs]:::EXTERNAL
-    -1691326245[out]:::EXTERNAL
-    -1642303975[args]:::FUNC_PARAM
-    56853577[main]:::RETURN
-    -1693260311[a]:::VARIABLE --> -1691591830[abs]:::EXTERNAL
-    -1693257119[5]:::LITERAL --> -1693260311[a]:::VARIABLE
-    -1693232394[b]:::VARIABLE --> -7043408724[println]:::EXTERNAL
-    -1693232394[b]:::VARIABLE --> -1693168168[+]:::BIN_OP
-    -1693168168[+]:::BIN_OP --> -1693171807[c]:::VARIABLE
-    -1693167039[1]:::LITERAL --> -1693168168[+]:::BIN_OP
-    -1691591830[abs]:::EXTERNAL --> -1693232394[b]:::VARIABLE
-    -1691326245[out]:::EXTERNAL --> -7043408724[println]:::EXTERNAL
+  subgraph b0["main"]
+    n1[main]:::RETURN
+    n2[args]:::FUNC_PARAM
+    n3[a]:::VARIABLE
+    n4[5]:::LITERAL
+    n5[b]:::VARIABLE
+    n6[abs]:::EXTERNAL
+    n7[out]:::EXTERNAL
+    n8[println]:::EXTERNAL
+    n9[c]:::VARIABLE
+    n10[1]:::LITERAL
+    n11[+]:::BIN_OP
+    n3[a]:::VARIABLE --> n6[abs]:::EXTERNAL
+    n4[5]:::LITERAL --> n3[a]:::VARIABLE
+    n5[b]:::VARIABLE --> n8[println]:::EXTERNAL
+    n5[b]:::VARIABLE --> n11[+]:::BIN_OP
+    n6[abs]:::EXTERNAL --> n5[b]:::VARIABLE
+    n7[out]:::EXTERNAL --> n8[println]:::EXTERNAL
+    n10[1]:::LITERAL --> n11[+]:::BIN_OP
+    n11[+]:::BIN_OP --> n9[c]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

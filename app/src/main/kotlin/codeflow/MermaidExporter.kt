@@ -8,7 +8,9 @@ import mu.KotlinLogging
 
 class MermaidExporter() {
     private val logger = KotlinLogging.logger {}
-    private fun getNodeStr(node: GraphNode) = "${node.id.getExtId()}[${node.label}]:::${node.getType()}"
+    // The `n` prefix keeps a node id from ever being read as a subgraph id, which is prefixed `b`,
+    // and makes both greppable in a snapshot.
+    private fun getNodeStr(node: GraphNode) = "n${node.serial}[${node.label}]:::${node.getType()}"
 
     private fun getClasses() = listOf(
         "classDef LITERAL fill:#00FF0030",
@@ -30,14 +32,14 @@ class MermaidExporter() {
     }
 
     private fun processMethod(method: GraphBuilderBlock, depth: Int, writer: (String) -> Unit) {
-        val sortedNodes = method.graph.getNodesSortedByExtId()
-        writer(genSpaces(depth) + "subgraph ${method.localId}[\"${method.getMethodName()}\"]")
+        val nodes = method.graph.getNodes()
+        writer(genSpaces(depth) + "subgraph b${method.serial}[\"${method.getMethodName()}\"]")
         logger.debug { "processMethod: ${method.getMethodName()}" }
         logger.debug { "Graph: ${method.graph}" }
-        for (node in sortedNodes) {
+        for (node in nodes) {
             writer(genSpaces(depth + 2) + getNodeStr(node))
         }
-        for (node in sortedNodes) {
+        for (node in nodes) {
             for (toNode in node.edgesIterator()) {
                 writer(genSpaces(depth + 2) + "${getNodeStr(node)} --> ${getNodeStr(toNode)}")
             }

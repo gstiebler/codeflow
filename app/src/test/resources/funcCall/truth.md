@@ -1,72 +1,72 @@
 ```mermaid
 flowchart TD
-  subgraph 4309014["main"]
-    -1177365738[x]:::VARIABLE
-    -1177362286[5]:::LITERAL
-    -1177337819[y]:::VARIABLE
-    -1177311145[8]:::LITERAL
-    -1177277610[e]:::VARIABLE
-    -1175662633[app]:::OBJ_VARIABLE
-    -1126409814[args]:::FUNC_PARAM
-    56853577[main]:::RETURN
-    -1177365738[x]:::VARIABLE --> 11588793[a]:::FUNC_PARAM
-    -1177362286[5]:::LITERAL --> -1177365738[x]:::VARIABLE
-    -1177311145[8]:::LITERAL --> 11590798[b]:::FUNC_PARAM
-    subgraph -607755091["methodA"]
-      11588793[a]:::FUNC_PARAM
-      11590798[b]:::FUNC_PARAM
-      11616637[c]:::VARIABLE
-      11619625[+]:::BIN_OP
-      15066746251[methodA]:::RETURN
-      11588793[a]:::FUNC_PARAM --> 11619625[+]:::BIN_OP
-      11590798[b]:::FUNC_PARAM --> 11619625[+]:::BIN_OP
-      11616637[c]:::VARIABLE --> 15066746251[methodA]:::RETURN
-      11619625[+]:::BIN_OP --> 11616637[c]:::VARIABLE
-      15066746251[methodA]:::RETURN --> -1177337819[y]:::VARIABLE
+  subgraph b0["main"]
+    n1[main]:::RETURN
+    n2[args]:::FUNC_PARAM
+    n3[x]:::VARIABLE
+    n4[5]:::LITERAL
+    n5[y]:::VARIABLE
+    n6[8]:::LITERAL
+    n13[app]:::OBJ_VARIABLE
+    n14[e]:::VARIABLE
+    n3[x]:::VARIABLE --> n9[a]:::FUNC_PARAM
+    n4[5]:::LITERAL --> n3[x]:::VARIABLE
+    n6[8]:::LITERAL --> n10[b]:::FUNC_PARAM
+    subgraph b7["methodA"]
+      n8[methodA]:::RETURN
+      n9[a]:::FUNC_PARAM
+      n10[b]:::FUNC_PARAM
+      n11[c]:::VARIABLE
+      n12[+]:::BIN_OP
+      n8[methodA]:::RETURN --> n5[y]:::VARIABLE
+      n9[a]:::FUNC_PARAM --> n12[+]:::BIN_OP
+      n10[b]:::FUNC_PARAM --> n12[+]:::BIN_OP
+      n11[c]:::VARIABLE --> n8[methodA]:::RETURN
+      n12[+]:::BIN_OP --> n11[c]:::VARIABLE
     end
-    subgraph -605583820["methodB"]
-      13501146[d]:::VARIABLE
-      13530101[f]:::VARIABLE
-      13551082[11]:::LITERAL
-      13580037[13]:::LITERAL
-      15066804951[methodB]:::RETURN
-      13501146[d]:::VARIABLE --> 15066804951[methodB]:::RETURN
-      13551082[11]:::LITERAL --> -18649270098[paramH]:::FUNC_PARAM
-      13580037[13]:::LITERAL --> -18648373547[paramH]:::FUNC_PARAM
-      15066804951[methodB]:::RETURN --> -1177277610[e]:::VARIABLE
-      subgraph 503533734["methodC"]
-        -18649270098[paramH]:::FUNC_PARAM
-        -1726965320[g]:::VARIABLE
-        -1726964109[6]:::LITERAL
-        -1726891030[X1]:::OBJ_VARIABLE
-        -1726207591[X2]:::OBJ_VARIABLE
-        -1725273956[div]:::BIN_OP
-        16144489774[memberX]:::VARIABLE
-        16257583090[methodC]:::RETURN
-        -18649270098[paramH]:::FUNC_PARAM --> -1725273956[div]:::BIN_OP
-        -1726965320[g]:::VARIABLE --> 16144489774[memberX]:::VARIABLE
-        -1726964109[6]:::LITERAL --> -1725273956[div]:::BIN_OP
-        -1726891030[X1]:::OBJ_VARIABLE --> -1726207591[X2]:::OBJ_VARIABLE
-        -1725273956[div]:::BIN_OP --> -1726965320[g]:::VARIABLE
-        16144489774[memberX]:::VARIABLE --> 16257583090[methodC]:::RETURN
-        16257583090[methodC]:::RETURN --> 13501146[d]:::VARIABLE
+    subgraph b15["methodB"]
+      n16[methodB]:::RETURN
+      n17[d]:::VARIABLE
+      n18[11]:::LITERAL
+      n28[f]:::VARIABLE
+      n29[13]:::LITERAL
+      n16[methodB]:::RETURN --> n14[e]:::VARIABLE
+      n17[d]:::VARIABLE --> n16[methodB]:::RETURN
+      n18[11]:::LITERAL --> n21[paramH]:::FUNC_PARAM
+      n29[13]:::LITERAL --> n32[paramH]:::FUNC_PARAM
+      subgraph b19["methodC"]
+        n20[methodC]:::RETURN
+        n21[paramH]:::FUNC_PARAM
+        n22[g]:::VARIABLE
+        n23[6]:::LITERAL
+        n24[div]:::BIN_OP
+        n25[X1]:::OBJ_VARIABLE
+        n26[memberX]:::VARIABLE
+        n27[X2]:::OBJ_VARIABLE
+        n20[methodC]:::RETURN --> n17[d]:::VARIABLE
+        n21[paramH]:::FUNC_PARAM --> n24[div]:::BIN_OP
+        n22[g]:::VARIABLE --> n26[memberX]:::VARIABLE
+        n23[6]:::LITERAL --> n24[div]:::BIN_OP
+        n24[div]:::BIN_OP --> n22[g]:::VARIABLE
+        n25[X1]:::OBJ_VARIABLE --> n27[X2]:::OBJ_VARIABLE
+        n26[memberX]:::VARIABLE --> n20[methodC]:::RETURN
       end
-      subgraph 504603811["methodC"]
-        -18648373547[paramH]:::FUNC_PARAM
-        -1726068769[g]:::VARIABLE
-        -1726067558[6]:::LITERAL
-        -1725994479[X1]:::OBJ_VARIABLE
-        -1725311040[X2]:::OBJ_VARIABLE
-        -1724377405[div]:::BIN_OP
-        16144518695[memberX]:::VARIABLE
-        16257612011[methodC]:::RETURN
-        -18648373547[paramH]:::FUNC_PARAM --> -1724377405[div]:::BIN_OP
-        -1726068769[g]:::VARIABLE --> 16144518695[memberX]:::VARIABLE
-        -1726067558[6]:::LITERAL --> -1724377405[div]:::BIN_OP
-        -1725994479[X1]:::OBJ_VARIABLE --> -1725311040[X2]:::OBJ_VARIABLE
-        -1724377405[div]:::BIN_OP --> -1726068769[g]:::VARIABLE
-        16144518695[memberX]:::VARIABLE --> 16257612011[methodC]:::RETURN
-        16257612011[methodC]:::RETURN --> 13530101[f]:::VARIABLE
+      subgraph b30["methodC"]
+        n31[methodC]:::RETURN
+        n32[paramH]:::FUNC_PARAM
+        n33[g]:::VARIABLE
+        n34[6]:::LITERAL
+        n35[div]:::BIN_OP
+        n36[X1]:::OBJ_VARIABLE
+        n37[memberX]:::VARIABLE
+        n38[X2]:::OBJ_VARIABLE
+        n31[methodC]:::RETURN --> n28[f]:::VARIABLE
+        n32[paramH]:::FUNC_PARAM --> n35[div]:::BIN_OP
+        n33[g]:::VARIABLE --> n37[memberX]:::VARIABLE
+        n34[6]:::LITERAL --> n35[div]:::BIN_OP
+        n35[div]:::BIN_OP --> n33[g]:::VARIABLE
+        n36[X1]:::OBJ_VARIABLE --> n38[X2]:::OBJ_VARIABLE
+        n37[memberX]:::VARIABLE --> n31[methodC]:::RETURN
       end
     end
   end

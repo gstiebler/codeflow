@@ -1,39 +1,39 @@
 ```mermaid
 flowchart TD
-  subgraph 4309014["main"]
-    -1776229095[args]:::FUNC_PARAM
-    -816970351[app]:::OBJ_VARIABLE
-    56853577[main]:::RETURN
-    subgraph -218949196["func1"]
-      -818584777[a]:::VARIABLE
-      -818584386[x]:::OBJ_VARIABLE
-      -425259420[a]:::VARIABLE
-      -425237283[5]:::LITERAL
-      -425233174[6]:::LITERAL
-      -425201835[b]:::VARIABLE
-      -425171679[y]:::OBJ_VARIABLE
-      -425089242[8]:::LITERAL
-      -425022520[y1]:::OBJ_VARIABLE
-      -424402141[c]:::VARIABLE
-      -424342723[d]:::VARIABLE
-      -424313825[j]:::VARIABLE
-      -424308967[x1]:::OBJ_VARIABLE
-      843903363[func1]:::RETURN
-      15312401437[memberA]:::VARIABLE
-      15312401828[memberX]:::VARIABLE
-      -818584777[a]:::VARIABLE --> 15312401437[memberA]:::VARIABLE
-      -818584386[x]:::OBJ_VARIABLE --> -424308967[x1]:::OBJ_VARIABLE
-      -425237283[5]:::LITERAL --> -425259420[a]:::VARIABLE
-      -425233174[6]:::LITERAL --> -818584777[a]:::VARIABLE
-      -425171679[y]:::OBJ_VARIABLE --> -425022520[y1]:::OBJ_VARIABLE
-      -425089242[8]:::LITERAL --> 15312401828[memberX]:::VARIABLE
-      -424402141[c]:::VARIABLE --> -424313825[j]:::VARIABLE
-      15312401437[memberA]:::VARIABLE --> -425201835[b]:::VARIABLE
-      15312401828[memberX]:::VARIABLE --> 33333213288[getMemberX]:::RETURN
-      15312401828[memberX]:::VARIABLE --> -424342723[d]:::VARIABLE
-      subgraph 1481005238["getMemberX"]
-        33333213288[getMemberX]:::RETURN
-        33333213288[getMemberX]:::RETURN --> -424402141[c]:::VARIABLE
+  subgraph b0["main"]
+    n1[main]:::RETURN
+    n2[args]:::FUNC_PARAM
+    n3[app]:::OBJ_VARIABLE
+    subgraph b4["func1"]
+      n5[func1]:::RETURN
+      n6[a]:::VARIABLE
+      n7[5]:::LITERAL
+      n8[a]:::VARIABLE
+      n9[6]:::LITERAL
+      n10[memberA]:::VARIABLE
+      n11[b]:::VARIABLE
+      n12[y]:::OBJ_VARIABLE
+      n13[x]:::OBJ_VARIABLE
+      n14[memberX]:::VARIABLE
+      n15[8]:::LITERAL
+      n16[y1]:::OBJ_VARIABLE
+      n17[c]:::VARIABLE
+      n20[x1]:::OBJ_VARIABLE
+      n21[d]:::VARIABLE
+      n22[j]:::VARIABLE
+      n7[5]:::LITERAL --> n6[a]:::VARIABLE
+      n8[a]:::VARIABLE --> n10[memberA]:::VARIABLE
+      n9[6]:::LITERAL --> n8[a]:::VARIABLE
+      n10[memberA]:::VARIABLE --> n11[b]:::VARIABLE
+      n12[y]:::OBJ_VARIABLE --> n16[y1]:::OBJ_VARIABLE
+      n13[x]:::OBJ_VARIABLE --> n20[x1]:::OBJ_VARIABLE
+      n14[memberX]:::VARIABLE --> n19[getMemberX]:::RETURN
+      n14[memberX]:::VARIABLE --> n21[d]:::VARIABLE
+      n15[8]:::LITERAL --> n14[memberX]:::VARIABLE
+      n17[c]:::VARIABLE --> n22[j]:::VARIABLE
+      subgraph b18["getMemberX"]
+        n19[getMemberX]:::RETURN
+        n19[getMemberX]:::RETURN --> n17[c]:::VARIABLE
       end
     end
   end

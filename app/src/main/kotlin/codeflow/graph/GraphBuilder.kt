@@ -18,9 +18,33 @@ class GraphBuilderBlock(
     private val ctx: ProcessorContext
 ) {
     private val logger = KotlinLogging.logger {}
+
+    // Declared above returnNode and parameterNodes, which create nodes and so call nextSerial()
+    // while this block is still being constructed. Kotlin runs property initialisers top to
+    // bottom, so moving this down leaves the counter at 0 for those first few nodes.
+    private var serialCounter = 0
+
     val graph: Graph = Graph(this)
     private val nodeIdToVariable = HashMap<GraphNodeId, Variable>()
-    val localId = stack.hashCode() * 37 + 4308977
+
+    /**
+     * Identity for everything drawn, handed out in creation order.
+     *
+     * The root block owns the counter and every descendant asks it, so a serial is unique across
+     * the whole exported document rather than just within one method - the subgraphs all live in
+     * one Mermaid flowchart and share an id namespace. It is per-run, not per-JVM, so a snapshot
+     * does not depend on what else the test suite happened to build first.
+     *
+     * What this replaces was a hash of the node's label and call stack. Two unrelated nodes whose
+     * hashes agreed were rendered under one id, which draws them as a single box and puts every
+     * edge of both on it. assertNoSelfEdges caught that only when the merged pair referenced each
+     * other; otherwise the diagram simply claimed a value flowed somewhere it never did.
+     */
+    fun nextSerial(): Int = parent?.nextSerial() ?: serialCounter++
+
+    /** The subgraph's own id, from the same counter and for the same reason. */
+    val serial = nextSerial()
+
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = createReturnNode(stack)
 

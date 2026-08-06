@@ -1,20 +1,20 @@
 ```mermaid
 flowchart TD
-  subgraph 4309014["main"]
-    -1974841599[of]:::EXTERNAL
-    -1974816533[+]:::BIN_OP
-    -1923972548[args]:::FUNC_PARAM
-    -1914852990[size]:::VARIABLE
-    -1914847445[size]:::EXTERNAL
-    -265987526[items]:::OBJ_VARIABLE
-    56853577[main]:::RETURN
-    29389632091[doubled]:::VARIABLE
-    -1974841599[of]:::EXTERNAL --> -265987526[items]:::OBJ_VARIABLE
-    -1974816533[+]:::BIN_OP --> 29389632091[doubled]:::VARIABLE
-    -1914852990[size]:::VARIABLE --> -1974816533[+]:::BIN_OP
-    -1914852990[size]:::VARIABLE --> -1974816533[+]:::BIN_OP
-    -1914847445[size]:::EXTERNAL --> -1914852990[size]:::VARIABLE
-    -265987526[items]:::OBJ_VARIABLE --> -1914847445[size]:::EXTERNAL
+  subgraph b0["main"]
+    n1[main]:::RETURN
+    n2[args]:::FUNC_PARAM
+    n3[items]:::OBJ_VARIABLE
+    n4[of]:::EXTERNAL
+    n5[size]:::VARIABLE
+    n6[size]:::EXTERNAL
+    n7[doubled]:::VARIABLE
+    n8[+]:::BIN_OP
+    n3[items]:::OBJ_VARIABLE --> n6[size]:::EXTERNAL
+    n4[of]:::EXTERNAL --> n3[items]:::OBJ_VARIABLE
+    n5[size]:::VARIABLE --> n8[+]:::BIN_OP
+    n5[size]:::VARIABLE --> n8[+]:::BIN_OP
+    n6[size]:::EXTERNAL --> n5[size]:::VARIABLE
+    n8[+]:::BIN_OP --> n7[doubled]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

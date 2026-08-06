@@ -11,7 +11,7 @@ import mu.KotlinLogging
 class AstMemPosProcessor(
     private val globalCtx: GlobalContext,
     private val graphBuilder: GraphBuilderBlock,
-    private val blockProcesor: AstBlockProcessor,
+    private val callerBlockProcessor: AstBlockProcessor,
     private val stack: PosStack,
     private val memPos: MemPos?
 ) : TreeScanner<MemPos, ProcessorContext>()  {
@@ -32,11 +32,16 @@ class AstMemPosProcessor(
             val method = Method(constructor, ctx)
             val graphBlock = GraphBuilderBlock(graphBuilder, method, stack.push(ctx, node), createdMemPos, className, ctx)
             val localPos = Position(invocationPos, ctx.path)
-            val blockProcessor = AstBlockProcessor(globalCtx, blockProcesor, graphBlock, localPos, createdMemPos)
+            val constructorBlockProcessor =
+                AstBlockProcessor(globalCtx, callerBlockProcessor, graphBlock, localPos, createdMemPos)
+            // The arguments belong to the caller, so they have to be resolved there. Resolving them
+            // in the constructor's own block makes an argument that happens to share a name with a
+            // parameter resolve to that parameter, which connects the parameter to itself and drops
+            // the edge from the value actually passed in.
             val argumentNodes = arguments.map {
-                it.accept(blockProcessor, ctx)
+                it.accept(callerBlockProcessor, ctx)
             }
-            blockProcessor.invokeMethod(argumentNodes)
+            constructorBlockProcessor.invokeMethod(argumentNodes)
             graphBuilder.addCalledMethod(graphBlock)
         } else {
             logger.debug { "No constructor found: $node" }

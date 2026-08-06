@@ -8,6 +8,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 
 class AppTest {
@@ -39,6 +40,28 @@ class AppTest {
             Files.readAllLines(truthPath), result,
             "Graph for '$testDir' does not match truth.md. Re-run with UPDATE_SNAPSHOTS=1 to accept the new output."
         )
+
+        assertNoSelfEdges(testDir, result)
+        assertNoUnknownOperators(testDir, result)
+    }
+
+    /**
+     * A node with an edge to itself means two different AST nodes were given the same id and so
+     * were merged into one. Nothing in the language produces a value that flows into itself.
+     */
+    private fun assertNoSelfEdges(testDir: String, graph: List<String>) {
+        val edge = Regex("""(-?\d+)\[[^]]*]:::\w+ --> (-?\d+)\[""")
+        val selfEdges = graph.filter { line ->
+            val match = edge.find(line)
+            match != null && match.groupValues[1] == match.groupValues[2]
+        }
+        assertTrue(selfEdges.isEmpty(), "Graph for '$testDir' has nodes with an edge to themselves: $selfEdges")
+    }
+
+    /** An unlabelled operator makes the graph of a calculation unreadable. */
+    private fun assertNoUnknownOperators(testDir: String, graph: List<String>) {
+        val unknown = graph.filter { it.contains("[UNKNOWN]") }
+        assertTrue(unknown.isEmpty(), "Graph for '$testDir' has unlabelled operators: $unknown")
     }
 
     @Test fun base() = codeflow("base", listOf("App.java"))
@@ -50,4 +73,6 @@ class AppTest {
     @Test fun forLoop() = codeflow("forLoop", listOf("App.java"))
     @Test fun implicitThis() = codeflow("implicitThis", listOf("App.java"))
     @Test fun superCall() = codeflow("superCall", listOf("App.java"))
+    @Test fun chainedBinOp() = codeflow("chainedBinOp", listOf("App.java"))
+    @Test fun operators() = codeflow("operators", listOf("App.java"))
 }

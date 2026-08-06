@@ -149,15 +149,38 @@ open class AstBlockProcessor(
     override fun visitBinary(node: BinaryTree, ctx: ProcessorContext): GraphNode {
         val rightNode = node.leftOperand.accept(this, ctx)
         val leftNode = node.rightOperand.accept(this, ctx)
-        val label = when(node.kind.name) {
-            "PLUS" -> "+"
-            "DIVIDE" -> "div"
-            "EQUAL_TO" -> "=="
-            "LESS_THAN" -> "<"
-            else -> "UNKNOWN"
-        }
-        val jId = GraphNodeId(getStack().push(ctx, node), label)
+        val jId = GraphNodeId(getStack().push(ctx, node), binaryOperatorLabel(node))
         return graphBuilderBlock.addBinOp(GraphNode.Base(jId), leftNode, rightNode)
+    }
+
+    /**
+     * Label shown on the operator's node.
+     *
+     * Operators whose symbol is also Mermaid syntax get a name instead: `/` opens a parallelogram
+     * node, `|` delimits an edge label and `&` separates nodes, so the symbols would corrupt the
+     * diagram rather than just look odd.
+     */
+    private fun binaryOperatorLabel(node: BinaryTree) = when (node.kind) {
+        Tree.Kind.PLUS -> "+"
+        Tree.Kind.MINUS -> "-"
+        Tree.Kind.MULTIPLY -> "*"
+        Tree.Kind.DIVIDE -> "div"
+        Tree.Kind.REMAINDER -> "%"
+        Tree.Kind.EQUAL_TO -> "=="
+        Tree.Kind.NOT_EQUAL_TO -> "!="
+        Tree.Kind.LESS_THAN -> "<"
+        Tree.Kind.GREATER_THAN -> ">"
+        Tree.Kind.LESS_THAN_EQUAL -> "<="
+        Tree.Kind.GREATER_THAN_EQUAL -> ">="
+        Tree.Kind.CONDITIONAL_AND -> "and"
+        Tree.Kind.CONDITIONAL_OR -> "or"
+        Tree.Kind.AND -> "bitAnd"
+        Tree.Kind.OR -> "bitOr"
+        Tree.Kind.XOR -> "xor"
+        Tree.Kind.LEFT_SHIFT -> "shl"
+        Tree.Kind.RIGHT_SHIFT -> "shr"
+        Tree.Kind.UNSIGNED_RIGHT_SHIFT -> "ushr"
+        else -> throw GraphException("Unsupported binary operator '${node.kind}' in '$node'")
     }
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode {

@@ -19,9 +19,17 @@ class ProcessorContext(
     fun getClassName() = className
 
     /**
+     * Identifies an AST node by its source span.
+     *
+     * The start position alone does not identify a node: in a chained expression like `a + b + c`
+     * the outer and the inner `+` both start at `a`, so a start-only id gives the two operations
+     * the same id and collapses them into a single node with an edge to itself.
+     *
      * Not the best place to put it, but it's good for now
      */
-    fun getPosId(tree: Tree) = getPos(tree)
-
-    private fun getPos(node: Tree) = sourcePos.getStartPosition(cut, node)
+    fun getPosId(tree: Tree): Long {
+        val start = sourcePos.getStartPosition(cut, tree)
+        val end = sourcePos.getEndPosition(cut, tree)
+        return start * 31 + end
+    }
 }

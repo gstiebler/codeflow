@@ -1,28 +1,28 @@
 ```mermaid
 flowchart TD
   subgraph 4309014["main"]
-    -17656148279[result]:::VARIABLE
-    -1719910522[args]:::FUNC_PARAM
+    -16976734907[result]:::VARIABLE
+    -1091460147[10]:::LITERAL
+    -1040558433[args]:::FUNC_PARAM
     56853577[main]:::RETURN
-    14512224793[counter]:::OBJ_VARIABLE
-    subgraph -1094673613["Counter.constructor"]
-      -1710704603[step]:::VARIABLE
-      -834442533[3]:::LITERAL
-      -834413788[10]:::LITERAL
-      132640026[value]:::VARIABLE
-      29136809515[<init>]:::RETURN
-      31230263968[initial]:::FUNC_PARAM
-      -1710704603[step]:::VARIABLE --> -834437614[+]:::BIN_OP
-      -834442533[3]:::LITERAL --> -1710704603[step]:::VARIABLE
-      -834413788[10]:::LITERAL --> 31230263968[initial]:::FUNC_PARAM
-      132640026[value]:::VARIABLE --> -834437614[+]:::BIN_OP
-      31230263968[initial]:::FUNC_PARAM --> 132640026[value]:::VARIABLE
+    15191604726[counter]:::OBJ_VARIABLE
+    -1091460147[10]:::LITERAL --> 34579102621[initial]:::FUNC_PARAM
+    subgraph -1727213445["Counter.constructor"]
+      -1031319091[step]:::VARIABLE
+      812025538[value]:::VARIABLE
+      1457348510[3]:::LITERAL
+      29816195027[<init>]:::RETURN
+      34579102621[initial]:::FUNC_PARAM
+      -1031319091[step]:::VARIABLE --> -568050062[+]:::BIN_OP
+      812025538[value]:::VARIABLE --> -568050062[+]:::BIN_OP
+      1457348510[3]:::LITERAL --> -1031319091[step]:::VARIABLE
+      34579102621[initial]:::FUNC_PARAM --> 812025538[value]:::VARIABLE
     end
-    subgraph -1094669876["advance"]
-      -21007534688[advance]:::RETURN
-      -834437614[+]:::BIN_OP
-      -21007534688[advance]:::RETURN --> -17656148279[result]:::VARIABLE
-      -834437614[+]:::BIN_OP --> -21007534688[advance]:::RETURN
+    subgraph -1726037844["advance"]
+      -20328117504[advance]:::RETURN
+      -568050062[+]:::BIN_OP
+      -20328117504[advance]:::RETURN --> -16976734907[result]:::VARIABLE
+      -568050062[+]:::BIN_OP --> -20328117504[advance]:::RETURN
     end
   end
   classDef LITERAL fill:#00FF0030

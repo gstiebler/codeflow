@@ -1,31 +1,31 @@
 ```mermaid
 flowchart TD
   subgraph 4309014["main"]
-    -14832420939[result]:::VARIABLE
+    -17794003978[result]:::VARIABLE
+    -1857827291[args]:::FUNC_PARAM
     56853577[main]:::RETURN
-    1103816169[args]:::FUNC_PARAM
-    27506959672[derived]:::OBJ_VARIABLE
-    subgraph 304022937["Derived.constructor"]
-      -669454069[10]:::LITERAL
-      -669453424[20]:::LITERAL
-      17795998222[derivedMember]:::VARIABLE
-      31960536857[<init>]:::RETURN
-      -669454069[10]:::LITERAL --> 1502393740[init]:::FUNC_PARAM
-      -669453424[20]:::LITERAL --> 17795998222[derivedMember]:::VARIABLE
-      17795998222[derivedMember]:::VARIABLE --> -669476634[+]:::BIN_OP
-      subgraph 1002994852["Base.constructor"]
-        -17729473935[baseMember]:::VARIABLE
-        1502393740[init]:::FUNC_PARAM
-        30238225032[<init>]:::RETURN
-        -17729473935[baseMember]:::VARIABLE --> -669476634[+]:::BIN_OP
-        1502393740[init]:::FUNC_PARAM --> -17729473935[baseMember]:::VARIABLE
+    24545323222[derived]:::OBJ_VARIABLE
+    subgraph -1901390193["Derived.constructor"]
+      -766858752[10]:::LITERAL
+      -766827506[20]:::LITERAL
+      14834387532[derivedMember]:::VARIABLE
+      28998926167[<init>]:::RETURN
+      -766858752[10]:::LITERAL --> 326944729[init]:::FUNC_PARAM
+      -766827506[20]:::LITERAL --> 14834387532[derivedMember]:::VARIABLE
+      14834387532[derivedMember]:::VARIABLE --> -765818948[+]:::BIN_OP
+      subgraph 1693920094["Base.constructor"]
+        -17826880477[baseMember]:::VARIABLE
+        326944729[init]:::FUNC_PARAM
+        30140818490[<init>]:::RETURN
+        -17826880477[baseMember]:::VARIABLE --> -765818948[+]:::BIN_OP
+        326944729[init]:::FUNC_PARAM --> -17826880477[baseMember]:::VARIABLE
       end
     end
-    subgraph 304026600["total"]
-      -669476634[+]:::BIN_OP
-      2932178286[total]:::RETURN
-      -669476634[+]:::BIN_OP --> 2932178286[total]:::RETURN
-      2932178286[total]:::RETURN --> -14832420939[result]:::VARIABLE
+    subgraph -1900222399["total"]
+      -765818948[+]:::BIN_OP
+      -29400941[total]:::RETURN
+      -765818948[+]:::BIN_OP --> -29400941[total]:::RETURN
+      -29400941[total]:::RETURN --> -17794003978[result]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

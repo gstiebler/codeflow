@@ -23,6 +23,13 @@ repositories {
     mavenCentral()
 }
 
+kotlin {
+    // codeflow reads the running JDK's javac trees through ToolProvider.getSystemJavaCompiler(),
+    // so the JDK is an input to the graph, not just to the build. Left unpinned, whichever JDK
+    // Gradle happened to start on decided the output, and CI and a local clone disagreed.
+    jvmToolchain(21)
+}
+
 dependencies {
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:31.1-jre'
@@ -35,7 +42,7 @@ testing {
         // Configure the built-in test suite
         test {
             // Use Kotlin Test test framework
-            useKotlinTest('1.8.10')
+            useKotlinTest('1.9.25')
         }
     }
 }

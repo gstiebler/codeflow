@@ -464,6 +464,26 @@ class AppTest {
         assertEquals(mermaid, json, "the two renderings of one graph disagree on its edges")
     }
 
+    /**
+     * The page has to carry its own libraries. A viewer that renders nothing because an asset was
+     * missing looks exactly like a graph with no nodes, so the export fails loudly instead.
+     */
+    @Test
+    fun htmlPageCarriesItsLibrariesAndItsData() {
+        val page = StringBuilder()
+        val testDirPath = testResourcesPath.resolve("funcCall")
+        val mainMethod = AstReader(testResourcesPath).process(listOf(testDirPath.resolve("App.java")))
+        HtmlExporter().processMainMethod(mainMethod) { page.append(it).append("\n") }
+        val html = page.toString()
+
+        assertTrue("cytoscape" in html, "the renderer was not inlined")
+        assertTrue("ELK" in html, "the layout engine was not inlined")
+        assertTrue("expandCollapse" in html, "the folding extension was not inlined")
+        assertTrue("traceFrom" in html, "our own viewer code was not inlined")
+        assertTrue("\"label\": \"methodC\"" in html, "the graph payload was not inlined")
+        assertTrue("<script" in html && "</html>" in html, "the page is not a complete document")
+    }
+
     @Test fun base() = codeflow("base", listOf("App.java"))
     @Test fun funcCall() = codeflow("funcCall", listOf("App.java"))
     @Test fun member() = codeflow("member", listOf("App.java"))

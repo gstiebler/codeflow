@@ -20,7 +20,9 @@ fun main(args: Array<String>) {
     val result = ArrayList<String>()
     // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on
     // stderr, so redirecting stdout to a file gives something a viewer can open directly.
-    if (args.contains("--json")) {
+    if (args.contains("--html")) {
+        HtmlExporter().processMainMethod(mainMethod) { result.add(it) }
+    } else if (args.contains("--json")) {
         JsonExporter().processMainMethod(mainMethod) { result.add(it) }
     } else if (args.contains("--graphml")) {
         GraphmlExporter().processMainMethod(mainMethod) { result.add(it) }

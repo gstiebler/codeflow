@@ -154,6 +154,22 @@ open class AstBlockProcessor(
     }
 
     /**
+     * `condition ? ifTrue : ifFalse`.
+     *
+     * Left to TreeScanner's default handling this returns whichever branch it scanned first and
+     * drops the rest, so the graph claims the expression can only produce one of its two values
+     * and loses the guard entirely. `?:` is not used as the label because `:` would run into
+     * Mermaid's `:::` class syntax.
+     */
+    override fun visitConditionalExpression(node: ConditionalExpressionTree, ctx: ProcessorContext): GraphNode {
+        val conditionNode = node.condition.accept(this, ctx)
+        val trueNode = node.trueExpression.accept(this, ctx)
+        val falseNode = node.falseExpression.accept(this, ctx)
+        val jId = GraphNodeId(getStack().push(ctx, node), "ternary")
+        return graphBuilderBlock.addTernaryOp(GraphNode.Base(jId), conditionNode, trueNode, falseNode)
+    }
+
+    /**
      * Label shown on the operator's node.
      *
      * Operators whose symbol is also Mermaid syntax get a name instead: `/` opens a parallelogram

@@ -98,6 +98,19 @@ class GraphBuilderBlock(
         return binOpNode
     }
 
+    /**
+     * The node standing for `condition ? ifTrue : ifFalse`. Either branch can produce the value of
+     * the expression and the condition decides which, so all three flow into it.
+     */
+    fun addTernaryOp(base: GraphNode.Base, condition: GraphNode, ifTrue: GraphNode, ifFalse: GraphNode): GraphNode {
+        val ternaryNode = graph.createGraphNode(NodeType.BIN_OP, base)
+        setLastNode(ternaryNode)
+        condition.addEdge(ternaryNode)
+        ifTrue.addEdge(ternaryNode)
+        ifFalse.addEdge(ternaryNode)
+        return ternaryNode
+    }
+
     fun addAssignment(lhsNode: GraphNode, rhsNode: GraphNode) {
         rhsNode.addEdge(lhsNode)
     }

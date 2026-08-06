@@ -20,7 +20,7 @@ class AppTest {
         .resolve("test")
         .resolve("resources")
 
-    private fun codeflow(testDir: String, testFiles: List<String>) {
+    private fun buildGraph(testDir: String, testFiles: List<String>): List<String> {
         val testDirPath = testResourcesPath.resolve(testDir)
         val testFilePaths = testFiles.map { testDirPath.resolve(it) }
         val mainMethod = AstReader(testResourcesPath).process(testFilePaths)
@@ -28,6 +28,20 @@ class AppTest {
         val result = ArrayList<String>()
         MermaidExporter()
             .processMainMethod(mainMethod) { result.add(it) }
+        return result
+    }
+
+    /** The graph's edges as (source label, target label) pairs, ignoring the generated ids. */
+    private fun edgeLabels(graph: List<String>): List<Pair<String, String>> {
+        val edge = Regex("""-?\d+\[([^]]*)]:::\w+ --> -?\d+\[([^]]*)]""")
+        return graph.mapNotNull { line ->
+            edge.find(line)?.let { it.groupValues[1] to it.groupValues[2] }
+        }
+    }
+
+    private fun codeflow(testDir: String, testFiles: List<String>) {
+        val testDirPath = testResourcesPath.resolve(testDir)
+        val result = buildGraph(testDir, testFiles)
 
         // The snapshot is only written when it does not exist yet, or when explicitly asked for.
         // Rewriting it on every mismatch would let a regression overwrite the expectation and pass
@@ -64,6 +78,21 @@ class AppTest {
         assertTrue(unknown.isEmpty(), "Graph for '$testDir' has unlabelled operators: $unknown")
     }
 
+    /**
+     * Both branches of `cond ? a : b` produce the value of the expression and the condition picks
+     * between them, so all three have to reach the result. Anything less silently drops a value
+     * that the code really can produce: for a guarded division it hides either the guard or the
+     * fallback.
+     */
+    @Test
+    fun ternaryConnectsBothBranchesAndCondition() {
+        val edges = edgeLabels(buildGraph("ternary", listOf("App.java")))
+        assertTrue("==" to "ternary" in edges, "condition does not reach the selection: $edges")
+        assertTrue("fallback" to "ternary" in edges, "true branch does not reach the selection: $edges")
+        assertTrue("div" to "ternary" in edges, "false branch does not reach the selection: $edges")
+        assertTrue("ternary" to "guarded" in edges, "selection does not reach the variable: $edges")
+    }
+
     @Test fun base() = codeflow("base", listOf("App.java"))
     @Test fun funcCall() = codeflow("funcCall", listOf("App.java"))
     @Test fun member() = codeflow("member", listOf("App.java"))
@@ -75,4 +104,5 @@ class AppTest {
     @Test fun superCall() = codeflow("superCall", listOf("App.java"))
     @Test fun chainedBinOp() = codeflow("chainedBinOp", listOf("App.java"))
     @Test fun operators() = codeflow("operators", listOf("App.java"))
+    @Test fun ternary() = codeflow("ternary", listOf("App.java"))
 }

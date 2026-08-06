@@ -28,29 +28,44 @@ output, not just to the build.
 
 ## Architecture
 
-`AstReader.process` is the whole pipeline, in three passes over the parsed compilation units:
+`AstReader.process` parses, attributes, then makes two passes over the compilation units:
 
-1. `AstClassProcessor` — records fields and `extends` relationships into `GlobalContext`.
-2. `AstProcessor` — records methods into `GlobalContext.methods` and constructors into
-   `Constructors`, keyed per class by parameter type names.
-3. `AstBlockProcessor.invokeMethod` starting from `main` — walks statements and builds the graph.
+1. `AstProcessor` — records each method under the `ExecutableElement` it declares.
+2. `AstBlockProcessor.invokeMethod` starting from `main` — walks statements and builds the graph.
 
 `MermaidExporter` then renders the root `GraphBuilderBlock` and its `calledMethods` recursively.
 
-### Parsed, never attributed
+### Attributed, and asked rather than guessed
 
-`AstReader` calls `task.parse()` and **not** `task.analyze()`, so there is no symbol table and no
-type information anywhere. Everything is resolved by simple name. This one fact explains most of
-what looks odd:
+`AstReader` calls `task.analyze()`, so javac's symbol table decides what every name means. Nothing
+here matches type or method names as strings; a name is looked up by the `Element` it resolved to.
 
-- `TypeNameExtractor` / `resolveArgumentTypeNames` (`ArgumentTypes.kt`) recover an argument's type
-  from the `MemPos` its variable points at, because the declared type is not available.
-- `Constructors.constructorMatch` picks an overload by comparing uppercased type *name strings*.
-- `JMethodId` and `JIdentifierId` hash the bare name, so all same-named methods across all classes
-  collapse, and `GlobalContext.isPrimitiveMap` is global by name with no scope at all.
+Attribution works on a bare directory with no classpath — this is the property the whole approach
+rests on. `analyze()` returns without throwing on input that does not compile, errors go to the
+`DiagnosticCollector`, and **a file full of errors does not blind the others**. What javac cannot
+work out it *marks*: the type comes back `TypeKind.ERROR`, and a call on an error-typed receiver
+yields an `Element` of kind `CLASS` where a `METHOD` was asked for.
 
-That last group is a known correctness limit, not a style issue — see `docs/plans/` for the
-assessment. Do not assume a name resolves to what it would resolve to in javac.
+Hence the one rule: **an `Element` is believed only when its kind is the kind expected at that
+site** — `symbols.element(tree, ElementKind.METHOD)`, not `symbols.element(tree)`. Anything else is
+treated as outside the analysed sources and takes the opaque `EXTERNAL` path. Taking the wrong-kind
+element at face value would resolve a call to a class, which is the silently-wrong graph again.
+
+`Symbols` (`java/Symbols.kt`) is how the answers get to the processors. `Trees.getElement` needs a
+`TreePath`, but every processor is a `TreeScanner` holding a bare `Tree` and `invokeMethod`
+re-enters a callee's body with no path at all. Since `analyze()` annotates the *same* tree objects
+`parse()` returned, one `TreePathScanner` pass records everything into an `IdentityHashMap` up
+front — identity, because two structurally equal expressions at two call sites are two references.
+
+Attribution also **adds to the AST**: a class declaring no constructor gains one, and a constructor
+not starting with `super(...)`/`this(...)` gains a `super()`. These carry real source positions, so
+position cannot detect them — `Symbols.isWrittenInSource` asks `Elements.getOrigin`. They are
+dropped because codeflow is a tool for reading source: graphing a constructor nobody wrote draws an
+empty box on every `new` of such a class. The inserted `super()` resolves to a constructor outside
+the sources (`java.lang.Object`) and contributes nothing.
+
+`AstReader` prints `codeflow: N of M references unresolved` to **stderr** — stdout is the Mermaid
+document. A count near zero on real input means the counter is measuring the wrong thing.
 
 ### Calls are inlined per call site
 
@@ -71,8 +86,9 @@ Two different questions, deliberately answered by two different things:
 | "Which variable is this?" | `GraphNodeId` / `JNodeId` | Per **variable** — every read of `x` must find the same one |
 
 `serial` comes from a counter owned by the root `GraphBuilderBlock` (`nextSerial()`), handed out at
-creation, per-run so snapshots stay deterministic. `JNodeId` deliberately leaves the source position
-*out* of its key so a read finds its declaration.
+creation, per-run so snapshots stay deterministic. `JNodeId`'s key is `(element, memPos)` — *which
+declaration*, in *which object*, since one field declaration lives at a different address in every
+instance. It deliberately leaves the source position *out* so a read finds its declaration.
 
 **Never derive a rendered id by hashing attributes.** That is what this used to do, and two
 unrelated nodes whose hashes agreed were drawn as one box carrying every edge of both — a diagram
@@ -114,7 +130,7 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
 
 `AppTest.kt` has three kinds of assertion, and the mix is deliberate:
 
-- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 16 of them. They certify
+- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 17 of them. They certify
   *unchanged*, not *correct*. `ternary/truth.md` was once written from a buggy run and passed
   happily while encoding a graph with a branch missing. Treat a green golden file as evidence of
   nothing.

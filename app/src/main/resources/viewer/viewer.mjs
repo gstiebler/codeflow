@@ -65,7 +65,9 @@ export const LAYOUT = {
 
 export function init(payload) {
   const cy = cytoscape({
-    container: document.getElementById('cy'),
+    // Not id="cy": the browser publishes a global for every element id, so a container called `cy`
+    // would make window.cy the div and any check for the graph being ready pass before it existed.
+    container: document.getElementById('graph'),
     elements: {
       nodes: payload.nodes.map((n) => ({ data: n })),
       edges: payload.edges.map((e) => ({ data: e })),

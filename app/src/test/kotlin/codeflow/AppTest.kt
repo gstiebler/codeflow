@@ -7,6 +7,7 @@ import codeflow.java.AstReader
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 
 class AppTest {
@@ -27,16 +28,17 @@ class AppTest {
         MermaidExporter()
             .processMainMethod(mainMethod) { result.add(it) }
 
-        try {
-            val truth = Files.readAllLines(testDirPath.resolve("truth.md"))
-            if (result != truth) {
-                Files.write(testDirPath.resolve("truth.md"), result)
-            }
-            assert(result == truth)
-        } catch (e: Exception) {
-            Files.write(testDirPath.resolve("truth.md"), result)
-            throw e
+        // The snapshot is only written when it does not exist yet, or when explicitly asked for.
+        // Rewriting it on every mismatch would let a regression overwrite the expectation and pass
+        // on the next run.
+        val truthPath = testDirPath.resolve("truth.md")
+        if (!Files.exists(truthPath) || System.getenv("UPDATE_SNAPSHOTS") == "1") {
+            Files.write(truthPath, result)
         }
+        assertEquals(
+            Files.readAllLines(truthPath), result,
+            "Graph for '$testDir' does not match truth.md. Re-run with UPDATE_SNAPSHOTS=1 to accept the new output."
+        )
     }
 
     @Test fun base() = codeflow("base", listOf("App.java"))
@@ -46,4 +48,6 @@ class AppTest {
     @Test fun constructor() = codeflow("constructor", listOf("App.java"))
     @Test fun if1() = codeflow("if1", listOf("App.java"))
     @Test fun forLoop() = codeflow("forLoop", listOf("App.java"))
+    @Test fun implicitThis() = codeflow("implicitThis", listOf("App.java"))
+    @Test fun superCall() = codeflow("superCall", listOf("App.java"))
 }

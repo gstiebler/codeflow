@@ -11,8 +11,17 @@ class GlobalContext {
     private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val methods = HashMap<MethodId, Method>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
+    // Simple class name -> simple name of its superclass. Needed to resolve `super(...)`.
+    private val superclasses = HashMap<String, String>()
     val constructors = Constructors()
     private val logger = KotlinLogging.logger {}
+
+    fun registerSuperclass(className: String, superclassName: String) {
+        logger.debug { "registerSuperclass: $className extends $superclassName" }
+        superclasses[className] = superclassName
+    }
+
+    fun getSuperclass(className: String?): String? = superclasses[className]
 
     fun registerIsPrimitive(id: IdentifierId, isPrimitive: Boolean) {
         isPrimitiveMap[id] = isPrimitive

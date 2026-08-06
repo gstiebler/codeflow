@@ -23,6 +23,9 @@ class AstClassProcessor(
         logger.info { "Class name: ${node.simpleName}" }
         node.modifiers?.accept(this, ctx)
         node.typeParameters.forEach { it.accept(this, ctx) }
+        node.extendsClause?.accept(TypeNameExtractor(), ctx)?.let { superclassName ->
+            globalCtx.registerSuperclass(node.simpleName.toString(), superclassName)
+        }
         node.extendsClause?.accept(this, ctx)
         node.implementsClause.forEach { it.accept(this, ctx) }
         node.permitsClause.forEach { it.accept(this, ctx) }

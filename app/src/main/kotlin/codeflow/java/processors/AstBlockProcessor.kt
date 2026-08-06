@@ -126,9 +126,16 @@ open class AstBlockProcessor(
         return super.visitMemberReference(node, p)
     }
 
+    /**
+     * A bare identifier can be a local variable or a field read with an implicit `this`.
+     * Fields live on the owning instance's MemPos, so it has to be consulted the same way
+     * visitMemberSelect consults it for the explicit `this.field` form. Without this, a field
+     * written in one method (typically the constructor) and read in another blows up, because
+     * the block parent chain searched by getLastNodeOfVariable does not span sibling methods.
+     */
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
         val nId = JNodeId(getStack().push(ctx, node), node.name, owner)
-        return getLastNodeOfVariable(nId)
+        return owner?.getNode(nId) ?: getLastNodeOfVariable(nId)
     }
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {
@@ -155,6 +162,12 @@ open class AstBlockProcessor(
 
     override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode {
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
+        val methodName = methodIdentifier.methodName.toString()
+        // `super(...)` and `this(...)` are parsed as invocations of a method literally named
+        // "super"/"this", which no lookup by name can ever resolve.
+        if (methodIdentifier.expression == null && (methodName == "super" || methodName == "this")) {
+            return invokeConstructorDelegation(methodName, node, ctx)
+        }
         val method = globalCtx.getMethod(JMethodId(methodIdentifier.methodName))
         val methodArguments = node.arguments.map { it.accept(this, ctx) }
 
@@ -165,6 +178,39 @@ open class AstBlockProcessor(
         val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, "noneClass", ctx)
         val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos)
         blockProcessor.invokeMethod(methodArguments)
+        graphBuilderBlock.addCalledMethod(graphBlock)
+        return graphBlock.returnNode
+    }
+
+    /**
+     * Runs the constructor that a `super(...)` or `this(...)` call delegates to.
+     *
+     * Unlike `new X(...)`, no instance is created: the delegate initialises the object already
+     * under construction, so it runs against the current [owner] MemPos. That is what lets an
+     * inherited field assigned in the superclass constructor be read from the subclass.
+     */
+    private fun invokeConstructorDelegation(
+        keyword: String,
+        node: MethodInvocationTree,
+        ctx: ProcessorContext
+    ): GraphNode {
+        val currentClass = graphBuilderBlock.className
+        val targetClass = if (keyword == "super") globalCtx.getSuperclass(currentClass) else currentClass
+        if (targetClass == null) {
+            throw GraphException("Superclass of '$currentClass' not found, needed for '$node'")
+        }
+
+        val argumentTypes = resolveArgumentTypeNames(node.arguments, globalCtx, getStack(), owner, ctx)
+        val constructor = globalCtx.constructors.get(targetClass, argumentTypes)
+            ?: throw GraphException("Constructor '$targetClass(${argumentTypes.joinToString(", ")})' not found")
+
+        val localPos = Position(ctx.getPosId(node), ctx.path)
+        val graphBlock = GraphBuilderBlock(
+            graphBuilderBlock, Method(constructor, ctx), getStack().push(localPos), owner, targetClass, ctx
+        )
+        val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, owner)
+        val argumentNodes = node.arguments.map { it.accept(this, ctx) }
+        blockProcessor.invokeMethod(argumentNodes)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode
     }

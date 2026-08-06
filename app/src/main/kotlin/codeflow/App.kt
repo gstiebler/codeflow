@@ -10,7 +10,9 @@ import java.nio.file.Path
 
 fun main(args: Array<String>) {
     val javaRootDir = args[0]
-    val javaRootDirPath = Path.of(javaRootDir)
+    // Source paths come back from javac as absolute URIs, and AstReader relativizes them
+    // against this one. Path.relativize throws if only one of the two is absolute.
+    val javaRootDirPath = Path.of(javaRootDir).toAbsolutePath().normalize()
 
     val filesPaths = generateListOfJavaFilesFromDir(javaRootDirPath)
     val mainMethod = AstReader(javaRootDirPath).process(filesPaths)

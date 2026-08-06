@@ -26,18 +26,7 @@ class AstMemPosProcessor(
         val createdMemPos = globalCtx.createMemPos(identifier, graphBuilder)
         val invocationPos = ctx.getPosId(node)
 
-        val argumentsTypes = arguments.map {
-            val nodeName = it.accept(NameExtractor(), ctx)
-            if (nodeName != null) {
-                val nodeId = JNodeId(stack, nodeName, memPos)
-                val gNode = globalCtx.getMemPos(nodeId)
-
-                val typeName = gNode.expr.accept(NameExtractor(), ctx)
-                typeName.toString()
-            } else {
-                it.accept(TypeNameExtractor(), ctx)
-            }
-        }
+        val argumentsTypes = resolveArgumentTypeNames(arguments, globalCtx, stack, memPos, ctx)
         val constructor = globalCtx.constructors.get(className, argumentsTypes)
         if (constructor != null) {
             val method = Method(constructor, ctx)

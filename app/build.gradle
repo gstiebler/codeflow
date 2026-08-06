@@ -9,7 +9,9 @@
 
 plugins {
     // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
-    id 'org.jetbrains.kotlin.jvm' version '1.9.0'
+    // 1.9.20 is the first release that knows about JVM target 21, which is the
+    // current LTS and therefore the default JDK for most new clones.
+    id 'org.jetbrains.kotlin.jvm' version '1.9.25'
     id 'com.adarshr.test-logger' version '3.2.0'
 
     // Apply the application plugin to add support for building a CLI application in Java.

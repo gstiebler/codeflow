@@ -12,7 +12,9 @@ class GraphBuilderBlock(
     stack: PosStack,
     // instance of the class that contains the method
     private val memPos: MemPos?,
-    private val className: String,
+    // Class whose constructor this block is running, for blocks created by AstMemPosProcessor.
+    // Used to resolve `super(...)` / `this(...)` delegation. "noneClass" for plain method calls.
+    val className: String,
     private val ctx: ProcessorContext
 ) {
     private val logger = KotlinLogging.logger {}

@@ -6,7 +6,7 @@ import codeflow.graph.GraphException
 /**
  * The graph as one self-contained page.
  *
- * Everything is inlined - four vendored libraries and the payload - so the file opens from disk
+ * Everything is inlined - three vendored libraries and the payload - so the file opens from disk
  * with no server and no network, and can be handed to someone else as a single artifact.
  *
  * There is deliberately no logic here beyond substitution. Anything that could make the graph wrong

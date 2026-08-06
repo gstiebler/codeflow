@@ -37,6 +37,46 @@ export function traceFrom(edges, startId) {
   return reached;
 }
 
+/** How far a click reaches. Three hops is enough to cross a call and land in the callee's body. */
+export const REVEAL_DEPTH = 3;
+
+/**
+ * Every node within `depth` edges of `startId`, following edges in either direction.
+ *
+ * Breadth-first, and that matters: the walk is bounded, so a node reached by a long path before
+ * a short one would be recorded at the wrong distance and pruned early. `traceFrom` popped from
+ * the end of its queue, which is harmless for an unbounded closure and wrong here.
+ *
+ * `distance` is also what makes this terminate, since the graph has cycles wherever a loop feeds
+ * a variable back into itself.
+ */
+export function neighbourhood(edges, startId, depth) {
+  const adjacent = new Map();
+  const link = (from, to) => {
+    if (!adjacent.has(from)) adjacent.set(from, []);
+    adjacent.get(from).push(to);
+  };
+  for (const edge of edges) {
+    link(edge.source, edge.target);
+    link(edge.target, edge.source);
+  }
+
+  const distance = new Map([[startId, 0]]);
+  const queue = [startId];
+  // Index rather than shift(): same order, without re-indexing the array on every step.
+  for (let head = 0; head < queue.length; head += 1) {
+    const id = queue[head];
+    if (distance.get(id) === depth) continue;
+    for (const next of adjacent.get(id) ?? []) {
+      if (!distance.has(next)) {
+        distance.set(next, distance.get(id) + 1);
+        queue.push(next);
+      }
+    }
+  }
+  return new Set(distance.keys());
+}
+
 const PALETTE = {
   // The Mermaid classDef colours, as rgba. OBJ_VARIABLE and MEM_SPACE have no classDef today and
   // render unstyled there; they get explicit colours here rather than silently sharing one.

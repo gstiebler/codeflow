@@ -87,12 +87,33 @@ export function init(payload) {
       } },
       { selector: '.dimmed', style: { opacity: 0.15 } },
       { selector: '.traced', style: { 'border-width': 3, 'border-color': '#d33' } },
+      // A collapsed block's edges are replaced by meta-edges, which say only that *something*
+      // inside connects to the other end. That is a summary, not a flow the code has; drawn like a
+      // real edge it would assert a connection between two nodes that never touched.
+      { selector: 'edge.cy-expand-collapse-meta-edge', style: {
+        'line-style': 'dashed', 'line-color': '#bbb', 'target-arrow-color': '#bbb',
+      } },
     ],
     layout: LAYOUT,
   });
 
-  // The browser tests read the graph off this. Nothing in the page uses it.
+  const api = cy.expandCollapse({
+    layoutBy: LAYOUT,
+    fisheye: false,
+    animate: false,
+    undoable: false,
+  });
+
+  // Everything folded except the outermost method. The graph inlines a callee's body at every call
+  // site, so node count grows with call sites rather than source size - opening it all at once is
+  // the wall this viewer exists to avoid. The root stays open so the first click is never wasted.
+  const root = cy.nodes('[type = "METHOD"]').filter((n) => n.isOrphan());
+  api.collapseAll();
+  api.expand(root);
+
+  // The browser tests read the graph off these. Nothing in the page uses them.
   window.cy = cy;
+  window.api = api;
   return cy;
 }
 

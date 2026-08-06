@@ -93,7 +93,6 @@ abstract class GraphNode(private val base: Base) {
     class External(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.EXTERNAL
     }
-    class Assignment(base: Base) : GraphNode(base)
     class MethodReturn(base: Base) : GraphNode(base) {
         override fun getType() = NodeType.RETURN
     }

@@ -24,7 +24,7 @@ class AstMemPosProcessor(
 
         val className = node.identifier.toString()
 
-        val createdMemPos = globalCtx.createMemPos(identifier, graphBuilder)
+        val createdMemPos = globalCtx.createMemPos(identifier)
         val invocationPos = ctx.getPosId(node)
 
         val argumentsTypes = resolveArgumentTypeNames(arguments, globalCtx, stack, memPos, ctx)

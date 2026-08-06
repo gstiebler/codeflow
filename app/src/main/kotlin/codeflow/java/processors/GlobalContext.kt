@@ -32,7 +32,7 @@ class GlobalContext {
         return isPrimitiveMap[id] ?: throw GraphException("Variable not found")
     }
 
-    fun addMethod(methodTree: MethodTree, hashCode: MethodId, posId: Long, ctx: ProcessorContext) {
+    fun addMethod(methodTree: MethodTree, hashCode: MethodId, ctx: ProcessorContext) {
         methods[hashCode] = Method(methodTree, ctx)
     }
 
@@ -53,7 +53,7 @@ class GlobalContext {
     /** Null for anything whose memory position is not tracked, such as an object from outside. */
     fun findMemPos(nodeId: GraphNodeId): MemPos? = idToMemPos[nodeId]
 
-    fun createMemPos(label: ExpressionTree, graphBuilder: GraphBuilderBlock): MemPos {
+    fun createMemPos(label: ExpressionTree): MemPos {
         return MemPos(label)
     }
 

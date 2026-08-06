@@ -30,7 +30,7 @@ class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode
         }
         logger.debug { "visitMethod: ${node.name}, params: ($paramsStr)" }
         methodNames.add(node.name)
-        globalCtx.addMethod(node, JMethodId(node.name), ctx.getPosId(node), ctx)
+        globalCtx.addMethod(node, JMethodId(node.name), ctx)
         val isConstructor = node.name.contentEquals("<init>")
         if (isConstructor) {
             val types = node.parameters.map { it.type }

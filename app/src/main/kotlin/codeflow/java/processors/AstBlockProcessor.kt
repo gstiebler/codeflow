@@ -98,7 +98,7 @@ open class AstBlockProcessor(
         // An object we know nothing about: it came from outside the analysed sources, or from a
         // call whose returns we do not follow. It still gets a memory position of its own, so that
         // fields set on it and calls made on it have somewhere to hang.
-        val rhsMemPos = getMemPos(rhs, ctx) ?: globalCtx.createMemPos(rhs, graphBuilderBlock)
+        val rhsMemPos = getMemPos(rhs, ctx) ?: globalCtx.createMemPos(rhs)
         val rhsNode = try {
             evaluate(rhs, ctx)
         } catch(e: Exception) {
@@ -412,10 +412,6 @@ open class AstBlockProcessor(
         val newNode = super.visitReturn(node, p)
         graphBuilderBlock.addReturnNode(newNode)
         return newNode
-    }
-
-    override fun visitExpressionStatement(node: ExpressionStatementTree, ctx: ProcessorContext): GraphNode? {
-        return super.visitExpressionStatement(node, ctx)
     }
 
     override fun visitBlock(node: BlockTree, ctx: ProcessorContext): GraphNode? {

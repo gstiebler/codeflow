@@ -8,3 +8,7 @@ build
 .idea
 result.md
 *.class
+# The viewer's browser libraries are vendored into app/src/main/resources/viewer and committed;
+# node_modules only exists to pin where they came from and to run the JS tests.
+node_modules
+test-results

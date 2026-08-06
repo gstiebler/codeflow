@@ -478,7 +478,6 @@ class AppTest {
 
         assertTrue("cytoscape" in html, "the renderer was not inlined")
         assertTrue("ELK" in html, "the layout engine was not inlined")
-        assertTrue("expandCollapse" in html, "the folding extension was not inlined")
         assertTrue("traceFrom" in html, "our own viewer code was not inlined")
         assertTrue("\"label\": \"methodC\"" in html, "the graph payload was not inlined")
         assertTrue("<script" in html && "</html>" in html, "the page is not a complete document")

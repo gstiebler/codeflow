@@ -76,19 +76,22 @@ The page opens with only the outermost method expanded. This is not cosmetic: a 
 inlined at *every* call site, so node count grows with call sites rather than source size, and
 opening everything at once is the wall the viewer exists to avoid.
 
-Two behaviours that are easy to get subtly wrong:
+Visibility is derived, and that is the one rule to respect: **never set `display` on a `METHOD`
+node.** A `Set` of revealed *leaf* ids is the only state. Cytoscape works out the rest — an edge
+hides when either endpoint does, and a box hides when every descendant does, transitively. Setting
+`display:none` on a box breaks the transitive case: a box whose only visible node is a grandchild
+would be hidden, and the grandchild would have nowhere to live.
 
-- **Collapsing removes children from the graph**, it does not hide them. `cy.nodes().length` after
-  a fold is not the payload's node count, and a test comparing the two has to `expandAll()` first.
-- A collapsed block's edges are replaced by **meta-edges**, which say only that *something* inside
-  connects to the other end. Drawn like a real edge that asserts a flow between two nodes that never
-  touched, so they are styled dashed and grey.
+Nothing is ever removed from the graph, so `cy.nodes().length` is always the payload's node count.
 
-`traceFrom(edges, startId)` is the click behaviour: everything the value reached and everything it
-came from. It runs against the **payload**, not the rendered graph — a trace that stopped at the
-edge of whatever happens to be open would answer a different question. It is a closure in each
-direction *separately*: for `c = a + b`, clicking `a` lights `+` and `c` but not `b`. Its `reached`
-set is what makes it terminate, since a loop feeding a variable back into itself is a cycle.
+`neighbourhood(edges, startId, depth)` is the click behaviour: an undirected ball of radius
+`REVEAL_DEPTH`. It is breadth-first on purpose — the walk is bounded, so a node first reached by a
+long path would be recorded at the wrong distance and pruned early. Undirected on purpose too: for
+`c = a + b`, clicking `a` shows `b`, because an operator drawn with one operand missing is worse
+than one more node.
+
+Clicks union into the revealed set and never subtract. Only a box click (which removes its leaf
+*descendants* — a box holds boxes) or `R` takes anything away.
 
 ### Attributed, and asked rather than guessed
 
@@ -209,7 +212,8 @@ and still in the pre-serial id format.
 Split by what they can actually catch:
 
 - `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `viewer.mjs`.
-  `traceFrom` is tested here, including that it terminates on a cycle.
+  `neighbourhood` is tested here: the depth bound, a node reachable by both a short and a long
+  path, and that it terminates on a cycle.
 - `app/src/test/js/browser/` (`npm run test:browser`) — Playwright against a page built from a real
   fixture. `global-setup.mjs` runs `gradlew run --args="<fixture> --html"` first, with an
   **absolute** fixture path: the `run` task's working directory is `app/`, so a repo-relative one

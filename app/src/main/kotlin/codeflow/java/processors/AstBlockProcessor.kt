@@ -323,7 +323,7 @@ open class AstBlockProcessor(
         else -> throw GraphException("Unsupported binary operator '${node.kind}' in '$node'")
     }
 
-    override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode {
+    override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): GraphNode? {
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
         val methodName = methodIdentifier.methodName.toString()
         // `super(...)` and `this(...)` are parsed as invocations of a method literally named
@@ -378,11 +378,14 @@ open class AstBlockProcessor(
         keyword: String,
         node: MethodInvocationTree,
         ctx: ProcessorContext
-    ): GraphNode {
+    ): GraphNode? {
         val currentClass = graphBuilderBlock.className
         val targetClass = if (keyword == "super") globalCtx.getSuperclass(currentClass) else currentClass
+        // A superclass outside the analysed sources, which for a class that extends nothing is
+        // java.lang.Object. There is no body to inline and, since the delegation is a statement,
+        // no value for anything to read, so it contributes nothing rather than an opaque node.
         if (targetClass == null) {
-            throw GraphException("Superclass of '$currentClass' not found, needed for '$node'")
+            return null
         }
 
         val argumentTypes = resolveArgumentTypeNames(node.arguments, globalCtx, getStack(), owner, ctx)

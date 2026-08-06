@@ -2,12 +2,13 @@ package codeflow.java.processors
 
 import codeflow.graph.*
 import codeflow.java.Constructors
+import codeflow.java.Symbols
 import com.sun.source.tree.ExpressionTree
 import com.sun.source.tree.MethodTree
 import mu.KotlinLogging
 import javax.lang.model.element.Name
 
-class GlobalContext {
+class GlobalContext(val symbols: Symbols) {
     private val isPrimitiveMap = HashMap<IdentifierId, Boolean>()
     private val methods = HashMap<MethodId, Method>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()

@@ -23,13 +23,30 @@ class AstReader(private val basePath: Path) {
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
         val files = fileNames.map { it.toFile() }
         val compilationUnits1 = manager.getJavaFileObjectsFromFiles(files)
-        val task = compiler.getTask(null, manager, null, null, null, compilationUnits1) as JavacTask
+        // The diagnostic listener is what stops javac printing "cannot find symbol" to stderr for
+        // every unresolved import. codeflow is pointed at sources with no classpath, so on real
+        // input that is most of them, and the summary below is what the reader gets instead.
+        // -proc:none because there is no processor path to discover anything on.
+        val options = listOf("-proc:none")
+        val task = compiler.getTask(
+            null, manager, diagnostics, options, null, compilationUnits1
+        ) as JavacTask
 
         val trees = Trees.instance(task)
         val sourcePositions = trees.sourcePositions
 
         val compUnitTrees = task.parse()
-        val globalCtx = GlobalContext()
+        // Attribution. Without it there is no symbol table, and every name has to be resolved by
+        // matching text - which cannot tell two same-named methods apart, cannot pick an overload,
+        // and cannot say whether a variable holds a value or a reference. It does not throw on
+        // sources that do not compile: what it cannot resolve it marks, and Symbols only believes
+        // a symbol of the kind the caller asked for.
+        task.analyze()
+        val symbols = Symbols.collect(trees, task.elements, compUnitTrees)
+        System.err.println(
+            "codeflow: ${symbols.unresolved} of ${symbols.total} references unresolved"
+        )
+        val globalCtx = GlobalContext(symbols)
         for (compUnitTree in compUnitTrees) {
             val ctx = getContext(compUnitTree, sourcePositions)
             compUnitTree.accept(AstClassProcessor(globalCtx), ctx)

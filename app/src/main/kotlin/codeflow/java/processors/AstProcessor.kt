@@ -25,6 +25,11 @@ class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode
     }
 
     override fun visitMethod(node: MethodTree, ctx: ProcessorContext): GraphNode? {
+        // Attribution supplies a constructor for a class that declares none. Graphing it draws an
+        // empty box standing for code nobody wrote, on every `new` of such a class.
+        if (!globalCtx.symbols.isWrittenInSource(node)) {
+            return null
+        }
         val paramsStr = node.parameters.joinToString(", ") {
             "${it.type} ${it.name}"
         }

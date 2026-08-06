@@ -130,6 +130,15 @@ export function init(payload) {
     apply();
   });
 
+  // Folding needs a box, so a sprawl inside the entry method has nothing to fold. Without this
+  // the only way back is a reload, which re-runs the whole layout.
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'r' || event.key === 'R') {
+      revealed = opening();
+      apply();
+    }
+  });
+
   apply();
 
   // The browser tests read the graph off this. Nothing in the page uses it.

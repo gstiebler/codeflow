@@ -80,3 +80,24 @@ test('reveals accumulate across clicks', async ({ page }) => {
   expect(afterE.length).toBeGreaterThan(afterX.length);
   expect(afterE).toContain('d');
 });
+
+test('folding a method box hides its contents, nested boxes and all', async ({ page }) => {
+  await tapLeaf(page, 'e');
+  // methodC's return node sits two levels down, inside methodB's methodC box.
+  expect(await boxLabels(page)).toEqual(['main', 'methodB', 'methodC']);
+
+  await tapBox(page, 'methodB');
+  // Both go. If the fold used children() instead of descendants(), methodC would survive.
+  expect(await boxLabels(page)).toEqual(['main']);
+  expect(await leafLabels(page)).toEqual(OPENING);
+});
+
+test('R returns to the opening set', async ({ page }) => {
+  await tapLeaf(page, 'x');
+  await tapLeaf(page, 'e');
+  // Without this, the reset below would pass on a page where clicking never revealed anything.
+  expect((await leafLabels(page)).length).toBeGreaterThan(OPENING.length);
+
+  await page.keyboard.press('r');
+  expect(await leafLabels(page)).toEqual(OPENING);
+});

@@ -90,3 +90,54 @@ test('draws meta-edges differently from real ones', async ({ page }) => {
   expect(styles.metaStyle).toBe('dashed');
   expect(styles.realStyle).toBe('solid');
 });
+
+const tapNode = (page, label) => page.evaluate((l) => {
+  window.cy.nodes().filter((n) => n.data('label') === l).emit('tap');
+}, label);
+
+/**
+ * The question the tool exists to answer. In main, `5` is assigned to `x`, which is passed to
+ * methodA, whose result reaches `y` - so clicking `x` has to light the literal it came from and
+ * the variable it ends up in, both of which are several hops away.
+ */
+test('clicking a node traces the value in both directions', async ({ page }) => {
+  await page.evaluate(() => window.api.expandAll());
+  await tapNode(page, 'x');
+
+  const { traced, dimmed } = await page.evaluate(() => ({
+    traced: window.cy.nodes('.traced').map((n) => n.data('label')).sort(),
+    dimmed: window.cy.nodes('.dimmed').length,
+  }));
+  expect(traced).toContain('x');
+  expect(traced).toContain('5');
+  expect(traced).toContain('y');
+  expect(dimmed).toBeGreaterThan(0);
+});
+
+/** A value in one method must not light up an unrelated one, or the highlight means nothing. */
+test('leaves an unrelated method out of the trace', async ({ page }) => {
+  await page.evaluate(() => window.api.expandAll());
+  await tapNode(page, 'x');
+
+  const traced = await page.evaluate(
+    () => window.cy.nodes('.traced').map((n) => n.data('label')),
+  );
+  // Without this the rest of the test passes on a page that traces nothing at all.
+  expect(traced).toContain('x');
+  // paramH and g belong to methodC, which nothing in the x -> methodA -> y chain touches.
+  expect(traced).not.toContain('paramH');
+  expect(traced).not.toContain('g');
+});
+
+const markedCount = (page) => page.evaluate(
+  () => window.cy.elements('.dimmed').length + window.cy.elements('.traced').length,
+);
+
+test('clicking the background clears the trace', async ({ page }) => {
+  await tapNode(page, 'x');
+  // Clearing nothing is not the same as clearing something, and only this tells them apart.
+  expect(await markedCount(page)).toBeGreaterThan(0);
+
+  await page.evaluate(() => window.cy.emit('tap', [{ target: window.cy }]));
+  expect(await markedCount(page)).toBe(0);
+});

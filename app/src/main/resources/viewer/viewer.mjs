@@ -111,6 +111,31 @@ export function init(payload) {
   api.collapseAll();
   api.expand(root);
 
+  const clear = () => cy.elements().removeClass('dimmed traced');
+
+  cy.on('tap', 'node', (event) => {
+    const node = event.target;
+    // A method box is for folding, not tracing; expand-collapse owns that click.
+    if (node.isParent()) return;
+
+    clear();
+    // Traced against the payload rather than the rendered graph: folding removes nodes, and a
+    // trace that stopped at the edge of what happens to be open would answer a different question.
+    const lit = traceFrom(payload.edges, node.id());
+    cy.elements().addClass('dimmed');
+    const onPath = cy.nodes().filter((n) => lit.has(n.id()));
+    // The enclosing boxes stay lit too, or a highlighted node sits inside a dimmed container.
+    onPath.forEach((n) => n.ancestors().removeClass('dimmed'));
+    onPath.removeClass('dimmed').addClass('traced');
+    cy.edges()
+      .filter((e) => lit.has(e.source().id()) && lit.has(e.target().id()))
+      .removeClass('dimmed');
+  });
+
+  cy.on('tap', (event) => {
+    if (event.target === cy) clear();
+  });
+
   // The browser tests read the graph off these. Nothing in the page uses them.
   window.cy = cy;
   window.api = api;

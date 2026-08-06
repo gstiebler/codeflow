@@ -17,7 +17,15 @@ gives no sign anything is missing. Most of the design decisions below follow fro
 ./gradlew test --tests '*ternary*'   # one test
 UPDATE_SNAPSHOTS=1 ./gradlew test    # rewrite the golden files (see Testing)
 ./gradlew run --args="path/to/java/dir"
+./gradlew run --args="path/to/java/dir --html"   # interactive page, to stdout
+
+npm test                             # the viewer's pure functions, under node --test
+npm run test:browser                 # the exported page, in a real browser
 ```
+
+The JS suites need `npm install` once. `npm test` globs the files itself
+(`app/src/test/js/unit/*.test.mjs`) because `node --test <dir>` tries to import the directory and
+dies before running anything.
 
 The toolchain is pinned to **JDK 21** (`app/build.gradle`). The installed CLI
 (`./gradlew installDist`, then `./app/build/install/app/bin/app <dir>`) therefore needs a 21
@@ -33,7 +41,54 @@ output, not just to the build.
 1. `AstProcessor` — records each method under the `ExecutableElement` it declares.
 2. `AstBlockProcessor.invokeMethod` starting from `main` — walks statements and builds the graph.
 
-`MermaidExporter` then renders the root `GraphBuilderBlock` and its `calledMethods` recursively.
+An exporter then renders the root `GraphBuilderBlock` and its `calledMethods` recursively. There are
+four, chosen by flag, and all four walk the same tree — a construct is supported once
+`AstBlockProcessor` models it, not once an exporter mentions it:
+
+| Flag | Exporter | For |
+|---|---|---|
+| *(none)* | `MermaidExporter` | the default document |
+| `--graphml` | `GraphmlExporter` | desktop editors (yEd, Cytoscape Desktop) |
+| `--json` | `JsonExporter` | the viewer's payload, and what the tests assert on |
+| `--html` | `HtmlExporter` | one self-contained interactive page |
+
+Every exporter writes to **stdout**, so nothing else may. `logback.xml` pins its appender to
+`System.err` for exactly this reason: a `ConsoleAppender` with no `<target>` defaults to stdout, and
+debug lines interleaved into the document make it unparseable with no hint as to why.
+
+`GraphmlExporter` nests a `<graph>` inside each block's `<node>` but declares **every edge at the
+root**, since GraphML requires an edge to sit in a graph enclosing both endpoints and only the root
+always qualifies. Plain GraphML carries no coordinates, so yEd opens it as a pile at the origin
+until you run Layout → Hierarchical — that is the format, not a bug.
+
+### The interactive viewer
+
+`HtmlExporter` substitutes the vendored libraries, `viewer.mjs`, and the JSON payload into
+`template.html`. It is substitution only — all of the behaviour lives in `viewer.mjs`, which is
+where changes go. The libraries are committed under `app/src/main/resources/viewer/`; `npm` only
+records where they came from.
+
+Cytoscape.js **compound nodes** are the method boundaries: a node's `parent` is its block, which is
+what `subgraph` was doing in Mermaid. Layout is ELK `layered` with `elk.hierarchyHandling:
+INCLUDE_CHILDREN` — without that it lays each container out independently and the boxes overlap.
+
+The page opens with only the outermost method expanded. This is not cosmetic: a callee's body is
+inlined at *every* call site, so node count grows with call sites rather than source size, and
+opening everything at once is the wall the viewer exists to avoid.
+
+Two behaviours that are easy to get subtly wrong:
+
+- **Collapsing removes children from the graph**, it does not hide them. `cy.nodes().length` after
+  a fold is not the payload's node count, and a test comparing the two has to `expandAll()` first.
+- A collapsed block's edges are replaced by **meta-edges**, which say only that *something* inside
+  connects to the other end. Drawn like a real edge that asserts a flow between two nodes that never
+  touched, so they are styled dashed and grey.
+
+`traceFrom(edges, startId)` is the click behaviour: everything the value reached and everything it
+came from. It runs against the **payload**, not the rendered graph — a trace that stopped at the
+edge of whatever happens to be open would answer a different question. It is a closure in each
+direction *separately*: for `c = a + b`, clicking `a` lights `+` and `c` but not `b`. Its `reached`
+set is what makes it terminate, since a loop feeding a variable back into itself is a cycle.
 
 ### Attributed, and asked rather than guessed
 
@@ -148,3 +203,24 @@ left over is a real change and needs explaining.
 
 `app/src/test/resources/codemap` and `ls` have no test referencing them; `codemap/truth.md` is stale
 and still in the pre-serial id format.
+
+### The viewer's tests
+
+Split by what they can actually catch:
+
+- `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `viewer.mjs`.
+  `traceFrom` is tested here, including that it terminates on a cycle.
+- `app/src/test/js/browser/` (`npm run test:browser`) — Playwright against a page built from a real
+  fixture. `global-setup.mjs` runs `gradlew run --args="<fixture> --html"` first, with an
+  **absolute** fixture path: the `run` task's working directory is `app/`, so a repo-relative one
+  resolves to `app/app/...` and `Files.walk` throws.
+
+Two traps, both of which produced a green run on a broken page:
+
+- The browser publishes a global for every element `id`. The container is `#graph`, **not** `#cy`,
+  because with `id="cy"` a check for `window.cy` finds the div and passes before the graph exists.
+  The guard is `typeof window.cy?.nodes === 'function'` for the same reason.
+- A negative assertion (`not.toContain`, `count === 0`) passes trivially when the feature does
+  nothing at all. Each one is paired with a positive assertion that fails in that case. Confirm a
+  new test fails against a *wrong* implementation, not just an absent one — for the trace, lighting
+  every node is the mutation to try.

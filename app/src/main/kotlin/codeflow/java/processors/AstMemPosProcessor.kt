@@ -40,7 +40,7 @@ class AstMemPosProcessor(
             // parameter resolve to that parameter, which connects the parameter to itself and drops
             // the edge from the value actually passed in.
             val argumentNodes = arguments.map {
-                it.accept(callerBlockProcessor, ctx)
+                callerBlockProcessor.evaluate(it, ctx)
             }
             constructorBlockProcessor.invokeMethod(argumentNodes)
             graphBuilder.addCalledMethod(graphBlock)

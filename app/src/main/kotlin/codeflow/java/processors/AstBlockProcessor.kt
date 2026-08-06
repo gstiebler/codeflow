@@ -32,6 +32,15 @@ open class AstBlockProcessor(
         return parentStack.push(pos)
     }
 
+    /**
+     * Evaluates an expression to the node carrying its value.
+     *
+     * Everything that needs a value goes through here rather than calling `accept` directly, so
+     * that [scan]'s check for unmodelled expressions cannot be bypassed.
+     */
+    fun evaluate(tree: ExpressionTree, ctx: ProcessorContext): GraphNode =
+        scan(tree, ctx) ?: throw GraphException("'$tree' at ${ctx.location(tree)} produced no value")
+
     override fun visitAssignment(node: AssignmentTree, ctx: ProcessorContext): GraphNode? {
         val lhs = node.variable
         val rhs = node.expression
@@ -76,7 +85,7 @@ open class AstBlockProcessor(
 
     private fun assignPrimitive(owner: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
         val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), owner)
-        val rhsNode = rhs.accept(this, ctx)
+        val rhsNode = evaluate(rhs, ctx)
         graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         return lhsNode
     }
@@ -91,7 +100,7 @@ open class AstBlockProcessor(
         // fields set on it and calls made on it have somewhere to hang.
         val rhsMemPos = getMemPos(rhs, ctx) ?: globalCtx.createMemPos(rhs, graphBuilderBlock)
         val rhsNode = try {
-            rhs.accept(this, ctx)
+            evaluate(rhs, ctx)
         } catch(e: Exception) {
             null
         }
@@ -134,8 +143,24 @@ open class AstBlockProcessor(
             ?: graphBuilderBlock.addExternal(GraphNode.Base(nodeId), emptyList())
     }
 
-    override fun visitMemberReference(node: MemberReferenceTree?, p: ProcessorContext): GraphNode? {
-        return super.visitMemberReference(node, p)
+    /**
+     * The single point every tree passes through, and where an unmodelled expression is rejected.
+     *
+     * TreeScanner's default for a node it is not told about is to scan the children and return
+     * one of their results. For a statement that is fine, because a statement produces no value.
+     * For an expression it is a fabricated edge: `!flag` comes back as the node for `flag` and
+     * `-x` as the node for `x`, so the operator disappears from the graph and the diagram reads
+     * as if the code did something it does not. The dropped branch of `cond ? a : b` was the
+     * same mistake, and cost a real debugging session before it was noticed.
+     *
+     * So expressions have to be modelled explicitly, and anything missing says so on the spot,
+     * with a file and line, rather than being found later by someone who trusted the diagram.
+     */
+    override fun scan(node: Tree?, ctx: ProcessorContext): GraphNode? {
+        if (node is ExpressionTree && node.kind !in MODELLED_EXPRESSIONS) {
+            throw GraphException("Unsupported expression '${node.kind}' at ${ctx.location(node)}: '$node'")
+        }
+        return super.scan(node, ctx)
     }
 
     /**
@@ -159,8 +184,8 @@ open class AstBlockProcessor(
     }
 
     override fun visitBinary(node: BinaryTree, ctx: ProcessorContext): GraphNode {
-        val rightNode = node.leftOperand.accept(this, ctx)
-        val leftNode = node.rightOperand.accept(this, ctx)
+        val rightNode = evaluate(node.leftOperand, ctx)
+        val leftNode = evaluate(node.rightOperand, ctx)
         val jId = GraphNodeId(getStack().push(ctx, node), binaryOperatorLabel(node))
         return graphBuilderBlock.addBinOp(GraphNode.Base(jId), leftNode, rightNode)
     }
@@ -174,11 +199,98 @@ open class AstBlockProcessor(
      * Mermaid's `:::` class syntax.
      */
     override fun visitConditionalExpression(node: ConditionalExpressionTree, ctx: ProcessorContext): GraphNode {
-        val conditionNode = node.condition.accept(this, ctx)
-        val trueNode = node.trueExpression.accept(this, ctx)
-        val falseNode = node.falseExpression.accept(this, ctx)
+        val conditionNode = evaluate(node.condition, ctx)
+        val trueNode = evaluate(node.trueExpression, ctx)
+        val falseNode = evaluate(node.falseExpression, ctx)
         val jId = GraphNodeId(getStack().push(ctx, node), "ternary")
         return graphBuilderBlock.addTernaryOp(GraphNode.Base(jId), conditionNode, trueNode, falseNode)
+    }
+
+    /**
+     * `-x`, `!flag`, `i++`.
+     *
+     * The operator gets a node of its own with the operand flowing into it. Without one the
+     * operand's node is returned directly, so `!flag` is indistinguishable from `flag` and the
+     * graph shows a value being used where its negation is.
+     *
+     * The write-back half of `i++` is not modelled. Loop iteration is not modelled either, so a
+     * value that depends on how far a counter advanced is already outside what the graph claims.
+     */
+    override fun visitUnary(node: UnaryTree, ctx: ProcessorContext): GraphNode {
+        val operandNode = evaluate(node.expression, ctx)
+        val jId = GraphNodeId(getStack().push(ctx, node), unaryOperatorLabel(node))
+        return graphBuilderBlock.addUnaryOp(GraphNode.Base(jId), operandNode)
+    }
+
+    /**
+     * `y += 1`, which is `y = y + 1`: the variable is read, combined, and written back.
+     *
+     * Both halves matter. Scanning the children and returning the first, as the default does,
+     * yields the node for `y` and drops the operation and the right-hand side entirely, so the
+     * new value appears to arrive from nowhere.
+     */
+    override fun visitCompoundAssignment(node: CompoundAssignmentTree, ctx: ProcessorContext): GraphNode {
+        val currentNode = evaluate(node.variable, ctx)
+        val rhsNode = evaluate(node.expression, ctx)
+        val opId = GraphNodeId(getStack().push(ctx, node), compoundAssignmentLabel(node))
+        val opNode = graphBuilderBlock.addBinOp(GraphNode.Base(opId), currentNode, rhsNode)
+
+        val lhsName = node.variable.accept(AstLastNameProcessor(), ctx)
+        val lhsId = JNodeId(getStack().push(ctx, node), lhsName, owner)
+        val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), owner)
+        graphBuilderBlock.addAssignment(lhsNode, opNode)
+        return lhsNode
+    }
+
+    /**
+     * `switch` used as an expression, which is `?:` with more than two branches: the selector
+     * picks one of the case values and that becomes the value of the whole thing.
+     *
+     * Only the `case X -> expression` form is modelled. A branch that yields from a block would
+     * need the `yield` traced out of it, and guessing instead would produce a switch node whose
+     * value arrives from nowhere, which is the failure this whole check exists to prevent.
+     */
+    override fun visitSwitchExpression(node: SwitchExpressionTree, ctx: ProcessorContext): GraphNode {
+        val selectorNode = evaluate(node.expression, ctx)
+        val branchNodes = node.cases.map { case ->
+            val body = case.body
+            if (body !is ExpressionTree) {
+                throw GraphException(
+                    "Unsupported switch branch at ${ctx.location(case)}: " +
+                            "only 'case X -> expression' is modelled, got '$case'"
+                )
+            }
+            evaluate(body, ctx)
+        }
+        val jId = GraphNodeId(getStack().push(ctx, node), "switch")
+        return graphBuilderBlock.addSelection(GraphNode.Base(jId), listOf(selectorNode) + branchNodes)
+    }
+
+    private fun unaryOperatorLabel(node: UnaryTree) = when (node.kind) {
+        Tree.Kind.UNARY_MINUS -> "neg"
+        Tree.Kind.UNARY_PLUS -> "unaryPlus"
+        Tree.Kind.LOGICAL_COMPLEMENT -> "not"
+        Tree.Kind.BITWISE_COMPLEMENT -> "bitNot"
+        Tree.Kind.PREFIX_INCREMENT -> "preInc"
+        Tree.Kind.PREFIX_DECREMENT -> "preDec"
+        Tree.Kind.POSTFIX_INCREMENT -> "postInc"
+        Tree.Kind.POSTFIX_DECREMENT -> "postDec"
+        else -> throw GraphException("Unsupported unary operator '${node.kind}'")
+    }
+
+    private fun compoundAssignmentLabel(node: CompoundAssignmentTree) = when (node.kind) {
+        Tree.Kind.PLUS_ASSIGNMENT -> "+="
+        Tree.Kind.MINUS_ASSIGNMENT -> "-="
+        Tree.Kind.MULTIPLY_ASSIGNMENT -> "*="
+        Tree.Kind.DIVIDE_ASSIGNMENT -> "divEq"
+        Tree.Kind.REMAINDER_ASSIGNMENT -> "%="
+        Tree.Kind.AND_ASSIGNMENT -> "bitAndEq"
+        Tree.Kind.OR_ASSIGNMENT -> "bitOrEq"
+        Tree.Kind.XOR_ASSIGNMENT -> "xorEq"
+        Tree.Kind.LEFT_SHIFT_ASSIGNMENT -> "shlEq"
+        Tree.Kind.RIGHT_SHIFT_ASSIGNMENT -> "shrEq"
+        Tree.Kind.UNSIGNED_RIGHT_SHIFT_ASSIGNMENT -> "ushrEq"
+        else -> throw GraphException("Unsupported compound assignment '${node.kind}'")
     }
 
     /**
@@ -221,7 +333,7 @@ open class AstBlockProcessor(
         }
         val method = globalCtx.findMethod(JMethodId(methodIdentifier.methodName))
             ?: return invokeExternalMethod(methodIdentifier, node, ctx)
-        val methodArguments = node.arguments.map { it.accept(this, ctx) }
+        val methodArguments = node.arguments.map { evaluate(it, ctx) }
 
         val invocationPos = ctx.getPosId(node)
         val localPos = Position(invocationPos, ctx.path)
@@ -247,10 +359,10 @@ open class AstBlockProcessor(
         node: MethodInvocationTree,
         ctx: ProcessorContext
     ): GraphNode {
-        val argumentNodes = node.arguments.map { it.accept(this, ctx) }
+        val argumentNodes = node.arguments.map { evaluate(it, ctx) }
         // The receiver is a value flowing into the call only when it is something we track. For a
         // static call it is a type name, as in `Math.abs`, which is not a node in the graph.
-        val receiverNode = methodIdentifier.expression?.let { runCatching { it.accept(this, ctx) }.getOrNull() }
+        val receiverNode = methodIdentifier.expression?.let { runCatching { evaluate(it, ctx) }.getOrNull() }
         val jId = GraphNodeId(getStack().push(ctx, node), methodIdentifier.methodName.toString())
         return graphBuilderBlock.addExternal(GraphNode.Base(jId), listOfNotNull(receiverNode) + argumentNodes)
     }
@@ -282,7 +394,7 @@ open class AstBlockProcessor(
             graphBuilderBlock, Method(constructor, ctx), getStack().push(localPos), owner, targetClass, ctx
         )
         val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, owner)
-        val argumentNodes = node.arguments.map { it.accept(this, ctx) }
+        val argumentNodes = node.arguments.map { evaluate(it, ctx) }
         blockProcessor.invokeMethod(argumentNodes)
         graphBuilderBlock.addCalledMethod(graphBlock)
         return graphBlock.returnNode
@@ -310,8 +422,56 @@ open class AstBlockProcessor(
         val statements = node.statements
         statements.forEach() {
             logger.debug { "Processing statement: '$it'" }
-            it.accept(this, ctx)
+            scan(it, ctx)
         }
         return null
+    }
+
+    companion object {
+        /** `a + b`, `a == b`, and the rest handled by [visitBinary]. */
+        private val BINARY_KINDS = setOf(
+            Tree.Kind.PLUS, Tree.Kind.MINUS, Tree.Kind.MULTIPLY, Tree.Kind.DIVIDE, Tree.Kind.REMAINDER,
+            Tree.Kind.EQUAL_TO, Tree.Kind.NOT_EQUAL_TO, Tree.Kind.LESS_THAN, Tree.Kind.GREATER_THAN,
+            Tree.Kind.LESS_THAN_EQUAL, Tree.Kind.GREATER_THAN_EQUAL,
+            Tree.Kind.CONDITIONAL_AND, Tree.Kind.CONDITIONAL_OR,
+            Tree.Kind.AND, Tree.Kind.OR, Tree.Kind.XOR,
+            Tree.Kind.LEFT_SHIFT, Tree.Kind.RIGHT_SHIFT, Tree.Kind.UNSIGNED_RIGHT_SHIFT
+        )
+
+        /** `-x`, `!flag`, `i++`, and the rest handled by [visitUnary]. */
+        private val UNARY_KINDS = setOf(
+            Tree.Kind.UNARY_MINUS, Tree.Kind.UNARY_PLUS,
+            Tree.Kind.LOGICAL_COMPLEMENT, Tree.Kind.BITWISE_COMPLEMENT,
+            Tree.Kind.PREFIX_INCREMENT, Tree.Kind.PREFIX_DECREMENT,
+            Tree.Kind.POSTFIX_INCREMENT, Tree.Kind.POSTFIX_DECREMENT
+        )
+
+        /** `y += 1`, `y *= 2`, and the rest handled by [visitCompoundAssignment]. */
+        private val COMPOUND_ASSIGNMENT_KINDS = setOf(
+            Tree.Kind.PLUS_ASSIGNMENT, Tree.Kind.MINUS_ASSIGNMENT, Tree.Kind.MULTIPLY_ASSIGNMENT,
+            Tree.Kind.DIVIDE_ASSIGNMENT, Tree.Kind.REMAINDER_ASSIGNMENT,
+            Tree.Kind.AND_ASSIGNMENT, Tree.Kind.OR_ASSIGNMENT, Tree.Kind.XOR_ASSIGNMENT,
+            Tree.Kind.LEFT_SHIFT_ASSIGNMENT, Tree.Kind.RIGHT_SHIFT_ASSIGNMENT,
+            Tree.Kind.UNSIGNED_RIGHT_SHIFT_ASSIGNMENT
+        )
+
+        private val LITERAL_KINDS = setOf(
+            Tree.Kind.INT_LITERAL, Tree.Kind.LONG_LITERAL, Tree.Kind.FLOAT_LITERAL,
+            Tree.Kind.DOUBLE_LITERAL, Tree.Kind.BOOLEAN_LITERAL, Tree.Kind.CHAR_LITERAL,
+            Tree.Kind.STRING_LITERAL, Tree.Kind.NULL_LITERAL
+        )
+
+        /**
+         * Every expression kind that produces a node meaning what the code means.
+         *
+         * PARENTHESIZED is here without a visitor of its own because it really is transparent:
+         * the value of `(x)` is the value of `x`, so scanning through to the child is right.
+         */
+        private val MODELLED_EXPRESSIONS = BINARY_KINDS + UNARY_KINDS + COMPOUND_ASSIGNMENT_KINDS +
+                LITERAL_KINDS + setOf(
+            Tree.Kind.IDENTIFIER, Tree.Kind.MEMBER_SELECT, Tree.Kind.METHOD_INVOCATION,
+            Tree.Kind.ASSIGNMENT, Tree.Kind.CONDITIONAL_EXPRESSION, Tree.Kind.PARENTHESIZED,
+            Tree.Kind.SWITCH_EXPRESSION
+        )
     }
 }

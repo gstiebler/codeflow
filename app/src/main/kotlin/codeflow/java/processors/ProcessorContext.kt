@@ -4,7 +4,7 @@ import com.sun.source.tree.CompilationUnitTree
 import com.sun.source.tree.Tree
 import com.sun.source.util.SourcePositions
 import java.nio.file.Path
-import kotlin.math.absoluteValue
+import javax.tools.Diagnostic
 
 class ProcessorContext(
     val path: Path,
@@ -31,5 +31,21 @@ class ProcessorContext(
         val start = sourcePos.getStartPosition(cut, tree)
         val end = sourcePos.getEndPosition(cut, tree)
         return start * 31 + end
+    }
+
+    /**
+     * Where a node came from, as `path:line:column`.
+     *
+     * codeflow is meant to be pointed at code nobody has read yet, so the first question about
+     * any failure is which line of which file it was on. Without this an error only names a
+     * node id, which is a hash, and says nothing about where to look.
+     */
+    fun location(tree: Tree): String {
+        val start = sourcePos.getStartPosition(cut, tree)
+        if (start == Diagnostic.NOPOS) {
+            return "$path:unknown position"
+        }
+        val lineMap = cut.lineMap ?: return "$path:offset $start"
+        return "$path:${lineMap.getLineNumber(start)}:${lineMap.getColumnNumber(start)}"
     }
 }

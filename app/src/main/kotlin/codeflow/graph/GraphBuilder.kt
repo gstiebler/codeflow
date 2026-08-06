@@ -98,6 +98,13 @@ class GraphBuilderBlock(
         return binOpNode
     }
 
+    fun addUnaryOp(base: GraphNode.Base, operand: GraphNode): GraphNode {
+        val unaryOpNode = graph.createGraphNode(NodeType.BIN_OP, base)
+        setLastNode(unaryOpNode)
+        operand.addEdge(unaryOpNode)
+        return unaryOpNode
+    }
+
     /**
      * The node standing for something outside the analysed sources. A call has no body to inline,
      * so it is opaque: its inputs flow in and whatever it produces flows out. A value such as an
@@ -111,17 +118,20 @@ class GraphBuilderBlock(
     }
 
     /**
-     * The node standing for `condition ? ifTrue : ifFalse`. Either branch can produce the value of
-     * the expression and the condition decides which, so all three flow into it.
+     * The node standing for a value picked from several alternatives, by `?:` or by a `switch`
+     * used as an expression. Every branch can produce the value and the selector decides which,
+     * so the selector and all the branches flow into it.
      */
-    fun addTernaryOp(base: GraphNode.Base, condition: GraphNode, ifTrue: GraphNode, ifFalse: GraphNode): GraphNode {
-        val ternaryNode = graph.createGraphNode(NodeType.BIN_OP, base)
-        setLastNode(ternaryNode)
-        condition.addEdge(ternaryNode)
-        ifTrue.addEdge(ternaryNode)
-        ifFalse.addEdge(ternaryNode)
-        return ternaryNode
+    fun addSelection(base: GraphNode.Base, inputs: List<GraphNode>): GraphNode {
+        val selectionNode = graph.createGraphNode(NodeType.BIN_OP, base)
+        setLastNode(selectionNode)
+        inputs.forEach { it.addEdge(selectionNode) }
+        return selectionNode
     }
+
+    /** `condition ? ifTrue : ifFalse`, the two-branch case of [addSelection]. */
+    fun addTernaryOp(base: GraphNode.Base, condition: GraphNode, ifTrue: GraphNode, ifFalse: GraphNode) =
+        addSelection(base, listOf(condition, ifTrue, ifFalse))
 
     fun addAssignment(lhsNode: GraphNode, rhsNode: GraphNode) {
         rhsNode.addEdge(lhsNode)

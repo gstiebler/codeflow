@@ -3,11 +3,13 @@
  */
 package codeflow
 
+import codeflow.graph.GraphException
 import codeflow.java.AstReader
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 
@@ -129,6 +131,33 @@ class AppTest {
         assertTrue("size" to "size" in edges, "call result does not reach the variable: $edges")
     }
 
+    /**
+     * A unary operator has to become a node of its own. Returning the operand's node instead
+     * makes `-value` identical to `value` and `!flag` identical to `flag`, which is not a gap in
+     * the graph but a claim that the code does something it does not.
+     */
+    @Test
+    fun unaryOperatorsAreVisibleInTheGraph() {
+        val edges = edgeLabels(buildGraph("unary", listOf("App.java")))
+        assertTrue("value" to "neg" in edges, "operand does not reach the negation: $edges")
+        assertTrue("neg" to "negated" in edges, "negation does not reach the variable: $edges")
+        assertTrue("flag" to "not" in edges, "operand does not reach the complement: $edges")
+        assertTrue("not" to "inverted" in edges, "complement does not reach the variable: $edges")
+        assertTrue("counter" to "postInc" in edges, "operand does not reach the increment: $edges")
+    }
+
+    /**
+     * An expression codeflow does not model must fail, and must say where. A silently wrong graph
+     * is worse than none, because nothing about it invites a second look.
+     */
+    @Test
+    fun unmodelledExpressionFailsWithSourceLocation() {
+        val error = assertFailsWith<GraphException> { buildGraph("unsupported", listOf("App.java")) }
+        val message = error.message ?: ""
+        assertTrue("LAMBDA_EXPRESSION" in message, "error does not name the construct: $message")
+        assertTrue("unsupported/App.java:16" in message, "error does not give file and line: $message")
+    }
+
     @Test fun base() = codeflow("base", listOf("App.java"))
     @Test fun funcCall() = codeflow("funcCall", listOf("App.java"))
     @Test fun member() = codeflow("member", listOf("App.java"))
@@ -144,4 +173,5 @@ class AppTest {
     @Test fun externalCall() = codeflow("externalCall", listOf("App.java"))
     @Test fun externalObject() = codeflow("externalObject", listOf("App.java"))
     @Test fun chainedCall() = codeflow("chainedCall", listOf("App.java"))
+    @Test fun unary() = codeflow("unary", listOf("App.java"))
 }

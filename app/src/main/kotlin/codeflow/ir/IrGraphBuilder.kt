@@ -1,5 +1,6 @@
 package codeflow.ir
 
+import codeflow.graph.EdgeKind
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphException
 import codeflow.graph.GraphNode
@@ -184,7 +185,10 @@ class Frame(
         // The objects come from the alternatives only, not from every input: a ternary can be
         // either arm and never its condition, and an array is not the elements it holds.
         is Select -> Value(
-            block.addSelection(base(labelId(insn.label, insn), insn), insn.inputs.map { run.node(it) }),
+            block.addSelection(
+                base(labelId(insn.label, insn), insn),
+                insn.inputs.map { run.node(it) to edgeKind(it, insn.condition, insn.arms) }
+            ),
             insn.alternatives.flatMapTo(HashSet()) { run.objects(it) }
         )
 
@@ -265,7 +269,12 @@ class Frame(
             .map { readFrom(it, name, element, isPrimitive, written, insn) }
         values.singleOrNull()?.let { return it }
         return Value(
-            block.addJoin(base(labelId(name, insn), insn), values.mapNotNull { it.node }, isPrimitive),
+            // Plain flow throughout: nothing on the page chose which object the name pointed at.
+            block.addJoin(
+                base(labelId(name, insn), insn),
+                values.mapNotNull { it.node }.map { it to EdgeKind.FLOW },
+                isPrimitive
+            ),
             values.flatMapTo(HashSet()) { it.objects }
         )
     }
@@ -377,11 +386,26 @@ class Frame(
     private fun phi(insn: Phi, run: Run): Value {
         val (arrived, pending) = insn.paths.partition { it.index < run.reached }
         val id = labelId(insn.name, insn)
-        val gate = insn.gate?.let { run.node(it.value) }
-        val inputs = arrived.map { run.node(it) } + listOfNotNull(gate)
-        val node = block.addJoin(base(id, insn, insn.gate?.label), inputs, insn.isPrimitive)
+        val paths = arrived.map { run.node(it) to edgeKind(it, null, insn.gate?.arms ?: emptyMap()) }
+        val gate = insn.gate?.let { run.node(it.value) to EdgeKind.CONDITION }
+        val node = block.addJoin(base(id, insn, insn.gate?.label), paths + listOfNotNull(gate), insn.isPrimitive)
         pending.forEach { run.backEdges.add(node to it) }
         return Value(node, arrived.flatMapTo(HashSet()) { run.objects(it) })
+    }
+
+    /**
+     * What an input's arrow means: the test, one named arm of a choice, or plain flow.
+     *
+     * The condition is matched structurally and the arms by name, which is the split the IR makes -
+     * see [Gate]. A value with no name is [EdgeKind.FLOW] and is most of them: an array's elements
+     * arrive at the array, a loop's back edge arrives at the header, and neither is a side of
+     * anything.
+     */
+    private fun edgeKind(input: Val, condition: Val?, arms: Map<Val, String>) = when {
+        input == condition -> EdgeKind.CONDITION
+        arms[input] == "true" -> EdgeKind.TRUE
+        arms[input] == "false" -> EdgeKind.FALSE
+        else -> EdgeKind.FLOW
     }
 
     /**

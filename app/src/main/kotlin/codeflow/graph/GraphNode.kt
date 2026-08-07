@@ -7,6 +7,24 @@ enum class NodeType {
 }
 
 /**
+ * What an edge means, for the nodes that take more than one kind of input.
+ *
+ * A choice takes three things that are not interchangeable - the value if the test held, the value
+ * if it did not, and the test itself. Drawn as three identical arrows the box says "one of these"
+ * and stops there, which leaves the reader going back to the source for the one thing the diagram
+ * was supposed to save them. Everything else is [FLOW]: a value arriving at whatever consumes it,
+ * which is nearly all of the graph and carries no marking at all.
+ *
+ * [label] is what the arrow is annotated with, and null is what keeps a plain edge plain.
+ */
+enum class EdgeKind(val label: String?) {
+    FLOW(null),
+    TRUE("true"),
+    FALSE("false"),
+    CONDITION("if")
+}
+
+/**
  * @param serial what makes this node itself, handed out by [Graph.createGraphNode] when the node
  *   is created. It is a constructor parameter rather than something set afterwards so that a node
  *   cannot exist without one, and it does not live on [Base] because Base is built at the call
@@ -14,7 +32,7 @@ enum class NodeType {
  */
 abstract class GraphNode(private val base: Base, val serial: Int) {
     private val logger = KotlinLogging.logger {}
-    private val edges = ArrayList<GraphNode>()
+    private val edges = ArrayList<Edge>()
 
     val id: GraphNodeId
         get() = base.id
@@ -52,11 +70,14 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
         val label: String = caption ?: id.label
     }
 
+    /** One arrow: where it goes, and what it means. */
+    class Edge(val target: GraphNode, val kind: EdgeKind)
+
     fun edgesIterator() = edges.iterator()
 
-    fun addEdge(node: GraphNode) {
-        logger.debug { "addEdge:\n\t $this ->\n\t $node" }
-        edges.add(node)
+    fun addEdge(node: GraphNode, kind: EdgeKind = EdgeKind.FLOW) {
+        logger.debug { "addEdge:\n\t $this -$kind->\n\t $node" }
+        edges.add(Edge(node, kind))
     }
 
     fun print() {
@@ -64,7 +85,7 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
         if (edges.size > 0) {
             logger.info { "Edges:" }
             for (edge in edges) {
-                logger.info { "  To $edge" }
+                logger.info { "  To ${edge.target}" }
             }
         }
     }

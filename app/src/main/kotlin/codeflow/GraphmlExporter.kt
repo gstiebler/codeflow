@@ -1,5 +1,6 @@
 package codeflow
 
+import codeflow.graph.EdgeKind
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
 
@@ -43,10 +44,13 @@ class GraphmlExporter {
         writer("""  <key id="label" for="node" attr.name="label" attr.type="string"/>""")
         writer("""  <key id="type" for="node" attr.name="type" attr.type="string"/>""")
         writer("""  <key id="source" for="node" attr.name="source" attr.type="string"/>""")
+        writer("""  <key id="kind" for="edge" attr.name="kind" attr.type="string"/>""")
         writer("""  <graph id="G" edgedefault="directed">""")
         processMethod(mainMethod, 4, writer)
-        for ((source, target) in collectEdges(mainMethod)) {
-            writer(genSpaces(4) + """<edge source="$source" target="$target"/>""")
+        for (edge in collectEdges(mainMethod)) {
+            writer(genSpaces(4) + """<edge source="${edge.first}" target="${edge.second}">""")
+            writer(genSpaces(6) + """<data key="kind">${edge.third}</data>""")
+            writer(genSpaces(4) + "</edge>")
         }
         writer("  </graph>")
         writer("</graphml>")
@@ -81,11 +85,11 @@ class GraphmlExporter {
      * the existing exporter puts one under whichever block owns its source. Here the root is the
      * one place that is always an ancestor of both.
      */
-    private fun collectEdges(block: GraphBuilderBlock): List<Pair<String, String>> {
-        val edges = ArrayList<Pair<String, String>>()
+    private fun collectEdges(block: GraphBuilderBlock): List<Triple<String, String, EdgeKind>> {
+        val edges = ArrayList<Triple<String, String, EdgeKind>>()
         for (node in block.graph.getNodes()) {
-            for (toNode in node.edgesIterator()) {
-                edges.add(nodeId(node) to nodeId(toNode))
+            for (edge in node.edgesIterator()) {
+                edges.add(Triple(nodeId(node), nodeId(edge.target), edge.kind))
             }
         }
         block.calledMethods.forEach { edges.addAll(collectEdges(it)) }

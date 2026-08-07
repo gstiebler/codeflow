@@ -61,6 +61,14 @@ const PALETTE = {
   METHOD:       'rgba(240, 240, 240, 0.60)',
 };
 
+// The same strokes MermaidExporter uses, so one graph does not change colour between the two
+// renderings. FLOW is absent on purpose - it keeps the default grey, and it is nearly every edge.
+const EDGE_COLOURS = {
+  TRUE:      '#2e7d32',
+  FALSE:     '#c62828',
+  CONDITION: '#6a6a6a',
+};
+
 export const LAYOUT = {
   name: 'elk',
   elk: {
@@ -95,6 +103,14 @@ export function init(payload) {
         width: 1.5, 'line-color': '#999', 'target-arrow-color': '#999',
         'target-arrow-shape': 'triangle', 'curve-style': 'bezier',
       } },
+      // A choice takes three things that are not interchangeable - the value if the test held, the
+      // value if it did not, and the test - and three identical arrows say only "one of these".
+      // Everything else is FLOW and keeps the grey above, which is nearly every edge on the page.
+      ...Object.entries(EDGE_COLOURS).map(([kind, colour]) => ({
+        selector: `edge[kind = "${kind}"]`,
+        style: { 'line-color': colour, 'target-arrow-color': colour, label: kind.toLowerCase() },
+      })),
+      { selector: 'edge[kind = "CONDITION"]', style: { 'line-style': 'dashed', label: 'if' } },
     ],
     // No layout here: apply() runs one at the end of init, and a second on every click. Laying out
     // in the constructor as well only costs a run nobody sees.

@@ -30,12 +30,25 @@ These are load-bearing, and a rewrite that lost them would be worse than what ex
 ## 1. A control-flow graph and SSA, instead of one mutable slot per variable
 
 **Since done**, in `ir.Lowering`: a use resolves to its defining instruction, and `if`, `switch`,
-loops and `try`/`catch` join with a `Phi`. The diagnosis below is left in the past tense it was
-written in — the `if1` and `forLoop` goldens it quotes have moved, and are now what this section
-asked for. What it names and this does not have: `break` and `continue` as edges of their own (a
-`continue` mid-body does not reach the loop header), labels, and `&&`/`||` as branches. The CFG
-also stayed implicit — a flat instruction list with phis, rather than a graph of blocks, since
-nothing downstream asks which block an instruction is in.
+loops and `try`/`catch` join with a `Phi`. The join an `if` or a `switch` statement makes is *gated*
+— the condition is an input to it, and each path's edge says which arm it came in on — so the same
+choice written as a statement and written as a ternary now come out as the same shape. The
+diagnosis below is left in the past tense it was written in — the `if1` and `forLoop` goldens it
+quotes have moved, and are now what this section asked for. What it names and this does not have:
+`break` and `continue` as edges of their own (a `continue` mid-body does not reach the loop header),
+labels, and `&&`/`||` as branches. The CFG also stayed implicit — a flat instruction list with phis,
+rather than a graph of blocks, since nothing downstream asks which block an instruction is in.
+
+Two joins are still ungated, and deliberately. A loop's condition is lowered *after* the header phi
+and computed *from* it, so gating it would draw an edge back into the phi from a value the phi
+produced; an enhanced `for` has no condition to draw at all. And for a `try`, which `throw` reached
+the handler is control flow, not a value that exists anywhere — there is nothing on the page to make
+an input.
+
+One piece of residue: a `switch` statement's join is gated by the **selector**, so the per-arm `==`
+comparisons the lowering emits still have no outgoing edge. That is the same shape §1 opened with,
+in miniature — a computed value drawn as unused — and it will stay until an arm's edge can name the
+comparison that admitted it rather than a string like `"true"`.
 
 This is the largest change and the one that alters the most answers.
 

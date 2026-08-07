@@ -36,11 +36,11 @@ flowchart TD
     n3[3]:::LITERAL --> n4[selector]:::VARIABLE
     n4[selector]:::VARIABLE --> n10[==]:::BIN_OP
     n4[selector]:::VARIABLE --> n14[==]:::BIN_OP
-    n4[selector]:::VARIABLE --> n19[switch]:::VARIABLE
-    n4[selector]:::VARIABLE --> n20[switch]:::VARIABLE
+    n4[selector]:::VARIABLE -->|if| n19[switch]:::VARIABLE
+    n4[selector]:::VARIABLE -->|if| n20[switch]:::VARIABLE
     n4[selector]:::VARIABLE --> n22[==]:::BIN_OP
-    n4[selector]:::VARIABLE --> n29[switch]:::VARIABLE
-    n4[selector]:::VARIABLE --> n30[switch]:::VARIABLE
+    n4[selector]:::VARIABLE -->|if| n29[switch]:::VARIABLE
+    n4[selector]:::VARIABLE -->|if| n30[switch]:::VARIABLE
     n5[0]:::LITERAL --> n6[chosen]:::VARIABLE
     n6[chosen]:::VARIABLE --> n19[switch]:::VARIABLE
     n7[200]:::LITERAL --> n8[side]:::VARIABLE
@@ -66,6 +66,10 @@ flowchart TD
     n30[switch]:::VARIABLE --> n31[+]:::BIN_OP
     n31[+]:::BIN_OP --> n32[out]:::VARIABLE
   end
+  linkStyle 3 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 4 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 6 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 7 stroke:#6a6a6a,color:#6a6a6a
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

@@ -35,7 +35,9 @@ class IrGraphBuilderTest {
         fun walk(block: GraphBuilderBlock) {
             block.graph.getNodes().forEach { node ->
                 lines.add("node ${describe(node)}")
-                node.edgesIterator().forEach { lines.add("edge ${describe(node)} -> ${describe(it)}") }
+                node.edgesIterator().forEach {
+                    lines.add("edge ${describe(node)} -> ${describe(it.target)}")
+                }
             }
             block.calledMethods.forEach { walk(it) }
         }

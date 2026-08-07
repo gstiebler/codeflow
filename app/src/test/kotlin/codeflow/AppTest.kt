@@ -128,9 +128,16 @@ class AppTest {
         }
     }
 
+    /**
+     * The arrow between two nodes, with the optional `|kind|` an edge carries when it is not plain
+     * flow. Written out once because three separate assertions parse edges and all three stopped
+     * matching the moment a condition edge gained a label.
+     */
+    private val arrow = """ -->(?:\|\w+\|)? """
+
     /** The graph's edges as (source label, target label) pairs, ignoring the generated ids. */
     private fun edgeLabels(graph: List<String>): List<Pair<String, String>> {
-        val edge = Regex("""n\d+\[([^]]*)]:::\w+ --> n\d+\[([^]]*)]""")
+        val edge = Regex("""n\d+\[([^]]*)]:::\w+${arrow}n\d+\[([^]]*)]""")
         return graph.mapNotNull { line ->
             edge.find(line)?.let { it.groupValues[1] to it.groupValues[2] }
         }
@@ -143,7 +150,7 @@ class AppTest {
      * the case worth testing, so this walks the ids and only uses labels for the two endpoints.
      */
     private fun reaches(graph: List<String>, fromLabel: String, toLabel: String): Boolean {
-        val edge = Regex("""(n\d+)\[([^]]*)]:::\w+ --> (n\d+)\[([^]]*)]""")
+        val edge = Regex("""(n\d+)\[([^]]*)]:::\w+${arrow}(n\d+)\[([^]]*)]""")
         val edges = graph.mapNotNull { edge.find(it) }
         val outgoing = edges.groupBy({ it.groupValues[1] }, { it.groupValues[3] })
         val labelOf = HashMap<String, String>()
@@ -188,7 +195,7 @@ class AppTest {
      * were merged into one. Nothing in the language produces a value that flows into itself.
      */
     private fun assertNoSelfEdges(testDir: String, graph: List<String>) {
-        val edge = Regex("""n(\d+)\[[^]]*]:::\w+ --> n(\d+)\[""")
+        val edge = Regex("""n(\d+)\[[^]]*]:::\w+${arrow}n(\d+)\[""")
         val selfEdges = graph.filter { line ->
             val match = edge.find(line)
             match != null && match.groupValues[1] == match.groupValues[2]
@@ -276,6 +283,30 @@ class AppTest {
         assertTrue("if" to "d" in edges, "the join does not reach the use below it: $edges")
         assertTrue(reaches(graph, "13", "if"), "the value written in the branch does not reach a join")
         assertTrue(reaches(graph, "17", "if"), "the value written in the branch does not reach a join")
+    }
+
+    /**
+     * The two paths into a join are told apart, and so are the two arms of a `?:`.
+     *
+     * A gated join takes three things and they are not interchangeable: the value if the branch was
+     * taken, the value if it was not, and the test. Drawn as three identical arrows the box says
+     * "one of these" and stops there, which is the reader having to go back to the source to learn
+     * the one thing the diagram was supposed to save them.
+     *
+     * Counted rather than merely searched for, so that a run marking every edge - or none - fails.
+     * `if1` has two joins, each with one path from each side of the branch.
+     */
+    @Test
+    fun theTwoPathsOfAChoiceAreToldApart() {
+        val branch = buildGraph("if1", listOf("App.java"))
+        assertEquals(2, branch.count { it.contains("-->|true|") }, "the true paths are not marked: $branch")
+        assertEquals(2, branch.count { it.contains("-->|false|") }, "the false paths are not marked: $branch")
+        assertEquals(2, branch.count { it.contains("-->|if|") }, "the conditions are not marked: $branch")
+
+        val expression = buildGraph("ternary", listOf("App.java"))
+        assertEquals(1, expression.count { it.contains("-->|true|") }, "the true arm is not marked: $expression")
+        assertEquals(1, expression.count { it.contains("-->|false|") }, "the false arm is not marked: $expression")
+        assertEquals(1, expression.count { it.contains("-->|if|") }, "the condition is not marked: $expression")
     }
 
     /**

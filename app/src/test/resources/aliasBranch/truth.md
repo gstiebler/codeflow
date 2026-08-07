@@ -15,11 +15,11 @@ flowchart TD
     n20[total]:::VARIABLE
     n3[length]:::EXTERNAL --> n5[>]:::BIN_OP
     n4[0]:::LITERAL --> n5[>]:::BIN_OP
-    n5[>]:::BIN_OP --> n18[if]:::OBJ_VARIABLE
+    n5[>]:::BIN_OP -->|if| n18[if]:::OBJ_VARIABLE
     n6[11]:::LITERAL --> n9[amount]:::FUNC_PARAM
-    n11[chosen]:::OBJ_VARIABLE --> n18[if]:::OBJ_VARIABLE
+    n11[chosen]:::OBJ_VARIABLE -->|true| n18[if]:::OBJ_VARIABLE
     n12[22]:::LITERAL --> n15[amount]:::FUNC_PARAM
-    n17[chosen]:::OBJ_VARIABLE --> n18[if]:::OBJ_VARIABLE
+    n17[chosen]:::OBJ_VARIABLE -->|false| n18[if]:::OBJ_VARIABLE
     n19[amount]:::VARIABLE --> n20[total]:::VARIABLE
     subgraph b7["Holder.constructor"]
       n8[<init>]:::RETURN
@@ -38,6 +38,9 @@ flowchart TD
       n16[amount]:::VARIABLE --> n19[amount]:::VARIABLE
     end
   end
+  linkStyle 2 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 4 stroke:#2e7d32,color:#2e7d32
+  linkStyle 6 stroke:#c62828,color:#c62828
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

@@ -73,8 +73,13 @@ class JsonExporter {
 
         for (node in block.graph.getNodes()) {
             nodes.add(entry(nodeId(node), node.label, node.getType().toString(), node.source, ownId))
-            for (toNode in node.edgesIterator()) {
-                edges.add("""{"source": "${nodeId(node)}", "target": "${nodeId(toNode)}"}""")
+            for (edge in node.edgesIterator()) {
+                // `kind` is on every edge, plain ones included, for the same reason `source` is on
+                // every node: a key the viewer has to test for is one it can quietly stop using.
+                edges.add(
+                    """{"source": "${nodeId(node)}", "target": "${nodeId(edge.target)}", """ +
+                            """"kind": "${edge.kind}"}"""
+                )
             }
         }
         for (calledMethod in block.calledMethods) {

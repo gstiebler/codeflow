@@ -273,6 +273,23 @@ A branch that cannot fall out of its own bottom contributes nothing to the join 
 lesser wrong. It is also why the arm names are built alongside the path list rather than assumed:
 `if (x == null) return 0;` has one path, and it is the false one.
 
+**An edge says what it means, not just where it goes.** A gated join takes three things that are not
+interchangeable — the value if the test held, the value if it did not, and the test — and three
+identical arrows say only "one of these reached it", which is most of what the gate was added to
+stop. So an edge is a `GraphNode.Edge` carrying an `EdgeKind`: `TRUE`, `FALSE`, `CONDITION`, or
+`FLOW`, which is nearly every edge and renders unchanged. `Gate.arms` and `Select.arms` are where the
+names come from, and they are a `Map<Val, String>` rather than a list parallel to the paths because
+`join` collapses the reaching values with `distinct` — a value both branches leave behind gets no
+arm at all, which is the honest answer. Only a `?:` and an `if` have arms: a two-case `switch`
+expression also has two alternatives and a condition, and calling those true and false would be a
+label the source never wrote.
+
+All four exporters render the kind, and the colours (`#2e7d32`, `#c62828`, `#6a6a6a`) are repeated
+in `MermaidExporter` and `viewer.mjs` so one graph does not change meaning between the two
+renderings. The Mermaid side has a trap: `linkStyle` indexes links **globally across the whole
+flowchart** in declaration order, so the index of an edge is only settled once every nested block
+has been walked — hence `Links`, which counts during the recursion and emits the styles after it.
+
 A loop is the same idea with the phi at the *header*. `Lowering.loop` emits one for every variable
 the loop assigns before the body is lowered, so a use inside the body names one instruction whichever
 iteration produced the value, and the value the body leaves behind is added to that phi afterwards

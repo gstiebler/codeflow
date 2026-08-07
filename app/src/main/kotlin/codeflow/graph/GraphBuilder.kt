@@ -209,16 +209,12 @@ class GraphBuilderBlock(
      * `?:` or by a `switch` used as an expression, or an array built from its size and elements.
      * All of them flow in, since all of them go into deciding what the value is.
      */
-    fun addSelection(base: GraphNode.Base, inputs: List<GraphNode>): GraphNode {
+    fun addSelection(base: GraphNode.Base, inputs: List<Pair<GraphNode, EdgeKind>>): GraphNode {
         val selectionNode = graph.createGraphNode(NodeType.BIN_OP, base)
         setLastNode(selectionNode)
-        inputs.forEach { it.addEdge(selectionNode) }
+        inputs.forEach { (node, kind) -> node.addEdge(selectionNode, kind) }
         return selectionNode
     }
-
-    /** `condition ? ifTrue : ifFalse`, the two-branch case of [addSelection]. */
-    fun addTernaryOp(base: GraphNode.Base, condition: GraphNode, ifTrue: GraphNode, ifFalse: GraphNode) =
-        addSelection(base, listOf(condition, ifTrue, ifFalse))
 
     /**
      * A variable that is one of several values, drawn as a variable: all of them flow into one box.
@@ -238,11 +234,11 @@ class GraphBuilderBlock(
      * expression produced; this is a variable at a place in the program, and it exists whether or
      * not anything was written there.
      */
-    fun addJoin(base: GraphNode.Base, inputs: List<GraphNode>, isPrimitive: Boolean): GraphNode {
+    fun addJoin(base: GraphNode.Base, inputs: List<Pair<GraphNode, EdgeKind>>, isPrimitive: Boolean): GraphNode {
         val type = if (isPrimitive) NodeType.VARIABLE else NodeType.OBJ_VARIABLE
         val phiNode = graph.createGraphNode(type, base)
         setLastNode(phiNode)
-        inputs.forEach { it.addEdge(phiNode) }
+        inputs.forEach { (node, kind) -> node.addEdge(phiNode, kind) }
         return phiNode
     }
 

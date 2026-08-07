@@ -1,5 +1,6 @@
 package codeflow
 
+import codeflow.graph.EdgeKind
 import codeflow.graph.Graph
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
@@ -24,17 +25,47 @@ class MermaidExporter() {
         "classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2"
     )
 
+    /**
+     * The stroke each marked edge is drawn in, keyed by kind. [EdgeKind.FLOW] is absent on purpose:
+     * an edge with no entry here gets no `linkStyle` line, which is what keeps the colouring to the
+     * few edges that mean something beyond "this value goes there".
+     */
+    private val strokes = mapOf(
+        EdgeKind.TRUE to "#2e7d32",
+        EdgeKind.FALSE to "#c62828",
+        EdgeKind.CONDITION to "#6a6a6a"
+    )
+
     private fun genSpaces(n: Int) = " ".repeat(n)
 
     fun processMainMethod(mainMethod: GraphBuilderBlock, writer: (String) -> Unit) {
         writer("```mermaid")
         writer("flowchart TD")
-        processMethod(mainMethod, 2, writer)
+        val links = Links()
+        processMethod(mainMethod, 2, writer, links)
+        links.styles.forEach { writer(genSpaces(2) + it) }
         getClasses().forEach { writer(genSpaces(2) + it) }
         writer("```")
     }
 
-    private fun processMethod(method: GraphBuilderBlock, depth: Int, writer: (String) -> Unit) {
+    /**
+     * The running link count and the styles collected against it.
+     *
+     * Mermaid numbers links across the whole flowchart in the order they are declared and
+     * `linkStyle` addresses them by that number, so a style cannot be written beside the edge it
+     * applies to: the index is only settled once every nested block has been walked.
+     */
+    private class Links {
+        var count = 0
+        val styles = ArrayList<String>()
+    }
+
+    private fun processMethod(
+        method: GraphBuilderBlock,
+        depth: Int,
+        writer: (String) -> Unit,
+        links: Links
+    ) {
         val nodes = method.graph.getNodes()
         writer(genSpaces(depth) + "subgraph b${method.serial}[\"${method.getMethodName()}\"]")
         logger.debug { "processMethod: ${method.getMethodName()}" }
@@ -43,12 +74,17 @@ class MermaidExporter() {
             writer(genSpaces(depth + 2) + getNodeStr(node))
         }
         for (node in nodes) {
-            for (toNode in node.edgesIterator()) {
-                writer(genSpaces(depth + 2) + "${getNodeStr(node)} --> ${getNodeStr(toNode)}")
+            for (edge in node.edgesIterator()) {
+                val arrow = edge.kind.label?.let { "-->|$it|" } ?: "-->"
+                strokes[edge.kind]?.let {
+                    links.styles.add("linkStyle ${links.count} stroke:$it,color:$it")
+                }
+                links.count++
+                writer(genSpaces(depth + 2) + "${getNodeStr(node)} $arrow ${getNodeStr(edge.target)}")
             }
         }
         for (calledMethod in method.calledMethods) {
-            processMethod(calledMethod, depth + 2, writer)
+            processMethod(calledMethod, depth + 2, writer, links)
         }
         writer(genSpaces(depth) + "end")
     }

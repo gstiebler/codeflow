@@ -189,12 +189,19 @@ class UnOp(val label: String, val operand: Val, source: String) : Insn(source) {
  * on which objects the result could be, so getting this wrong makes an array be its own elements -
  * one object's fields filed under another's, which is the diagram being confidently about the wrong
  * thing. Empty when nothing the expression produces is one of its inputs.
+ *
+ * [condition] and [arms] are the same pair [Gate] carries, and are used the same way: the condition
+ * is which input decided, and the arms name the edge each alternative arrives on. Only a `?:` has
+ * arms - a two-case `switch` expression also has two alternatives and a condition, and calling
+ * those true and false would be a label the source never wrote.
  */
 class Select(
     val label: String,
     override val inputs: List<Val>,
     source: String,
-    val alternatives: List<Val> = emptyList()
+    val alternatives: List<Val> = emptyList(),
+    val condition: Val? = null,
+    val arms: Map<Val, String> = emptyMap()
 ) : Insn(source) {
     override fun render() = "select $label ${inputs.joinToString(" ")}"
 }

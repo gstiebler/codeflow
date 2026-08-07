@@ -484,6 +484,31 @@ class AppTest {
     }
 
     /**
+     * A method that calls itself is inlined once, and the call inside it is opaque.
+     *
+     * Inlining happens per call site with no in-progress set, so a recursive method had nothing
+     * stopping it: `fact` took the run down with a StackOverflowError, no output at all, and a stack
+     * trace naming `AstBlockProcessor` rather than a line of Java. A five-line factorial reaches it.
+     *
+     * The opaque node is the same answer a call outside the analysed sources gets, and it is honest
+     * about what happened - a call whose body was not inlined any further, arguments in, result out.
+     * The decision was recorded in `plan-for-these-improvements-mighty-prism.md` before this was
+     * written, so it is settled rather than invented here.
+     *
+     * The outer call is still inlined, which is what distinguishes this from giving up on recursion
+     * entirely: `seed` reaches the parameter, and only the second entry into `fact` is cut.
+     */
+    @Test
+    fun aRecursiveCallIsOpaqueAndTheOuterCallIsStillInlined() {
+        val graph = buildGraph("recursion", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("fact" to "EXTERNAL" in nodeTypes(graph), "the recursive call is not opaque: ${nodeTypes(graph)}")
+        assertTrue("seed" to "n" in edges, "the outer call was not inlined: $edges")
+        assertTrue("-" to "fact" in edges, "the argument does not reach the recursive call: $edges")
+        assertTrue("fact" to "*" in edges, "the recursive call's result does not flow out: $edges")
+    }
+
+    /**
      * The variable of an enhanced `for` is bound to what is being iterated, and the body can read it.
      *
      * Nothing bound it before, so every read in the body found no node and took the run down - and
@@ -1179,4 +1204,5 @@ class AppTest {
     @Test fun switchStatement() = codeflow("switchStatement", listOf("App.java"))
     @Test fun fieldInitializer() = codeflow("fieldInitializer", listOf("App.java"))
     @Test fun enumConstructor() = codeflow("enumConstructor", listOf("App.java"))
+    @Test fun recursion() = codeflow("recursion", listOf("App.java"))
 }

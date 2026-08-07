@@ -693,6 +693,26 @@ open class AstBlockProcessor(
     private fun invoke(node: MethodInvocationTree, ctx: ProcessorContext): Evaluation =
         evaluated.getOrPut(node) { invokeUncached(node, ctx) }
 
+    /**
+     * Whether this method is already open further up the chain of call sites being inlined.
+     *
+     * Inlining is per call site with no depth limit, so a method that reaches itself - directly, or
+     * around a cycle of any length - had nothing to stop it. `int fact(int n) { return n *
+     * fact(n - 1); }` took the whole run down with a StackOverflowError, no output at all, and a
+     * stack trace naming this class rather than a line of Java.
+     *
+     * It is worse than a crash on the way there. Every node logs its [PosStack], which gains an
+     * entry per level, so the descent emits a quadratic amount of debug output and the run appears
+     * to hang long before it dies.
+     *
+     * Compared by [Method.element], the declaration javac resolved, because two invocations of one
+     * method are two [Method] lookups of the same declaration. The walk is up the processor chain,
+     * which is the set of calls currently open, so mutual recursion is caught by the same test that
+     * catches the direct kind.
+     */
+    private fun isBeingInlined(method: Method): Boolean =
+        graphBuilderBlock.method.element == method.element || parent?.isBeingInlined(method) == true
+
     private fun invokeUncached(node: MethodInvocationTree, ctx: ProcessorContext): Evaluation {
         val methodIdentifier = node.methodSelect.accept(AstMethodInvocationProcessor(), ctx)
         // `super(...)` and `this(...)` are parsed as invocations of a method literally named
@@ -704,6 +724,11 @@ open class AstBlockProcessor(
         }
         val method = globalCtx.findMethod(globalCtx.symbols.element(node, ElementKind.METHOD))
             ?: return Evaluation(null, invokeExternalMethod(methodIdentifier, node, ctx))
+        // A method already being inlined further up the chain has no body to inline again - see
+        // [isBeingInlined].
+        if (isBeingInlined(method)) {
+            return Evaluation(null, invokeExternalMethod(methodIdentifier, node, ctx))
+        }
         val methodArguments = node.arguments.map { evaluate(it, ctx) }
 
         val invocationPos = ctx.getPosId(node)

@@ -1,9 +1,11 @@
 package codeflow.ir
 
 import codeflow.java.AstReader
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * The lowering, asserted on directly, with nothing rendered.
@@ -27,6 +29,21 @@ class LoweringTest {
         val target = analysis.method(method)
         return Lowering(analysis.symbols).lower(target).render()
     }
+
+    /** Every method of one fixture, lowered, so a whole directory can be swept. */
+    private fun lowerAll(testDir: String): List<MethodBody> {
+        val testDirPath = testResourcesPath.resolve(testDir)
+        val paths = Files.walk(testDirPath).filter { it.toString().endsWith(".java") }.toList()
+        val analysis = AstReader(testResourcesPath).analyse(paths)
+        val lowering = Lowering(analysis.symbols)
+        return analysis.methods().map { lowering.lower(it) }
+    }
+
+    private fun fixtures(): List<String> = Files.list(testResourcesPath)
+        .filter { Files.isDirectory(it) && Files.walk(it).anyMatch { f -> f.toString().endsWith(".java") } }
+        .map { it.fileName.toString() }
+        .sorted()
+        .toList()
 
     /**
      * `int bonus = base * 2; return base + bonus;` - the smallest method that has an order at all.
@@ -236,6 +253,118 @@ class LoweringTest {
                 "10: write read <- 9"
             ),
             lower("newObject", listOf("App.java"), "App#main")
+        )
+    }
+
+    /**
+     * A class declared inside a method body contributes nothing at the point it is declared.
+     *
+     * `class Doubler { int twice(int n) { return n * 2; } }` runs nothing: `twice` runs when
+     * something calls it, and that call site reaches the declaration the way every other one does.
+     * Left to the default walk the declaration is descended into and every method it declares is
+     * lowered into the enclosing method - so `main` gains a multiply it does not perform, attached
+     * to a parameter no caller has filled in. A statement that produces no value can still put a
+     * flow on the diagram that the program does not have.
+     */
+    @Test
+    fun aClassDeclaredInsideAMethodDoesNotLowerItsBodiesIntoThatMethod() {
+        assertEquals(
+            listOf(
+                "0: const 3",
+                "1: write seed <- 0",
+                "2: new Doubler",
+                "3: read seed",
+                "4: call twice on 2 3",
+                "5: write result <- 4",
+                "6: readField static.out",
+                "7: read result",
+                "8: call println on 6 7"
+            ),
+            lower("localClass", listOf("App.java"), "App#main")
+        )
+    }
+
+    /**
+     * Every method of every fixture lowers, and no instruction consumes a value that does not exist
+     * yet.
+     *
+     * A sweep rather than a list, because the fixtures are the corpus of constructs codeflow claims
+     * to understand and a lowering that quietly drops one of them is exactly what this whole
+     * approach is meant to make impossible. The forward-reference check is what makes the list a
+     * dataflow graph rather than a transcript: `binOp * 0 1` is only meaningful if 0 and 1 have
+     * already been produced.
+     */
+    @Test
+    fun everyFixtureLowersAndEveryValueIsProducedBeforeItIsUsed() {
+        val swept = fixtures().flatMap { fixture ->
+            lowerAll(fixture).map { fixture to it }
+        }
+        assertTrue(swept.size > 50, "the sweep found almost nothing to lower: ${swept.size}")
+        swept.forEach { (fixture, body) ->
+            body.instructions.forEachIndexed { index, insn ->
+                insn.inputs.forEach { input ->
+                    assertTrue(
+                        input.index < index,
+                        "$fixture ${body.method.name.name}: instruction $index (${insn.render()}) " +
+                                "consumes $input, which is not produced before it"
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * A construct codeflow does not model becomes an instruction saying so, with its operands still
+     * flowing in.
+     *
+     * The alternative is the one thing that must never happen: a scanner that walks the children and
+     * hands back one of their results turns `(int) 3L` into the literal, and nothing downstream can
+     * tell that a cast was there. Drawn, that is a diagram which reads fine and is wrong.
+     */
+    @Test
+    fun anUnmodelledExpressionIsAnInstructionRatherThanOneOfItsChildren() {
+        assertEquals(
+            listOf(
+                "0: readField static.out",
+                "1: const \"x\"",
+                "2: call println on 0 1",
+                "3: const 3L",
+                "4: unmodelled TYPE_CAST 3",
+                "5: write count <- 4"
+            ),
+            lower("unsupported", listOf("App.java"), "App#main")
+        )
+    }
+
+    /**
+     * And the gate reaches what is not an expression, which is the hole it could not cover before.
+     *
+     * `case String text ->` binds a name. The gate in `AstBlockProcessor.scan` sees expressions
+     * only, so a construct that binds one and is not modelled says nothing at all, and the failure
+     * surfaces further down as a read of a name with no value - blaming a line that is not the one
+     * at fault. The enhanced `for` and the `catch` parameter were both found that way.
+     *
+     * A binding pattern is modelled here, so this fixture's name now resolves; what is named instead
+     * is any pattern that is *not* one, at the label's own line. The bind takes the selector's own
+     * value rather than a fresh read of it, because that is what the pattern matched against - the
+     * name and the thing being switched on are the same value, and the diagram should say so.
+     */
+    @Test
+    fun aPatternLabelBindsItsNameInsteadOfFailingSeveralLinesLater() {
+        assertEquals(
+            listOf(
+                "0: read args",
+                "1: write value <- 0",
+                "2: read value",
+                "3: bind text <- 2",
+                "4: readField static.out",
+                "5: read text",
+                "6: call println on 4 5",
+                "7: readField static.out",
+                "8: const \"none\"",
+                "9: call println on 7 8"
+            ),
+            lower("unboundLocal", listOf("App.java"), "App#main")
         )
     }
 }

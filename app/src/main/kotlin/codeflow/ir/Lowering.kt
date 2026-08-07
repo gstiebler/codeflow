@@ -46,6 +46,9 @@ class Lowering(private val symbols: Symbols) {
 
         val instructions = ArrayList<Insn>()
 
+        /** Where a `return` goes when it belongs to a lambda rather than to the method. */
+        private val lambdaReturns = ArrayDeque<MutableList<Val>>()
+
         private fun emit(insn: Insn): Val {
             instructions.add(insn)
             return Val(instructions.size - 1)
@@ -213,24 +216,360 @@ class Lowering(private val symbols: Symbols) {
             )
         }
 
-        override fun visitReturn(node: ReturnTree, ctx: ProcessorContext): Val =
-            emit(Return(node.expression?.let { evaluate(it, ctx) }, ctx.location(node)))
+        override fun visitReturn(node: ReturnTree, ctx: ProcessorContext): Val? =
+            returnValue(node.expression?.let { evaluate(it, ctx) }, node, ctx)
+
+        /**
+         * `class Doubler { ... }` written inside a method body, which runs nothing where it stands.
+         *
+         * Its methods run when something calls them, and that call site reaches the declaration the
+         * way every other one does - javac resolved it, and the body was recorded when the
+         * compilation unit was walked. Descending into it here instead lowers every method it
+         * declares into the enclosing one, so the caller gains an operation it does not perform on a
+         * parameter nobody has passed. A statement produces no value and can still fabricate a flow.
+         */
+        override fun visitClass(node: ClassTree, ctx: ProcessorContext): Val? = null
 
         override fun visitBlock(node: BlockTree, ctx: ProcessorContext): Val? {
             node.statements.forEach { scan(it, ctx) }
             return null
         }
+
+        /**
+         * `y += 1`, which is `y = y + 1`: the variable is read, combined, and written back.
+         *
+         * Both halves matter. Walking the children and taking the first yields the read of `y` and
+         * drops the operation and the right-hand side, so the new value appears to arrive from
+         * nowhere.
+         */
+        override fun visitCompoundAssignment(node: CompoundAssignmentTree, ctx: ProcessorContext): Val {
+            val target = node.variable
+            val current = evaluate(target, ctx)
+            val rhs = evaluate(node.expression, ctx)
+            val combined = emit(BinOp(compoundAssignmentLabel(node), current, rhs, ctx.location(node)))
+            val element = symbols.element(target)
+            if (element?.kind?.isField == true) {
+                val receiver =
+                    if (target is MemberSelectTree) receiverOf(target.expression, ctx) else Receiver.Enclosing
+                return emit(WriteField(receiver, lastName(target), element, combined, ctx.location(target)))
+            }
+            return emit(WriteLocal(lastName(target), element, combined, ctx.location(target)))
+        }
+
+        /**
+         * `array[index]`, which takes a value out of the array with the index deciding which.
+         *
+         * Both flow in, for the same reason both operands of `a + b` do. The label is a word because
+         * `[` and `]` delimit a node in Mermaid, so the symbol would change the shape rather than
+         * the text.
+         */
+        override fun visitArrayAccess(node: ArrayAccessTree, ctx: ProcessorContext): Val {
+            val array = evaluate(node.expression, ctx)
+            val index = evaluate(node.index, ctx)
+            return emit(BinOp("index", array, index, ctx.location(node)))
+        }
+
+        /**
+         * `new byte[16]` and `new int[] { seed, 9 }`, a value built out of what is written inside.
+         *
+         * The elements are what the array holds, so they flow in; so does each dimension, which is
+         * not held in it but decides how much of it there is. Nothing here tracks which element
+         * ended up at which index, which is what the `index` node above says.
+         */
+        override fun visitNewArray(node: NewArrayTree, ctx: ProcessorContext): Val {
+            val dimensions = node.dimensions.orEmpty().map { evaluate(it, ctx) }
+            val elements = node.initializers.orEmpty().map { evaluate(it, ctx) }
+            return emit(Select("array", dimensions + elements, ctx.location(node)))
+        }
+
+        /**
+         * `value instanceof String`, and `value instanceof String text`, which also binds `text`.
+         *
+         * The binding is not decoration: every later read of the name resolves to it, so leaving it
+         * out does not lose an edge, it takes the whole method down.
+         */
+        override fun visitInstanceOf(node: InstanceOfTree, ctx: ProcessorContext): Val {
+            val tested = evaluate(node.expression, ctx)
+            bindPattern(node.pattern, tested, ctx)
+            return emit(UnOp("instanceof", tested, ctx.location(node)))
+        }
+
+        /**
+         * A pattern binds a name to the value it was tested against.
+         *
+         * A record deconstruction pattern binds one name per component and is not modelled. Left
+         * alone it binds nothing, and the components are read further down as names that resolve to
+         * nothing - so it is named here, at the pattern's own line, which is the whole point of the
+         * gate reaching past expressions.
+         */
+        private fun bindPattern(pattern: PatternTree?, value: Val, ctx: ProcessorContext) {
+            if (pattern == null) return
+            val variable = (pattern as? BindingPatternTree)?.variable
+            if (variable == null) {
+                unmodelled(pattern, listOf(value), ctx)
+                return
+            }
+            emit(Bind(variable.name.toString(), symbols.element(variable), value, ctx.location(variable)))
+        }
+
+        /**
+         * `k -> new MathContext(...)`, a function value.
+         *
+         * The body is lowered here rather than in a block of its own, because a lambda is not a
+         * call: nothing invokes it, so there is no call site to nest it under. Its parameters are
+         * filled in by whoever does invoke it, which is not visible from here, so they bind with
+         * nothing flowing in.
+         *
+         * A statement body's `return` belongs to the lambda, not to the enclosing method. Sending
+         * it to the method's own return would claim the method returns a value it does not.
+         */
+        override fun visitLambdaExpression(node: LambdaExpressionTree, ctx: ProcessorContext): Val {
+            node.parameters.forEach {
+                emit(Bind(it.name.toString(), symbols.element(it), null, ctx.location(it)))
+            }
+            val body = node.body
+            if (body is ExpressionTree) {
+                return emit(Select("lambda", listOf(evaluate(body, ctx)), ctx.location(node)))
+            }
+            val returns = ArrayList<Val>()
+            lambdaReturns.addLast(returns)
+            try {
+                scan(body, ctx)
+            } finally {
+                lambdaReturns.removeLast()
+            }
+            // A body that returns nothing leaves the function value with no inputs, which is what a
+            // Consumer is.
+            return emit(Select("lambda", returns, ctx.location(node)))
+        }
+
+        /**
+         * `DisbursementData::disbursementDate`, a function value naming a method.
+         *
+         * Nothing here calls it, so there is no call site to nest the method under and no arguments
+         * to bind - what runs inside is settled by whoever invokes it later. A qualifier that is a
+         * value, as in `charges::add`, is captured by the function and flows in; one that is a type
+         * name is not a value at all.
+         */
+        override fun visitMemberReference(node: MemberReferenceTree, ctx: ProcessorContext): Val {
+            val captured = receiverOf(node.qualifierExpression, ctx)
+            return emit(Opaque(node.name.toString(), captured.inputs, ctx.location(node)))
+        }
+
+        /**
+         * `switch` used as an expression, which is `?:` with more than two branches.
+         *
+         * Only the `case X -> expression` form produces a value here. A branch that yields out of a
+         * block would need the `yield` traced out of it, and guessing instead would produce a value
+         * arriving from nowhere.
+         */
+        override fun visitSwitchExpression(node: SwitchExpressionTree, ctx: ProcessorContext): Val {
+            val selector = evaluate(node.expression, ctx)
+            val branches = node.cases.map { case ->
+                val body = case.body
+                if (body is ExpressionTree) evaluate(body, ctx) else unmodelled(case, listOf(selector), ctx)
+            }
+            return emit(Select("switch", listOf(selector) + branches, ctx.location(node)))
+        }
+
+        /**
+         * `switch` used as a statement, which produces no value but reads one to decide where to go.
+         *
+         * That read was invisible: the default walk reaches the selector, gives it a node and draws
+         * no edge out of it, so the value deciding the entire branch appears unused - and nothing
+         * failed, because nothing declared a name. Each constant label is compared against the
+         * selector, which is what the code does; a pattern label binds instead.
+         *
+         * Every arm is lowered, whichever one runs. Control flow is not modelled yet, so `break` and
+         * fall-through make no difference here - §1 is where that changes.
+         */
+        override fun visitSwitch(node: SwitchTree, ctx: ProcessorContext): Val? {
+            val selector = evaluate(node.expression, ctx)
+            node.cases.forEach { case ->
+                case.labels.forEach { label -> caseLabel(label, selector, ctx) }
+                scan(case.guard, ctx)
+                // The colon form carries statements and the arrow form a body, and each is null for
+                // the other, so both have to be asked.
+                case.body?.let { scan(it, ctx) } ?: case.statements?.forEach { scan(it, ctx) }
+            }
+            return null
+        }
+
+        /** `case 1:` compares against the selector; `case String text ->` binds; `default` neither. */
+        private fun caseLabel(label: CaseLabelTree, selector: Val, ctx: ProcessorContext) {
+            when (label) {
+                is ConstantCaseLabelTree -> {
+                    val constant = evaluate(label.constantExpression, ctx)
+                    emit(BinOp("==", selector, constant, ctx.location(label)))
+                }
+
+                is PatternCaseLabelTree -> bindPattern(label.pattern, selector, ctx)
+                is DefaultCaseLabelTree -> Unit
+                else -> unmodelled(label, listOf(selector), ctx)
+            }
+        }
+
+        /**
+         * `for (LoanCharge charge : charges)`, which binds the variable to each element in turn.
+         *
+         * The elements come out of the thing being iterated, so that is what flows in. Without the
+         * binding every read of the variable in the body found nothing and took the run down - which
+         * is what an unmodelled *statement* looked like before the gate reached them.
+         */
+        override fun visitEnhancedForLoop(node: EnhancedForLoopTree, ctx: ProcessorContext): Val? {
+            val elements = evaluate(node.expression, ctx)
+            val variable = node.variable
+            emit(Bind(variable.name.toString(), symbols.element(variable), elements, ctx.location(variable)))
+            scan(node.statement, ctx)
+            return null
+        }
+
+        /**
+         * `catch (NumberFormatException failure)`, which binds a name the handler goes on to read.
+         *
+         * Nothing flows in: which `throw` reached this handler is control flow, and none is modelled
+         * yet, so a value with no source is the honest answer.
+         */
+        override fun visitCatch(node: CatchTree, ctx: ProcessorContext): Val? {
+            val parameter = node.parameter
+            emit(Bind(parameter.name.toString(), symbols.element(parameter), null, ctx.location(parameter)))
+            scan(node.block, ctx)
+            return null
+        }
+
+        /** A `return` inside a lambda belongs to the lambda - see [visitLambdaExpression]. */
+        private fun returnValue(value: Val?, node: ReturnTree, ctx: ProcessorContext): Val? {
+            val lambda = lambdaReturns.lastOrNull()
+            if (lambda != null) {
+                value?.let { lambda.add(it) }
+                return value
+            }
+            return emit(Return(value, ctx.location(node)))
+        }
+
+        /**
+         * The one place every tree passes through, and where a construct with no visitor is caught.
+         *
+         * TreeScanner's default for something it is not told about is to scan the children and
+         * return one of their results. For an expression that is a fabricated value: `!flag` comes
+         * back as `flag`, so the operator is not in the instruction list and nothing downstream can
+         * tell. Two real bugs came from exactly that.
+         *
+         * Unlike the gate this replaces, it is not restricted to expressions. A *statement* nobody
+         * modelled declares nothing, so the failure used to surface further down as a read of a name
+         * with no value, blaming a line that was not at fault - the enhanced `for` and the `catch`
+         * parameter were both found that way, and a `case` pattern label was still doing it when
+         * this was written.
+         *
+         * All three now have visitors, and [MODELLED_STATEMENTS] names every statement kind Java
+         * has, so the second branch catches nothing today and no fixture trips it. It is here so
+         * that stays a fact rather than an assumption: the list is what is *known* to be safe to
+         * walk through, and a kind added to the language, or removed from the set, is a gap that
+         * says so rather than a silent walk into something nobody looked at.
+         */
+        override fun scan(node: Tree?, ctx: ProcessorContext): Val? {
+            if (node == null) return null
+            if (node.kind in TYPE_KINDS) return null
+            if (node is ExpressionTree && node.kind !in MODELLED_EXPRESSIONS) return unmodelled(node, operands(node, ctx), ctx)
+            if (node is StatementTree && node.kind !in MODELLED_STATEMENTS) return unmodelled(node, operands(node, ctx), ctx)
+            return super.scan(node, ctx)
+        }
+
+        /** Records the gap and keeps its operands, so nothing it was built from is lost. */
+        private fun unmodelled(node: Tree, inputs: List<Val>, ctx: ProcessorContext): Val =
+            emit(Unmodelled(node.kind.toString(), inputs, ctx.location(node)))
+
+        /**
+         * The values a construct with no visitor is built out of, so they still reach what it
+         * produces.
+         *
+         * Applied with `accept` rather than `scan`, so the construct's own children are seen rather
+         * than the construct itself coming straight back here. A child that is an expression is
+         * evaluated; anything else is descended into, since a value can sit under a child that is
+         * not one. A type name is not a value and contributes nothing.
+         */
+        private fun operands(node: Tree, ctx: ProcessorContext): List<Val> {
+            val collector = Operands(this)
+            node.accept(collector, ctx)
+            return collector.values
+        }
+
+        private class Operands(private val outer: Body) : TreeScanner<Unit, ProcessorContext>() {
+            val values = ArrayList<Val>()
+
+            override fun scan(tree: Tree?, ctx: ProcessorContext) {
+                if (tree == null || tree.kind in TYPE_KINDS) return
+                if (tree !is ExpressionTree) return super.scan(tree, ctx)
+                if (outer.isTypeName(tree)) return
+                values.add(outer.evaluate(tree, ctx))
+            }
+        }
+    }
+
+    companion object {
+        /** Expression kinds with a visitor above, or - for PARENTHESIZED - genuinely transparent. */
+        private val MODELLED_EXPRESSIONS = setOf(
+            Tree.Kind.PLUS, Tree.Kind.MINUS, Tree.Kind.MULTIPLY, Tree.Kind.DIVIDE, Tree.Kind.REMAINDER,
+            Tree.Kind.EQUAL_TO, Tree.Kind.NOT_EQUAL_TO, Tree.Kind.LESS_THAN, Tree.Kind.GREATER_THAN,
+            Tree.Kind.LESS_THAN_EQUAL, Tree.Kind.GREATER_THAN_EQUAL,
+            Tree.Kind.CONDITIONAL_AND, Tree.Kind.CONDITIONAL_OR,
+            Tree.Kind.AND, Tree.Kind.OR, Tree.Kind.XOR,
+            Tree.Kind.LEFT_SHIFT, Tree.Kind.RIGHT_SHIFT, Tree.Kind.UNSIGNED_RIGHT_SHIFT,
+            Tree.Kind.UNARY_MINUS, Tree.Kind.UNARY_PLUS,
+            Tree.Kind.LOGICAL_COMPLEMENT, Tree.Kind.BITWISE_COMPLEMENT,
+            Tree.Kind.PREFIX_INCREMENT, Tree.Kind.PREFIX_DECREMENT,
+            Tree.Kind.POSTFIX_INCREMENT, Tree.Kind.POSTFIX_DECREMENT,
+            Tree.Kind.PLUS_ASSIGNMENT, Tree.Kind.MINUS_ASSIGNMENT, Tree.Kind.MULTIPLY_ASSIGNMENT,
+            Tree.Kind.DIVIDE_ASSIGNMENT, Tree.Kind.REMAINDER_ASSIGNMENT,
+            Tree.Kind.AND_ASSIGNMENT, Tree.Kind.OR_ASSIGNMENT, Tree.Kind.XOR_ASSIGNMENT,
+            Tree.Kind.LEFT_SHIFT_ASSIGNMENT, Tree.Kind.RIGHT_SHIFT_ASSIGNMENT,
+            Tree.Kind.UNSIGNED_RIGHT_SHIFT_ASSIGNMENT,
+            Tree.Kind.INT_LITERAL, Tree.Kind.LONG_LITERAL, Tree.Kind.FLOAT_LITERAL,
+            Tree.Kind.DOUBLE_LITERAL, Tree.Kind.BOOLEAN_LITERAL, Tree.Kind.CHAR_LITERAL,
+            Tree.Kind.STRING_LITERAL, Tree.Kind.NULL_LITERAL,
+            Tree.Kind.IDENTIFIER, Tree.Kind.MEMBER_SELECT, Tree.Kind.METHOD_INVOCATION,
+            Tree.Kind.ASSIGNMENT, Tree.Kind.CONDITIONAL_EXPRESSION, Tree.Kind.PARENTHESIZED,
+            Tree.Kind.SWITCH_EXPRESSION, Tree.Kind.NEW_CLASS,
+            Tree.Kind.ARRAY_ACCESS, Tree.Kind.INSTANCE_OF, Tree.Kind.LAMBDA_EXPRESSION,
+            Tree.Kind.MEMBER_REFERENCE, Tree.Kind.NEW_ARRAY
+        )
+
+        /**
+         * Statement kinds either handled above or whose children are the whole of their dataflow.
+         *
+         * A statement produces no value, so scanning through one is not the fabricated edge that
+         * doing the same to an expression is. What makes a statement dangerous is *binding a name*,
+         * *reading a value* that nothing then notices, or *containing code that does not run here* -
+         * so those have visitors, and this set is what is left. Control flow is deliberately in it
+         * and deliberately approximate: an `if` lowers to both arms in sequence, which §1 replaces
+         * with a join.
+         */
+        private val MODELLED_STATEMENTS = setOf(
+            Tree.Kind.BLOCK, Tree.Kind.EXPRESSION_STATEMENT, Tree.Kind.VARIABLE, Tree.Kind.RETURN,
+            Tree.Kind.IF, Tree.Kind.WHILE_LOOP, Tree.Kind.DO_WHILE_LOOP, Tree.Kind.FOR_LOOP,
+            Tree.Kind.ENHANCED_FOR_LOOP, Tree.Kind.SWITCH, Tree.Kind.TRY, Tree.Kind.THROW,
+            Tree.Kind.SYNCHRONIZED, Tree.Kind.LABELED_STATEMENT, Tree.Kind.BREAK,
+            Tree.Kind.CONTINUE, Tree.Kind.EMPTY_STATEMENT, Tree.Kind.ASSERT, Tree.Kind.YIELD,
+            Tree.Kind.CLASS, Tree.Kind.INTERFACE, Tree.Kind.ENUM, Tree.Kind.RECORD,
+            Tree.Kind.ANNOTATION_TYPE
+        )
+
+        /**
+         * Kinds that spell a type rather than produce a value: the `int` of `(int) x`.
+         *
+         * javac makes several of these subclasses of its expression type, so `is ExpressionTree`
+         * says yes and they arrive at the gate looking like values. Emitted as one, `int` becomes an
+         * instruction that nothing in the program corresponds to - the fabricated value the gate
+         * exists to prevent, arriving through the gate itself.
+         */
+        private val TYPE_KINDS = setOf(
+            Tree.Kind.PRIMITIVE_TYPE, Tree.Kind.ARRAY_TYPE, Tree.Kind.PARAMETERIZED_TYPE,
+            Tree.Kind.ANNOTATED_TYPE, Tree.Kind.UNION_TYPE, Tree.Kind.INTERSECTION_TYPE,
+            Tree.Kind.EXTENDS_WILDCARD, Tree.Kind.SUPER_WILDCARD, Tree.Kind.UNBOUNDED_WILDCARD
+        )
     }
 }
 
-/**
- * Label shown on the operator, mapped here because some symbols are Mermaid syntax.
- *
- * `/` opens a parallelogram node, `|` delimits an edge label and `&` separates nodes, so the raw
- * symbol corrupts the document rather than just looking odd. §8 of `docs/if-written-again.md` wants
- * this decision moved into the renderers, with the instruction carrying a semantic operator
- * instead; until then it lives with the lowering rather than being duplicated per exporter.
- */
 /**
  * The name a write goes under, for an lhs that is more than a bare identifier.
  *
@@ -256,6 +595,14 @@ fun unaryOperatorLabel(node: UnaryTree): String = when (node.kind) {
     else -> throw GraphException("Unsupported unary operator '${node.kind}'")
 }
 
+/**
+ * Label shown on the operator, mapped here because some symbols are Mermaid syntax.
+ *
+ * `/` opens a parallelogram node, `|` delimits an edge label and `&` separates nodes, so the raw
+ * symbol corrupts the document rather than just looking odd. §8 of `docs/if-written-again.md` wants
+ * this decision moved into the renderers, with the instruction carrying a semantic operator
+ * instead; until then it lives with the lowering rather than being duplicated per exporter.
+ */
 fun binaryOperatorLabel(node: BinaryTree): String = when (node.kind) {
     Tree.Kind.PLUS -> "+"
     Tree.Kind.MINUS -> "-"
@@ -277,4 +624,19 @@ fun binaryOperatorLabel(node: BinaryTree): String = when (node.kind) {
     Tree.Kind.RIGHT_SHIFT -> "shr"
     Tree.Kind.UNSIGNED_RIGHT_SHIFT -> "ushr"
     else -> throw GraphException("Unsupported binary operator '${node.kind}' in '$node'")
+}
+
+fun compoundAssignmentLabel(node: CompoundAssignmentTree): String = when (node.kind) {
+    Tree.Kind.PLUS_ASSIGNMENT -> "+="
+    Tree.Kind.MINUS_ASSIGNMENT -> "-="
+    Tree.Kind.MULTIPLY_ASSIGNMENT -> "*="
+    Tree.Kind.DIVIDE_ASSIGNMENT -> "divEq"
+    Tree.Kind.REMAINDER_ASSIGNMENT -> "%="
+    Tree.Kind.AND_ASSIGNMENT -> "bitAndEq"
+    Tree.Kind.OR_ASSIGNMENT -> "bitOrEq"
+    Tree.Kind.XOR_ASSIGNMENT -> "xorEq"
+    Tree.Kind.LEFT_SHIFT_ASSIGNMENT -> "shlEq"
+    Tree.Kind.RIGHT_SHIFT_ASSIGNMENT -> "shrEq"
+    Tree.Kind.UNSIGNED_RIGHT_SHIFT_ASSIGNMENT -> "ushrEq"
+    else -> throw GraphException("Unsupported compound assignment '${node.kind}'")
 }

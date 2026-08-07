@@ -27,12 +27,22 @@ value class Val(val index: Int) {
  * file it came from.
  */
 sealed class Insn(val source: String) {
+    /**
+     * The values this instruction consumes, whichever field they sit in.
+     *
+     * Uniform access to the operands is what lets a pass walk a body without knowing every
+     * instruction: the forward-reference check in the tests, and the reachability and phi placement
+     * §1 will need. Every one of them is produced by an earlier instruction.
+     */
+    abstract val inputs: List<Val>
+
     /** How this instruction reads in a test, without its index - see [MethodBody.render]. */
     abstract fun render(): String
 }
 
 /** A literal written in the source: `5`, `"x"`, `null`. */
 class Const(val text: String, source: String) : Insn(source) {
+    override val inputs get() = emptyList<Val>()
     override fun render() = "const $text"
 }
 
@@ -43,6 +53,7 @@ class Const(val text: String, source: String) : Insn(source) {
  * two different variables without anything here comparing names.
  */
 class ReadLocal(val name: String, val element: Element?, source: String) : Insn(source) {
+    override val inputs get() = emptyList<Val>()
     override fun render() = "read $name"
 }
 
@@ -53,11 +64,13 @@ class WriteLocal(
     val value: Val,
     source: String
 ) : Insn(source) {
+    override val inputs get() = listOf(value)
     override fun render() = "write $name <- $value"
 }
 
 /** `a + b`. [label] is already the display form, since `/` cannot be drawn as itself - see below. */
 class BinOp(val label: String, val left: Val, val right: Val, source: String) : Insn(source) {
+    override val inputs get() = listOf(left, right)
     override fun render() = "binOp $label $left $right"
 }
 
@@ -69,6 +82,7 @@ class BinOp(val label: String, val left: Val, val right: Val, source: String) : 
  * downstream can tell a value from its negation.
  */
 class UnOp(val label: String, val operand: Val, source: String) : Insn(source) {
+    override val inputs get() = listOf(operand)
     override fun render() = "unOp $label $operand"
 }
 
@@ -80,7 +94,7 @@ class UnOp(val label: String, val operand: Val, source: String) : Insn(source) {
  * join. Until then every input reaches the output, which is coarse rather than wrong: the reader is
  * shown every value the expression can produce, and the condition that decides among them.
  */
-class Select(val label: String, val inputs: List<Val>, source: String) : Insn(source) {
+class Select(val label: String, override val inputs: List<Val>, source: String) : Insn(source) {
     override fun render() = "select $label ${inputs.joinToString(" ")}"
 }
 
@@ -93,6 +107,9 @@ class Select(val label: String, val inputs: List<Val>, source: String) : Insn(so
  * missing receiver, so every field the first one wrote landed where nobody could look it up.
  */
 sealed class Receiver {
+    /** The value it consumes, which is none unless an expression was written. */
+    open val inputs: List<Val> get() = emptyList()
+
     /** `value`, `this.value`, `record()`, `super.m()` - the object the enclosing method is on. */
     data object Enclosing : Receiver() {
         override fun toString() = "this"
@@ -105,6 +122,7 @@ sealed class Receiver {
 
     /** Any expression: `counter.advance()`, `of(x).getAmount()`, `charges[0].amount`. */
     class Value(val value: Val) : Receiver() {
+        override val inputs get() = listOf(value)
         override fun toString() = value.toString()
     }
 }
@@ -122,6 +140,7 @@ class ReadField(
     val element: Element?,
     source: String
 ) : Insn(source) {
+    override val inputs get() = receiver.inputs
     override fun render() = "readField $receiver.$name"
 }
 
@@ -133,6 +152,7 @@ class WriteField(
     val value: Val,
     source: String
 ) : Insn(source) {
+    override val inputs get() = receiver.inputs + value
     override fun render() = "writeField $receiver.$name <- $value"
 }
 
@@ -143,6 +163,7 @@ class WriteField(
  * value for it. Here the object itself is what the expression produces.
  */
 class ThisRef(source: String) : Insn(source) {
+    override val inputs get() = emptyList<Val>()
     override fun render() = "this"
 }
 
@@ -161,6 +182,7 @@ class Call(
     val args: List<Val>,
     source: String
 ) : Insn(source) {
+    override val inputs get() = receiver.inputs + args
     override fun render() = "call $name on $receiver" + args.joinToString("") { " $it" }
 }
 
@@ -171,6 +193,7 @@ class Call(
  * constructor be read from the subclass.
  */
 class Delegate(val target: Element, val args: List<Val>, source: String) : Insn(source) {
+    override val inputs get() = args
     override fun render() = "delegate" + args.joinToString("") { " $it" }
 }
 
@@ -181,10 +204,58 @@ class New(
     val args: List<Val>,
     source: String
 ) : Insn(source) {
+    override val inputs get() = args
     override fun render() = "new $typeName" + args.joinToString("") { " $it" }
+}
+
+/**
+ * A name introduced by something other than a declaration or an assignment.
+ *
+ * `for (String name : names)`, `catch (IOException failure)`, `value instanceof String text`,
+ * `case String text ->`. Each binds a name that later statements read, and each was missing a
+ * visitor at some point - so the read found nothing, and the failure surfaced several lines below
+ * the construct that was supposed to declare it, blaming a line that was not at fault.
+ *
+ * [value] is what flows in, and is null when nothing does: which `throw` reached a handler is
+ * control flow, and a lambda's parameters are filled in by whoever calls it, so a value with no
+ * source is the honest drawing rather than a guess.
+ */
+class Bind(
+    val name: String,
+    val element: Element?,
+    val value: Val?,
+    source: String
+) : Insn(source) {
+    override val inputs get() = listOfNotNull(value)
+    override fun render() = "bind $name" + (value?.let { " <- $it" } ?: "")
+}
+
+/**
+ * A value from something codeflow does not look inside: a method reference, an enum constant
+ * declared elsewhere.
+ *
+ * Distinct from [Unmodelled], which is a construct codeflow *could* have modelled and has not. This
+ * one has nothing more to show - whoever invokes `DisbursementData::disbursementDate` decides what
+ * runs in it, and that is not visible from here.
+ */
+class Opaque(val label: String, override val inputs: List<Val>, source: String) : Insn(source) {
+    override fun render() = "opaque $label" + inputs.joinToString("") { " $it" }
+}
+
+/**
+ * A construct codeflow does not model, drawn as itself rather than as one of its children.
+ *
+ * The distinction from an unresolved call is deliberate and the two must not merge: a call outside
+ * the sources is a limit of the *corpus*, and this is a limit of *codeflow* - code sitting in the
+ * directory that the diagram is not showing. Its operands still flow in, because a value drawn as
+ * arriving from nowhere is the failure this whole area exists to prevent.
+ */
+class Unmodelled(val kind: String, override val inputs: List<Val>, source: String) : Insn(source) {
+    override fun render() = "unmodelled $kind" + inputs.joinToString("") { " $it" }
 }
 
 /** `return x;`, or `return;` - which carries no value and so joins nothing to the result. */
 class Return(val value: Val?, source: String) : Insn(source) {
+    override val inputs get() = listOfNotNull(value)
     override fun render() = "return" + (value?.let { " $it" } ?: "")
 }

@@ -51,10 +51,23 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
     }
 
     fun build(root: Method): GraphBuilderBlock {
-        val block = GraphBuilderBlock(null, root, PosStack(), emptySet(), root.ctx)
+        val block = GraphBuilderBlock(null, root, PosStack(), emptySet(), root.ctx, root.ctx.location(root.name))
         Frame(this, block, PosStack(), emptySet(), null).invoke(emptyList(), emptyList())
         return block
     }
+
+    /**
+     * Every instruction this run drew from, whichever list it came out of.
+     *
+     * The three maps above are memoised on being *asked for*, so between them they are already the
+     * record of what the drawing read - not what the corpus contains. That is the distinction a
+     * check for boxes drawn from nowhere needs: a method nothing reaches is not in here, and neither
+     * are the initializers of a class nothing constructs, so a node at one of their positions is a
+     * node from a list this run never ran.
+     */
+    fun drawnInstructions(): List<Insn> = bodies.values.flatMap { it.instructions } +
+            initializers.values.flatten() +
+            enumConstants.values.filterNotNull().flatten()
 }
 
 /**
@@ -611,7 +624,7 @@ class Frame(
     /** The frame a call site opens: a block nested in this one, on the objects the callee runs on. */
     private fun enter(method: Method, memPos: Set<MemPos>, insn: Insn): Frame {
         val childStack = stack.push(insn.source)
-        val childBlock = GraphBuilderBlock(block, method, childStack, memPos, method.ctx)
+        val childBlock = GraphBuilderBlock(block, method, childStack, memPos, method.ctx, insn.source)
         block.addCalledMethod(childBlock)
         return Frame(builder, childBlock, childStack, memPos, this)
     }

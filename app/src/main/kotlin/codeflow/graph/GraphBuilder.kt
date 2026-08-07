@@ -12,7 +12,18 @@ class GraphBuilderBlock(
     stack: PosStack,
     // the objects the method could be running on - see Frame.owner
     private val memPos: Set<MemPos>,
-    private val ctx: ProcessorContext
+    private val ctx: ProcessorContext,
+    /**
+     * The call site this block was opened at, as `path:line:column` - the root's own declaration for
+     * the one block nothing called.
+     *
+     * A body is inlined per call site, so this is what distinguishes the several blocks one method
+     * has, and it is the only record of it: [getSource] is where the method was *declared*, which is
+     * the same string for all of them. An inlined call draws no node of its own - the block is what
+     * it drew - so without this there is nothing to ask whether a call drew anything at all, and a
+     * call that quietly drew nothing takes its whole callee off the diagram with it.
+     */
+    val openedAt: String
 ) {
     private val logger = KotlinLogging.logger {}
 

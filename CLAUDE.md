@@ -451,7 +451,7 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
 
 `AppTest.kt` has three kinds of assertion, and the mix is deliberate:
 
-- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 54 of them. They certify
+- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 57 of them. They certify
   *unchanged*, not *correct*. `ternary/truth.md` was once written from a buggy run and passed
   happily while encoding a graph with a branch missing. Treat a green golden file as evidence of
   nothing.
@@ -459,7 +459,8 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
   pairs and ignores ids. These are the assertions that can fail on a graph that has never been
   correct. **New behaviour needs one of these**, not just a regenerated snapshot.
 - **Suite-wide invariants** run on every fixture: `assertNoSelfEdges`, `assertNoUnknownOperators`,
-  `assertNoDuplicateNodeIds`.
+  `assertNoDuplicateNodeIds`. These read the rendered Mermaid; the three in `InvariantsTest.kt`
+  below read the graph against the IR.
 
 Snapshots are only written when missing or under `UPDATE_SNAPSHOTS=1`, so a regression cannot
 overwrite its own expectation. When a change does move snapshots, verify them *structurally* rather
@@ -467,7 +468,7 @@ than reading diffs: normalise old (`git show HEAD:<path>`) and new to sorted mul
 `label:TYPE` nodes and `label:TYPE -> label:TYPE` edges with ids stripped, and diff those. Anything
 left over is a real change and needs explaining.
 
-Two suites sit alongside `AppTest` and assert on something a rendered document cannot show:
+Three suites sit alongside `AppTest` and assert on something a rendered document cannot show:
 
 - `LoweringTest.kt` — the instruction list itself, as text, for one method or swept over every
   fixture. What a method *means*, before anything has decided how to draw it. The sweep also writes
@@ -479,9 +480,31 @@ Two suites sit alongside `AppTest` and assert on something a rendered document c
   node *type* is the claim. While both builders existed this was the port's differential harness:
   every fixture built both ways and compared as multisets, with each disagreement asserted by name.
   The comparison went with the tree walker; what is left is the behaviour it found.
+- `InvariantsTest.kt` — §9's three properties, swept over every fixture directory: every literal is
+  drawn once per drawing of its method and reaches something; every box drawn for an instruction that
+  consumes a value shows it arriving; every instruction draws a box (or, for a call, opens a block)
+  and every box sits at a position some instruction this run read occupies. These need no expected
+  output and no fixture author to have anticipated the failure, which is why they hold on a corpus
+  nobody has read. They compare the graph against **the IR it was drawn from**, joined on the
+  position both sides carry, so the harness builds `IrGraphBuilder` directly and keeps it: `bodyOf`
+  is memoised, so the instruction list it hands back afterwards is the one that was drawn.
 
-`app/src/test/resources/codemap` and `ls` have no test referencing them; `codemap/truth.md` is stale
-and still in the pre-serial id format.
+  Two things about that join. `ProcessorContext.location` records the *start* offset only, so both
+  `+` of `a + b + c` carry one position — which is why the checks ask whether a box exists for an
+  instruction and never how many sit at a position. The exception is a literal, the one instruction
+  whose mapping onto boxes is exactly one, where the count is the assertion and is what catches a
+  body drawn twice. `drawnLabel` is a `when` over the sealed `Insn` for the same reason `Frame.draw`
+  is one, and the four kinds that draw no box of their own each say why on the spot.
+
+  Each of the three was confirmed against a *wrong* implementation rather than an absent one:
+  drawing a literal twice, dropping the assignment edge into a written variable, dropping a unary
+  operator's operand edge, letting a unary operator vanish into its operand, and giving a box the
+  enclosing method's position instead of its own. The middle three fail one test each, which is what
+  says the three are not restating each other.
+
+`app/src/test/resources/codemap` and `ls` are named by no test of their own — `InvariantsTest`'s
+sweep is the only thing that reaches them; `codemap/truth.md` is stale and still in the pre-serial id
+format.
 
 ### The viewer's tests
 

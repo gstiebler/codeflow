@@ -269,6 +269,38 @@ Then `reaches()` assertions for behaviour, because they walk ids. Then snapshots
 kept — but named `snapshot.md`. The current filename claims precisely the thing the documentation
 spends a paragraph explaining it does not have.
 
+**The three invariants are done**, in `InvariantsTest.kt`, swept over all 67 lowerable fixture
+directories — which is eleven more than the goldens reach, `codemap` and `ls` among them. The ratio
+also inverted on its own while §1 and §3 were being built: `AppTest` is now 131 tests with 55
+`edgeLabels` and 63 `reaches()` call sites against 57 goldens, where this section was written against
+44 goldens as "the bulk of the suite".
+
+Two of the three needed restating, and the restatements are the interesting part. "Node count equals
+IR instruction count" is false as written: the lowering runs once per *method* and the drawing once
+per *call site*, and within one block the ratio is not one either — a gated phi draws two boxes, a
+write through two holders draws one on each, an inlined call draws none. What makes it checkable is
+that both sides carry a position, so it becomes a correspondence: every instruction draws a box (or,
+for a call, opens a block) at its own position, and every box sits where some instruction this run
+read does. Only for a literal is an exact count available, and there it is the assertion. "Every read
+of a local has an incoming edge from a definition" has moved upstream and become total — a use
+resolves to its defining instruction in `Lowering`, so a local with nothing reaching it fails at the
+line that reads it and a read is not a box at all. What survives is the property that failure
+protects: no box that consumes a value is drawn with nothing arriving.
+
+One half of the third bullet is not asserted and cannot honestly be: how many times a *class's*
+initializers were drawn. They run in the caller's block on every `new` of a class with no
+constructor, so two `new Plain()` in one method legitimately draw the same initializer twice, and the
+`this(...)` guard's own mutation — one `5` becoming three — spreads the copies across three different
+blocks. A check that knew the right number would be a copy of the code that decides it, which tests
+nothing. That case stays where the findings doc left it: a mutation someone performed by hand.
+
+Two things landed in production to avoid an exemption swallowing a class of bug.
+`IrGraphBuilder.drawnInstructions()` exposes the union of the three memo maps, which is already the
+record of what this run *read* rather than what the corpus holds. `GraphBuilderBlock.openedAt`
+records the call site a block was opened at — `enter` had it in hand as `insn.source` and dropped it
+— because an inlined call draws no box, so without it a call that quietly drew nothing would take its
+whole callee off the diagram unnoticed.
+
 ## Housekeeping the rewrite makes moot
 
 Recorded so it is not rediscovered: `graph/ObjVariable.kt` is never referenced and is a copy of

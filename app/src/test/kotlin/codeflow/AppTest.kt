@@ -339,6 +339,24 @@ class AppTest {
     }
 
     /**
+     * A ternary is a branch written as an expression, so what it produces is either object.
+     *
+     * The choice is the same one an `if` makes and needs the same answer. Producing no object left
+     * the name it was assigned to pointing at a position nothing had written, so the field read
+     * through it arrived from nowhere - a box with no edge into it, which reads as a field nobody
+     * sets rather than as one this tool lost.
+     *
+     * Which inputs are the alternatives is the point: `flag` decides and is not one of them, and an
+     * array's inputs are its elements, which are not the array.
+     */
+    @Test
+    fun aFieldReadThroughEitherArmOfATernaryFindsBoth() {
+        val graph = buildGraph("aliasTernary", listOf("App.java"))
+        assertTrue(reaches(graph, "11", "total"), "the field of the object from one arm does not reach 'total'")
+        assertTrue(reaches(graph, "22", "total"), "the field of the object from the other arm does not reach 'total'")
+    }
+
+    /**
      * A call to a method outside the analysed sources has no body to inline, so it becomes one
      * node that the arguments flow into and the result flows out of. Values still have to be
      * traceable through it.
@@ -1472,6 +1490,7 @@ class AppTest {
     @Test fun parentMethod() = codeflow("parentMethod", listOf("App.java"))
     @Test fun aliasInBlock() = codeflow("aliasInBlock", listOf("App.java"))
     @Test fun aliasBranch() = codeflow("aliasBranch", listOf("App.java"))
+    @Test fun aliasTernary() = codeflow("aliasTernary", listOf("App.java"))
     @Test fun generic() = codeflow("generic", listOf("App.java"))
     @Test fun subpackage() = codeflow("subpackage", listOf("App.java", "util/Adder.java"))
     @Test fun selfAssignment() = codeflow("selfAssignment", listOf("App.java"))

@@ -216,12 +216,15 @@ keeps a value traceable from the write that set it to the read that uses it. A *
 several is a box on each, all taking the same value, since there is one write in the source and two
 fields it could land in. `aFieldReadThroughEitherOfTwoObjectsFindsBoth` is the assertion.
 
-Two edges of this are deliberately still open, and both are a *missing* possibility rather than an
-invented one. A phi whose back edge has not been drawn yet cannot contribute objects, so one
-created inside a loop and assigned to a variable declared above it is not in the set. And a `Select`
-produces none at all: its inputs are not all alternatives — an array's are its elements, a switch
-expression's first is the selector — so unioning them would make an array *be* the objects it holds.
-Telling those apart is the IR's job and it does not yet do it.
+A ternary and a `switch` expression are the same choice written as an expression, so they union too
+— but only over `Select.alternatives`, not over every input. Which inputs the value can *be* is
+something only the lowering knows: `c ? a : b` is never `c`, and `new Holder[]{a, b}` is an array
+and neither of the objects in it. Unioning every input would file one object's fields under
+another's. `aFieldReadThroughEitherArmOfATernaryFindsBoth` is the assertion.
+
+One edge is deliberately still open, and it is a *missing* possibility rather than an invented one:
+a phi whose back edge has not been drawn yet cannot contribute objects, so one created inside a loop
+and assigned to a variable declared above it is not in the set.
 
 ### A local resolves to its definition, and a branch joins with a phi
 

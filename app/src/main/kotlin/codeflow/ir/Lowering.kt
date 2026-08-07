@@ -423,7 +423,8 @@ class Lowering(private val symbols: Symbols) {
             val condition = evaluate(node.condition, ctx)
             val ifTrue = evaluate(node.trueExpression, ctx)
             val ifFalse = evaluate(node.falseExpression, ctx)
-            return emit(Select("ternary", listOf(condition, ifTrue, ifFalse), ctx.location(node)))
+            return emit(Select("ternary", listOf(condition, ifTrue, ifFalse), ctx.location(node),
+                alternatives = listOf(ifTrue, ifFalse)))
         }
 
         /**
@@ -623,7 +624,8 @@ class Lowering(private val symbols: Symbols) {
                 val body = case.body
                 if (body is ExpressionTree) evaluate(body, ctx) else unmodelled(case, listOf(selector), ctx)
             }
-            return emit(Select("switch", listOf(selector) + branches, ctx.location(node)))
+            return emit(Select("switch", listOf(selector) + branches, ctx.location(node),
+                alternatives = branches))
         }
 
         /**

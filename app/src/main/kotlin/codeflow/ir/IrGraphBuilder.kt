@@ -181,12 +181,11 @@ class Frame(
 
         is UnOp -> Value(block.addUnaryOp(base(labelId(insn.label, insn), insn), run.node(insn.operand)))
 
-        // No objects, although a ternary over references really is one of two: the inputs are not
-        // all alternatives - an array's are its elements and a switch's first is the selector - and
-        // unioning them indiscriminately would make an array be the objects it holds. Telling the
-        // two apart is the IR's to say, and it does not yet.
+        // The objects come from the alternatives only, not from every input: a ternary can be
+        // either arm and never its condition, and an array is not the elements it holds.
         is Select -> Value(
-            block.addSelection(base(labelId(insn.label, insn), insn), insn.inputs.map { run.node(it) })
+            block.addSelection(base(labelId(insn.label, insn), insn), insn.inputs.map { run.node(it) }),
+            insn.alternatives.flatMapTo(HashSet()) { run.objects(it) }
         )
 
         is Call -> call(insn, run)

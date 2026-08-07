@@ -134,12 +134,12 @@ then become one mechanism with one test surface.
 each path left behind, and a field read through several holders merges the field on each — the
 `aliasBranch` fixture and `aFieldReadThroughEitherOfTwoObjectsFindsBoth`. A method with two returns
 now hands the caller both objects rather than the first. `AstMemPosProcessor` and its swallowed
-`Exception` went with the tree walker, so that bullet is moot. Not done: it is still computed while
-the graph is drawn rather than as its own pass over the IR, so it still has no observable but the
-diagram; arrays still have no element model; a phi's back edge contributes no objects, because the
-value it names has not been drawn when the phi is; and a ternary or switch *expression* over
-references contributes none either, which needs the IR to say which of a `Select`'s inputs are
-alternatives and which are the chooser.
+`Exception` went with the tree walker, so that bullet is moot. A ternary or `switch` expression over
+references unions too, over `Select.alternatives` rather than over every input — `aliasTernary` and
+`aFieldReadThroughEitherArmOfATernaryFindsBoth`. Not done: it is still computed while the graph is
+drawn rather than as its own pass over the IR, so it still has no observable but the diagram; arrays
+still have no element model; and a phi's back edge contributes no objects, because the value it
+names has not been drawn when the phi is.
 
 ## 4. An IR between javac and the graph
 

@@ -140,8 +140,20 @@ class UnOp(val label: String, val operand: Val, source: String) : Insn(source) {
  * Not a [Phi], although both stand for a choice. This is an expression the source wrote, with a
  * value of its own and a condition that flows into it; a phi is a variable at a place where two
  * paths meet, and what decided between them is the branch above rather than any value.
+ *
+ * [alternatives] is which of the inputs the value can *be*, which is not all of them and is not
+ * something the graph could work out from the list. `c ? a : b` can be `a` or `b` and never `c`,
+ * and `new Holder[]{a, b}` is an array and neither of the objects in it. Only the alternatives pass
+ * on which objects the result could be, so getting this wrong makes an array be its own elements -
+ * one object's fields filed under another's, which is the diagram being confidently about the wrong
+ * thing. Empty when nothing the expression produces is one of its inputs.
  */
-class Select(val label: String, override val inputs: List<Val>, source: String) : Insn(source) {
+class Select(
+    val label: String,
+    override val inputs: List<Val>,
+    source: String,
+    val alternatives: List<Val> = emptyList()
+) : Insn(source) {
     override fun render() = "select $label ${inputs.joinToString(" ")}"
 }
 

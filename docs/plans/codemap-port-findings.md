@@ -1,9 +1,13 @@
 # What porting codemap's test coverage found
 
 Companion to `port-codemap-test-coverage.md`, which is the plan. This is what actually came out of
-working it: what was wrong, how it was found, and what each fix moved. Kept because two of the five
-bugs here were invisible to the assertions that were supposed to cover them, and that is worth
-remembering the next time a green suite is offered as evidence.
+working it: what was wrong, how it was found, and what each fix moved. Kept because two of the six
+bugs here were invisible to the assertions that were supposed to cover them, and two more had no
+symptom at all, which is worth remembering the next time a green suite is offered as evidence.
+
+Five of the six are fixed. The sixth — nothing joins at a branch — is a design change and is still
+open, along with the one decision the port could not make for itself: what a `static` initializer
+block should mean when there is no call site to attach it to. Both are in the plan.
 
 Method: map each of codemap's 50 C++ fixtures to its Java equivalent, run it through the built CLI,
 and read the graph rather than the exit code. Every finding below was reproduced that way before
@@ -73,24 +77,66 @@ object drawn as the same one.
 
 From codemap's `deep_method`, whose golden carries the write through to the caller's read.
 
-### 4. Field initializers and initializer blocks never run
+### 4. Nothing a class declared outside a method body ever ran
 
-Not yet fixed. `class Outer { Inner in = new Inner(); int n = 5; Outer() { n = n + 1; } }` leaves
-`n = n + 1` reading an `n` with nothing flowing in, and `o.in.v` comes out as a bare `EXTERNAL` dead
-end — the object was never constructed, so the chain dies there. Instance blocks (`{ y = 7; }`) and
-static blocks (`static { x = 42; }`) are skipped the same way. Enum constants with constructor
-arguments are the same bug wearing a different hat: the enum constructor never runs, so `MyEnum.FIRST`
-goes `EXTERNAL` and a getter returns a field with nothing behind it.
+`class Outer { Inner in = new Inner(); int n = 5; Outer() { n = n + 1; } }` left `n = n + 1` reading
+an `n` with nothing flowing in, and `o.in.v` came out as a bare `EXTERNAL` dead end — the object was
+never constructed, so the chain died there. Instance blocks (`{ y = 7; }`) were skipped the same way,
+and so were enum constants with constructor arguments: the enum constructor never ran, so
+`MyEnum.FIRST` went `EXTERNAL` and a getter returned a field with nothing behind it.
 
-From codemap's `constructor_chain` member-init lists and its `enum`.
+One cause. Pass 1 recorded methods and nothing else, so pass 2 had no way to reach a class member
+that is not a method. `AstProcessor.visitClass` now records the `ClassTree` too, and construction runs
+what it declares.
 
-### 5. `switch` as a statement is not modelled
+Two things came out of fixing it that the plan did not anticipate:
 
-Not yet fixed, and worse than it looks. The selector's read is *invisible*: `b` in `switch (b)` has
-zero outgoing edges, where codemap's `switch.dot` has `b -> ==` three times plus fall-through from
-case 2 into case 3. `visitSwitchExpression` exists; there is no `visitSwitch`, and a statement is not
-covered by the `MODELLED_EXPRESSIONS` gate, so it fails the way CLAUDE.md warns statements fail —
-somewhere else, later, blaming a line that is not at fault.
+**The case that matters most has no constructor to hang the initializers on.** A class declaring none
+still runs `seeded = 4` on every `new`, and that is the commonest shape there is. Attribution
+*synthesises* a constructor for it, but `Symbols.isWrittenInSource` already drops that one — codeflow
+does not draw a box for a constructor nobody wrote. So the initializers run from two places: from
+`invokeMethod` when there is a real constructor, and from `constructorNode` in the caller's own block
+when there is not. The second has to run against the *new* object's `MemPos`, not the caller's, or the
+fields land on the wrong object — which is the silently-wrong graph, arriving by a new route.
+
+**A constructor delegating with `this(...)` must not run them again.** The constructor it delegates to
+has already done it, and running them at both ends draws every initializer twice. The guard is worth
+the mutation test it got: removing it turns one `5` literal into three and nothing else complains.
+
+Enum constants needed one more thing. A constant is *one* object for the whole program, so its
+`MemPos` is memoised per `Element` in `GlobalContext` rather than created per mention — otherwise
+`Size.SMALL` at two call sites is two objects, and a field written by the constructor at one is not
+the field read at the other. The constructor is still inlined per mention, which is how every other
+call is drawn, and each run rewrites the same fields to the same values at the same address.
+
+An enum whose only constructor is javac's own stays opaque, deliberately: `findMethod` returning null
+is the exit. Without that, the existing `enumConstant` fixture regressed — `LARGE` stopped being an
+`EXTERNAL` node labelled `LARGE` and became one labelled `Size`, which is less information, not more.
+
+From codemap's `constructor_chain` member-init lists and its `enum`. Fixtures: `fieldInitializer`,
+`enumConstructor`.
+
+### 5. `switch` as a statement was not modelled
+
+Worse than it looked, and the most instructive failure of the six. The selector's read was
+*invisible*: `b` in `switch (b)` had a node and zero outgoing edges, where codemap's `switch.dot` has
+`b -> ==` three times. `visitSwitchExpression` existed; there was no `visitSwitch`.
+
+The shape is the one to remember. A statement is not covered by the `MODELLED_EXPRESSIONS` gate, and
+the way CLAUDE.md describes statements failing — later, somewhere else, blaming a line that is not at
+fault — assumes the statement *binds a name* that a later read cannot find. This one binds nothing.
+It only reads, and a read nobody notices is missing has no symptom at all: the value deciding the
+whole branch is drawn as unused, and every test passes. §4 is the same shape, which is why both
+survived so long.
+
+`visitSwitch` now evaluates the selector, draws a `==` against each constant label, and walks every
+arm. It walks *every* arm because control flow is not modelled — which is finding 6, visible in
+`switchStatement/truth.md`, where the final read of `chosen` is fed by the `default` arm alone.
+
+A *pattern* label (`case String text ->`) still binds nothing, and that was left deliberately.
+`unboundLocal` is the only fixture still reaching the "a local with no value is a failure" gate that
+CLAUDE.md names as load-bearing; fixing the pattern removes its trigger with nothing to put in its
+place. Doing it means first finding another construct that loses a local. Recorded as B7.
 
 ### 6. Nothing joins at a branch
 
@@ -101,8 +147,9 @@ and both candidate values. In `nested_if.dot`, `int c = a` reads the merge outpu
 to all of `3`, `7`, `9`, `cond1` and `cond2`.
 
 codeflow keeps the last write and drops the rest, with nothing to indicate it. `if1/truth.md` records
-it in the repository already: `c` gets only `b = 13`, never the pre-if `b`. The same holds for
-`switch`, for `try`/`catch`/`finally` — `b` gets only the `finally` value, and the `try` and `catch`
+it in the repository already: `c` gets only `b = 13`, never the pre-if `b`. `switchStatement/truth.md`
+now records it too — the final read of `chosen` is fed by the `default` arm's `100` alone, and the
+three other arms' writes dangle. The same holds for `try`/`catch`/`finally` — `b` gets only the `finally` value, and the `try` and `catch`
 writes dangle with no edge out — and for object aliasing, where `if (…) p = i1; else p = i2; int a =
 p.m;` reaches only `i2`'s field.
 

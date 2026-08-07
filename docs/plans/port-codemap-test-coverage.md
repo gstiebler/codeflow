@@ -120,8 +120,13 @@ Ordered. Group A lands green and buys the regression net before anything is touc
 red-then-green per bug; C is the design change and goes last because it moves every branching
 golden.
 
-Done so far: the wrapper, all of group A, and B0/B1/B5. What each one turned out to be is in
-`codemap-port-findings.md`; this list is only what is left.
+Done so far: the wrapper, all of group A, and B0–B6. What each one turned out to be is in
+`codemap-port-findings.md`.
+
+**Everything the codemap port itself calls for is now done.** What is left below is C1, which is a
+design change rather than a repair, and the D items, which were found on the way rather than in
+codemap. Each of those needs a decision that is not mine to make — see "What is left, and what it
+needs" at the end.
 
 - [x] **0.** Raise the Gradle wrapper to a release that runs on Java 21, so `./gradlew build` and CI
       work at all. — `1a411d9`
@@ -135,14 +140,23 @@ Done so far: the wrapper, all of group A, and B0/B1/B5. What each one turned out
       the original list: found while fixing B1, where `total = total + by` stayed broken after the
       static field was tracked. — `98c8422`
 - [x] **B1.** Qualified static field access: `Class.field` read and written across methods. — `98c8422`
-- [ ] **B2.** Field initializers and instance initializer blocks run as part of construction.
+- [x] **B2.** Field initializers and instance initializer blocks run as part of construction.
+      Widened while being fixed: a class declaring *no* constructor still runs its field
+      initializers, and that is the commonest shape of all, so it could not be left out. —
+      `fieldInitializer`
 - [ ] **B3.** Static initializer blocks. **Blocked on a decision** — see below.
-- [ ] **B4.** Enum constants with constructor arguments.
+- [x] **B4.** Enum constants with constructor arguments. — `enumConstructor`
 - [x] **B5.** A field written two or more call levels deep reaches the caller. Widened while being
       fixed: `super.m()` loses its receiver the same way an unqualified call does, so the fix covers
       both, and one golden moved because an inherited method had been reading a field nothing had
       assigned. — `3bb1b72`
-- [ ] **B6.** `switch` as a statement: the selector is read, each case label is compared.
+- [x] **B6.** `switch` as a statement: the selector is read, each case label is compared. A
+      *pattern* label still binds nothing — see B7. — `switchStatement`
+- [ ] **B7.** A pattern label on a `switch` statement (`case String text ->`) binds its name. Not
+      from codemap, and deliberately left where it was: `unboundLocal` is the only fixture that
+      still reaches the "a local with no value is a failure" gate, which CLAUDE.md names as
+      load-bearing, and fixing B7 removes its trigger with nothing to put in its place. Doing B7
+      means finding another construct that loses a local, or accepting that the gate goes untested.
 - [ ] **C1.** A join node at `if`, `switch` and `try`/`catch`/`finally`, so a value written in one
       branch does not silently replace the other.
 - [ ] **D1.** A visitor for `TYPE_CAST`, then its kind in `MODELLED_EXPRESSIONS`.
@@ -157,6 +171,32 @@ snapshot. B5 is why that is not sufficient on its own — see the second lesson 
 B2, B3 and B4 are one bug wearing three hats: nothing outside a method body is ever walked, so a
 field initializer, an initializer block and an enum constant's constructor arguments are all skipped
 alike. They are listed separately because B3 needs an answer B2 and B4 do not.
+
+## What is left, and what it needs
+
+None of these are blocked on effort. Each is blocked on a choice, and making the choice silently is
+how this project gets the diagram it exists to prevent.
+
+**C1 — a join node at every branch.** The largest item here and unchanged since it was written. It
+is a design change: `switchStatement/truth.md` now records it in the repository alongside
+`if1/truth.md`, where `chosen` at the final read is fed by the `default` arm's `100` alone and the
+three other arms dangle. It needs an answer for what a merge means for a variable written in only
+one branch — the pre-branch value is one of the things flowing in, and codemap's answer is to make
+that explicit rather than to pick. It moves every branching golden, so it wants its own change.
+
+**D1 — a visitor for `TYPE_CAST`.** Small, but not free: `unsupported`, `unsupportedAssignment` and
+`unmodelledReceiver` all use a cast as their stand-in for "an expression codeflow does not model",
+and all three assert on the message and the line. Modelling casts means picking a different
+construct for those three fixtures to be unmodelled *in*, and the set of candidates is shrinking as
+this list gets worked. Decide what that construct is before writing the visitor.
+
+**D2 — source line on every node.** A feature rather than a port. It touches `GraphNode` and all
+four exporters, and §6 of `if-written-again.md` argues the same thing from the other direction.
+
+**D3 — the untested `codemap` and `ls` fixtures.** `codemap/truth.md` is stale, in the pre-serial id
+format, and nothing references it; `ls` has no golden at all. Wiring them up means accepting
+whatever they currently draw as the expectation, which is what CLAUDE.md warns a golden is worth.
+Deleting them loses two fixtures built from real code. Either is fine, neither is mine to pick.
 
 ### The open decision, B3
 

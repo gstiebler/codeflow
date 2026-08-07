@@ -37,13 +37,25 @@ output, not just to the build.
 
 ## Architecture
 
-`AstReader.process` parses, attributes, then makes two passes over the compilation units:
+`AstReader.process` parses, attributes, then:
 
-1. `AstProcessor` — records each method under the `ExecutableElement` it declares. A method with no
-   body is skipped: which implementation a call to an abstract or interface method reaches is
-   decided at run time by the receiver's class, and picking one would be a guess drawn as fact, so
-   the call takes the opaque `EXTERNAL` path instead.
-2. `AstBlockProcessor.invokeMethod` starting from `main` — walks statements and builds the graph.
+1. `AstProcessor` — records each method under the `ExecutableElement` it declares, and each class
+   under its own. A method with no body is skipped: which implementation a call to an abstract or
+   interface method reaches is decided at run time by the receiver's class, and picking one would be
+   a guess drawn as fact, so the call takes the opaque `EXTERNAL` path instead.
+2. `ir.Lowering` — javac trees to instructions, **once per method**. Names resolved, overloads
+   selected, primitives decided; no `MemPos`, no ids, no edges.
+3. `ir.IrGraphBuilder` — instructions to graph, **once per call site**, starting from the entry
+   point.
+
+The split between 2 and 3 is the one to preserve. What a name means is a question about the source
+and has one answer per method; which box a value is drawn as is a question about a *call site*,
+since a callee is inlined at every one. Answering both in one walk is what the tree walker did, and
+it is why four satellite scanners existed to re-walk the same tree asking a different question —
+and why one of them had to call back into the builder behind a memo, so that *asking* what object a
+call returned did not *inline* the callee a second time. `Frame` in `IrGraphBuilder` is one
+invocation: it holds the block, the object the method runs on, and the value each instruction
+produced, which is both answers at once.
 
 Which method is the root is a decision, not a detail: the diagram is whatever that one method
 reaches, so on a corpus with several candidates the choice is the whole diagram.
@@ -59,8 +71,8 @@ most of the tool's subject matter. There is still exactly one root per run — `
 root re-inlines everything it reaches at every call site.
 
 An exporter then renders the root `GraphBuilderBlock` and its `calledMethods` recursively. There are
-four, chosen by flag, and all four walk the same tree — a construct is supported once
-`AstBlockProcessor` models it, not once an exporter mentions it:
+four, chosen by flag, and all four walk the same tree — a construct is supported once `Lowering`
+and `IrGraphBuilder` model it, not once an exporter mentions it:
 
 | Flag | Exporter | For |
 |---|---|---|
@@ -148,19 +160,20 @@ document. A count near zero on real input means the counter is measuring the wro
 
 ### Calls are inlined per call site
 
-`visitMethodInvocation` builds a nested `GraphBuilderBlock` and recurses into the callee's body for
-*every* call site, rather than summarising a method once. `PosStack` — a stack of `file:pos` — is
-what keeps the same variable in two different invocations apart. There is no depth limit and no
-in-progress set, so a recursive method has nothing stopping it. A method with no body to inline
-(outside the analysed sources) becomes a single opaque `EXTERNAL` node instead: arguments and
-receiver flow in, the result flows out.
+A `Call` opens a nested `GraphBuilderBlock` and a nested `Frame`, and reads the callee's
+instructions again, rather than summarising a method once. `PosStack` — a stack of `file:pos` — is
+what keeps the same variable in two different invocations apart. There is no depth limit; what stops
+a recursive method is `Frame.isBeingInlined`, which walks up the parent frames comparing the
+declaration javac resolved. A method with no body to inline (outside the analysed sources, or found
+that way) becomes a single opaque `EXTERNAL` node instead: arguments and receiver flow in, the result
+flows out.
 
 Two questions get asked of the same call site — what value it produced, and which object that value
-*is* — so `AstBlockProcessor` caches each `new X(...)` and each invocation in `evaluated`, keyed by
-identity. Without the cache the callee is inlined twice and every box in it is drawn twice over.
-The object comes from the callee's own `return` (`GraphBuilderBlock.returnedMemPos`); giving the
-result a fresh empty `MemPos` instead is what made `Money.of(...).getAmount()` resolve to nothing,
-and a factory followed by a getter is most of a real codebase.
+*is*. `Frame.Value` is both, so reading the instruction once answers both; the tree walker had to
+memoise each `new X(...)` and each invocation to stop the second question inlining the callee a
+second time. The object comes from the callee's own `return` (`GraphBuilderBlock.returnedMemPos`);
+giving the result a fresh empty `MemPos` instead is what made `Money.of(...).getAmount()` resolve to
+nothing, and a factory followed by a getter is most of a real codebase.
 
 An argument past the last declared parameter binds to the last one, which is what varargs means.
 Any other count mismatch is the analysis having gone wrong and says so.
@@ -188,7 +201,7 @@ asserting flows that do not exist, with nothing to notice. `assertNoDuplicateNod
 A `MemPos` stands for one object instance and owns the nodes for its fields. It is how
 `this.field`, an implicit-`this` field read, and a field written in a constructor and read in
 another method all find each other — the block-parent chain does not span sibling methods, so
-`visitIdentifier` and `visitMemberSelect` consult the owning `MemPos` first. `MemPos` has no
+`Frame.read` and `Frame.write` consult the owning `MemPos` before the block. `MemPos` has no
 `equals`, so two instances are two objects, which is what identity should mean here.
 
 ### A name with no value: field or local decides
@@ -205,9 +218,9 @@ gate exists to prevent, with the loud failure removed. `aLocalWithNoValueStillFa
 
 ## Adding support for a Java construct
 
-`AstBlockProcessor.scan` is a gate: any `ExpressionTree` whose kind is not in
-`MODELLED_EXPRESSIONS` becomes an `UNMODELLED` node labelled with the kind and carrying
-`file:line:col`, with its operands flowing in and its value flowing out. This exists because
+`Lowering`'s `scan` is a gate: any `ExpressionTree` whose kind is not in `MODELLED_EXPRESSIONS`
+becomes an `Unmodelled` instruction labelled with the kind and carrying `file:line:col`, drawn as an
+`UNMODELLED` node with its operands flowing in and its value flowing out. This exists because
 `TreeScanner`'s default — scan the children, return one of their results — is a *fabricated edge*
 for an expression: `!flag` comes back as the node for `flag`, so the operator vanishes and the
 graph claims something the code does not do. Two real bugs (the dropped ternary branch, vanished
@@ -231,38 +244,50 @@ friends subclasses of its expression type, so `is ExpressionTree` says yes to th
 `(int) x` and it arrives at the gate looking like a value; drawn as one it is a node on the diagram
 that nothing in the program corresponds to. Types produce no value and are skipped.
 
-So, to add a construct: write the visitor, then add its `Tree.Kind` to `MODELLED_EXPRESSIONS`.
-Never widen that set without a visitor behind it.
+So, to add a construct: write the visitor in `Lowering`, emit an instruction, then add its
+`Tree.Kind` to `MODELLED_EXPRESSIONS`. Never widen that set without a visitor behind it. A new
+*instruction* needs a branch in `Frame.draw`, which is a `when` over the sealed `Insn` — so
+forgetting one is a compile error rather than a missing box.
 
 **The gate covers expressions only.** A *statement* codeflow does not model is not caught here: it
 declares nothing, and the failure surfaces further down as a read of a name with no node, blaming a
 line that is not the one at fault. The enhanced `for` and the `catch` parameter were both found
 that way, so a construct that binds a name needs a visitor even when it produces no value —
-`visitEnhancedForLoop`, `visitCatch`, `bindPattern`. A *pattern* on a `switch` used as a statement
-is the one still missing, which is what the `unboundLocal` fixture is: `visitSwitch` models the
-statement itself, but a `case String text ->` label binds nothing.
+`visitEnhancedForLoop`, `visitCatch`, `bindPattern`, `caseLabel`. All of them emit a `Bind`, which
+carries an `Identity` saying which object the name stands for: the value's own, for a pattern that
+names what it matched; a fresh one, for a loop element or a caught exception; none, for a lambda
+parameter a caller not visible from here fills in. Getting that wrong files one object's fields
+under another object's name, and the diagram that comes out is complete, readable and about the
+wrong thing.
+
+`MODELLED_STATEMENTS` is the statement half of the gate and currently catches nothing — it lists
+every statement kind Java has. It stays as a tripwire for the next kind added to the language, and
+because scanning through an unknown *statement* is not the fabricated edge that scanning through an
+unknown expression is.
 
 A statement can also fail the other way round — reading a value nobody notices is missing. `switch`
 used as a statement had no visitor at all, so its selector was scanned, given a node, and left with
 no edge out of it: the value deciding the whole branch drawn as unused. Nothing declared a name, so
 nothing failed. The same shape hid **anything a class declares outside a method body** — field
 initializers, instance initializer blocks, an enum constant's constructor arguments — all of which
-now run from `runInstanceInitializers` and `enumConstant`. `runInstanceInitializers` is reached from
-two places, because the case that matters most has no constructor to hang it on: a class declaring
-none still runs its field initializers on every `new`, so `constructorNode` runs them in the
-caller's block rather than drawing a box for a constructor nobody wrote.
+now come from `Lowering.lowerInitializers` and `Lowering.lowerEnumConstant`. The initializers run
+from two places in `Frame`, because the case that matters most has no constructor to hang them on: a
+class declaring none still runs its field initializers on every `new`, so `construct` runs them in
+the caller's block rather than drawing a box for a constructor nobody wrote. When there *is* a
+constructor they run in its block, unless it starts with `this(...)` — the constructor delegated to
+runs them, and running them at both ends of the chain draws every initializer twice.
 
 Two related rules:
 
 - Use `evaluate(tree, ctx)` — not `tree.accept(...)` — for anything that needs a *value*. It routes
   through `scan`, so the gate cannot be bypassed, and it fails loudly when an expression produces
   nothing.
-- Put `ctx.location(tree)` in `GraphException` messages, and on every node — `GraphNode.Base`
-  takes it as a required parameter, so a node cannot exist without one. The first question about
-  any failure, and about any box on a diagram, is which line of which file. It comes from the
-  `ProcessorContext` of the compilation unit the *tree* belongs to, which is not always the one
-  being walked: a callee is inlined with the caller's context in hand, and asking that one for a
-  line number gives a real position naming the wrong file.
+- Put `ctx.location(tree)` on every instruction — `Insn` takes `source` as a required constructor
+  parameter, and `GraphNode.Base` takes one too, so neither can exist without a position. The first
+  question about any failure, and about any box on a diagram, is which line of which file. Lowering
+  is per method and each method has its own `ProcessorContext`, so this no longer has the trap it
+  used to: the tree walker inlined a callee with the *caller's* context in hand, and asking that one
+  for a line number gave a real position naming the wrong file.
 
 Operator labels go through `binaryOperatorLabel` / `unaryOperatorLabel` / `compoundAssignmentLabel`,
 which map symbols that are also Mermaid syntax to words (`/` → `div`, `|` → `bitOr`, `&` → `bitAnd`,
@@ -287,6 +312,15 @@ overwrite its own expectation. When a change does move snapshots, verify them *s
 than reading diffs: normalise old (`git show HEAD:<path>`) and new to sorted multisets of
 `label:TYPE` nodes and `label:TYPE -> label:TYPE` edges with ids stripped, and diff those. Anything
 left over is a real change and needs explaining.
+
+Two suites sit alongside `AppTest` and assert on something a rendered document cannot show:
+
+- `LoweringTest.kt` — the instruction list itself, as text, for one method or swept over every
+  fixture. What a method *means*, before anything has decided how to draw it.
+- `IrGraphBuilderTest.kt` — the graph as `label:TYPE` nodes and edges, for the few cases where the
+  node *type* is the claim. While both builders existed this was the port's differential harness:
+  every fixture built both ways and compared as multisets, with each disagreement asserted by name.
+  The comparison went with the tree walker; what is left is the behaviour it found.
 
 `app/src/test/resources/codemap` and `ls` have no test referencing them; `codemap/truth.md` is stale
 and still in the pre-serial id format.

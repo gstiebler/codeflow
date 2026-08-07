@@ -24,13 +24,6 @@ class PosStack {
         return newStack
     }
 
-    fun push(pos: Position): PosStack {
-        val newStack = PosStack()
-        newStack.stack.addAll(stack)
-        newStack.stack.add("${pos.path}:${pos.pos}")
-        return newStack
-    }
-
     fun push(ctx: ProcessorContext, tree: Tree): PosStack {
         val invocationPos = ctx.getPosId(tree)
         val pos = Position(invocationPos, ctx.path)

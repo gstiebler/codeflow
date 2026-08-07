@@ -15,11 +15,11 @@ import javax.lang.model.type.TypeMirror
 /**
  * What javac resolved each tree to.
  *
- * `Trees.getElement` needs a [TreePath], but the processors that build the graph are plain
- * `TreeScanner`s holding a bare [Tree], and `AstBlockProcessor.invokeMethod` re-enters a callee's
- * body with no path at all. Attribution writes symbols into the same tree objects `parse()`
- * returned, so one path-aware pass can record everything up front and the scanners can then ask a
- * question about a tree without carrying a path to it.
+ * `Trees.getElement` needs a [TreePath], but the scanners that read the sources are plain
+ * `TreeScanner`s holding a bare [Tree] - `AstProcessor` and the lowering in `codeflow.ir` alike.
+ * Attribution writes symbols into the same tree objects `parse()` returned, so one path-aware pass
+ * can record everything up front and the scanners can then ask a question about a tree without
+ * carrying a path to it.
  *
  * Keyed by tree identity, not equality: two structurally identical expressions at two call sites
  * are two different references and must stay two different keys.

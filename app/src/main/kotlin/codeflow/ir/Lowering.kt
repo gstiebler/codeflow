@@ -27,9 +27,9 @@ class MethodBody(val method: Method, val instructions: List<Insn>) {
  * javac trees in, instructions out.
  *
  * The walk resolves names and nothing else: no `MemPos`, no `PosStack`, no ids, no edges. What made
- * `AstBlockProcessor` hard to reason about was doing all of those at once, which is why four
- * satellite scanners existed to re-walk the same tree asking a different question, and why one of
- * them had to call back into the builder behind a memo so that *asking* did not *inline*.
+ * the tree walker this replaced hard to reason about was doing all of those at once, which is why
+ * four satellite scanners existed to re-walk the same tree asking a different question, and why one
+ * of them had to call back into the builder behind a memo so that *asking* did not *inline*.
  *
  * The value each expression produces is returned as a [Val], which is an index into the list being
  * built. So an instruction never refers to a tree, only to earlier instructions.

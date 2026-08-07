@@ -3,17 +3,17 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[value]:::OBJ_VARIABLE
-    n4[lambda]:::BIN_OP
-    n5[+]:::BIN_OP
+    n3[value]:::VARIABLE
+    n4[+]:::BIN_OP
+    n5[lambda]:::BIN_OP
     n6[twice]:::OBJ_VARIABLE
     n7[4]:::LITERAL
     n8[applyAsInt]:::EXTERNAL
     n9[out]:::VARIABLE
-    n3[value]:::OBJ_VARIABLE --> n5[+]:::BIN_OP
-    n3[value]:::OBJ_VARIABLE --> n5[+]:::BIN_OP
-    n4[lambda]:::BIN_OP --> n6[twice]:::OBJ_VARIABLE
-    n5[+]:::BIN_OP --> n4[lambda]:::BIN_OP
+    n3[value]:::VARIABLE --> n4[+]:::BIN_OP
+    n3[value]:::VARIABLE --> n4[+]:::BIN_OP
+    n4[+]:::BIN_OP --> n5[lambda]:::BIN_OP
+    n5[lambda]:::BIN_OP --> n6[twice]:::OBJ_VARIABLE
     n6[twice]:::OBJ_VARIABLE --> n8[applyAsInt]:::EXTERNAL
     n7[4]:::LITERAL --> n8[applyAsInt]:::EXTERNAL
     n8[applyAsInt]:::EXTERNAL --> n9[out]:::VARIABLE

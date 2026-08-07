@@ -7,18 +7,18 @@ flowchart TD
     n16[result]:::VARIABLE
     subgraph b3["Derived.constructor"]
       n4[<init>]:::RETURN
-      n8[10]:::LITERAL
+      n5[10]:::LITERAL
       n10[20]:::LITERAL
       n11[derivedMember]:::VARIABLE
       n4[<init>]:::RETURN --> n12[derived]:::OBJ_VARIABLE
-      n8[10]:::LITERAL --> n7[init]:::FUNC_PARAM
+      n5[10]:::LITERAL --> n8[init]:::FUNC_PARAM
       n10[20]:::LITERAL --> n11[derivedMember]:::VARIABLE
       n11[derivedMember]:::VARIABLE --> n15[+]:::BIN_OP
-      subgraph b5["Base.constructor"]
-        n6[<init>]:::RETURN
-        n7[init]:::FUNC_PARAM
+      subgraph b6["Base.constructor"]
+        n7[<init>]:::RETURN
+        n8[init]:::FUNC_PARAM
         n9[baseMember]:::VARIABLE
-        n7[init]:::FUNC_PARAM --> n9[baseMember]:::VARIABLE
+        n8[init]:::FUNC_PARAM --> n9[baseMember]:::VARIABLE
         n9[baseMember]:::VARIABLE --> n15[+]:::BIN_OP
       end
     end

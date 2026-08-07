@@ -651,7 +651,7 @@ class AppTest {
      *
      * Inlining happens per call site with no in-progress set, so a recursive method had nothing
      * stopping it: `fact` took the run down with a StackOverflowError, no output at all, and a stack
-     * trace naming `AstBlockProcessor` rather than a line of Java. A five-line factorial reaches it.
+     * trace naming the graph builder rather than a line of Java. A five-line factorial reaches it.
      *
      * The opaque node is the same answer a call outside the analysed sources gets, and it is honest
      * about what happened - a call whose body was not inlined any further, arguments in, result out.
@@ -764,17 +764,23 @@ class AppTest {
      * A local with no value is still a failure, and says where.
      *
      * This is the other half of [aFieldReadBeforeItIsAssignedIsAValueRatherThanAFailure]: a local
-     * cannot be read before it is written, so not finding one means the analysis lost it. Letting
-     * every missing name through as a value from nowhere would turn the loud failure into a
-     * plausible diagram, which is the trade this project refuses to make.
+     * cannot be read before it is written, so not finding one means either the analysis lost it or
+     * the program never wrote it. Letting every missing name through as a value from nowhere would
+     * turn the loud failure into a plausible diagram, which is the trade this project refuses to
+     * make.
+     *
+     * The fixture is one the compiler rejects, which codeflow still has to have an answer for:
+     * attribution runs on sources that do not compile, since a tool pointed at a directory nobody
+     * has read cannot require it to build. It replaced `unboundLocal`, whose gap was in codeflow and
+     * has since been closed - see [codeflow.ir.IrGraphBuilderTest.aPatternOnASwitchStatementBindsItsName].
      */
     @Test
     fun aLocalWithNoValueStillFails() {
         val thrown = assertFailsWith<GraphException> {
-            buildGraph("unboundLocal", listOf("App.java"))
+            buildGraph("unwrittenLocal", listOf("App.java"))
         }
         assertTrue(
-            thrown.message!!.contains("unboundLocal/App.java:15"),
+            thrown.message!!.contains("unwrittenLocal/App.java:19"),
             "the failure does not say which line: ${thrown.message}"
         )
     }

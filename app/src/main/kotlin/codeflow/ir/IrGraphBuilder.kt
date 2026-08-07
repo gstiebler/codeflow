@@ -18,7 +18,7 @@ import javax.lang.model.element.Modifier
  *
  * Everything needing a tree has already happened by the time an instruction exists - which
  * declaration a name resolved to, which overload a call selected, whether a value is a primitive -
- * so what is left here is the part `AstBlockProcessor` was doing at the same time as all of that:
+ * so what is left here is the part the tree walker this replaced did alongside all of that:
  * which box, which object, and how many times each is drawn.
  *
  * A body is lowered once and instantiated per call site. That is the split the IR exists for, and

@@ -10,7 +10,7 @@ enum class NodeType {
  * @param serial what makes this node itself, handed out by [Graph.createGraphNode] when the node
  *   is created. It is a constructor parameter rather than something set afterwards so that a node
  *   cannot exist without one, and it does not live on [Base] because Base is built at the call
- *   sites in AstBlockProcessor, before the graph has seen it.
+ *   sites that draw a node, before the graph has seen it.
  */
 abstract class GraphNode(private val base: Base, val serial: Int) {
     private val logger = KotlinLogging.logger {}

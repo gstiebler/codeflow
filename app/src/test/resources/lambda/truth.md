@@ -5,7 +5,7 @@ flowchart TD
     n2[args]:::FUNC_PARAM
     n3[3]:::LITERAL
     n4[base]:::VARIABLE
-    n5[value]:::OBJ_VARIABLE
+    n5[value]:::VARIABLE
     n6[*]:::BIN_OP
     n7[lambda]:::BIN_OP
     n8[scale]:::OBJ_VARIABLE
@@ -14,7 +14,7 @@ flowchart TD
     n11[out]:::VARIABLE
     n3[3]:::LITERAL --> n4[base]:::VARIABLE
     n4[base]:::VARIABLE --> n6[*]:::BIN_OP
-    n5[value]:::OBJ_VARIABLE --> n6[*]:::BIN_OP
+    n5[value]:::VARIABLE --> n6[*]:::BIN_OP
     n6[*]:::BIN_OP --> n7[lambda]:::BIN_OP
     n7[lambda]:::BIN_OP --> n8[scale]:::OBJ_VARIABLE
     n8[scale]:::OBJ_VARIABLE --> n10[applyAsInt]:::EXTERNAL

@@ -3,14 +3,14 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3["x"]:::LITERAL
-    n4[out]:::EXTERNAL
+    n3[out]:::EXTERNAL
+    n4["x"]:::LITERAL
     n5[println]:::EXTERNAL
     n6[3L]:::LITERAL
     n7[TYPE_CAST]:::UNMODELLED
     n8[count]:::VARIABLE
-    n3["x"]:::LITERAL --> n5[println]:::EXTERNAL
-    n4[out]:::EXTERNAL --> n5[println]:::EXTERNAL
+    n3[out]:::EXTERNAL --> n5[println]:::EXTERNAL
+    n4["x"]:::LITERAL --> n5[println]:::EXTERNAL
     n6[3L]:::LITERAL --> n7[TYPE_CAST]:::UNMODELLED
     n7[TYPE_CAST]:::UNMODELLED --> n8[count]:::VARIABLE
   end

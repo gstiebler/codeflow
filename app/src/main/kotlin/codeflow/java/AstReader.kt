@@ -3,8 +3,6 @@ package codeflow.java
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphException
 import codeflow.graph.Method
-import codeflow.graph.PosStack
-import codeflow.graph.Position
 import codeflow.ir.IrGraphBuilder
 import codeflow.java.processors.*
 import com.sun.source.tree.CompilationUnitTree
@@ -30,32 +28,15 @@ class AstReader(private val basePath: Path) {
     var unmodelled: List<String> = emptyList()
         private set
 
-    fun process(fileNames: List<Path>, entryPoint: String? = null): GraphBuilderBlock {
-        val analysis = analyse(fileNames)
-        val globalCtx = analysis.globalCtx
-
-        val mainMethod = selectEntry(globalCtx, entryPoint)
-        val mainMethodGraphBuilderBlock =
-            GraphBuilderBlock(null, mainMethod, PosStack(), null, mainMethod.ctx)
-        val pos = Position(0, Path.of(""))
-        val mainAstBlockProcessor = AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null)
-        mainAstBlockProcessor.invokeMethod(emptyList())
-
-        unmodelled = globalCtx.unmodelled()
-        reportUnmodelled()
-
-        analysis.close()
-
-        return mainAstBlockProcessor.graphBuilderBlock
-    }
-
     /**
-     * The same graph, built from the IR instead of from the trees.
+     * The graph: parse, attribute, lower to instructions, draw.
      *
-     * Alongside [process] rather than in place of it while the port is in progress, so that the two
-     * can be compared on the same input - which is the only question a port has to answer.
+     * The lowering and the drawing are separate passes because they answer separate questions, and
+     * doing both at once is what made the tree walker hard to hold in one head. What a name means is
+     * a question about the source and is asked once per method; which box a value is drawn as is a
+     * question about a call site and is asked once per call site. See `codeflow.ir`.
      */
-    fun processFromIr(fileNames: List<Path>, entryPoint: String? = null): GraphBuilderBlock {
+    fun process(fileNames: List<Path>, entryPoint: String? = null): GraphBuilderBlock {
         val analysis = analyse(fileNames)
         val root = IrGraphBuilder(analysis.globalCtx).build(selectEntry(analysis.globalCtx, entryPoint))
         unmodelled = analysis.globalCtx.unmodelled()

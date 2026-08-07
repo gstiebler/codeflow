@@ -54,12 +54,12 @@ flowchart TD
     end
     subgraph b30["Outer.constructor"]
       n31[<init>]:::RETURN
-      n35[1]:::LITERAL
+      n32[1]:::LITERAL
       n31[<init>]:::RETURN --> n54[delegated]:::OBJ_VARIABLE
-      n35[1]:::LITERAL --> n34[add]:::FUNC_PARAM
-      subgraph b32["Outer.constructor"]
-        n33[<init>]:::RETURN
-        n34[add]:::FUNC_PARAM
+      n32[1]:::LITERAL --> n35[add]:::FUNC_PARAM
+      subgraph b33["Outer.constructor"]
+        n34[<init>]:::RETURN
+        n35[add]:::FUNC_PARAM
         n36[10]:::LITERAL
         n43[nested]:::OBJ_VARIABLE
         n44[4]:::LITERAL
@@ -72,7 +72,7 @@ flowchart TD
         n51[blocked]:::VARIABLE
         n52[+]:::BIN_OP
         n53[counted]:::VARIABLE
-        n34[add]:::FUNC_PARAM --> n52[+]:::BIN_OP
+        n35[add]:::FUNC_PARAM --> n52[+]:::BIN_OP
         n36[10]:::LITERAL --> n39[seed]:::FUNC_PARAM
         n44[4]:::LITERAL --> n45[seeded]:::VARIABLE
         n46[Plain]:::EXTERNAL --> n47[plain]:::OBJ_VARIABLE

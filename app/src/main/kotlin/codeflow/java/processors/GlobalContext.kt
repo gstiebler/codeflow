@@ -51,7 +51,7 @@ class GlobalContext(val symbols: Symbols) {
      * otherwise be reported as many as there are callers - a count nobody could reconcile with the
      * source. Ordered, so the same input reports the same way twice.
      *
-     * These are drawn on the graph as well (see [AstBlockProcessor.unmodelledExpression]); this is
+     * These are drawn on the graph as well, as their own node type; this is
      * what lets the run *say* how many there were, so a reader who never scrolls to one still
      * knows to look.
      */

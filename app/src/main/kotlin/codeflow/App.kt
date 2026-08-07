@@ -69,7 +69,7 @@ fun main(argv: Array<String>) {
 
     // The document is complete and usable, so it is written first and in full; the status is what
     // says whether everything in it was understood. A build that graphs a corpus can fail on this
-    // and get the diagram anyway, which is the point of no longer throwing - see AstBlockProcessor.
+    // and get the diagram anyway, which is the point of no longer throwing - see `codeflow.ir`.
     if (reader.unmodelled.isNotEmpty()) exitProcess(1)
 }
 

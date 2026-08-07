@@ -6,6 +6,9 @@ app/bin/*
 # Ignore Gradle build output directory
 build
 .idea
+# Eclipse's own project metadata, alongside .idea and .vscode above
+.project
+.settings
 result.md
 *.class
 # The lowered instruction list of each fixture, written next to its source on every test run so it

@@ -59,7 +59,7 @@ class GraphBuilderBlock(
     // The parameter's declaration comes off the method's own element rather than being looked up
     // per tree, and is what a read of the parameter inside the body resolves to.
     val parameterNodes = method.name.parameters.mapIndexed { index, parameter ->
-        val id = JNodeId(stack.push(ctx, parameter), parameter.name, method.element.parameters[index], memPos)
+        val id = JNodeId(stack.push(ctx, parameter), parameter.name.toString(), method.element.parameters[index], memPos)
         graph.createGraphNode(NodeType.FUNC_PARAM, GraphNode.Base(id, method.ctx.location(parameter)))
     }
 

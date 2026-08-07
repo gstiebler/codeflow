@@ -6,7 +6,10 @@ import codeflow.java.Symbols
 import codeflow.java.processors.ProcessorContext
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
+import codeflow.java.processors.GlobalContext
+import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
+import javax.lang.model.element.Modifier
 
 /**
  * One method's body, as instructions.
@@ -37,6 +40,54 @@ class Lowering(private val symbols: Symbols) {
         val body = Body(symbols, method.ctx)
         method.name.body?.accept(body, method.ctx)
         return MethodBody(method, body.instructions)
+    }
+
+    /**
+     * What a class assigns outside any method body: `int n = 5;` and `{ blocked = 7; }`.
+     *
+     * A body of its own, because it is not one: these run on every `new`, ahead of the constructor,
+     * and a class declaring no constructor still runs them. Skipping them is not a missing edge but
+     * a missing *value* - the constructor's `n = n + 1` reads an `n` nothing has assigned, and most
+     * fields have no other writer.
+     *
+     * Static members are left out. An enum constant is a static field, and so is a field of an
+     * interface, so both are left out here too.
+     */
+    fun lowerInitializers(declaringClass: GlobalContext.SourceClass): List<Insn> {
+        val body = Body(symbols, declaringClass.ctx)
+        declaringClass.tree.members.forEach { member ->
+            val runs = when (member) {
+                is VariableTree -> member.initializer != null && !isStatic(member)
+                is BlockTree -> !member.isStatic
+                else -> false
+            }
+            if (runs) body.scan(member, declaringClass.ctx)
+        }
+        return body.instructions
+    }
+
+    /**
+     * `SMALL(3)`, the declaration of one enum constant, whose last instruction is the `new` it is.
+     *
+     * The constant's declaration *is* its value, and with a constructor there is a story to tell:
+     * arguments in, fields out. Lowered from the enum's own class tree, since it is a member rather
+     * than anything a method body contains, and in the enum's own context - an enum in another file
+     * has its positions there.
+     */
+    fun lowerEnumConstant(declaringClass: GlobalContext.SourceClass, element: Element): List<Insn>? {
+        val declaration = declaringClass.tree.members
+            .filterIsInstance<VariableTree>()
+            .firstOrNull { symbols.element(it) == element } ?: return null
+        val initializer = declaration.initializer as? NewClassTree ?: return null
+        val body = Body(symbols, declaringClass.ctx)
+        body.scan(initializer, declaringClass.ctx)
+        return body.instructions
+    }
+
+    /** Asked of the declaration javac resolved, since `static` is implicit on an interface field. */
+    private fun isStatic(member: VariableTree): Boolean {
+        val element = symbols.element(member) ?: return Modifier.STATIC in member.modifiers.flags
+        return Modifier.STATIC in element.modifiers
     }
 
     private class Body(
@@ -78,9 +129,17 @@ class Lowering(private val symbols: Symbols) {
             if (node.name.contentEquals("this")) return emit(ThisRef(ctx.location(node)))
             val element = symbols.element(node)
             if (element?.kind?.isField == true) {
-                return emit(ReadField(Receiver.Enclosing, node.name.toString(), element, ctx.location(node)))
+                return emit(
+                    ReadField(
+                        Receiver.Enclosing,
+                        node.name.toString(),
+                        element,
+                        symbols.isPrimitive(node),
+                        ctx.location(node)
+                    )
+                )
             }
-            return emit(ReadLocal(node.name.toString(), element, ctx.location(node)))
+            return emit(ReadLocal(node.name.toString(), element, symbols.isPrimitive(node), ctx.location(node)))
         }
 
         override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): Val =
@@ -89,6 +148,7 @@ class Lowering(private val symbols: Symbols) {
                     receiverOf(node.expression, ctx),
                     node.identifier.toString(),
                     symbols.element(node),
+                    symbols.isPrimitive(node),
                     ctx.location(node)
                 )
             )
@@ -127,7 +187,15 @@ class Lowering(private val symbols: Symbols) {
         override fun visitVariable(node: VariableTree, ctx: ProcessorContext): Val? {
             val initializer = node.initializer ?: return null
             val value = evaluate(initializer, ctx)
-            return emit(WriteLocal(node.name.toString(), symbols.element(node), value, ctx.location(node)))
+            return emit(
+                WriteLocal(
+                    node.name.toString(),
+                    symbols.element(node),
+                    symbols.isPrimitive(node),
+                    value,
+                    ctx.location(node)
+                )
+            )
         }
 
         /**
@@ -144,10 +212,11 @@ class Lowering(private val symbols: Symbols) {
             val receiver = if (target is MemberSelectTree) receiverOf(target.expression, ctx) else Receiver.Enclosing
             val value = evaluate(node.expression, ctx)
             val element = symbols.element(target)
+            val primitive = symbols.isPrimitive(target)
             if (element?.kind?.isField == true) {
-                return emit(WriteField(receiver, lastName(target), element, value, ctx.location(target)))
+                return emit(WriteField(receiver, lastName(target), element, primitive, value, ctx.location(target)))
             }
-            return emit(WriteLocal(lastName(target), element, value, ctx.location(target)))
+            return emit(WriteLocal(lastName(target), element, primitive, value, ctx.location(target)))
         }
 
         override fun visitBinary(node: BinaryTree, ctx: ProcessorContext): Val {
@@ -251,9 +320,9 @@ class Lowering(private val symbols: Symbols) {
             if (element?.kind?.isField == true) {
                 val receiver =
                     if (target is MemberSelectTree) receiverOf(target.expression, ctx) else Receiver.Enclosing
-                return emit(WriteField(receiver, lastName(target), element, combined, ctx.location(target)))
+                return emit(WriteField(receiver, lastName(target), element, true, combined, ctx.location(target)))
             }
-            return emit(WriteLocal(lastName(target), element, combined, ctx.location(target)))
+            return emit(WriteLocal(lastName(target), element, true, combined, ctx.location(target)))
         }
 
         /**
@@ -309,7 +378,16 @@ class Lowering(private val symbols: Symbols) {
                 unmodelled(pattern, listOf(value), ctx)
                 return
             }
-            emit(Bind(variable.name.toString(), symbols.element(variable), value, ctx.location(variable)))
+            emit(
+                Bind(
+                    variable.name.toString(),
+                    symbols.element(variable),
+                    symbols.isPrimitive(variable),
+                    value,
+                    Identity.OfValue,
+                    ctx.location(variable)
+                )
+            )
         }
 
         /**
@@ -325,7 +403,16 @@ class Lowering(private val symbols: Symbols) {
          */
         override fun visitLambdaExpression(node: LambdaExpressionTree, ctx: ProcessorContext): Val {
             node.parameters.forEach {
-                emit(Bind(it.name.toString(), symbols.element(it), null, ctx.location(it)))
+                emit(
+                    Bind(
+                        it.name.toString(),
+                        symbols.element(it),
+                        symbols.isPrimitive(it),
+                        null,
+                        Identity.Unknown,
+                        ctx.location(it)
+                    )
+                )
             }
             val body = node.body
             if (body is ExpressionTree) {
@@ -419,7 +506,16 @@ class Lowering(private val symbols: Symbols) {
         override fun visitEnhancedForLoop(node: EnhancedForLoopTree, ctx: ProcessorContext): Val? {
             val elements = evaluate(node.expression, ctx)
             val variable = node.variable
-            emit(Bind(variable.name.toString(), symbols.element(variable), elements, ctx.location(variable)))
+            emit(
+                Bind(
+                    variable.name.toString(),
+                    symbols.element(variable),
+                    symbols.isPrimitive(variable),
+                    elements,
+                    Identity.Fresh,
+                    ctx.location(variable)
+                )
+            )
             scan(node.statement, ctx)
             return null
         }
@@ -432,7 +528,16 @@ class Lowering(private val symbols: Symbols) {
          */
         override fun visitCatch(node: CatchTree, ctx: ProcessorContext): Val? {
             val parameter = node.parameter
-            emit(Bind(parameter.name.toString(), symbols.element(parameter), null, ctx.location(parameter)))
+            emit(
+                Bind(
+                    parameter.name.toString(),
+                    symbols.element(parameter),
+                    symbols.isPrimitive(parameter),
+                    null,
+                    Identity.Fresh,
+                    ctx.location(parameter)
+                )
+            )
             scan(node.block, ctx)
             return null
         }

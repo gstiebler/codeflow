@@ -51,8 +51,17 @@ class Const(val text: String, source: String) : Insn(source) {
  *
  * [element] is the declaration javac resolved it to, which is what makes two `x`es in two scopes
  * two different variables without anything here comparing names.
+ *
+ * [isPrimitive] is javac's answer about the *declared type*, folded in here for the same reason
+ * every other answer is: it decides whether the value is an object worth tracking the identity of,
+ * and asking later would mean holding on to the tree.
  */
-class ReadLocal(val name: String, val element: Element?, source: String) : Insn(source) {
+class ReadLocal(
+    val name: String,
+    val element: Element?,
+    val isPrimitive: Boolean,
+    source: String
+) : Insn(source) {
     override val inputs get() = emptyList<Val>()
     override fun render() = "read $name"
 }
@@ -61,6 +70,7 @@ class ReadLocal(val name: String, val element: Element?, source: String) : Insn(
 class WriteLocal(
     val name: String,
     val element: Element?,
+    val isPrimitive: Boolean,
     val value: Val,
     source: String
 ) : Insn(source) {
@@ -138,6 +148,7 @@ class ReadField(
     val receiver: Receiver,
     val name: String,
     val element: Element?,
+    val isPrimitive: Boolean,
     source: String
 ) : Insn(source) {
     override val inputs get() = receiver.inputs
@@ -149,6 +160,7 @@ class WriteField(
     val receiver: Receiver,
     val name: String,
     val element: Element?,
+    val isPrimitive: Boolean,
     val value: Val,
     source: String
 ) : Insn(source) {
@@ -223,11 +235,30 @@ class New(
 class Bind(
     val name: String,
     val element: Element?,
+    val isPrimitive: Boolean,
     val value: Val?,
+    val identity: Identity,
     source: String
 ) : Insn(source) {
     override val inputs get() = listOfNotNull(value)
     override fun render() = "bind $name" + (value?.let { " <- $it" } ?: "")
+}
+
+/**
+ * Which object a bound name stands for, which is not always the one the value flowing in is.
+ *
+ * Kept apart because getting it wrong files a whole object's fields under another object's name,
+ * and the diagram that comes out of that is complete, readable and about the wrong thing.
+ */
+sealed class Identity {
+    /** The same object: `value instanceof String text` names what it matched. */
+    data object OfValue : Identity()
+
+    /** One of its own: a loop element is not its collection, and a caught exception has no value. */
+    data object Fresh : Identity()
+
+    /** None to be had: a lambda's parameter is filled in by a caller not visible from here. */
+    data object Unknown : Identity()
 }
 
 /**

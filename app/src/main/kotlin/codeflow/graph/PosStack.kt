@@ -10,6 +10,20 @@ import com.sun.source.tree.Tree
 class PosStack {
     private val stack = ArrayList<String>()
 
+    /**
+     * One frame, named by wherever it came from.
+     *
+     * A string rather than a [Position] because the entries are only ever compared: the IR names a
+     * place as `path:line:col` and a call site as `path:offset`, and both are unique to the place
+     * they name, which is all this has to be.
+     */
+    fun push(source: String): PosStack {
+        val newStack = PosStack()
+        newStack.stack.addAll(stack)
+        newStack.stack.add(source)
+        return newStack
+    }
+
     fun push(pos: Position): PosStack {
         val newStack = PosStack()
         newStack.stack.addAll(stack)

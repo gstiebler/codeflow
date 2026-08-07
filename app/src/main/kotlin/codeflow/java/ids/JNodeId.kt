@@ -4,14 +4,13 @@ import codeflow.graph.GraphNodeId
 import codeflow.graph.MemPos
 import codeflow.graph.PosStack
 import javax.lang.model.element.Element
-import javax.lang.model.element.Name
 
 class JNodeId(
     stack: PosStack,
-    private val name: Name,
+    private val name: String,
     private val element: Element?,
     private val memPos: MemPos?
-) : GraphNodeId(stack, name.toString()) {
+) : GraphNodeId(stack, name) {
 
     /**
      * Which variable this is: the declaration it resolves to, in the object it lives in.
@@ -32,7 +31,7 @@ class JNodeId(
      * Falling back to the name is for what javac could not resolve, where there is nothing better
      * to key on. An Element never equals a String, so the two kinds of key cannot be confused.
      */
-    override fun key(): List<Any?> = listOf(element ?: name.toString(), memPos)
+    override fun key(): List<Any?> = listOf(element ?: name, memPos)
 
     override fun toString() = "JNodeId=(name: '$name', memPos: '$memPos')"
 }

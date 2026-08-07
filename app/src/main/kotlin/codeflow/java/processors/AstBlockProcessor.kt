@@ -102,7 +102,7 @@ open class AstBlockProcessor(
         } else {
             getMemPos(lhsParentExpr, ctx)
         }
-        val lhsId = JNodeId(getStack(), lhsName, globalCtx.symbols.element(lhs), lhsMemPos)
+        val lhsId = JNodeId(getStack(), lhsName.toString(), globalCtx.symbols.element(lhs), lhsMemPos)
         if (lhsIsPrimitive) {
             assignPrimitive(lhsMemPos, lhsId, lhs, rhs, ctx)
         } else {
@@ -116,7 +116,7 @@ open class AstBlockProcessor(
         val name = node.name
 
         if (node.initializer != null) {
-            val variableNodeId = JNodeId(getStack().push(ctx, node), name, globalCtx.symbols.element(node), owner)
+            val variableNodeId = JNodeId(getStack().push(ctx, node), name.toString(), globalCtx.symbols.element(node), owner)
             if (isPrimitive) {
                 return assignPrimitive(owner, variableNodeId, node, node.initializer, ctx)
             } else {
@@ -143,12 +143,12 @@ open class AstBlockProcessor(
     override fun visitEnhancedForLoop(node: EnhancedForLoopTree, ctx: ProcessorContext): GraphNode? {
         val elements = evaluate(node.expression, ctx)
         val variable = node.variable
-        val id = JNodeId(getStack().push(ctx, variable), variable.name, globalCtx.symbols.element(variable), owner)
+        val id = JNodeId(getStack().push(ctx, variable), variable.name.toString(), globalCtx.symbols.element(variable), owner)
         val base = nodeBase(id, variable, ctx)
         val loopNode = if (globalCtx.symbols.isPrimitive(variable)) {
             graphBuilderBlock.addPrimitiveVariable(base, owner)
         } else {
-            globalCtx.addMemPos(id, globalCtx.createMemPos(node.expression))
+            globalCtx.addMemPos(id, globalCtx.createMemPos(ctx.location(node.expression)))
             graphBuilderBlock.addObjectVariable(base, owner)
         }
         graphBuilderBlock.addAssignment(loopNode, elements)
@@ -167,8 +167,8 @@ open class AstBlockProcessor(
      */
     override fun visitCatch(node: CatchTree, ctx: ProcessorContext): GraphNode? {
         val parameter = node.parameter
-        val id = JNodeId(getStack().push(ctx, parameter), parameter.name, globalCtx.symbols.element(parameter), owner)
-        globalCtx.addMemPos(id, globalCtx.createMemPos(parameter))
+        val id = JNodeId(getStack().push(ctx, parameter), parameter.name.toString(), globalCtx.symbols.element(parameter), owner)
+        globalCtx.addMemPos(id, globalCtx.createMemPos(ctx.location(parameter)))
         graphBuilderBlock.addObjectVariable(nodeBase(id, parameter, ctx), owner)
         scan(node.block, ctx)
         return null
@@ -217,7 +217,7 @@ open class AstBlockProcessor(
         // An object we know nothing about: it came from outside the analysed sources, or from a
         // call whose returns we do not follow. It still gets a memory position of its own, so that
         // fields set on it and calls made on it have somewhere to hang.
-        val rhsMemPos = getMemPos(rhs, ctx) ?: globalCtx.createMemPos(rhs)
+        val rhsMemPos = getMemPos(rhs, ctx) ?: globalCtx.createMemPos(ctx.location(rhs))
         // Before the target exists, for the reason given on [assignPrimitive].
         val rhsNode = evaluate(rhs, ctx)
         val lhsNode = graphBuilderBlock.addObjectVariable(nodeBase(lhsId, lhs, ctx), owner)
@@ -300,7 +300,7 @@ open class AstBlockProcessor(
         // memory position of the class instance, or of the class itself for a static field, whose
         // receiver is a type name and so has no memory position to ask for.
         val exprMemPos = staticHolder(node) ?: getMemPos(expression, ctx)
-        val nodeId = JNodeId(getStack().push(ctx, node), identifier, globalCtx.symbols.element(node), exprMemPos)
+        val nodeId = JNodeId(getStack().push(ctx, node), identifier.toString(), globalCtx.symbols.element(node), exprMemPos)
         exprMemPos?.getNode(nodeId)?.let { return it }
         // With a memory position we are tracking the object, so the field either has a value here
         // or has not been assigned yet - see [unassigned]. Without one the receiver is something
@@ -405,7 +405,7 @@ open class AstBlockProcessor(
         if (node.name.contentEquals("this")) return thisValue(node, ctx)
         enumConstant(node, ctx)?.node?.let { return it }
         val holder = staticHolder(node) ?: owner
-        val nId = JNodeId(getStack().push(ctx, node), node.name, globalCtx.symbols.element(node), holder)
+        val nId = JNodeId(getStack().push(ctx, node), node.name.toString(), globalCtx.symbols.element(node), holder)
         return holder?.getNode(nId)
             ?: graphBuilderBlock.getVariable(nId)?.lastNode
             ?: unassigned(nId, node, holder, ctx)
@@ -425,8 +425,8 @@ open class AstBlockProcessor(
      * would key alike and be drawn as one object.
      */
     private fun thisValue(node: IdentifierTree, ctx: ProcessorContext): GraphNode = thisNode ?: run {
-        val instance = owner ?: globalCtx.createMemPos(node)
-        val id = JNodeId(getStack().push(ctx, node), node.name, globalCtx.symbols.element(node), instance)
+        val instance = owner ?: globalCtx.createMemPos(ctx.location(node))
+        val id = JNodeId(getStack().push(ctx, node), node.name.toString(), globalCtx.symbols.element(node), instance)
         val created = graphBuilderBlock.addObjectVariable(nodeBase(id, node, ctx), instance)
         globalCtx.addMemPos(id, instance)
         thisNode = created
@@ -532,7 +532,7 @@ open class AstBlockProcessor(
      */
     override fun visitLambdaExpression(node: LambdaExpressionTree, ctx: ProcessorContext): GraphNode {
         node.parameters.forEach { parameter ->
-            val id = JNodeId(getStack().push(ctx, parameter), parameter.name, globalCtx.symbols.element(parameter), owner)
+            val id = JNodeId(getStack().push(ctx, parameter), parameter.name.toString(), globalCtx.symbols.element(parameter), owner)
             graphBuilderBlock.addObjectVariable(nodeBase(id, parameter, ctx), owner)
         }
         val base = nodeBase(GraphNodeId(getStack().push(ctx, node), "lambda"), node, ctx)
@@ -604,7 +604,7 @@ open class AstBlockProcessor(
         // nothing, several lines away from the pattern that was supposed to declare them.
         val variable = (pattern as? BindingPatternTree)?.variable
             ?: throw GraphException("Unsupported pattern at ${ctx.location(pattern)}: '$pattern'")
-        val boundId = JNodeId(getStack().push(ctx, variable), variable.name, globalCtx.symbols.element(variable), owner)
+        val boundId = JNodeId(getStack().push(ctx, variable), variable.name.toString(), globalCtx.symbols.element(variable), owner)
         val boundNode = graphBuilderBlock.addObjectVariable(nodeBase(boundId, variable, ctx), owner)
         graphBuilderBlock.addAssignment(boundNode, testedNode)
         getMemPos(tested, ctx)?.let { globalCtx.addMemPos(boundId, it) }
@@ -640,7 +640,7 @@ open class AstBlockProcessor(
         val opNode = graphBuilderBlock.addBinOp(nodeBase(opId, node, ctx), currentNode, rhsNode)
 
         val lhsName = node.variable.accept(AstLastNameProcessor(), ctx)
-        val lhsId = JNodeId(getStack().push(ctx, node), lhsName, globalCtx.symbols.element(node.variable), owner)
+        val lhsId = JNodeId(getStack().push(ctx, node), lhsName.toString(), globalCtx.symbols.element(node.variable), owner)
         val lhsNode = graphBuilderBlock.addPrimitiveVariable(nodeBase(lhsId, node.variable, ctx), owner)
         graphBuilderBlock.addAssignment(lhsNode, opNode)
         return lhsNode
@@ -875,7 +875,7 @@ open class AstBlockProcessor(
             .firstOrNull { globalCtx.symbols.element(it) == element } ?: return null
         val initializer = declaration.initializer as? NewClassTree ?: return null
         globalCtx.findMethod(globalCtx.symbols.element(initializer, ElementKind.CONSTRUCTOR)) ?: return null
-        return construct(initializer, declaringEnum.ctx, globalCtx.enumConstantMemPos(element, declaration))
+        return construct(initializer, declaringEnum.ctx, globalCtx.enumConstantMemPos(element, declaringEnum.ctx.location(declaration)))
     }
 
     /** The object an enum constant is, so a call on it reads that constant's own fields. */
@@ -883,7 +883,7 @@ open class AstBlockProcessor(
 
     private fun construct(node: NewClassTree, ctx: ProcessorContext, into: MemPos? = null): Evaluation =
         evaluated.getOrPut(node) {
-            val createdMemPos = into ?: globalCtx.createMemPos(node.identifier)
+            val createdMemPos = into ?: globalCtx.createMemPos(ctx.location(node.identifier))
             // The arguments belong to the caller, so they are resolved here rather than inside the
             // constructor's own block: resolving them there makes an argument that happens to share
             // a name with a parameter resolve to that parameter, which connects the parameter to

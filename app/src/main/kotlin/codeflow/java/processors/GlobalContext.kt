@@ -114,9 +114,7 @@ class GlobalContext(val symbols: Symbols) {
     /** Null for anything whose memory position is not tracked, such as an object from outside. */
     fun findMemPos(nodeId: GraphNodeId): MemPos? = idToMemPos[nodeId]
 
-    fun createMemPos(label: Tree): MemPos {
-        return MemPos(label)
-    }
+    fun createMemPos(label: String): MemPos = MemPos(label)
 
     /**
      * The class's memory position when [tree] names a static field, and null for anything else.
@@ -133,11 +131,13 @@ class GlobalContext(val symbols: Symbols) {
      *
      * The tree only labels the position in a log line, so the first caller's will do.
      */
-    fun staticHolder(tree: Tree): MemPos? {
-        val element = symbols.element(tree)
+    fun staticHolder(tree: Tree): MemPos? = staticHolder(symbols.element(tree), "$tree")
+
+    /** The same question asked of the declaration directly, which is what the IR carries. */
+    fun staticHolder(element: Element?, label: String): MemPos? {
         if (element?.kind != ElementKind.FIELD || Modifier.STATIC !in element.modifiers) return null
         if (!symbols.isDeclaredInSources(element)) return null
-        return staticMemPositions.getOrPut(element.enclosingElement) { MemPos(tree) }
+        return staticMemPositions.getOrPut(element.enclosingElement) { MemPos(label) }
     }
 
     /**
@@ -148,7 +148,7 @@ class GlobalContext(val symbols: Symbols) {
      * The constructor is still inlined per mention, as every other call is; each run writes the
      * constant's fields again, to the same values, on this one position.
      */
-    fun enumConstantMemPos(element: Element, declaration: Tree): MemPos =
+    fun enumConstantMemPos(element: Element, declaration: String): MemPos =
         enumConstantMemPositions.getOrPut(element) { MemPos(declaration) }
 
     fun addMemPos(nodeId: GraphNodeId, rhsMemPos: MemPos) {

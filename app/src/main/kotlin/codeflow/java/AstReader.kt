@@ -5,6 +5,7 @@ import codeflow.graph.GraphException
 import codeflow.graph.Method
 import codeflow.graph.PosStack
 import codeflow.graph.Position
+import codeflow.ir.IrGraphBuilder
 import codeflow.java.processors.*
 import com.sun.source.tree.CompilationUnitTree
 import com.sun.source.util.JavacTask
@@ -46,6 +47,21 @@ class AstReader(private val basePath: Path) {
         analysis.close()
 
         return mainAstBlockProcessor.graphBuilderBlock
+    }
+
+    /**
+     * The same graph, built from the IR instead of from the trees.
+     *
+     * Alongside [process] rather than in place of it while the port is in progress, so that the two
+     * can be compared on the same input - which is the only question a port has to answer.
+     */
+    fun processFromIr(fileNames: List<Path>, entryPoint: String? = null): GraphBuilderBlock {
+        val analysis = analyse(fileNames)
+        val root = IrGraphBuilder(analysis.globalCtx).build(selectEntry(analysis.globalCtx, entryPoint))
+        unmodelled = analysis.globalCtx.unmodelled()
+        reportUnmodelled()
+        analysis.close()
+        return root
     }
 
     /**

@@ -476,8 +476,10 @@ class AppTest {
         HtmlExporter().processMainMethod(mainMethod) { page.append(it).append("\n") }
         val html = page.toString()
 
-        assertTrue("cytoscape" in html, "the renderer was not inlined")
-        assertTrue("ELK" in html, "the layout engine was not inlined")
+        // Strings from inside the bundles themselves. "cytoscape" and "ELK" both occur in our own
+        // viewer.mjs, so asserting on those passed with not one library present.
+        assertTrue("The Cytoscape Consortium" in html, "the renderer was not inlined")
+        assertTrue("org.eclipse.elk" in html, "the layout engine was not inlined")
         assertTrue("REVEAL_DEPTH" in html, "our own viewer code was not inlined")
         assertTrue("\"label\": \"methodC\"" in html, "the graph payload was not inlined")
         assertTrue("<script" in html && "</html>" in html, "the page is not a complete document")

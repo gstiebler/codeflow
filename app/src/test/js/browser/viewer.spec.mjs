@@ -81,6 +81,24 @@ test('reveals accumulate across clicks', async ({ page }) => {
   expect(afterE).toContain('d');
 });
 
+// The state the "never set display on a METHOD node" rule exists for. X1 flows only into X2, both
+// of them inside the methodC boxes nested in methodB, so methodB is drawn purely on the strength of
+// grandchildren. A box whose display came from its own children would go dark here and take the
+// revealed grandchildren with it.
+test('draws a box whose only revealed nodes are grandchildren', async ({ page }) => {
+  await tapLeaf(page, 'X1');
+
+  // Both methodC call sites: the label appears twice, so the tap fans out to both.
+  expect(await boxLabels(page)).toEqual(['main', 'methodB', 'methodC', 'methodC']);
+
+  const leaves = await leafLabels(page);
+  expect(leaves).toContain('X1');
+  expect(leaves).toContain('X2');
+  // Every one of methodB's own children is still hidden - without these the assertion above would
+  // hold on a page that reveals far more than it was asked to.
+  for (const own of ['methodB', 'd', '11', 'f', '13']) expect(leaves).not.toContain(own);
+});
+
 test('folding a method box hides its contents, nested boxes and all', async ({ page }) => {
   await tapLeaf(page, 'e');
   // methodC's return node sits two levels down, inside methodB's methodC box.

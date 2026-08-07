@@ -12,8 +12,8 @@ export const REVEAL_DEPTH = 3;
  * Every node within `depth` edges of `startId`, following edges in either direction.
  *
  * Breadth-first, and that matters: the walk is bounded, so a node reached by a long path before
- * a short one would be recorded at the wrong distance and pruned early. `traceFrom` popped from
- * the end of its queue, which is harmless for an unbounded closure and wrong here.
+ * a short one would be recorded at the wrong distance, and anything past it pruned away. Popping
+ * from the end of the queue instead is harmless only for an unbounded walk.
  *
  * `distance` is also what makes this terminate, since the graph has cycles wherever a loop feeds
  * a variable back into itself.
@@ -94,7 +94,8 @@ export function init(payload) {
         'target-arrow-shape': 'triangle', 'curve-style': 'bezier',
       } },
     ],
-    layout: LAYOUT,
+    // No layout here: apply() runs one at the end of init, and a second on every click. Laying out
+    // in the constructor as well only costs a run nobody sees.
   });
 
   const isBox = (node) => node.data('type') === 'METHOD';

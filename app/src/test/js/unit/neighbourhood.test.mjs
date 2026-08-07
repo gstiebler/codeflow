@@ -24,18 +24,17 @@ test('stops exactly at the depth bound', () => {
   assert.deepEqual(ids(neighbourhood(chain, 'a', 2)), ['a', 'b', 'c']);
 });
 
-// Reaching `d` by the short edge must not be defeated by also reaching it the long way round.
-// A LIFO walk can record the long distance first and prune from there.
-test('uses the shortest path to a node reachable two ways', () => {
+// This is the test that fails on a LIFO walk, and it takes both halves to do it. The edge order
+// puts the long branch on top of a stack, so a stack reaches `d` at 3 rather than 2; and `z` sits
+// one hop beyond `d`, so that wrong distance prunes a node that belongs in the ball.
+test('records the shortest distance, so nodes beyond the meeting point stay in range', () => {
   const diamond = [
-    { source: 'a', target: 'b' },
-    { source: 'b', target: 'c' },
-    { source: 'c', target: 'd' },
-    { source: 'a', target: 'x' },
-    { source: 'x', target: 'd' },
+    { source: 'a', target: 'x' }, { source: 'x', target: 'd' },   // short: d at 2
+    { source: 'a', target: 'b' }, { source: 'b', target: 'c' },   // long:  d at 3
+    { source: 'c', target: 'd' }, { source: 'd', target: 'z' },
   ];
-  // d is 2 hops via x, 3 via b/c. At depth 2 it must be in.
-  assert.ok(neighbourhood(diamond, 'a', 2).has('d'));
+  // z is 3 hops out via x. Record d at 3 and the walk stops there, losing z.
+  assert.ok(neighbourhood(diamond, 'a', 3).has('z'));
 });
 
 // A for-loop's counter flows into itself, so the graph really does contain cycles. A naive walk

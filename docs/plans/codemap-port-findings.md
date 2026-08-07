@@ -18,7 +18,7 @@ Gradle 8.0, which cannot *run* on Java 21 — Groovy fails to compile the settin
 CI had been red on `main` since d604cb8, failing in eight seconds before a single test ran. Fixed by
 raising the wrapper to 8.10.2. Nothing else here could be verified until it was.
 
-## Five bugs, all silent
+## Six bugs, all silent
 
 ### 1. A static field was not one variable
 
@@ -91,6 +91,27 @@ zero outgoing edges, where codemap's `switch.dot` has `b -> ==` three times plus
 case 2 into case 3. `visitSwitchExpression` exists; there is no `visitSwitch`, and a statement is not
 covered by the `MODELLED_EXPRESSIONS` gate, so it fails the way CLAUDE.md warns statements fail —
 somewhere else, later, blaming a line that is not at fault.
+
+### 6. Nothing joins at a branch
+
+Not yet fixed, and the largest of these by some way.
+
+codemap emits an explicit `If` merge node — `shape=invtriangle` — at every join, fed by the condition
+and both candidate values. In `nested_if.dot`, `int c = a` reads the merge output, so `c` traces back
+to all of `3`, `7`, `9`, `cond1` and `cond2`.
+
+codeflow keeps the last write and drops the rest, with nothing to indicate it. `if1/truth.md` records
+it in the repository already: `c` gets only `b = 13`, never the pre-if `b`. The same holds for
+`switch`, for `try`/`catch`/`finally` — `b` gets only the `finally` value, and the `try` and `catch`
+writes dangle with no edge out — and for object aliasing, where `if (…) p = i1; else p = i2; int a =
+p.m;` reaches only `i2`'s field.
+
+This is a design change rather than a repair, which is why it is last: it moves every branching
+golden, and it needs an answer for what a merge means for a variable written in only one branch —
+the pre-branch value is one of the two things flowing in, and codemap's answer is to make that
+explicit rather than to pick.
+
+From codemap's `nested_if`, `switch`, `if_pointer` and `if_member`.
 
 ## Two lessons about the assertions
 

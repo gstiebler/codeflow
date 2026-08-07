@@ -120,19 +120,28 @@ Ordered. Group A lands green and buys the regression net before anything is touc
 red-then-green per bug; C is the design change and goes last because it moves every branching
 golden.
 
-- [ ] **0.** Raise the Gradle wrapper to a release that runs on Java 21, so `./gradlew build` and CI
-      work at all.
-- [ ] **A1.** `earlyReturn` fixture — multiple and early returns converge on the RETURN node.
-- [ ] **A2.** `inheritance` fixture — a superclass field read through the subclass.
-- [ ] **A3.** `parentMethod` fixture — `super.m()`, inherited instance method, inherited static.
-- [ ] **A4.** `aliasInBlock` fixture — a write through an alias inside a nested block.
-- [ ] **A5.** `generic` fixture — generic class, type-parameter field, method returning `T`.
-- [ ] **A6.** `subpackage` fixture — sources in a subdirectory, in a second package.
-- [ ] **B1.** Qualified static field access: `Class.field` read and written across methods.
+Done so far: the wrapper, all of group A, and B0/B1/B5. What each one turned out to be is in
+`codemap-port-findings.md`; this list is only what is left.
+
+- [x] **0.** Raise the Gradle wrapper to a release that runs on Java 21, so `./gradlew build` and CI
+      work at all. — `1a411d9`
+- [x] **A1.** `earlyReturn` fixture — multiple and early returns converge on the RETURN node. — `2f6fb5c`
+- [x] **A2.** `inheritance` fixture — a superclass field read through the subclass. — `2f6fb5c`
+- [x] **A3.** `parentMethod` fixture — `super.m()`, inherited instance method, inherited static. — `2f6fb5c`
+- [x] **A4.** `aliasInBlock` fixture — a write through an alias inside a nested block. — `2f6fb5c`
+- [x] **A5.** `generic` fixture — generic class, type-parameter field, method returning `T`. — `2f6fb5c`
+- [x] **A6.** `subpackage` fixture — sources in a subdirectory, in a second package. — `2f6fb5c`
+- [x] **B0.** An assignment reads the value the variable held going in. Not from codemap and not in
+      the original list: found while fixing B1, where `total = total + by` stayed broken after the
+      static field was tracked. — `98c8422`
+- [x] **B1.** Qualified static field access: `Class.field` read and written across methods. — `98c8422`
 - [ ] **B2.** Field initializers and instance initializer blocks run as part of construction.
-- [ ] **B3.** Static initializer blocks — needs an answer for *when* they run before it needs code.
+- [ ] **B3.** Static initializer blocks. **Blocked on a decision** — see below.
 - [ ] **B4.** Enum constants with constructor arguments.
-- [ ] **B5.** A field written two or more call levels deep reaches the caller.
+- [x] **B5.** A field written two or more call levels deep reaches the caller. Widened while being
+      fixed: `super.m()` loses its receiver the same way an unqualified call does, so the fix covers
+      both, and one golden moved because an inherited method had been reading a field nothing had
+      assigned. — `3bb1b72`
 - [ ] **B6.** `switch` as a statement: the selector is read, each case label is compared.
 - [ ] **C1.** A join node at `if`, `switch` and `try`/`catch`/`finally`, so a value written in one
       branch does not silently replace the other.
@@ -143,4 +152,23 @@ golden.
 
 Each of B1–B6 and C1 lands as a fixture plus an `edgeLabels` behaviour test, per CLAUDE.md: new
 behaviour needs an assertion that can fail on a graph that has never been correct, not a regenerated
-snapshot.
+snapshot. B5 is why that is not sufficient on its own — see the second lesson in the findings.
+
+B2, B3 and B4 are one bug wearing three hats: nothing outside a method body is ever walked, so a
+field initializer, an initializer block and an enum constant's constructor arguments are all skipped
+alike. They are listed separately because B3 needs an answer B2 and B4 do not.
+
+### The open decision, B3
+
+An instance initializer has a `new` to attach to, so B2 knows when it runs. A static block has no
+call site at all — it runs when the class is first touched, which is control flow, and codeflow
+models none. Two answers:
+
+1. **Run it once before the entry point.** Every static a block assigns then has a value, and reads
+   of it connect. The order between two classes' blocks is arbitrary, and would be drawn as fact.
+2. **Leave it out and say so.** Statics assigned only in a block read as fields nothing has
+   assigned, which is what `unassigned` already draws for an instance field in the same position —
+   honest, and consistent with the treatment next door.
+
+Option 1 is the default unless someone objects, because a static block is usually the *only* writer
+of what it assigns, and option 2 draws its value as arriving from nowhere.

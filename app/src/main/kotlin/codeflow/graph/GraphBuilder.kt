@@ -10,8 +10,8 @@ class GraphBuilderBlock(
     // should it be here? or on a MethodBlock class?
     val method: Method,
     stack: PosStack,
-    // instance of the class that contains the method
-    private val memPos: MemPos?,
+    // the objects the method could be running on - see Frame.owner
+    private val memPos: Set<MemPos>,
     private val ctx: ProcessorContext
 ) {
     private val logger = KotlinLogging.logger {}
@@ -46,13 +46,14 @@ class GraphBuilderBlock(
     var returnNode = createReturnNode(stack)
 
     /**
-     * Which object this invocation returned, so the caller can go on tracking it.
+     * Which objects this invocation returned, so the caller can go on tracking them.
      *
-     * The first return that names one wins. Control flow is not modelled at all - both branches of
-     * an `if` are walked - so there is no basis for choosing between two returns, and a factory
-     * method, which is what this exists for, has one.
+     * Every `return` in the body contributes, because every one of them is a way the call can come
+     * back. It used to be the first that named an object, which is the arm-picking a set exists to
+     * stop: a method choosing between two instances handed the caller one of them, and the fields
+     * of the other were unreachable from the call site with nothing on the diagram to say so.
      */
-    var returnedMemPos: MemPos? = null
+    var returnedMemPos: Set<MemPos> = emptySet()
         private set
 
     // should it be here? or on a MethodBlock class?
@@ -147,17 +148,17 @@ class GraphBuilderBlock(
     /*
     In x.memberX = 5;, x is the owner of memberX
      */
-    fun addPrimitiveVariable(base: GraphNode.Base, owner: MemPos?): GraphNode {
+    fun addPrimitiveVariable(base: GraphNode.Base, owner: Set<MemPos>): GraphNode {
         val newNode = graph.createGraphNode(NodeType.VARIABLE, base)
         setLastNode(newNode)
-        owner?.addNode(newNode)
+        owner.forEach { it.addNode(newNode) }
         return newNode
     }
 
-    fun addObjectVariable(base: GraphNode.Base, owner: MemPos?): GraphNode {
+    fun addObjectVariable(base: GraphNode.Base, owner: Set<MemPos>): GraphNode {
         val newNode = graph.createGraphNode(NodeType.OBJ_VARIABLE, base)
         setLastNode(newNode)
-        owner?.addNode(newNode)
+        owner.forEach { it.addNode(newNode) }
         return newNode
     }
 
@@ -220,13 +221,18 @@ class GraphBuilderBlock(
         addSelection(base, listOf(condition, ifTrue, ifFalse))
 
     /**
-     * The variable at a join, drawn as a variable: the paths' values flow into one box.
+     * A variable that is one of several values, drawn as a variable: all of them flow into one box.
+     *
+     * Two things arrive here. A phi is the control-flow case - the paths of an `if`, the arms of a
+     * `switch`, a loop's entry and its back edge - and a field read through a name pointing at more
+     * than one object is the alias case, where the same field on each possible object is a value
+     * the read can produce. Both are "one of these, and nothing here says which".
      *
      * Not a [addSelection], although the shape is the same. A selection is an expression the source
      * wrote and its condition flows in with the branches; this is a variable, and what decides
-     * between its inputs is the `if` above it rather than a value.
+     * between its inputs is not a value on the diagram at all.
      */
-    fun addPhi(base: GraphNode.Base, inputs: List<GraphNode>, isPrimitive: Boolean): GraphNode {
+    fun addJoin(base: GraphNode.Base, inputs: List<GraphNode>, isPrimitive: Boolean): GraphNode {
         val type = if (isPrimitive) NodeType.VARIABLE else NodeType.OBJ_VARIABLE
         val phiNode = graph.createGraphNode(type, base)
         setLastNode(phiNode)
@@ -238,9 +244,9 @@ class GraphBuilderBlock(
         rhsNode.addEdge(lhsNode)
     }
 
-    fun addReturnNode(newReturnNode: GraphNode, returned: MemPos? = null) {
+    fun addReturnNode(newReturnNode: GraphNode, returned: Set<MemPos> = emptySet()) {
         newReturnNode.addEdge(returnNode)
-        if (returnedMemPos == null) returnedMemPos = returned
+        returnedMemPos = returnedMemPos + returned
     }
 
     fun getMethodName(): String = method.displayName()

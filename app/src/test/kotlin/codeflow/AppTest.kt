@@ -323,6 +323,22 @@ class AppTest {
     }
 
     /**
+     * A field read through a name that can hold either of two objects finds the field on both.
+     *
+     * The join after an `if` is not only about the value a variable holds, it is about *which object*
+     * it is: `chosen` is one of two `Holder`s, so `chosen.amount` is one of two fields. Tracking a
+     * single object per variable can only answer with an arm, and the arm it picks is an artefact of
+     * the walk rather than of the program - the same wound as a branch drawn straight through, moved
+     * into the alias model where it is harder to see.
+     */
+    @Test
+    fun aFieldReadThroughEitherOfTwoObjectsFindsBoth() {
+        val graph = buildGraph("aliasBranch", listOf("App.java"))
+        assertTrue(reaches(graph, "11", "total"), "the field of the object from one branch does not reach 'total'")
+        assertTrue(reaches(graph, "22", "total"), "the field of the object from the other branch does not reach 'total'")
+    }
+
+    /**
      * A call to a method outside the analysed sources has no body to inline, so it becomes one
      * node that the arguments flow into and the result flows out of. Values still have to be
      * traceable through it.
@@ -1455,6 +1471,7 @@ class AppTest {
     @Test fun inheritance() = codeflow("inheritance", listOf("App.java"))
     @Test fun parentMethod() = codeflow("parentMethod", listOf("App.java"))
     @Test fun aliasInBlock() = codeflow("aliasInBlock", listOf("App.java"))
+    @Test fun aliasBranch() = codeflow("aliasBranch", listOf("App.java"))
     @Test fun generic() = codeflow("generic", listOf("App.java"))
     @Test fun subpackage() = codeflow("subpackage", listOf("App.java", "util/Adder.java"))
     @Test fun selfAssignment() = codeflow("selfAssignment", listOf("App.java"))

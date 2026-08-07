@@ -9,7 +9,7 @@ class JNodeId(
     stack: PosStack,
     private val name: String,
     private val element: Element?,
-    private val memPos: MemPos?
+    private val memPos: Set<MemPos>
 ) : GraphNodeId(stack, name) {
 
     /**
@@ -19,6 +19,10 @@ class JNodeId(
      * lives at a different address in every instance, so `a.total` and `b.total` would be one
      * entry. The MemPos alone is per *object*, and every local in every method of that object
      * shares it.
+     *
+     * A *set* of positions, because a name can stand for more than one object. A field is looked
+     * up on one holder at a time, so those keys are singletons and this reads as it always did;
+     * what has a set is the name a join left pointing at either of two objects.
      *
      * It used to be the variable's name in place of its declaration, and a name is not scoped to
      * anything: two methods on one object each declaring a local `a` produced the same key, and

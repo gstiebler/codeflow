@@ -129,6 +129,18 @@ its own pass over the IR, with its own unit tests that never render a diagram. F
 writes go through it. Deep fields, aliasing, merged references and the object returned by a factory
 then become one mechanism with one test surface.
 
+**Status: the set is done; the separate pass is not.** A variable now points at a `Set<MemPos>`
+(`Frame.Value.objects`, `Frame.owner`, `holderOf`, `GlobalContext.objectsOf`), a phi unions what
+each path left behind, and a field read through several holders merges the field on each — the
+`aliasBranch` fixture and `aFieldReadThroughEitherOfTwoObjectsFindsBoth`. A method with two returns
+now hands the caller both objects rather than the first. `AstMemPosProcessor` and its swallowed
+`Exception` went with the tree walker, so that bullet is moot. Not done: it is still computed while
+the graph is drawn rather than as its own pass over the IR, so it still has no observable but the
+diagram; arrays still have no element model; a phi's back edge contributes no objects, because the
+value it names has not been drawn when the phi is; and a ternary or switch *expression* over
+references contributes none either, which needs the IR to say which of a `Select`'s inputs are
+alternatives and which are the chooser.
+
 ## 4. An IR between javac and the graph
 
 `AstBlockProcessor` is 902 lines that simultaneously resolve names, decide primitive versus

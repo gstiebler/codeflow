@@ -20,7 +20,7 @@ class GlobalContext(val symbols: Symbols) {
      * last for every call to either.
      */
     private val methods = HashMap<Element, Method>()
-    private val idToMemPos = HashMap<GraphNodeId, MemPos>()
+    private val idToMemPos = HashMap<GraphNodeId, Set<MemPos>>()
 
     /**
      * One memory position per class, holding that class's static fields.
@@ -107,12 +107,17 @@ class GlobalContext(val symbols: Symbols) {
     fun sourceMethods(): List<Method> = methods.values
         .sortedWith(compareBy({ it.ctx.path.toString() }, { it.ctx.getPosId(it.name) }))
 
-    fun getMemPos(nodeId: GraphNodeId): MemPos {
-        return idToMemPos[nodeId] ?: throw GraphException("Variable not found: $nodeId")
-    }
-
-    /** Null for anything whose memory position is not tracked, such as an object from outside. */
-    fun findMemPos(nodeId: GraphNodeId): MemPos? = idToMemPos[nodeId]
+    /**
+     * The objects a variable can point at, which is a set because a name is not one object.
+     *
+     * `if (c) p = i1; else p = i2;` leaves `p` standing for either, and a field read through it
+     * finds a field on each. Keeping one position per variable could only answer with an arm, and
+     * which arm was decided by the order the walk happened to take - the branch drawn straight
+     * through, moved into the alias model where nothing on the diagram shows it happened.
+     *
+     * Empty for anything not tracked, such as an object from outside the analysed sources.
+     */
+    fun objectsOf(nodeId: GraphNodeId): Set<MemPos> = idToMemPos[nodeId] ?: emptySet()
 
     fun createMemPos(label: String): MemPos = MemPos(label)
 
@@ -151,8 +156,9 @@ class GlobalContext(val symbols: Symbols) {
     fun enumConstantMemPos(element: Element, declaration: String): MemPos =
         enumConstantMemPositions.getOrPut(element) { MemPos(declaration) }
 
-    fun addMemPos(nodeId: GraphNodeId, rhsMemPos: MemPos) {
-        logger.debug { "addMemPos: $nodeId -> $rhsMemPos" }
-        idToMemPos[nodeId] = rhsMemPos
+    /** Records what a variable now points at. A later write replaces it, as the assignment does. */
+    fun setObjects(nodeId: GraphNodeId, objects: Set<MemPos>) {
+        logger.debug { "setObjects: $nodeId -> $objects" }
+        idToMemPos[nodeId] = objects
     }
 }

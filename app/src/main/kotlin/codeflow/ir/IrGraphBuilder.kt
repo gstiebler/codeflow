@@ -49,8 +49,8 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
     }
 
     fun build(root: Method): GraphBuilderBlock {
-        val block = GraphBuilderBlock(null, root, PosStack(), null, root.ctx)
-        Frame(this, block, PosStack(), null, null).invoke(emptyList(), emptyList())
+        val block = GraphBuilderBlock(null, root, PosStack(), emptySet(), root.ctx)
+        Frame(this, block, PosStack(), emptySet(), null).invoke(emptyList(), emptyList())
         return block
     }
 }
@@ -67,7 +67,15 @@ class Frame(
     private val builder: IrGraphBuilder,
     val block: GraphBuilderBlock,
     private val stack: PosStack,
-    private val owner: MemPos?,
+    /**
+     * The objects this invocation could be running on - `this`, as a set rather than one object.
+     *
+     * A call made through a name that a join left pointing at either of two instances runs on
+     * either, and the method is still inlined once: which body runs was settled statically from the
+     * call's target, not from the receiver, so a set here multiplies the objects a field access
+     * reaches and nothing else.
+     */
+    private val owner: Set<MemPos>,
     private val parent: Frame?
 ) {
 
@@ -77,13 +85,17 @@ class Frame(
     private var thisValue: Value? = null
 
     /**
-     * What one instruction produced: the node to draw an edge from, and the object that value *is*.
+     * What one instruction produced: the node to draw an edge from, and the objects that value
+     * could *be*.
      *
      * The two used to be asked for separately, which is why a call had to be inlined behind a memo -
      * "what did this produce?" and "which object is it?" each ran the whole callee. Here one pass
      * answers both.
+     *
+     * A set, because "which object" has no single answer after a branch: `if (c) p = i1; else p =
+     * i2;` makes `p` either. Empty for a primitive, and for an object nothing here can track.
      */
-    class Value(val node: GraphNode?, val memPos: MemPos?)
+    class Value(val node: GraphNode?, val objects: Set<MemPos> = emptySet())
 
     /** The values of one instruction list, indexed by [Val] - see [Insn]. */
     private inner class Run {
@@ -98,7 +110,7 @@ class Frame(
         fun node(v: Val): GraphNode = values[v.index]?.node
             ?: throw GraphException("Instruction ${v.index} produced no value in ${block.getMethodName()}")
 
-        fun memPos(v: Val): MemPos? = values[v.index]?.memPos
+        fun objects(v: Val): Set<MemPos> = values[v.index]?.objects ?: emptySet()
 
         fun connectBackEdges() = backEdges.forEach { (phi, value) -> node(value).addEdge(phi) }
     }
@@ -110,9 +122,9 @@ class Frame(
      * its memory position, so it is the *same object* inside. The positions go on before the body
      * runs, because the body is what asks for them.
      */
-    fun invoke(arguments: List<GraphNode>, argumentMemPositions: List<MemPos?>) {
-        block.parameterNodes.zip(argumentMemPositions).forEach { (parameter, memPos) ->
-            memPos?.let { globalCtx.addMemPos(parameter.id, it) }
+    fun invoke(arguments: List<GraphNode>, argumentMemPositions: List<Set<MemPos>>) {
+        block.parameterNodes.zip(argumentMemPositions).forEach { (parameter, objects) ->
+            if (objects.isNotEmpty()) globalCtx.setObjects(parameter.id, objects)
         }
         val method = block.method
         if (method.element.kind == ElementKind.CONSTRUCTOR && !delegatesToSameClass(method)) {
@@ -144,17 +156,17 @@ class Frame(
     }
 
     private fun draw(insn: Insn, run: Run): Value? = when (insn) {
-        is Const -> Value(block.addLiteral(base(labelId(insn.text, insn), insn)), null)
+        is Const -> Value(block.addLiteral(base(labelId(insn.text, insn), insn)))
 
-        is Param -> block.parameterNodes[insn.index].let { Value(it, globalCtx.findMemPos(it.id)) }
+        is Param -> block.parameterNodes[insn.index].let { Value(it, globalCtx.objectsOf(it.id)) }
 
-        is WriteLocal -> write(insn.name, insn.element, insn.isPrimitive, owner, run.memPos(insn.value), insn, run.node(insn.value))
+        is WriteLocal -> write(insn.name, insn.element, insn.isPrimitive, owner, run.objects(insn.value), insn, run.node(insn.value))
 
         is ReadField -> readField(insn, run)
 
         is WriteField -> {
-            val holder = holderOf(insn.receiver, insn.element, insn, run)
-            write(insn.name, insn.element, insn.isPrimitive, holder, run.memPos(insn.value), insn, run.node(insn.value))
+            val holders = holderOf(insn.receiver, insn.element, insn, run)
+            write(insn.name, insn.element, insn.isPrimitive, holders, run.objects(insn.value), insn, run.node(insn.value))
         }
 
         is ThisRef -> thisValue(insn)
@@ -164,15 +176,17 @@ class Frame(
         is Bind -> bind(insn, run)
 
         is BinOp -> Value(
-            block.addBinOp(base(labelId(insn.label, insn), insn), run.node(insn.left), run.node(insn.right)),
-            null
+            block.addBinOp(base(labelId(insn.label, insn), insn), run.node(insn.left), run.node(insn.right))
         )
 
-        is UnOp -> Value(block.addUnaryOp(base(labelId(insn.label, insn), insn), run.node(insn.operand)), null)
+        is UnOp -> Value(block.addUnaryOp(base(labelId(insn.label, insn), insn), run.node(insn.operand)))
 
+        // No objects, although a ternary over references really is one of two: the inputs are not
+        // all alternatives - an array's are its elements and a switch's first is the selector - and
+        // unioning them indiscriminately would make an array be the objects it holds. Telling the
+        // two apart is the IR's to say, and it does not yet.
         is Select -> Value(
-            block.addSelection(base(labelId(insn.label, insn), insn), insn.inputs.map { run.node(it) }),
-            null
+            block.addSelection(base(labelId(insn.label, insn), insn), insn.inputs.map { run.node(it) })
         )
 
         is Call -> call(insn, run)
@@ -180,46 +194,45 @@ class Frame(
         is Delegate -> delegate(insn, run)
 
         is New -> construct(insn.typeName, insn.constructor, insn.args.map { run.node(it) },
-            insn.args.map { run.memPos(it) }, null, insn)
+            insn.args.map { run.objects(it) }, null, insn)
 
         is Opaque -> Value(
-            block.addExternal(base(labelId(insn.label, insn), insn), insn.inputs.map { run.node(it) }),
-            null
+            block.addExternal(base(labelId(insn.label, insn), insn), insn.inputs.map { run.node(it) })
         )
 
         is Unmodelled -> {
             globalCtx.recordUnmodelled("${insn.kind} at ${insn.source}")
-            Value(
-                block.addUnmodelled(base(labelId(insn.kind, insn), insn), insn.inputs.map { run.node(it) }),
-                null
-            )
+            Value(block.addUnmodelled(base(labelId(insn.kind, insn), insn), insn.inputs.map { run.node(it) }))
         }
 
         is Return -> {
-            insn.value?.let { block.addReturnNode(run.node(it), run.memPos(it)) }
+            insn.value?.let { block.addReturnNode(run.node(it), run.objects(it)) }
             null
         }
     }
 
     /**
-     * The object an access happens on.
+     * The objects an access happens on, which is every object the receiver could be.
      *
      * A static field is held by its class whichever way it is written, so that is asked first: the
      * class in front of the dot is a type name and has no object of its own to offer, and an
      * unqualified static inside its own class has no `this` to fall back on when the method is
      * static too.
+     *
+     * Empty means no object at all - a type name, or a receiver nothing here can track - which is a
+     * different fact from "one object", and the two are read apart below.
      */
-    private fun holderOf(receiver: Receiver, element: Element?, insn: Insn, run: Run): MemPos? {
-        globalCtx.staticHolder(element, insn.source)?.let { return it }
+    private fun holderOf(receiver: Receiver, element: Element?, insn: Insn, run: Run): Set<MemPos> {
+        globalCtx.staticHolder(element, insn.source)?.let { return setOf(it) }
         return when (receiver) {
             Receiver.Enclosing -> owner
-            Receiver.TypeName -> null
-            is Receiver.Value -> run.memPos(receiver.value)
+            Receiver.TypeName -> emptySet()
+            is Receiver.Value -> run.objects(receiver.value)
         }
     }
 
     /**
-     * A field read, which finds the object first and the field on it second.
+     * A field read, which finds the objects first and the field on each of them second.
      *
      * With no object the receiver is something from outside the analysed sources - the `System` of
      * `System.out`, or an enum we do not have - and the value it selects is opaque rather than
@@ -228,28 +241,53 @@ class Frame(
      */
     private fun readField(insn: ReadField, run: Run): Value {
         enumConstant(insn)?.let { return it }
-        val holder = holderOf(insn.receiver, insn.element, insn, run)
+        val holders = holderOf(insn.receiver, insn.element, insn, run)
         val written = insn.receiver != Receiver.Enclosing
-        return read(insn.name, insn.element, insn.isPrimitive, holder, written, insn)
+        return read(insn.name, insn.element, insn.isPrimitive, holders, written, insn)
     }
 
+    /**
+     * A read of a name, on however many objects it could be happening on.
+     *
+     * One holder is the ordinary case and produces no box of its own: the read *is* the node the
+     * write left behind, which is what makes a value traceable from where it was set to where it is
+     * used. Several holders is one of several fields, and that needs a box saying so - the same
+     * join a phi draws, for a reason that is about aliasing rather than about control flow.
+     */
     private fun read(
         name: String,
         element: Element?,
         isPrimitive: Boolean,
-        holder: MemPos?,
+        holders: Set<MemPos>,
         written: Boolean,
         insn: Insn
     ): Value {
-        val id = JNodeId(stack, name, element, holder)
+        val values = holders.ifEmpty { setOf(null) }
+            .map { readFrom(it, name, element, isPrimitive, written, insn) }
+        values.singleOrNull()?.let { return it }
+        return Value(
+            block.addJoin(base(labelId(name, insn), insn), values.mapNotNull { it.node }, isPrimitive),
+            values.flatMapTo(HashSet()) { it.objects }
+        )
+    }
+
+    private fun readFrom(
+        holder: MemPos?,
+        name: String,
+        element: Element?,
+        isPrimitive: Boolean,
+        written: Boolean,
+        insn: Insn
+    ): Value {
+        val id = JNodeId(stack, name, element, setOfNotNull(holder))
         val node = holder?.getNode(id)
             ?: block.getVariable(id)?.lastNode
             ?: if (holder == null && written) {
                 block.addExternal(base(id, insn), emptyList())
             } else {
-                unassigned(id, name, element, isPrimitive, holder, insn)
+                unassigned(id, name, element, isPrimitive, setOfNotNull(holder), insn)
             }
-        return Value(node, globalCtx.findMemPos(id))
+        return Value(node, globalCtx.objectsOf(id))
     }
 
     /**
@@ -259,27 +297,36 @@ class Frame(
      * object write also records what the name now points at, so a later read through it finds the
      * right fields - and gets a position of its own when the value has none, so that a field set on
      * an object from outside still has somewhere to hang.
+     *
+     * Through a receiver that could be either of two objects it is a box on each, both taking the
+     * same value: there is one write in the source and two fields it could land in, and drawing one
+     * of them would be choosing which. The value of the expression is the first, since `(a.f = v)`
+     * is `v` whichever object `a` turned out to be.
      */
     private fun write(
         name: String,
         element: Element?,
         isPrimitive: Boolean,
-        holder: MemPos?,
-        valueMemPos: MemPos?,
+        holders: Set<MemPos>,
+        valueObjects: Set<MemPos>,
         insn: Insn,
         valueNode: GraphNode
     ): Value {
-        val id = JNodeId(stack, name, element, holder)
-        val node = if (isPrimitive) {
-            block.addPrimitiveVariable(base(id, insn), holder)
-        } else {
-            block.addObjectVariable(base(id, insn), holder)
+        val written = if (isPrimitive) emptySet()
+        else valueObjects.ifEmpty { setOf(globalCtx.createMemPos(insn.source)) }
+        val nodes = holders.ifEmpty { setOf(null) }.map { holder ->
+            val owning = setOfNotNull(holder)
+            val id = JNodeId(stack, name, element, owning)
+            val node = if (isPrimitive) {
+                block.addPrimitiveVariable(base(id, insn), owning)
+            } else {
+                block.addObjectVariable(base(id, insn), owning)
+            }
+            block.addAssignment(node, valueNode)
+            if (!isPrimitive) globalCtx.setObjects(id, written)
+            node
         }
-        block.addAssignment(node, valueNode)
-        if (isPrimitive) return Value(node, null)
-        val memPos = valueMemPos ?: globalCtx.createMemPos(insn.source)
-        globalCtx.addMemPos(id, memPos)
-        return Value(node, memPos)
+        return Value(nodes.first(), written)
     }
 
     /**
@@ -297,13 +344,13 @@ class Frame(
             block.addObjectVariable(base(id, insn), owner)
         }
         insn.value?.let { block.addAssignment(node, run.node(it)) }
-        val memPos = when (insn.identity) {
-            Identity.OfValue -> insn.value?.let { run.memPos(it) }
-            Identity.Fresh -> globalCtx.createMemPos(insn.source).takeUnless { insn.isPrimitive }
-            Identity.Unknown -> null
+        val objects = when (insn.identity) {
+            Identity.OfValue -> insn.value?.let { run.objects(it) } ?: emptySet()
+            Identity.Fresh -> if (insn.isPrimitive) emptySet() else setOf(globalCtx.createMemPos(insn.source))
+            Identity.Unknown -> emptySet()
         }
-        memPos?.let { globalCtx.addMemPos(id, it) }
-        return Value(node, memPos)
+        if (objects.isNotEmpty()) globalCtx.setObjects(id, objects)
+        return Value(node, objects)
     }
 
     /**
@@ -313,16 +360,22 @@ class Frame(
      * a use below the join was resolved to this instruction while the method was being lowered, so
      * what the box has to be is the merge itself, at the line of the `if` that caused it.
      *
-     * Which object it is is the first path that names one, on the same terms as a method with two
-     * returns: control flow says which, nothing here knows which way it went, and an object is
-     * better tracked through one of its two possibilities than through neither.
+     * Which object it is is every object any path could have left it holding, which is the whole
+     * point of the set: it used to be the first path that named one, and a field read below the
+     * join then found the fields of one arm and none of the other's, with nothing on the page
+     * showing an arm had been chosen.
+     *
+     * A path still waiting on a back edge cannot contribute - its value has not been drawn yet -
+     * so an object created inside a loop and assigned to a variable declared before it is not among
+     * these. That is the remaining edge of the alias model, and it is a *missing* possibility
+     * rather than an invented one.
      */
     private fun phi(insn: Phi, run: Run): Value {
         val (arrived, pending) = insn.inputs.partition { it.index < run.reached }
         val id = labelId(insn.name, insn)
-        val node = block.addPhi(base(id, insn), arrived.map { run.node(it) }, insn.isPrimitive)
+        val node = block.addJoin(base(id, insn), arrived.map { run.node(it) }, insn.isPrimitive)
         pending.forEach { run.backEdges.add(node to it) }
-        return Value(node, arrived.firstNotNullOfOrNull { run.memPos(it) })
+        return Value(node, arrived.flatMapTo(HashSet()) { run.objects(it) })
     }
 
     /**
@@ -334,10 +387,10 @@ class Frame(
      * alike and be drawn as one object.
      */
     private fun thisValue(insn: ThisRef): Value = thisValue ?: run {
-        val instance = owner ?: globalCtx.createMemPos(insn.source)
+        val instance = owner.ifEmpty { setOf(globalCtx.createMemPos(insn.source)) }
         val id = JNodeId(stack, "this", null, instance)
         val node = block.addObjectVariable(base(id, insn), instance)
-        globalCtx.addMemPos(id, instance)
+        globalCtx.setObjects(id, instance)
         Value(node, instance).also { thisValue = it }
     }
 
@@ -363,7 +416,7 @@ class Frame(
             creation.typeName,
             creation.constructor,
             creation.args.map { run.node(it) },
-            creation.args.map { run.memPos(it) },
+            creation.args.map { run.objects(it) },
             globalCtx.enumConstantMemPos(element, creation.source),
             creation
         )
@@ -381,16 +434,16 @@ class Frame(
         if (method == null || isBeingInlined(method)) {
             val receiverNode = (insn.receiver as? Receiver.Value)?.let { run.node(it.value) }
             val inputs = listOfNotNull(receiverNode) + insn.args.map { run.node(it) }
-            return Value(block.addExternal(base(labelId(insn.name, insn), insn), inputs), null)
+            return Value(block.addExternal(base(labelId(insn.name, insn), insn), inputs))
         }
         val receiverMemPos = when (insn.receiver) {
             // A static method runs on no object at all, so it has nothing to inherit.
-            Receiver.Enclosing -> owner.takeIf { Modifier.STATIC !in method.element.modifiers }
-            Receiver.TypeName -> null
-            is Receiver.Value -> run.memPos(insn.receiver.value)
+            Receiver.Enclosing -> if (Modifier.STATIC in method.element.modifiers) emptySet() else owner
+            Receiver.TypeName -> emptySet()
+            is Receiver.Value -> run.objects(insn.receiver.value)
         }
         val child = enter(method, receiverMemPos, insn)
-        child.invoke(insn.args.map { run.node(it) }, insn.args.map { run.memPos(it) })
+        child.invoke(insn.args.map { run.node(it) }, insn.args.map { run.objects(it) })
         return Value(child.block.returnNode, child.block.returnedMemPos)
     }
 
@@ -416,8 +469,8 @@ class Frame(
     private fun delegate(insn: Delegate, run: Run): Value? {
         val constructor = globalCtx.findMethod(insn.target) ?: return null
         val child = enter(constructor, owner, insn)
-        child.invoke(insn.args.map { run.node(it) }, insn.args.map { run.memPos(it) })
-        return Value(child.block.returnNode, null)
+        child.invoke(insn.args.map { run.node(it) }, insn.args.map { run.objects(it) })
+        return Value(child.block.returnNode)
     }
 
     /**
@@ -438,11 +491,11 @@ class Frame(
         typeName: String,
         constructorElement: Element?,
         arguments: List<GraphNode>,
-        argumentMemPositions: List<MemPos?>,
+        argumentMemPositions: List<Set<MemPos>>,
         into: MemPos?,
         insn: Insn
     ): Value {
-        val created = into ?: globalCtx.createMemPos(insn.source)
+        val created = setOf(into ?: globalCtx.createMemPos(insn.source))
         val constructor = globalCtx.findMethod(constructorElement)
         if (constructor == null) {
             Frame(builder, block, stack.push(insn.source), created, this)
@@ -454,8 +507,8 @@ class Frame(
         return Value(child.block.returnNode, created)
     }
 
-    /** The frame a call site opens: a block nested in this one, on the object the callee runs on. */
-    private fun enter(method: Method, memPos: MemPos?, insn: Insn): Frame {
+    /** The frame a call site opens: a block nested in this one, on the objects the callee runs on. */
+    private fun enter(method: Method, memPos: Set<MemPos>, insn: Insn): Frame {
         val childStack = stack.push(insn.source)
         val childBlock = GraphBuilderBlock(block, method, childStack, memPos, method.ctx)
         block.addCalledMethod(childBlock)
@@ -479,7 +532,7 @@ class Frame(
         name: String,
         element: Element?,
         isPrimitive: Boolean,
-        holder: MemPos?,
+        holder: Set<MemPos>,
         insn: Insn
     ): GraphNode {
         if (element?.kind == ElementKind.ENUM_CONSTANT) return block.addExternal(base(id, insn), emptyList())

@@ -205,6 +205,24 @@ another method all find each other — the block-parent chain does not span sibl
 fields only, since locals are resolved by then. `MemPos` has no
 `equals`, so two instances are two objects, which is what identity should mean here.
 
+A *name*, though, is not one object: a variable points at a **set** of them. `if (c) p = i1; else p
+= i2;` leaves `p` standing for either, so `Frame.Value.objects`, `Frame.owner`, `holderOf` and
+`GlobalContext.objectsOf` are all sets, and `Frame.phi` unions what each path left behind. Holding
+one position per variable could only answer with an arm, and which arm was whichever the walk
+reached last — §1's wound moved into the alias model, where nothing on the diagram shows it
+happened. A read through several holders looks the field up on each and merges them with the same
+box a phi uses (`GraphBuilder.addJoin`); through one it still produces no box at all, which is what
+keeps a value traceable from the write that set it to the read that uses it. A *write* through
+several is a box on each, all taking the same value, since there is one write in the source and two
+fields it could land in. `aFieldReadThroughEitherOfTwoObjectsFindsBoth` is the assertion.
+
+Two edges of this are deliberately still open, and both are a *missing* possibility rather than an
+invented one. A phi whose back edge has not been drawn yet cannot contribute objects, so one
+created inside a loop and assigned to a variable declared above it is not in the set. And a `Select`
+produces none at all: its inputs are not all alternatives — an array's are its elements, a switch
+expression's first is the selector — so unioning them would make an array *be* the objects it holds.
+Telling those apart is the IR's job and it does not yet do it.
+
 ### A local resolves to its definition, and a branch joins with a phi
 
 A use of a local is not an instruction. `Lowering` keeps a map from the declaration javac resolved

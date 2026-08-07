@@ -659,6 +659,111 @@ class AppTest {
     }
 
     /**
+     * A method leaves by whichever `return` runs, so each one produces the method's value and all
+     * of them have to reach the RETURN node. Keeping only the last would draw the guard clauses as
+     * dead code - readable, plausible, and claiming the method can only ever return one thing.
+     *
+     * Ported from codemap's `return` fixture.
+     */
+    @Test
+    fun everyReturnInAMethodProducesItsValue() {
+        val edges = edgeLabels(buildGraph("earlyReturn", listOf("App.java")))
+        assertTrue("100" to "classify" in edges, "the first guard's return is missing: $edges")
+        assertTrue("55" to "classify" in edges, "the second guard's return is missing: $edges")
+        assertTrue("*" to "classify" in edges, "the fall-through return is missing: $edges")
+        assertTrue("classify" to "result" in edges, "the method's value does not reach the caller: $edges")
+    }
+
+    /**
+     * A field is declared once, on whichever class in the chain declares it, and a read through a
+     * subclass has to find that one. `Leaf` declares neither `fromBase` nor `fromMiddle`, so
+     * looking a field up on the receiver's own class would lose both.
+     *
+     * Ported from codemap's `inheritance` fixture, which used two base classes; Java has one.
+     */
+    @Test
+    fun aFieldDeclaredOnASuperclassIsReadThroughTheSubclass() {
+        val graph = buildGraph("inheritance", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("5" to "fromBase" in edges, "the grandparent's field is not written: $edges")
+        assertTrue("10" to "fromMiddle" in edges, "the parent's field is not written: $edges")
+        assertTrue("20" to "fromLeaf" in edges, "the subclass's own field is not written: $edges")
+        assertTrue(reaches(graph, "5", "total"), "the grandparent's field does not reach the sum: $edges")
+        assertTrue(reaches(graph, "10", "total"), "the parent's field does not reach the sum: $edges")
+        assertTrue(reaches(graph, "20", "total"), "the subclass's field does not reach the sum: $edges")
+    }
+
+    /**
+     * Three ways to reach a method declared on a superclass - through `super`, unqualified, and as
+     * an inherited static - and all three have a body in the analysed sources, so all three are
+     * inlined rather than taking the opaque EXTERNAL path.
+     *
+     * Ported from codemap's `parent_class_method` fixture.
+     */
+    @Test
+    fun anInheritedMethodIsInlinedHoweverItIsReached() {
+        val edges = edgeLabels(buildGraph("parentMethod", listOf("App.java")))
+        assertTrue("input" to "amount" in edges, "the argument does not reach super.shift's parameter: $edges")
+        assertTrue("amount" to "+" in edges, "super.shift's body was not inlined: $edges")
+        assertTrue("offset" to "+" in edges, "the field the parent method reads is missing: $edges")
+        assertTrue("shift" to "shifted" in edges, "super.shift does not return its value: $edges")
+        assertTrue("shifted" to "factor" in edges, "the argument does not reach the inherited static: $edges")
+        assertTrue("factor" to "*" in edges, "the inherited static's body was not inlined: $edges")
+        assertTrue("scale" to "scaled" in edges, "the inherited static does not return its value: $edges")
+    }
+
+    /**
+     * Two names for one object. A write through the alias is a write to the object, so the read
+     * after the block finds it - and finds it *instead of* the value written before the block,
+     * since one assignment replaced the other rather than adding to it.
+     *
+     * The negative half is paired with the positive: an implementation that connected nothing
+     * would satisfy "1 does not reach read" trivially, and fail the line above it.
+     *
+     * Ported from codemap's `write_pointed_inside_block` fixture.
+     */
+    @Test
+    fun aWriteThroughAnAliasInANestedBlockIsSeenAfterIt() {
+        val graph = buildGraph("aliasInBlock", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("box" to "alias" in edges, "the alias is not bound to the object: $edges")
+        assertTrue(reaches(graph, "7", "read"), "the write through the alias is not seen after the block: $edges")
+        assertTrue(!reaches(graph, "1", "read"), "the replaced value still reaches the read: $edges")
+    }
+
+    /**
+     * A type parameter is a type like any other. The value put in through the constructor is the
+     * one the getter returns, whatever `T` was bound to at the call site.
+     *
+     * Ported from codemap's `template` fixture.
+     */
+    @Test
+    fun aValueFlowsThroughAGenericHolder() {
+        val graph = buildGraph("generic", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("\"payload\"" to "initial" in edges, "the argument does not reach the constructor: $edges")
+        assertTrue("initial" to "held" in edges, "the constructor does not write the field: $edges")
+        assertTrue("held" to "get" in edges, "the getter does not return the field: $edges")
+        assertTrue("get" to "taken" in edges, "the getter's value does not reach the caller: $edges")
+        assertTrue(reaches(graph, "\"payload\"", "length"), "flow does not continue past the holder: $edges")
+    }
+
+    /**
+     * The callee is in another package, in a subdirectory. Resolution is by `Element`, so where a
+     * file sits on disk decides nothing about what its names mean.
+     *
+     * Ported from codemap's `files` fixture, which kept callees under `sub_folder/`.
+     */
+    @Test
+    fun aCalleeInASubdirectoryAndAnotherPackageIsInlined() {
+        val edges = edgeLabels(buildGraph("subpackage", listOf("App.java", "util/Adder.java")))
+        assertTrue("3" to "left" in edges, "the first argument does not reach the parameter: $edges")
+        assertTrue("5" to "right" in edges, "the second argument does not reach the parameter: $edges")
+        assertTrue("left" to "+" in edges, "the callee's body was not inlined: $edges")
+        assertTrue("add" to "sum" in edges, "the callee's value does not reach the caller: $edges")
+    }
+
+    /**
      * `value instanceof String` is a value derived from `value`, and `value instanceof String text`
      * additionally binds `text` to the very same object.
      *
@@ -900,4 +1005,10 @@ class AppTest {
     @Test fun varargs() = codeflow("varargs", listOf("App.java"))
     @Test fun arrayCreation() = codeflow("arrayCreation", listOf("App.java"))
     @Test fun catchParameter() = codeflow("catchParameter", listOf("App.java"))
+    @Test fun earlyReturn() = codeflow("earlyReturn", listOf("App.java"))
+    @Test fun inheritance() = codeflow("inheritance", listOf("App.java"))
+    @Test fun parentMethod() = codeflow("parentMethod", listOf("App.java"))
+    @Test fun aliasInBlock() = codeflow("aliasInBlock", listOf("App.java"))
+    @Test fun generic() = codeflow("generic", listOf("App.java"))
+    @Test fun subpackage() = codeflow("subpackage", listOf("App.java", "util/Adder.java"))
 }

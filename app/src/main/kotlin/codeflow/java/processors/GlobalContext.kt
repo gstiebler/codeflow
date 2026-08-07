@@ -119,7 +119,8 @@ class GlobalContext(val symbols: Symbols) {
      */
     fun objectsOf(nodeId: GraphNodeId): Set<MemPos> = idToMemPos[nodeId] ?: emptySet()
 
-    fun createMemPos(label: String): MemPos = MemPos(label)
+    /** [type] is the class the object was constructed as - see [MemPos.type]. */
+    fun createMemPos(label: String, type: Element? = null): MemPos = MemPos(label, type)
 
     /**
      * The class's memory position when [tree] names a static field, and null for anything else.

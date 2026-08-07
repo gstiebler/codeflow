@@ -543,7 +543,12 @@ class Frame(
         into: MemPos?,
         insn: Insn
     ): Value {
-        val created = setOf(into ?: globalCtx.createMemPos(insn.source))
+        // The class comes from the constructor's own declaration, which is present even when the
+        // class declares no constructor - attribution inserts one, and its enclosing element is
+        // still the class. `Plain` in the fieldInitializer fixture is the case that proves it.
+        val created = setOf(
+            into ?: globalCtx.createMemPos(insn.source, constructorElement?.enclosingElement)
+        )
         val constructor = globalCtx.findMethod(constructorElement)
         if (constructor == null) {
             Frame(builder, block, stack.push(insn.source), created, this)

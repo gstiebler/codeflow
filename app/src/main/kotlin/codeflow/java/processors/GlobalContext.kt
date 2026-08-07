@@ -2,6 +2,7 @@ package codeflow.java.processors
 
 import codeflow.graph.*
 import codeflow.java.Symbols
+import com.sun.source.tree.ClassTree
 import com.sun.source.tree.MethodTree
 import com.sun.source.tree.Tree
 import mu.KotlinLogging
@@ -33,11 +34,32 @@ class GlobalContext(val symbols: Symbols) {
      * Keyed by the class's Element, so two classes each declaring `total` stay apart.
      */
     private val staticMemPositions = HashMap<Element, MemPos>()
+
+    /**
+     * The class declarations these sources contain, so that construction can reach what a class
+     * declares *outside* any method body - its field initializers and its initializer blocks.
+     *
+     * The context is stored alongside the tree because it is per compilation unit: a class
+     * constructed from another file has its positions and its error locations in its own.
+     */
+    private val classes = HashMap<Element, SourceClass>()
+
+    /** See [enumConstantMemPos]. */
+    private val enumConstantMemPositions = HashMap<Element, MemPos>()
     private val logger = KotlinLogging.logger {}
+
+    class SourceClass(val tree: ClassTree, val ctx: ProcessorContext)
 
     fun addMethod(methodTree: MethodTree, element: ExecutableElement, ctx: ProcessorContext) {
         methods[element] = Method(methodTree, ctx, element)
     }
+
+    fun addClass(element: Element, classTree: ClassTree, ctx: ProcessorContext) {
+        classes[element] = SourceClass(classTree, ctx)
+    }
+
+    /** Null for a class outside the analysed sources, whose members are not ours to walk. */
+    fun findClass(element: Element?): SourceClass? = element?.let { classes[it] }
 
     /** Null for a method outside the analysed sources, which has no body to inline. */
     fun findMethod(element: Element?): Method? = element?.let { methods[it] }
@@ -87,6 +109,17 @@ class GlobalContext(val symbols: Symbols) {
         if (!symbols.isDeclaredInSources(element)) return null
         return staticMemPositions.getOrPut(element.enclosingElement) { MemPos(tree) }
     }
+
+    /**
+     * The object an enum constant is, which is one object for the whole program.
+     *
+     * `Size.SMALL` names the same instance at every mention, so unlike `new X(...)` - a fresh object
+     * per call site - the memory position has to outlive the invocation that first asked for it.
+     * The constructor is still inlined per mention, as every other call is; each run writes the
+     * constant's fields again, to the same values, on this one position.
+     */
+    fun enumConstantMemPos(element: Element, declaration: Tree): MemPos =
+        enumConstantMemPositions.getOrPut(element) { MemPos(declaration) }
 
     fun addMemPos(nodeId: GraphNodeId, rhsMemPos: MemPos) {
         logger.debug { "addMemPos: $nodeId -> $rhsMemPos" }

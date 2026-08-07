@@ -21,6 +21,10 @@ class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode
      */
     override fun visitClass(node: ClassTree, ctx: ProcessorContext): GraphNode? {
         logger.info { "Class name: ${node.simpleName}" }
+        // Recorded so that construction can run what the class declares outside any method body:
+        // its field initializers and its instance initializer blocks. Registering the methods
+        // alone left those unreachable, and they are the only writer of most fields.
+        globalCtx.symbols.element(node)?.let { globalCtx.addClass(it, node, ctx) }
         node.members.forEach {
             if (it.kind == Tree.Kind.METHOD || it is ClassTree) it.accept(this, ctx)
         }

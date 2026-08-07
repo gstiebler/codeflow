@@ -210,8 +210,19 @@ Never widen that set without a visitor behind it.
 declares nothing, and the failure surfaces further down as a read of a name with no node, blaming a
 line that is not the one at fault. The enhanced `for` and the `catch` parameter were both found
 that way, so a construct that binds a name needs a visitor even when it produces no value —
-`visitEnhancedForLoop`, `visitCatch`, `bindPattern`. A pattern on a `switch` used as a *statement*
-is the one still missing, which is what the `unboundLocal` fixture is.
+`visitEnhancedForLoop`, `visitCatch`, `bindPattern`. A *pattern* on a `switch` used as a statement
+is the one still missing, which is what the `unboundLocal` fixture is: `visitSwitch` models the
+statement itself, but a `case String text ->` label binds nothing.
+
+A statement can also fail the other way round — reading a value nobody notices is missing. `switch`
+used as a statement had no visitor at all, so its selector was scanned, given a node, and left with
+no edge out of it: the value deciding the whole branch drawn as unused. Nothing declared a name, so
+nothing failed. The same shape hid **anything a class declares outside a method body** — field
+initializers, instance initializer blocks, an enum constant's constructor arguments — all of which
+now run from `runInstanceInitializers` and `enumConstant`. `runInstanceInitializers` is reached from
+two places, because the case that matters most has no constructor to hang it on: a class declaring
+none still runs its field initializers on every `new`, so `constructorNode` runs them in the
+caller's block rather than drawing a box for a constructor nobody wrote.
 
 Two related rules:
 
@@ -229,7 +240,7 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
 
 `AppTest.kt` has three kinds of assertion, and the mix is deliberate:
 
-- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 33 of them. They certify
+- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 46 of them. They certify
   *unchanged*, not *correct*. `ternary/truth.md` was once written from a buggy run and passed
   happily while encoding a graph with a branch missing. Treat a green golden file as evidence of
   nothing.

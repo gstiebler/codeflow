@@ -592,6 +592,93 @@ class AppTest {
     }
 
     /**
+     * `SMALL(3)` runs a constructor, so the value written into the constant is the one its getter
+     * returns - and each constant is its own object.
+     *
+     * Nothing ran the declaration, so `Size.SMALL` was opaque and `units()` was inlined against an
+     * object with no fields: it returned a `units` with nothing flowing into it. That is a getter
+     * drawn as producing a value from nowhere, on the shape most enums in real code have.
+     *
+     * The negative assertion is what says the constants are two objects rather than one; it is
+     * paired with the two positives, which fail if nothing is connected at all.
+     *
+     * Ported from codemap's `enum` fixture. The bare form, where the declaration is the whole
+     * value, stays as it was - see [anEnumConstantIsAValueBareOrQualified].
+     */
+    @Test
+    fun anEnumConstantsConstructorArgumentReachesItsGetter() {
+        val graph = buildGraph("enumConstructor", listOf("App.java"))
+        assertTrue("units" to "VARIABLE" in nodeTypes(graph), "the constant's field is not tracked: ${nodeTypes(graph)}")
+        assertTrue(reaches(graph, "3", "small"), "the first constant's argument does not reach its getter: $graph")
+        assertTrue(reaches(graph, "9", "large"), "the second constant's argument does not reach its getter: $graph")
+        assertTrue(!reaches(graph, "3", "large"), "the two constants share one object: $graph")
+    }
+
+    /**
+     * A field initializer and an instance initializer block run as part of construction, so what
+     * they assign is what the constructor reads and what the caller finds afterwards.
+     *
+     * Nothing outside a method body was ever walked. `counted = counted + add` therefore read a
+     * `counted` with nothing flowing into it, `blocked` came back as a field nobody had assigned,
+     * and `nested` named an object that had never been constructed, so `outer.nested.held` was an
+     * opaque dead end. All three are complete, readable drawings of flows that are not the code's.
+     *
+     * `Plain` declares no constructor, so there is no body to inline and no box to draw - the
+     * initializer still runs. The `add` assertion is what says the initializer did not simply
+     * replace what the constructor does.
+     *
+     * Ported from codemap's `constructor_chain` fixture.
+     */
+    @Test
+    fun fieldInitializersAndInstanceBlocksRunAsPartOfConstruction() {
+        val graph = buildGraph("fieldInitializer", listOf("App.java"))
+        assertTrue(reaches(graph, "5", "fromField"), "the field initializer did not run: $graph")
+        assertTrue(reaches(graph, "3", "fromField"), "the constructor's own write was lost: $graph")
+        assertTrue(reaches(graph, "7", "fromBlock"), "the instance initializer block did not run: $graph")
+        assertTrue(reaches(graph, "10", "fromNested"), "an object built by a field initializer is not tracked: $graph")
+        assertTrue(reaches(graph, "4", "fromPlain"), "a class with no written constructor skipped its initializer: $graph")
+        assertTrue(reaches(graph, "1", "fromDelegated"), "the delegating constructor's chain is broken: $graph")
+        // Two `new Outer(...)`, so `counted = 5` runs twice. A third occurrence means the
+        // constructor delegated to ran the initializers that its `this(...)` caller had already run.
+        assertEquals(
+            2, nodeTypes(graph).count { it == ("5" to "LITERAL") },
+            "the field initializer is drawn once per construction: ${nodeTypes(graph)}"
+        )
+    }
+
+    /**
+     * A `switch` used as a statement compares its selector against every case label, and walks
+     * every arm.
+     *
+     * The selector's read was invisible: `visitSwitchExpression` models the expression form, there
+     * was no `visitSwitch`, and a *statement* is not covered by the gate in `scan`, so nothing said
+     * so. The default scan reached the selector and produced its node, then drew no edge out of it,
+     * which is a diagram where the value that decides the whole branch appears to be unused.
+     *
+     * The count is what makes this fail on a plausible-but-wrong implementation: comparing the
+     * selector once, or once per arm including `default`, both draw a switch that reads its
+     * selector. Three constant labels means three comparisons.
+     *
+     * Ported from codemap's `switch` fixture.
+     */
+    @Test
+    fun aSwitchStatementComparesItsSelectorAgainstEveryLabel() {
+        val graph = buildGraph("switchStatement", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertEquals(
+            3, edges.count { it == ("selector" to "==") },
+            "the selector is not compared against each of the three constant labels: $edges"
+        )
+        assertTrue("1" to "==" in edges, "the first case label is not compared: $edges")
+        assertTrue("2" to "==" in edges, "the second case label is not compared: $edges")
+        assertTrue("3" to "==" in edges, "the third case label is not compared: $edges")
+        assertTrue("10" to "chosen" in edges, "the first arm was not walked: $edges")
+        assertTrue("300" to "side" in edges, "the fall-through arm was not walked: $edges")
+        assertTrue("500" to "side" in edges, "the default arm was not walked: $edges")
+        assertTrue(reaches(graph, "100", "out"), "the value the switch left behind does not reach the read: $graph")
+    }
+
+    /**
      * With several entry points, the one graphed is the first by source path, whichever order the
      * files arrive in.
      *
@@ -1089,4 +1176,7 @@ class AppTest {
     @Test fun selfAssignment() = codeflow("selfAssignment", listOf("App.java"))
     @Test fun staticField() = codeflow("staticField", listOf("App.java"))
     @Test fun deepField() = codeflow("deepField", listOf("App.java"))
+    @Test fun switchStatement() = codeflow("switchStatement", listOf("App.java"))
+    @Test fun fieldInitializer() = codeflow("fieldInitializer", listOf("App.java"))
+    @Test fun enumConstructor() = codeflow("enumConstructor", listOf("App.java"))
 }

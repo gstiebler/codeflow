@@ -265,6 +265,7 @@ open class AstBlockProcessor(
     }
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): GraphNode {
+        enumConstant(node, ctx)?.node?.let { return it }
         // before the dot
         val expression = node.expression
         // after the dot
@@ -315,6 +316,7 @@ open class AstBlockProcessor(
      */
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
         if (node.name.contentEquals("this")) return thisValue(node, ctx)
+        enumConstant(node, ctx)?.node?.let { return it }
         val holder = staticHolder(node) ?: owner
         val nId = JNodeId(getStack().push(ctx, node), node.name, globalCtx.symbols.element(node), holder)
         return holder?.getNode(nId)
@@ -581,6 +583,40 @@ open class AstBlockProcessor(
         return graphBuilderBlock.addSelection(GraphNode.Base(jId), listOf(selectorNode) + branchNodes)
     }
 
+    /**
+     * `switch` used as a statement, which produces no value but reads one to decide where to go.
+     *
+     * The selector's read was invisible. TreeScanner's default reaches the selector and builds its
+     * node, then draws no edge out of it, so the value deciding the entire branch appeared to be
+     * unused - and the gate in [scan] covers expressions only, so nothing said a statement was
+     * unmodelled. Each constant label is compared against the selector, which is what the code
+     * does and what makes both the selector and the labels part of the graph.
+     *
+     * `default` compares against nothing, so it contributes no node. A *pattern* label
+     * (`case String text ->`) binds a name and is still not modelled: `unboundLocal` is the fixture
+     * that records it, and a read of the name it should have bound fails loudly rather than being
+     * drawn as a value from nowhere.
+     *
+     * Every arm is walked, whichever runs. Control flow is not modelled anywhere here, so `break`
+     * and fall-through make no difference: what a later read finds is the last write, which is the
+     * same approximation an `if` already gets. See C1 in `port-codemap-test-coverage.md`.
+     */
+    override fun visitSwitch(node: SwitchTree, ctx: ProcessorContext): GraphNode? {
+        val selectorNode = evaluate(node.expression, ctx)
+        node.cases.forEach { case ->
+            case.labels.filterIsInstance<ConstantCaseLabelTree>().forEach { label ->
+                val labelNode = evaluate(label.constantExpression, ctx)
+                val jId = GraphNodeId(getStack().push(ctx, label), "==")
+                graphBuilderBlock.addBinOp(GraphNode.Base(jId), selectorNode, labelNode)
+            }
+            scan(case.guard, ctx)
+            // The colon form carries statements and the arrow form a body, and each returns null
+            // for the other, so both have to be asked.
+            case.body?.let { scan(it, ctx) } ?: case.statements?.forEach { scan(it, ctx) }
+        }
+        return null
+    }
+
     private fun unaryOperatorLabel(node: UnaryTree) = when (node.kind) {
         Tree.Kind.UNARY_MINUS -> "neg"
         Tree.Kind.UNARY_PLUS -> "unaryPlus"
@@ -699,9 +735,43 @@ open class AstBlockProcessor(
     /** The memory position of the object `new X(...)` creates, constructing it if it has not been. */
     fun constructedMemPos(node: NewClassTree, ctx: ProcessorContext): MemPos = construct(node, ctx).memPos!!
 
-    private fun construct(node: NewClassTree, ctx: ProcessorContext): Evaluation =
+    /**
+     * `Size.SMALL`, when the declaration `SMALL(3)` runs a constructor these sources contain.
+     *
+     * An enum constant's declaration is its value, and for a bare constant that is the whole story -
+     * an opaque node with nothing flowing in, which is what [unassigned] draws. With a constructor
+     * there is a story: arguments go in and fields come out, and skipping it left `SMALL.units()`
+     * inlined against an object with no fields, returning a value from nowhere.
+     *
+     * The declaration is reached through the enum's registered class tree, because it is a member
+     * rather than anything a method body contains, and it is evaluated in the enum's own context:
+     * an enum in another file has its positions there.
+     *
+     * The object is the constant's, held for the whole run - one constant is one instance. The
+     * constructor itself is inlined per mention like any other call, writing the same values to the
+     * same position each time.
+     *
+     * Null for an enum outside the analysed sources, and for one whose only constructor is the one
+     * attribution inserted: neither has a body to inline, so the constant stays opaque.
+     */
+    private fun enumConstant(tree: Tree, ctx: ProcessorContext): Evaluation? {
+        val element = globalCtx.symbols.element(tree)
+        if (element?.kind != ElementKind.ENUM_CONSTANT) return null
+        val declaringEnum = globalCtx.findClass(element.enclosingElement) ?: return null
+        val declaration = declaringEnum.tree.members
+            .filterIsInstance<VariableTree>()
+            .firstOrNull { globalCtx.symbols.element(it) == element } ?: return null
+        val initializer = declaration.initializer as? NewClassTree ?: return null
+        globalCtx.findMethod(globalCtx.symbols.element(initializer, ElementKind.CONSTRUCTOR)) ?: return null
+        return construct(initializer, declaringEnum.ctx, globalCtx.enumConstantMemPos(element, declaration))
+    }
+
+    /** The object an enum constant is, so a call on it reads that constant's own fields. */
+    fun enumConstantMemPos(tree: Tree, ctx: ProcessorContext): MemPos? = enumConstant(tree, ctx)?.memPos
+
+    private fun construct(node: NewClassTree, ctx: ProcessorContext, into: MemPos? = null): Evaluation =
         evaluated.getOrPut(node) {
-            val createdMemPos = globalCtx.createMemPos(node.identifier)
+            val createdMemPos = into ?: globalCtx.createMemPos(node.identifier)
             // The arguments belong to the caller, so they are resolved here rather than inside the
             // constructor's own block: resolving them there makes an argument that happens to share
             // a name with a parameter resolve to that parameter, which connects the parameter to
@@ -721,6 +791,14 @@ open class AstBlockProcessor(
      * expression produces, exactly as for any other call. A class from outside - or one whose only
      * constructor is the one attribution inserted, which is not source anybody wrote - has no body,
      * so the object is opaque and the arguments flow into it.
+     *
+     * A class that declares no constructor can still declare field initializers, and those are code
+     * somebody wrote: they run on every `new`, and skipping them leaves every field of such a class
+     * reading as one nothing has assigned. They are drawn in the caller's block, at the `new` that
+     * runs them, because there is no constructor here to nest them in - and drawing an empty box
+     * for a constructor nobody wrote is what [codeflow.java.Symbols.isWrittenInSource] exists to
+     * prevent. They go on the object being built rather than on this method's own, which is why
+     * they need a processor of their own.
      */
     private fun constructorNode(
         constructor: Method?,
@@ -731,6 +809,9 @@ open class AstBlockProcessor(
     ): GraphNode {
         if (constructor == null) {
             logger.debug { "No constructor found: $node" }
+            val initializerPos = Position(ctx.getPosId(node), ctx.path)
+            AstBlockProcessor(globalCtx, this, graphBuilderBlock, initializerPos, createdMemPos)
+                .runInstanceInitializers(globalCtx.symbols.element(node, ElementKind.CONSTRUCTOR)?.enclosingElement)
             val typeName = node.identifier.accept(AstLastNameProcessor(), ctx)?.toString()
                 ?: node.identifier.toString()
             val jId = GraphNodeId(getStack().push(ctx, node), typeName)
@@ -812,8 +893,62 @@ open class AstBlockProcessor(
             memPos?.let { globalCtx.addMemPos(parameter.id, it) }
         }
         methodName.receiverParameter?.accept(this, method.ctx)
+        if (method.element.kind == ElementKind.CONSTRUCTOR && !delegatesToAnotherConstructor(methodName)) {
+            runInstanceInitializers(method.element.enclosingElement)
+        }
         methodName.body.accept(this, method.ctx)
         graphBuilderBlock.connectParameters(methodArguments)
+    }
+
+    /**
+     * What the class assigns outside any method body: `int n = 5;` and `{ blocked = 7; }`.
+     *
+     * Only method bodies were ever walked, so these never ran. That is not a missing edge but a
+     * missing *value*: the constructor's `n = n + 1` read an `n` with nothing flowing into it, and
+     * a field holding a freshly constructed object named one that had never been constructed, so
+     * every read through it fell off the end into an opaque node. Most fields have no other writer.
+     *
+     * They run against [owner], the object being constructed, which is what puts them on the same
+     * memory position as everything the constructor goes on to write.
+     *
+     * The members are walked in source order, which is the order Java runs them in. Ahead of the
+     * constructor's body rather than after its `super(...)`, which is where Java puts them: the
+     * difference is only visible if a superclass constructor and a field initializer write the same
+     * field, and both are drawn either way.
+     *
+     * Static members are left out - see B3 in `port-codemap-test-coverage.md`. An enum constant is
+     * a static field, so it is left out here too, and so is a field of an interface.
+     */
+    fun runInstanceInitializers(classElement: Element?) {
+        val declaringClass = globalCtx.findClass(classElement) ?: return
+        declaringClass.tree.members.forEach { member ->
+            val runs = when (member) {
+                is VariableTree -> member.initializer != null && !isStatic(member)
+                is BlockTree -> !member.isStatic
+                else -> false
+            }
+            if (runs) scan(member, declaringClass.ctx)
+        }
+    }
+
+    /** Asked of the declaration javac resolved, since `static` is implicit on an interface field. */
+    private fun isStatic(member: VariableTree): Boolean {
+        val element = globalCtx.symbols.element(member) ?: return Modifier.STATIC in member.modifiers.flags
+        return Modifier.STATIC in element.modifiers
+    }
+
+    /**
+     * Whether the constructor starts with `this(...)`, which is the one case where the initializers
+     * do not run here: the constructor being delegated to runs them, and running them at both ends
+     * of the chain would draw every initializer twice.
+     *
+     * `super(...)` is not this case. The superclass constructor runs the superclass's initializers,
+     * which are a different set of fields.
+     */
+    private fun delegatesToAnotherConstructor(method: MethodTree): Boolean {
+        val first = method.body?.statements?.firstOrNull() as? ExpressionStatementTree ?: return false
+        val select = (first.expression as? MethodInvocationTree)?.methodSelect
+        return select is IdentifierTree && select.name.contentEquals("this")
     }
 
     /** The memory position of each argument, so [invokeMethod] can bind them to the parameters. */

@@ -28,6 +28,9 @@ class AstMemPosProcessor(
         callerBlockProcessor.constructedMemPos(node, ctx)
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos? {
+        // `Size.SMALL` is one object for the whole program, and its constructor is what fills it,
+        // so it goes through the caller's block processor for the same reason `new X(...)` does.
+        callerBlockProcessor.enumConstantMemPos(node, ctx)?.let { return it }
         val expr = node.expression
         // A static field is held by its class, whose name before the dot is a type and so has no
         // memory position of its own to ask for. See [GlobalContext.staticHolder].
@@ -52,6 +55,7 @@ class AstMemPosProcessor(
         if (node.name.toString() == "this") {
             return memPos
         }
+        callerBlockProcessor.enumConstantMemPos(node, ctx)?.let { return it }
         globalCtx.staticHolder(node)?.let { holder ->
             return globalCtx.findMemPos(JNodeId(stack, node.name, globalCtx.symbols.element(node), holder))
         }

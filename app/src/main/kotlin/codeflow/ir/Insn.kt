@@ -47,23 +47,19 @@ class Const(val text: String, source: String) : Insn(source) {
 }
 
 /**
- * A read of a local or a parameter.
+ * A parameter, as a definition: whatever the caller bound to it.
  *
- * [element] is the declaration javac resolved it to, which is what makes two `x`es in two scopes
- * two different variables without anything here comparing names.
+ * There is no matching *read* instruction, and that is the point. A use of a local is lowered to the
+ * instruction that defined it, so `binOp + 0 3` names the parameter and the multiply rather than
+ * naming a variable twice and leaving which write it meant to be settled downstream. Parameters are
+ * definitions like any other, which is what makes that total: every use in a body resolves to an
+ * instruction, including the ones that arrive from outside it.
  *
- * [isPrimitive] is javac's answer about the *declared type*, folded in here for the same reason
- * every other answer is: it decides whether the value is an object worth tracking the identity of,
- * and asking later would mean holding on to the tree.
+ * [index] is the position in the declaration, since that is what binds it to an argument.
  */
-class ReadLocal(
-    val name: String,
-    val element: Element?,
-    val isPrimitive: Boolean,
-    source: String
-) : Insn(source) {
+class Param(val name: String, val element: Element?, val index: Int, source: String) : Insn(source) {
     override val inputs get() = emptyList<Val>()
-    override fun render() = "read $name"
+    override fun render() = "param $name"
 }
 
 /** A write to a local or a parameter: the declaration `int bonus = ...` and the assignment alike. */

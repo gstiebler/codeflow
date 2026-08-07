@@ -137,7 +137,7 @@ class Frame(
     private fun draw(insn: Insn, run: Run): Value? = when (insn) {
         is Const -> Value(block.addLiteral(base(labelId(insn.text, insn), insn)), null)
 
-        is ReadLocal -> read(insn.name, insn.element, insn.isPrimitive, owner, written = false, insn)
+        is Param -> block.parameterNodes[insn.index].let { Value(it, globalCtx.findMemPos(it.id)) }
 
         is WriteLocal -> write(insn.name, insn.element, insn.isPrimitive, owner, run.memPos(insn.value), insn, run.node(insn.value))
 
@@ -437,8 +437,12 @@ class Frame(
      *
      * For a field that is not a gap in the analysis, it is the program: a field nothing has assigned
      * holds its default, and reading one is ordinary Java. So does an enum constant, whose
-     * declaration is its value. A local or a parameter cannot be read before it is written, so
-     * finding none means the analysis lost it, and that still fails loudly with a file and a line.
+     * declaration is its value.
+     *
+     * Only fields reach here now - a use of a local names the instruction that defined it, so the
+     * lowering is where that failure is raised and where the position in it comes from. What is left
+     * is a name javac resolved to something that is not a field and not a constant, which is the
+     * analysis having lost it, and that still fails loudly with a file and a line.
      */
     private fun unassigned(
         id: JNodeId,

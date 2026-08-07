@@ -38,6 +38,7 @@ class Lowering(private val symbols: Symbols) {
 
     fun lower(method: Method): MethodBody {
         val body = Body(symbols, method.ctx)
+        body.declareParameters(method)
         method.name.body?.accept(body, method.ctx)
         return MethodBody(method, body.instructions)
     }
@@ -100,9 +101,41 @@ class Lowering(private val symbols: Symbols) {
         /** Where a `return` goes when it belongs to a lambda rather than to the method. */
         private val lambdaReturns = ArrayDeque<MutableList<Val>>()
 
+        /**
+         * The value each local currently holds, which is what a use of it resolves to.
+         *
+         * Keyed by the declaration javac resolved, so two `x`es in disjoint scopes are two entries
+         * without anything here comparing names or tracking scopes. A name javac could not resolve
+         * falls back to the name itself, which is the same compromise `JNodeId` makes and for the
+         * same reason: on input that does not compile there is nothing better to key by.
+         */
+        private val definitions = HashMap<Any, Val>()
+
         private fun emit(insn: Insn): Val {
             instructions.add(insn)
             return Val(instructions.size - 1)
+        }
+
+        private fun key(element: Element?, name: String): Any = element ?: name
+
+        /** Records what a local holds from here on. Every write and every binding goes through it. */
+        private fun define(element: Element?, name: String, value: Val): Val {
+            definitions[key(element, name)] = value
+            return value
+        }
+
+        /**
+         * The parameters, as definitions, ahead of anything the body does.
+         *
+         * From the method's own element rather than looked up per declaration tree, because that is
+         * what a use inside the body resolves to and what `GraphBuilderBlock` binds arguments to.
+         */
+        fun declareParameters(method: Method) {
+            method.name.parameters.forEachIndexed { index, parameter ->
+                val element = method.element.parameters.getOrNull(index)
+                val name = parameter.name.toString()
+                define(element, name, emit(Param(name, element, index, ctx.location(parameter))))
+            }
         }
 
         /**
@@ -139,7 +172,34 @@ class Lowering(private val symbols: Symbols) {
                     )
                 )
             }
-            return emit(ReadLocal(node.name.toString(), element, symbols.isPrimitive(node), ctx.location(node)))
+            return use(element, node.name.toString(), ctx.location(node))
+        }
+
+        /**
+         * The definition reaching a use of a local, which is the whole of what SSA buys.
+         *
+         * Not finding one is the failure that has to stay hard, and it is raised here rather than
+         * several inferences later while a graph is being drawn: a local cannot be read before it is
+         * written, so either the program never wrote it or the lowering lost it, and drawing a value
+         * arriving from nowhere is indistinguishable from a real one. A *field* never reaches here -
+         * it holds its default, which is ordinary Java, and is lowered as a field read instead.
+         */
+        private fun use(element: Element?, name: String, source: String): Val =
+            definitions[key(element, name)]
+                ?: throw GraphException("'$name' at $source has no value reaching it")
+
+        /**
+         * A name introduced by something other than a declaration or an assignment - see [Bind].
+         *
+         * A definition like any other, which is what makes a later use of it resolve. Missing that
+         * is how the enhanced `for`, the `catch` parameter and a `case` pattern label were each
+         * found: not as a wrong edge, but as a use several lines below with nothing to reach.
+         */
+        private fun bind(variable: VariableTree, value: Val?, identity: Identity, ctx: ProcessorContext): Val {
+            val element = symbols.element(variable)
+            val name = variable.name.toString()
+            val insn = Bind(name, element, symbols.isPrimitive(variable), value, identity, ctx.location(variable))
+            return define(element, name, emit(insn))
         }
 
         override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): Val =
@@ -187,14 +247,12 @@ class Lowering(private val symbols: Symbols) {
         override fun visitVariable(node: VariableTree, ctx: ProcessorContext): Val? {
             val initializer = node.initializer ?: return null
             val value = evaluate(initializer, ctx)
-            return emit(
-                WriteLocal(
-                    node.name.toString(),
-                    symbols.element(node),
-                    symbols.isPrimitive(node),
-                    value,
-                    ctx.location(node)
-                )
+            val element = symbols.element(node)
+            val name = node.name.toString()
+            return define(
+                element,
+                name,
+                emit(WriteLocal(name, element, symbols.isPrimitive(node), value, ctx.location(node)))
             )
         }
 
@@ -216,7 +274,8 @@ class Lowering(private val symbols: Symbols) {
             if (element?.kind?.isField == true) {
                 return emit(WriteField(receiver, lastName(target), element, primitive, value, ctx.location(target)))
             }
-            return emit(WriteLocal(lastName(target), element, primitive, value, ctx.location(target)))
+            val name = lastName(target)
+            return define(element, name, emit(WriteLocal(name, element, primitive, value, ctx.location(target))))
         }
 
         override fun visitBinary(node: BinaryTree, ctx: ProcessorContext): Val {
@@ -322,7 +381,8 @@ class Lowering(private val symbols: Symbols) {
                     if (target is MemberSelectTree) receiverOf(target.expression, ctx) else Receiver.Enclosing
                 return emit(WriteField(receiver, lastName(target), element, true, combined, ctx.location(target)))
             }
-            return emit(WriteLocal(lastName(target), element, true, combined, ctx.location(target)))
+            val name = lastName(target)
+            return define(element, name, emit(WriteLocal(name, element, true, combined, ctx.location(target))))
         }
 
         /**
@@ -378,16 +438,7 @@ class Lowering(private val symbols: Symbols) {
                 unmodelled(pattern, listOf(value), ctx)
                 return
             }
-            emit(
-                Bind(
-                    variable.name.toString(),
-                    symbols.element(variable),
-                    symbols.isPrimitive(variable),
-                    value,
-                    Identity.OfValue,
-                    ctx.location(variable)
-                )
-            )
+            bind(variable, value, Identity.OfValue, ctx)
         }
 
         /**
@@ -402,18 +453,7 @@ class Lowering(private val symbols: Symbols) {
          * it to the method's own return would claim the method returns a value it does not.
          */
         override fun visitLambdaExpression(node: LambdaExpressionTree, ctx: ProcessorContext): Val {
-            node.parameters.forEach {
-                emit(
-                    Bind(
-                        it.name.toString(),
-                        symbols.element(it),
-                        symbols.isPrimitive(it),
-                        null,
-                        Identity.Unknown,
-                        ctx.location(it)
-                    )
-                )
-            }
+            node.parameters.forEach { bind(it, null, Identity.Unknown, ctx) }
             val body = node.body
             if (body is ExpressionTree) {
                 return emit(Select("lambda", listOf(evaluate(body, ctx)), ctx.location(node)))
@@ -505,17 +545,7 @@ class Lowering(private val symbols: Symbols) {
          */
         override fun visitEnhancedForLoop(node: EnhancedForLoopTree, ctx: ProcessorContext): Val? {
             val elements = evaluate(node.expression, ctx)
-            val variable = node.variable
-            emit(
-                Bind(
-                    variable.name.toString(),
-                    symbols.element(variable),
-                    symbols.isPrimitive(variable),
-                    elements,
-                    Identity.Fresh,
-                    ctx.location(variable)
-                )
-            )
+            bind(node.variable, elements, Identity.Fresh, ctx)
             scan(node.statement, ctx)
             return null
         }
@@ -527,17 +557,7 @@ class Lowering(private val symbols: Symbols) {
          * yet, so a value with no source is the honest answer.
          */
         override fun visitCatch(node: CatchTree, ctx: ProcessorContext): Val? {
-            val parameter = node.parameter
-            emit(
-                Bind(
-                    parameter.name.toString(),
-                    symbols.element(parameter),
-                    symbols.isPrimitive(parameter),
-                    null,
-                    Identity.Fresh,
-                    ctx.location(parameter)
-                )
-            )
+            bind(node.parameter, null, Identity.Fresh, ctx)
             scan(node.block, ctx)
             return null
         }

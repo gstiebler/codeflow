@@ -1,10 +1,12 @@
 package codeflow.ir
 
+import codeflow.graph.GraphException
 import codeflow.java.AstReader
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -42,8 +44,20 @@ class LoweringTest {
     private fun fixtures(): List<String> = Files.list(testResourcesPath)
         .filter { Files.isDirectory(it) && Files.walk(it).anyMatch { f -> f.toString().endsWith(".java") } }
         .map { it.fileName.toString() }
+        .filter { it !in DOES_NOT_LOWER }
         .sorted()
         .toList()
+
+    private companion object {
+        /**
+         * Fixtures the sweep leaves out, because refusing to lower them is what they are for.
+         *
+         * One entry, and it is a gap in the *program* rather than in codeflow: `unwrittenLocal`
+         * reads a local nothing has written, which javac rejects and attribution accepts. Its own
+         * test is [aLocalWithNoReachingDefinitionFailsWhereItIsRead].
+         */
+        val DOES_NOT_LOWER = setOf("unwrittenLocal")
+    }
 
     /**
      * `int bonus = base * 2; return base + bonus;` - the smallest method that has an order at all.
@@ -57,16 +71,40 @@ class LoweringTest {
     fun aMethodBodyLowersToInstructionsInTheOrderJavaEvaluatesThem() {
         assertEquals(
             listOf(
-                "0: read base",
+                "0: param base",
                 "1: const 2",
                 "2: binOp * 0 1",
                 "3: write bonus <- 2",
-                "4: read base",
-                "5: read bonus",
-                "6: binOp + 4 5",
-                "7: return 6"
+                "4: binOp + 0 3",
+                "5: return 4"
             ),
             lower("noMain", listOf("Report.java"), "Report#total")
+        )
+    }
+
+    /**
+     * A use names the definition that reaches it, so a read is not an instruction.
+     *
+     * `binOp + 0 3` says the addition takes the parameter and the multiply, which is the question a
+     * dataflow graph is built to answer, asked and answered inside the method. What it replaced was
+     * a `read base` instruction that named only the *name*, leaving "which of the writes to `base`
+     * is this one" to be worked out later by whoever drew the graph - from a single mutable slot per
+     * variable, which is the thing that has no answer once there are two paths to a use.
+     *
+     * The parameters are definitions too, which is what makes that total: every use in the body
+     * resolves to an instruction, including the ones the caller supplies.
+     */
+    @Test
+    fun aParameterIsADefinitionAndAUseNamesIt() {
+        assertEquals(
+            listOf(
+                "0: param a",
+                "1: param b",
+                "2: binOp + 0 1",
+                "3: write c <- 2",
+                "4: return 3"
+            ),
+            lower("funcCall", listOf("App.java"), "App#methodA")
         )
     }
 
@@ -82,18 +120,15 @@ class LoweringTest {
     fun aDeclarationAndAnAssignmentBothLowerToAWrite() {
         assertEquals(
             listOf(
-                "0: const 5",
-                "1: write a <- 0",
-                "2: read a",
+                "0: param args",
+                "1: const 5",
+                "2: write a <- 1",
                 "3: write b <- 2",
-                "4: read b",
-                "5: const 8",
-                "6: binOp + 4 5",
-                "7: write c <- 6",
-                "8: read b",
-                "9: write d <- 8",
-                "10: read d",
-                "11: write e <- 10"
+                "4: const 8",
+                "5: binOp + 3 4",
+                "6: write c <- 5",
+                "7: write d <- 3",
+                "8: write e <- 7"
             ),
             lower("base", listOf("App.java"), "App#main")
         )
@@ -110,22 +145,19 @@ class LoweringTest {
     fun aUnaryOperatorIsItsOwnInstruction() {
         assertEquals(
             listOf(
-                "0: const 7",
-                "1: write value <- 0",
-                "2: const true",
-                "3: write flag <- 2",
-                "4: read value",
-                "5: unOp neg 4",
+                "0: param args",
+                "1: const 7",
+                "2: write value <- 1",
+                "3: const true",
+                "4: write flag <- 3",
+                "5: unOp neg 2",
                 "6: write negated <- 5",
-                "7: read flag",
-                "8: unOp not 7",
-                "9: write inverted <- 8",
-                "10: const 0",
-                "11: write counter <- 10",
-                "12: read counter",
-                "13: unOp postInc 12",
-                "14: read counter",
-                "15: write afterIncrement <- 14"
+                "7: unOp not 4",
+                "8: write inverted <- 7",
+                "9: const 0",
+                "10: write counter <- 9",
+                "11: unOp postInc 10",
+                "12: write afterIncrement <- 10"
             ),
             lower("unary", listOf("App.java"), "App#main")
         )
@@ -142,21 +174,18 @@ class LoweringTest {
     fun aConditionalKeepsItsConditionAndBothBranches() {
         assertEquals(
             listOf(
-                "0: const 0",
-                "1: write divisor <- 0",
-                "2: const 100",
-                "3: write value <- 2",
-                "4: const 7",
-                "5: write fallback <- 4",
-                "6: read divisor",
+                "0: param args",
+                "1: const 0",
+                "2: write divisor <- 1",
+                "3: const 100",
+                "4: write value <- 3",
+                "5: const 7",
+                "6: write fallback <- 5",
                 "7: const 0",
-                "8: binOp == 6 7",
-                "9: read fallback",
-                "10: read value",
-                "11: read divisor",
-                "12: binOp div 10 11",
-                "13: select ternary 8 9 12",
-                "14: write guarded <- 13"
+                "8: binOp == 2 7",
+                "9: binOp div 4 2",
+                "10: select ternary 8 6 9",
+                "11: write guarded <- 10"
             ),
             lower("ternary", listOf("App.java"), "App#main")
         )
@@ -192,7 +221,7 @@ class LoweringTest {
     fun aFieldWriteNamesTheObjectItLandsOn() {
         assertEquals(
             listOf(
-                "0: read initial",
+                "0: param initial",
                 "1: writeField this.value <- 0",
                 "2: const 3",
                 "3: writeField this.step <- 2"
@@ -214,10 +243,10 @@ class LoweringTest {
     fun aCallNamesItsReceiverAndArgumentsWithoutInliningTheCallee() {
         assertEquals(
             listOf(
-                "0: const 10",
-                "1: new Counter 0",
-                "2: write counter <- 1",
-                "3: read counter",
+                "0: param args",
+                "1: const 10",
+                "2: new Counter 1",
+                "3: write counter <- 2",
                 "4: call advance on 3",
                 "5: write result <- 4"
             ),
@@ -240,17 +269,16 @@ class LoweringTest {
     fun constructionIsOneInstruction() {
         assertEquals(
             listOf(
-                "0: const 4",
-                "1: write seed <- 0",
-                "2: read seed",
+                "0: param args",
+                "1: const 4",
+                "2: write seed <- 1",
                 "3: new Box 2",
                 "4: write box <- 3",
                 "5: const \"text\"",
                 "6: new StringBuilder 5",
                 "7: write sb <- 6",
-                "8: read box",
-                "9: readField 8.held",
-                "10: write read <- 9"
+                "8: readField 4.held",
+                "9: write read <- 8"
             ),
             lower("newObject", listOf("App.java"), "App#main")
         )
@@ -270,15 +298,14 @@ class LoweringTest {
     fun aClassDeclaredInsideAMethodDoesNotLowerItsBodiesIntoThatMethod() {
         assertEquals(
             listOf(
-                "0: const 3",
-                "1: write seed <- 0",
-                "2: new Doubler",
-                "3: read seed",
-                "4: call twice on 2 3",
+                "0: param args",
+                "1: const 3",
+                "2: write seed <- 1",
+                "3: new Doubler",
+                "4: call twice on 3 2",
                 "5: write result <- 4",
                 "6: readField static.out",
-                "7: read result",
-                "8: call println on 6 7"
+                "7: call println on 6 5"
             ),
             lower("localClass", listOf("App.java"), "App#main")
         )
@@ -314,6 +341,27 @@ class LoweringTest {
     }
 
     /**
+     * A local read with nothing reaching it fails here, at the line that reads it.
+     *
+     * This is the one failure that stays hard, and it is now the lowering's to raise: a local cannot
+     * be read before it is written, so finding no definition means either the program does not
+     * compile or the analysis has lost something. Either way drawing a value arriving from nowhere
+     * would be indistinguishable from a real one - which is the silent wrongness everything else
+     * here is arranged to prevent, with the loud failure taken out.
+     *
+     * It moved because the definitions moved. The graph builder used to notice, several steps later
+     * and with only a name to blame; a use resolves to its definition while the tree is still in
+     * hand, so the position in the message is the read itself.
+     */
+    @Test
+    fun aLocalWithNoReachingDefinitionFailsWhereItIsRead() {
+        val failure = assertFailsWith<GraphException> {
+            lower("unwrittenLocal", listOf("App.java"), "App#main")
+        }
+        assertEquals("'total' at unwrittenLocal/App.java:19:28 has no value reaching it", failure.message)
+    }
+
+    /**
      * A construct codeflow does not model becomes an instruction saying so, with its operands still
      * flowing in.
      *
@@ -325,12 +373,13 @@ class LoweringTest {
     fun anUnmodelledExpressionIsAnInstructionRatherThanOneOfItsChildren() {
         assertEquals(
             listOf(
-                "0: readField static.out",
-                "1: const \"x\"",
-                "2: call println on 0 1",
-                "3: const 3L",
-                "4: unmodelled TYPE_CAST 3",
-                "5: write count <- 4"
+                "0: param args",
+                "1: readField static.out",
+                "2: const \"x\"",
+                "3: call println on 1 2",
+                "4: const 3L",
+                "5: unmodelled TYPE_CAST 4",
+                "6: write count <- 5"
             ),
             lower("unsupported", listOf("App.java"), "App#main")
         )
@@ -353,16 +402,14 @@ class LoweringTest {
     fun aPatternLabelBindsItsNameInsteadOfFailingSeveralLinesLater() {
         assertEquals(
             listOf(
-                "0: read args",
+                "0: param args",
                 "1: write value <- 0",
-                "2: read value",
-                "3: bind text <- 2",
-                "4: readField static.out",
-                "5: read text",
-                "6: call println on 4 5",
-                "7: readField static.out",
-                "8: const \"none\"",
-                "9: call println on 7 8"
+                "2: bind text <- 1",
+                "3: readField static.out",
+                "4: call println on 3 2",
+                "5: readField static.out",
+                "6: const \"none\"",
+                "7: call println on 5 6"
             ),
             lower("unboundLocal", listOf("App.java"), "App#main")
         )

@@ -237,6 +237,16 @@ falling out of the bottom of an arm is a path into the next one (so `case 3:` be
 `case 2:` starts from the two joined), and with no `default` the values from above the `switch` reach
 the bottom unchanged. `everyArmOfASwitchStatementReachesAUseBelowIt` is the assertion.
 
+A `try` is the same join from the other direction: a handler runs because the `try` did *not*
+finish, so both reach the line below, and a handler starts from the definitions before the `try`
+joined with the ones after it, since a throw can land there from anywhere inside. `finally` is
+lowered after the join, because it runs on every path.
+`aTryAndItsHandlerBothReachAUseAfterThem` is the assertion.
+
+A phi nothing reads is left on the diagram rather than pruned. It says the variable held one of
+these values at that point, which is true; dropping it would need a dead-value pass and a renumbering
+of every `Val`, and there is no evidence yet from real input that the noise is worth that.
+
 `i++` is a write as well as an operator: after it the variable holds what the operator produced.
 Without that the counter a loop condition tests came from nowhere, and `counter++; int after =
 counter;` drew `after` taking the value from before the increment.

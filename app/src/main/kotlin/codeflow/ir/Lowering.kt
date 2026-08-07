@@ -800,6 +800,36 @@ class Lowering(private val symbols: Symbols) {
          * Nothing flows in: which `throw` reached this handler is control flow, and none is modelled
          * yet, so a value with no source is the honest answer.
          */
+        /**
+         * `try`/`catch`, which is an `if`'s join arrived at from the other direction.
+         *
+         * A handler runs because the `try` did *not* finish, so the two are alternatives and both
+         * reach the line below. Lowered in sequence the handler's writes were the only ones left,
+         * and the success path - the one the code is written for - was not on the diagram at all.
+         *
+         * A handler starts from the definitions before the `try` joined with the ones after it,
+         * since a throw can land there from anywhere inside. That is one value too many wherever
+         * the throw could only have come from the top, and none too few anywhere.
+         *
+         * `finally` runs on every path, so it is lowered after the join rather than on one of them.
+         */
+        override fun visitTry(node: TryTree, ctx: ProcessorContext): Val? {
+            node.resources.forEach { scan(it, ctx) }
+            val entry = LinkedHashMap(definitions)
+            scan(node.block, ctx)
+            val afterTry = LinkedHashMap(definitions)
+            val exits = ArrayList<Map<Any, Definition>>()
+            if (completesNormally(node.block)) exits.add(afterTry)
+            node.catches.forEach { handler ->
+                join(listOf(entry, afterTry), ctx.location(handler))
+                scan(handler, ctx)
+                if (completesNormally(handler.block)) exits.add(LinkedHashMap(definitions))
+            }
+            join(exits, ctx.location(node))
+            node.finallyBlock?.let { scan(it, ctx) }
+            return null
+        }
+
         override fun visitCatch(node: CatchTree, ctx: ProcessorContext): Val? {
             bind(node.parameter, null, Identity.Fresh, ctx)
             scan(node.block, ctx)

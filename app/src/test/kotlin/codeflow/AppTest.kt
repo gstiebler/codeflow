@@ -308,6 +308,21 @@ class AppTest {
     }
 
     /**
+     * A `try` and its handler are alternatives, so both reach the line after them.
+     *
+     * A handler runs because the `try` did not finish, which makes this an `if`'s join arrived at
+     * from a different direction. Lowered in sequence the handler's write was the only one left
+     * standing and `result` was drawn as only ever the fallback - the success path, which is what
+     * the code is written for, absent from the diagram of it.
+     */
+    @Test
+    fun aTryAndItsHandlerBothReachAUseAfterThem() {
+        val graph = buildGraph("tryCatch", listOf("App.java"))
+        assertTrue(reaches(graph, "parseInt", "reported"), "the value from the try does not reach 'reported'")
+        assertTrue(reaches(graph, "attempts", "reported"), "the value from the handler does not reach 'reported'")
+    }
+
+    /**
      * A call to a method outside the analysed sources has no body to inline, so it becomes one
      * node that the arguments flow into and the result flows out of. Values still have to be
      * traceable through it.
@@ -1407,6 +1422,7 @@ class AppTest {
     @Test fun files() = codeflow("files", listOf("App.java", "ClassX.java", "ClassY.java"))
     @Test fun constructor() = codeflow("constructor", listOf("App.java"))
     @Test fun if1() = codeflow("if1", listOf("App.java"))
+    @Test fun tryCatch() = codeflow("tryCatch", listOf("App.java"))
     @Test fun forLoop() = codeflow("forLoop", listOf("App.java"))
     @Test fun implicitThis() = codeflow("implicitThis", listOf("App.java"))
     @Test fun superCall() = codeflow("superCall", listOf("App.java"))

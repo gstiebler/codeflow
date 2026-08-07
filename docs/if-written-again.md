@@ -188,6 +188,13 @@ With summaries (§2), roots are cheap. Default to every public method as its own
 part of the current design — say which roots were taken and which were not, because silence there
 reads as "this is the codebase".
 
+**Landed, in part.** `--from Class#method` selects any method the sources declare, `main` remains
+the default, and both paths report the choice and the alternatives on stderr; a corpus with no
+`main` and no `--from` now names the flag and lists the candidates instead of dead-ending. The
+every-public-method default waits on §2, as this section's own first sentence says it must: without
+summaries a root is not cheap, because each one re-inlines every method it reaches at every call
+site.
+
 ## 8. One graph model, several renderers, and no hand-written syntax
 
 The analysis is currently bent to fit Mermaid. `/` is called `div`, `?:` is called `ternary`, `|` is

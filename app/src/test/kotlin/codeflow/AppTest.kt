@@ -28,10 +28,10 @@ class AppTest {
         .resolve("test")
         .resolve("resources")
 
-    private fun buildGraph(testDir: String, testFiles: List<String>): List<String> {
+    private fun buildGraph(testDir: String, testFiles: List<String>, from: String? = null): List<String> {
         val testDirPath = testResourcesPath.resolve(testDir)
         val testFilePaths = testFiles.map { testDirPath.resolve(it) }
-        val mainMethod = AstReader(testResourcesPath).process(testFilePaths)
+        val mainMethod = AstReader(testResourcesPath).process(testFilePaths, from)
 
         val result = ArrayList<String>()
         MermaidExporter()
@@ -339,6 +339,66 @@ class AppTest {
         val edges = edgeLabels(graph)
         assertTrue("args" to "TYPE_CAST" in edges, "the operand does not reach the cast: $edges")
         assertTrue("TYPE_CAST" to "toString" in edges, "the cast does not reach the call: $edges")
+    }
+
+    /**
+     * The entry point can be named, instead of being whichever `main` sorts first.
+     *
+     * The whole diagram is what one method reaches, so which method that is *is* the diagram. Only
+     * `main` could be it, which meant a reader interested in one service method had to find a path
+     * to it from an entry point and then look for it among everything else the entry point reaches.
+     */
+    @Test
+    fun theEntryPointCanBeNamedRatherThanBeingWhicheverMainSortsFirst() {
+        val graph = buildGraph("funcCall", listOf("App.java"), from = "App#methodB")
+        val labels = nodeTypes(graph).map { it.first }
+        val edges = edgeLabels(graph)
+        assertTrue(graph.any { it.contains("""subgraph b0["methodB"]""") }, "methodB is not the root: $graph")
+        assertTrue("11" to "paramH" in edges, "the chosen method's own body is missing: $edges")
+        assertTrue("x" !in labels, "main's body was graphed as well: $labels")
+    }
+
+    /**
+     * And a corpus with no `main` at all is graphable, which is most Java.
+     *
+     * Services, controllers and libraries have no entry point of their own, so refusing to start
+     * anywhere else excluded most of the tool's own subject matter - including Fineract, its stated
+     * real-world target.
+     */
+    @Test
+    fun aCorpusWithNoMainCanStillBeGraphed() {
+        val edges = edgeLabels(buildGraph("noMain", listOf("Report.java"), from = "Report#total"))
+        assertTrue("base" to "*" in edges, "the parameter does not reach the operator: $edges")
+        assertTrue("*" to "bonus" in edges, "the operator does not reach the variable: $edges")
+    }
+
+    /**
+     * Naming a method that is not there says so, and says what the alternatives were.
+     *
+     * A typo in a class or method name is the commonest way to get here, and an error that only
+     * repeats the name back leaves the reader guessing at spelling, nesting and overloads.
+     */
+    @Test
+    fun anEntryPointThatMatchesNothingNamesTheCandidates() {
+        val error = assertFailsWith<GraphException> {
+            buildGraph("funcCall", listOf("App.java"), from = "App#methodZ")
+        }
+        val message = error.message ?: ""
+        assertTrue("App#methodZ" in message, "error does not repeat what was asked for: $message")
+        assertTrue("App#methodB" in message, "error does not name a real candidate: $message")
+    }
+
+    /**
+     * And no `main` with nothing asked for points at the flag rather than at a dead end.
+     *
+     * This was the whole failure: `No method named 'main'`, and nothing about what to do next.
+     */
+    @Test
+    fun noMainAndNoChoiceSaysHowToChoose() {
+        val error = assertFailsWith<GraphException> { buildGraph("noMain", listOf("Report.java")) }
+        val message = error.message ?: ""
+        assertTrue("--from" in message, "error does not name the flag: $message")
+        assertTrue("Report#total" in message, "error does not name a candidate: $message")
     }
 
     /**

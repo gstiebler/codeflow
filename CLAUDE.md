@@ -18,6 +18,7 @@ gives no sign anything is missing. Most of the design decisions below follow fro
 UPDATE_SNAPSHOTS=1 ./gradlew test    # rewrite the golden files (see Testing)
 ./gradlew run --args="path/to/java/dir"
 ./gradlew run --args="path/to/java/dir --html"   # interactive page, to stdout
+./gradlew run --args="path/to/java/dir --from Report#total"   # root it somewhere other than main
 
 npm test                             # the viewer's pure functions, under node --test
 npm run test:browser                 # the exported page, in a real browser
@@ -44,10 +45,18 @@ output, not just to the build.
    the call takes the opaque `EXTERNAL` path instead.
 2. `AstBlockProcessor.invokeMethod` starting from `main` — walks statements and builds the graph.
 
-Which `main` is a decision, not a detail: on a corpus with several, the choice is the whole diagram.
-`GlobalContext.mainMethods` sorts by path so the same input gives the same answer twice, and
-`AstReader` prints the one it took and the ones it did not to stderr. Silence there reads as "this
-is the codebase" when it is one of four.
+Which method is the root is a decision, not a detail: the diagram is whatever that one method
+reaches, so on a corpus with several candidates the choice is the whole diagram.
+`AstReader.selectEntry` makes it. `--from Class#method` names any method the sources declare —
+without it the root is the first `main` by source path. `GlobalContext.sourceMethods` sorts by path
+so the same input gives the same answer twice, and `AstReader` prints the one it took and the ones
+it did not to stderr. Silence there reads as "this is the codebase" when it is one of four.
+
+`main` is a default rather than a requirement because most Java has none: a service, a controller or
+a library is entered from a caller outside the corpus, and refusing to start anywhere else excluded
+most of the tool's subject matter. There is still exactly one root per run — `docs/if-written-again.md`
+§7 wants every public method to be a root, which waits on method summaries, since without them each
+root re-inlines everything it reaches at every call site.
 
 An exporter then renders the root `GraphBuilderBlock` and its `calledMethods` recursively. There are
 four, chosen by flag, and all four walk the same tree — a construct is supported once

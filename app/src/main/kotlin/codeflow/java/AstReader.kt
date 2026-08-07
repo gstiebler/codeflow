@@ -29,7 +29,7 @@ class AstReader(private val basePath: Path) {
     var unmodelled: List<String> = emptyList()
         private set
 
-    fun process(fileNames: List<Path>): GraphBuilderBlock {
+    fun process(fileNames: List<Path>, entryPoint: String? = null): GraphBuilderBlock {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
@@ -64,7 +64,7 @@ class AstReader(private val basePath: Path) {
             compUnitTree.accept(AstProcessor(globalCtx), ctx)
         }
 
-        val mainMethod = selectMain(globalCtx.mainMethods())
+        val mainMethod = selectEntry(globalCtx, entryPoint)
         val mainMethodGraphBuilderBlock =
             GraphBuilderBlock(null, mainMethod, PosStack(), null, mainMethod.ctx)
         val pos = Position(0, Path.of(""))
@@ -96,26 +96,57 @@ class AstReader(private val basePath: Path) {
     /**
      * The entry point to graph, and a note to stderr saying so.
      *
-     * The whole diagram is whatever this one method reaches, so on a codebase with several entry
-     * points the reader has to be told which one they are looking at - and that there were others.
-     * Silence here reads as "this is the codebase" when it is one of several, which is the same
-     * failure as a wrong edge: complete-looking, plausible, and giving no sign anything is missing.
+     * The whole diagram is whatever this one method reaches, so which method that is *is* the
+     * diagram. `main` is the default because a program that has one starts there, but it was for a
+     * long time the only possibility, and most Java has no `main`: a service, a controller or a
+     * library is entered from a framework or a caller that is not in the corpus. Those were not
+     * graphable at all, which excluded most of the tool's own subject matter, and a reader who
+     * wanted one method's dataflow had to find a path to it from an entry point and then pick it
+     * out of everything else that entry point reached. [entryPoint] names one directly.
      *
-     * The context comes off the chosen method rather than being tracked separately, because the two
-     * used to disagree - the method came out of a HashMap and the context was the last file seen to
-     * contain a `main` - so positions in the root block could belong to a different file entirely.
+     * Either way the choice is *reported*, and the alternatives with it. Silence here reads as
+     * "this is the codebase" when it is one of several, which is the same failure as a wrong edge:
+     * complete-looking, plausible, and giving no sign anything is missing.
      */
-    private fun selectMain(mains: List<Method>): Method {
-        val chosen = mains.firstOrNull() ?: throw GraphException("No method named 'main' in the analysed sources")
-        System.err.println("codeflow: graphing 'main' in ${chosen.ctx.path}")
-        if (mains.size > 1) {
+    private fun selectEntry(globalCtx: GlobalContext, entryPoint: String?): Method {
+        val candidates = globalCtx.sourceMethods()
+        val matches = if (entryPoint == null) globalCtx.mainMethods() else candidates.filter { matches(it, entryPoint) }
+        val asked = if (entryPoint == null) "'main'" else "'$entryPoint'"
+        val chosen = matches.firstOrNull() ?: throw GraphException(
+            "No method matching $asked in the analysed sources. " +
+                    "Name one with --from Class#method: ${candidates.joinToString(", ") { spec(it) }}"
+        )
+        System.err.println("codeflow: graphing '${spec(chosen)}' in ${chosen.ctx.path}")
+        if (matches.size > 1) {
             System.err.println(
-                "codeflow: ${mains.size - 1} other 'main' not graphed: " +
-                        mains.drop(1).joinToString(", ") { it.ctx.path.toString() }
+                "codeflow: ${matches.size - 1} other match for $asked not graphed: " +
+                        matches.drop(1).joinToString(", ") { "${spec(it)} in ${it.ctx.path}" }
             )
         }
         return chosen
     }
+
+    /**
+     * Whether `Class#method` names this declaration.
+     *
+     * The class part matches either the simple name or the qualified one, so `App#run` works on a
+     * corpus with one `App` and `com.example.App#run` disambiguates a corpus with two. Matching is
+     * on the *element*, not on source text, for the same reason everything else here is: two
+     * same-named classes in different packages are two elements.
+     *
+     * Overloads are not distinguished - there is nothing in the spec to distinguish them by - so
+     * naming one reports the others as not graphed rather than pretending the choice was exact.
+     */
+    private fun matches(method: Method, spec: String): Boolean {
+        val (className, methodName) = spec.split("#", limit = 2).takeIf { it.size == 2 }
+            ?: throw GraphException("--from takes 'Class#method', not '$spec'")
+        if (method.name.name.toString() != methodName) return false
+        val owner = method.element.enclosingElement
+        return owner.simpleName.toString() == className || owner.toString() == className
+    }
+
+    /** How an entry point is written on the command line, and so how it is reported back. */
+    private fun spec(method: Method) = "${method.element.enclosingElement.simpleName}#${method.name.name}"
 
     private fun getContext(compUnitTree: CompilationUnitTree, sourcePositions: SourcePositions): ProcessorContext {
         val compUnitPath = compUnitTree.sourceFile.toUri().toPath()

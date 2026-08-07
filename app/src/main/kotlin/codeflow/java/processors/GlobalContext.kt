@@ -94,8 +94,17 @@ class GlobalContext(val symbols: Symbols) {
      * difference between one file and hundreds - so the choice has to come out the same way twice,
      * and be reported rather than made silently. See [codeflow.java.AstReader].
      */
-    fun mainMethods(): List<Method> = methods.values
-        .filter { it.name.name.toString() == "main" }
+    fun mainMethods(): List<Method> = sourceMethods().filter { it.name.name.toString() == "main" }
+
+    /**
+     * Every method these sources declare, in the order above.
+     *
+     * Any of them can be the entry point - most Java has no `main` at all, so a tool that could
+     * only start from one excluded most of its own subject matter. The same ordering applies for
+     * the same reason: the list is what a failed `--from` names back to the reader, and a list that
+     * comes out in a different order every run is one nobody can compare against the source.
+     */
+    fun sourceMethods(): List<Method> = methods.values
         .sortedWith(compareBy({ it.ctx.path.toString() }, { it.ctx.getPosId(it.name) }))
 
     fun getMemPos(nodeId: GraphNodeId): MemPos {

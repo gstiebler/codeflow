@@ -9,24 +9,57 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.system.exitProcess
 
-fun main(args: Array<String>) {
-    val javaRootDir = args.first { !it.startsWith("--") }
+/**
+ * `--from` takes a value, so the arguments cannot be read as "the one that is not a flag".
+ *
+ * `codeflow src --from App#run` would otherwise take `App#run` for the source directory - it does
+ * not start with `--` - and fail on a path that was never meant to be one. Both spellings are
+ * accepted because both are what people type.
+ */
+private class Args(argv: Array<String>) {
+    var directory: String? = null
+        private set
+    var from: String? = null
+        private set
+    val flags = HashSet<String>()
+
+    init {
+        var i = 0
+        while (i < argv.size) {
+            val arg = argv[i]
+            when {
+                arg == "--from" -> {
+                    from = argv.getOrNull(i + 1) ?: throw IllegalArgumentException("--from needs a Class#method")
+                    i++
+                }
+                arg.startsWith("--from=") -> from = arg.removePrefix("--from=")
+                arg.startsWith("--") -> flags.add(arg)
+                directory == null -> directory = arg
+            }
+            i++
+        }
+    }
+}
+
+fun main(argv: Array<String>) {
+    val args = Args(argv)
+    val javaRootDir = args.directory ?: throw IllegalArgumentException("usage: codeflow <dir> [--from Class#method]")
     // Source paths come back from javac as absolute URIs, and AstReader relativizes them
     // against this one. Path.relativize throws if only one of the two is absolute.
     val javaRootDirPath = Path.of(javaRootDir).toAbsolutePath().normalize()
 
     val filesPaths = generateListOfJavaFilesFromDir(javaRootDirPath)
     val reader = AstReader(javaRootDirPath)
-    val mainMethod = reader.process(filesPaths)
+    val mainMethod = reader.process(filesPaths, args.from)
 
     val result = ArrayList<String>()
     // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on
     // stderr, so redirecting stdout to a file gives something a viewer can open directly.
-    if (args.contains("--html")) {
+    if (args.flags.contains("--html")) {
         HtmlExporter().processMainMethod(mainMethod) { result.add(it) }
-    } else if (args.contains("--json")) {
+    } else if (args.flags.contains("--json")) {
         JsonExporter().processMainMethod(mainMethod) { result.add(it) }
-    } else if (args.contains("--graphml")) {
+    } else if (args.flags.contains("--graphml")) {
         GraphmlExporter().processMainMethod(mainMethod) { result.add(it) }
     } else {
         MermaidExporter().processMainMethod(mainMethod) { result.add(it) }

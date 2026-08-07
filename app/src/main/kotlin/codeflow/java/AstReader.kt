@@ -30,6 +30,32 @@ class AstReader(private val basePath: Path) {
         private set
 
     fun process(fileNames: List<Path>, entryPoint: String? = null): GraphBuilderBlock {
+        val analysis = analyse(fileNames)
+        val globalCtx = analysis.globalCtx
+
+        val mainMethod = selectEntry(globalCtx, entryPoint)
+        val mainMethodGraphBuilderBlock =
+            GraphBuilderBlock(null, mainMethod, PosStack(), null, mainMethod.ctx)
+        val pos = Position(0, Path.of(""))
+        val mainAstBlockProcessor = AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null)
+        mainAstBlockProcessor.invokeMethod(emptyList())
+
+        unmodelled = globalCtx.unmodelled()
+        reportUnmodelled()
+
+        analysis.close()
+
+        return mainAstBlockProcessor.graphBuilderBlock
+    }
+
+    /**
+     * Everything javac has to say about these sources, and nothing built on top of it yet.
+     *
+     * Split out from [process] because parse-and-attribute is the input to more than one thing: the
+     * graph is one consumer, the lowering to IR (`codeflow.ir`) is another, and a test of what a
+     * method *means* should not have to render a diagram to ask.
+     */
+    fun analyse(fileNames: List<Path>): Analysis {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
@@ -63,20 +89,7 @@ class AstReader(private val basePath: Path) {
             val ctx = getContext(compUnitTree, sourcePositions)
             compUnitTree.accept(AstProcessor(globalCtx), ctx)
         }
-
-        val mainMethod = selectEntry(globalCtx, entryPoint)
-        val mainMethodGraphBuilderBlock =
-            GraphBuilderBlock(null, mainMethod, PosStack(), null, mainMethod.ctx)
-        val pos = Position(0, Path.of(""))
-        val mainAstBlockProcessor = AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null)
-        mainAstBlockProcessor.invokeMethod(emptyList())
-
-        unmodelled = globalCtx.unmodelled()
-        reportUnmodelled()
-
-        manager.close()
-
-        return mainAstBlockProcessor.graphBuilderBlock
+        return Analysis(globalCtx, manager)
     }
 
     /**
@@ -110,43 +123,22 @@ class AstReader(private val basePath: Path) {
      */
     private fun selectEntry(globalCtx: GlobalContext, entryPoint: String?): Method {
         val candidates = globalCtx.sourceMethods()
-        val matches = if (entryPoint == null) globalCtx.mainMethods() else candidates.filter { matches(it, entryPoint) }
+        val matches =
+            if (entryPoint == null) globalCtx.mainMethods() else candidates.filter { MethodSpec.matches(it, entryPoint) }
         val asked = if (entryPoint == null) "'main'" else "'$entryPoint'"
         val chosen = matches.firstOrNull() ?: throw GraphException(
             "No method matching $asked in the analysed sources. " +
-                    "Name one with --from Class#method: ${candidates.joinToString(", ") { spec(it) }}"
+                    "Name one with --from Class#method: ${candidates.joinToString(", ") { MethodSpec.of(it) }}"
         )
-        System.err.println("codeflow: graphing '${spec(chosen)}' in ${chosen.ctx.path}")
+        System.err.println("codeflow: graphing '${MethodSpec.of(chosen)}' in ${chosen.ctx.path}")
         if (matches.size > 1) {
             System.err.println(
                 "codeflow: ${matches.size - 1} other match for $asked not graphed: " +
-                        matches.drop(1).joinToString(", ") { "${spec(it)} in ${it.ctx.path}" }
+                        matches.drop(1).joinToString(", ") { "${MethodSpec.of(it)} in ${it.ctx.path}" }
             )
         }
         return chosen
     }
-
-    /**
-     * Whether `Class#method` names this declaration.
-     *
-     * The class part matches either the simple name or the qualified one, so `App#run` works on a
-     * corpus with one `App` and `com.example.App#run` disambiguates a corpus with two. Matching is
-     * on the *element*, not on source text, for the same reason everything else here is: two
-     * same-named classes in different packages are two elements.
-     *
-     * Overloads are not distinguished - there is nothing in the spec to distinguish them by - so
-     * naming one reports the others as not graphed rather than pretending the choice was exact.
-     */
-    private fun matches(method: Method, spec: String): Boolean {
-        val (className, methodName) = spec.split("#", limit = 2).takeIf { it.size == 2 }
-            ?: throw GraphException("--from takes 'Class#method', not '$spec'")
-        if (method.name.name.toString() != methodName) return false
-        val owner = method.element.enclosingElement
-        return owner.simpleName.toString() == className || owner.toString() == className
-    }
-
-    /** How an entry point is written on the command line, and so how it is reported back. */
-    private fun spec(method: Method) = "${method.element.enclosingElement.simpleName}#${method.name.name}"
 
     private fun getContext(compUnitTree: CompilationUnitTree, sourcePositions: SourcePositions): ProcessorContext {
         val compUnitPath = compUnitTree.sourceFile.toUri().toPath()

@@ -29,6 +29,14 @@ These are load-bearing, and a rewrite that lost them would be worse than what ex
 
 ## 1. A control-flow graph and SSA, instead of one mutable slot per variable
 
+**Since done**, in `ir.Lowering`: a use resolves to its defining instruction, and `if`, `switch`,
+loops and `try`/`catch` join with a `Phi`. The diagnosis below is left in the past tense it was
+written in — the `if1` and `forLoop` goldens it quotes have moved, and are now what this section
+asked for. What it names and this does not have: `break` and `continue` as edges of their own (a
+`continue` mid-body does not reach the loop header), labels, and `&&`/`||` as branches. The CFG
+also stayed implicit — a flat instruction list with phis, rather than a graph of blocks, since
+nothing downstream asks which block an instruction is in.
+
 This is the largest change and the one that alters the most answers.
 
 `Variable.lastNode` is a single mutable slot overwritten by whichever assignment the tree walk

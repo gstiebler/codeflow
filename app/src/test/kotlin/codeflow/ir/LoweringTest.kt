@@ -377,6 +377,10 @@ class LoweringTest {
      * A phi is the join written down. It takes the value from each path and is what a use below the
      * `if` resolves to, which is what makes a use resolve to *one* instruction even where control
      * flow means several values arrive.
+     *
+     * `? 5` is the gate: instruction 5 is the `b == 7`, and naming it here is what stops the value
+     * the whole branch turns on being lowered and then dropped. Both phis name the same one, since
+     * one condition decided both variables.
      */
     @Test
     fun aUseAfterABranchNamesTheValueFromEachPath() {
@@ -392,8 +396,8 @@ class LoweringTest {
                 "7: write b <- 6",
                 "8: const 17",
                 "9: write a <- 8",
-                "10: phi a 2 9",
-                "11: phi b 7 3",
+                "10: phi a 2 9 ? 5",
+                "11: phi b 7 3 ? 5",
                 "12: write c <- 11",
                 "13: write d <- 10"
             ),

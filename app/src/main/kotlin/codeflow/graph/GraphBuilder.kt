@@ -228,9 +228,15 @@ class GraphBuilderBlock(
      * than one object is the alias case, where the same field on each possible object is a value
      * the read can produce. Both are "one of these, and nothing here says which".
      *
-     * Not a [addSelection], although the shape is the same. A selection is an expression the source
-     * wrote and its condition flows in with the branches; this is a variable, and what decides
-     * between its inputs is not a value on the diagram at all.
+     * Where a value *did* say which, it is among the inputs and the box is captioned with the
+     * construct rather than the variable - see [codeflow.ir.Gate]. That covers an `if` and a
+     * `switch` statement; a loop, a `try` and the alias case have no such value, and there the
+     * caller passes only the paths.
+     *
+     * Still not a [addSelection], although a gated join and a selection now say much the same
+     * thing. A selection is an expression the source wrote, and its node stands for the value that
+     * expression produced; this is a variable at a place in the program, and it exists whether or
+     * not anything was written there.
      */
     fun addJoin(base: GraphNode.Base, inputs: List<GraphNode>, isPrimitive: Boolean): GraphNode {
         val type = if (isPrimitive) NodeType.VARIABLE else NodeType.OBJ_VARIABLE

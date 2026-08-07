@@ -10,15 +10,16 @@ flowchart TD
     n11[chosen]:::OBJ_VARIABLE
     n12[22]:::LITERAL
     n17[chosen]:::OBJ_VARIABLE
-    n18[chosen]:::OBJ_VARIABLE
+    n18[if]:::OBJ_VARIABLE
     n19[amount]:::VARIABLE
     n20[total]:::VARIABLE
     n3[length]:::EXTERNAL --> n5[>]:::BIN_OP
     n4[0]:::LITERAL --> n5[>]:::BIN_OP
+    n5[>]:::BIN_OP --> n18[if]:::OBJ_VARIABLE
     n6[11]:::LITERAL --> n9[amount]:::FUNC_PARAM
-    n11[chosen]:::OBJ_VARIABLE --> n18[chosen]:::OBJ_VARIABLE
+    n11[chosen]:::OBJ_VARIABLE --> n18[if]:::OBJ_VARIABLE
     n12[22]:::LITERAL --> n15[amount]:::FUNC_PARAM
-    n17[chosen]:::OBJ_VARIABLE --> n18[chosen]:::OBJ_VARIABLE
+    n17[chosen]:::OBJ_VARIABLE --> n18[if]:::OBJ_VARIABLE
     n19[amount]:::VARIABLE --> n20[total]:::VARIABLE
     subgraph b7["Holder.constructor"]
       n8[<init>]:::RETURN

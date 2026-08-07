@@ -351,7 +351,7 @@ class Lowering(private val symbols: Symbols) {
          * diagram that no line below the `if` can ever hold.
          */
         override fun visitIf(node: IfTree, ctx: ProcessorContext): Val? {
-            evaluate(node.condition, ctx)
+            val condition = evaluate(node.condition, ctx)
             val before = LinkedHashMap(definitions)
             scan(node.thenStatement, ctx)
             val fromThen = if (completesNormally(node.thenStatement)) LinkedHashMap(definitions) else null
@@ -364,7 +364,11 @@ class Lowering(private val symbols: Symbols) {
             } else {
                 null
             }
-            join(listOfNotNull(fromThen, fromElse), ctx.location(node))
+            // Named alongside the paths rather than assumed, since a branch that cannot reach the
+            // join is not there to be named: `if (x == null) return 0;` has one path, and it is the
+            // false one.
+            val paths = listOfNotNull(fromThen?.to("true"), fromElse?.to("false"))
+            join(paths.map { it.first }, ctx.location(node), Gate("if", condition), paths.map { it.second })
             return null
         }
 
@@ -374,20 +378,35 @@ class Lowering(private val symbols: Symbols) {
          * A name only one side knows is one the other side cannot see either - a variable declared
          * inside a branch is out of scope below it - so it is carried across as it stands rather
          * than merged with nothing.
+         *
+         * [gate] is what chose, and is null for the joins where nothing on the page did - see [Gate].
+         * The caller describes it without the arms, since which value arrives down which path is a
+         * question per variable rather than per join; [armNames] runs parallel to [paths] and this
+         * fills them in for the values that arrive down exactly one.
          */
-        private fun join(paths: List<Map<Any, Definition>>, source: String) {
+        private fun join(
+            paths: List<Map<Any, Definition>>,
+            source: String,
+            gate: Gate? = null,
+            armNames: List<String> = emptyList()
+        ) {
             if (paths.isEmpty()) return
             val keys = LinkedHashSet<Any>()
             paths.forEach { keys.addAll(it.keys) }
             val joined = LinkedHashMap<Any, Definition>()
             keys.forEach { key ->
-                val reaching = paths.mapNotNull { it[key] }
-                val values = reaching.map { it.value }.distinct()
-                val first = reaching.first()
+                val reaching = paths.withIndex().mapNotNull { (path, definitions) ->
+                    definitions[key]?.let { path to it }
+                }
+                val values = reaching.map { it.second.value }.distinct()
+                val first = reaching.first().second
                 joined[key] = if (values.size == 1) {
                     first
                 } else {
-                    val phi = Phi(first.name, first.element, first.isPrimitive, values.first(), source)
+                    val phi = Phi(
+                        first.name, first.element, first.isPrimitive, values.first(), source,
+                        gate?.let { Gate(it.label, it.value, arms(reaching, armNames)) }
+                    )
                     values.drop(1).forEach { phi.addPath(it) }
                     Definition(first.name, first.element, first.isPrimitive, emit(phi))
                 }
@@ -395,6 +414,21 @@ class Lowering(private val symbols: Symbols) {
             definitions.clear()
             definitions.putAll(joined)
         }
+
+        /**
+         * Which path each value arrived down, for the values where that is one path and it has a name.
+         *
+         * `singleOrNull` is doing both jobs: a value the two branches of an `if` both leave behind is
+         * not the true one or the false one, and a `switch` passes no names at all because the arm a
+         * value came from is a case label this does not have.
+         */
+        private fun arms(
+            reaching: List<Pair<Int, Definition>>,
+            armNames: List<String>
+        ): Map<Val, String> = reaching
+            .groupBy({ it.second.value }, { armNames.getOrNull(it.first) })
+            .mapNotNull { (value, names) -> names.singleOrNull()?.let { value to it } }
+            .toMap()
 
         /**
          * Whether control can fall out of the bottom of a statement.
@@ -657,7 +691,7 @@ class Lowering(private val symbols: Symbols) {
             var hasDefault = false
             node.cases.forEach { case ->
                 if (fellThrough) {
-                    join(listOf(LinkedHashMap(definitions), entry), ctx.location(case))
+                    join(listOf(LinkedHashMap(definitions), entry), ctx.location(case), Gate("switch", selector))
                 } else {
                     definitions.clear()
                     definitions.putAll(entry)
@@ -679,7 +713,10 @@ class Lowering(private val symbols: Symbols) {
                 if (reachesTheBottom) exits.add(LinkedHashMap(definitions))
             }
             if (!hasDefault) exits.add(entry)
-            join(exits, ctx.location(node))
+            // The selector, not each arm's `==`: which arm ran is decided by the one value, and
+            // naming the comparisons instead would need the case labels threaded through to say
+            // which of them belongs to which path.
+            join(exits, ctx.location(node), Gate("switch", selector))
             return null
         }
 

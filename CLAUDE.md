@@ -235,15 +235,43 @@ settled by whoever draws the graph. Parameters are definitions too (`Param`), wh
 the resolution total: every use in a body resolves to an instruction.
 
 `visitIf` and `visitSwitch` are where the map forks. Both branches are lowered from the same definitions, and at the
-join each variable the two paths disagree about gets a `Phi` taking the value from each — drawn as
-one box carrying the variable's name. That box is why `c = b` after `if (…) { b = 13; }` reaches
-both 13 and whatever `b` held before, where a single mutable slot per variable gave it only the
-branch walked last. `bothPathsOfABranchReachAUseAfterIt` is the assertion; `if1/truth.md` is what it
-looked like without one.
+join each variable the two paths disagree about gets a `Phi` taking the value from each. That box is
+why `c = b` after `if (…) { b = 13; }` reaches both 13 and whatever `b` held before, where a single
+mutable slot per variable gave it only the branch walked last.
+`bothPathsOfABranchReachAUseAfterIt` is the assertion; `if1/truth.md` is what it looked like without
+one.
+
+**What chose is an input too.** A classic phi carries no condition: its operands are matched
+positionally against a CFG's incoming edges, and the test lives in the block that branches. There is
+no such graph here, so nothing recorded the association at all — the `==` of an `if` was drawn with
+both operands flowing in and *no edge leaving it*, the value the whole branch turns on rendered as
+though nothing consumed it, while the same choice written as `?:` had its condition flowing into the
+`Select`. Two shapes for one program. `Phi.gate` (`ir.Gate`) closes that: the deciding value is an
+input, and the box is captioned with the construct — `if`, `switch` — rather than repeating the
+variable's name a third time. SSA calls this a *gated* phi; codeflow's ternary node always was one.
+`theConditionOfAnIfReachesEachValueItDecides` is the assertion.
+
+Two rules the gate must not break. It is in `inputs` but **not** in `Phi.paths`, and the object
+union runs over `paths` — a variable is never the thing that chose it, and unioning the inputs would
+make `switch (name)` over a `String` point the joined variable at the selector's object. It is the
+same discipline `Select.alternatives` enforces, in the other half of the model. And the node is
+*keyed* by the variable while *captioned* with the construct (`GraphNode.Base(caption = …)`), since
+the key is `(position, label)` and two joins at one `if` captioned alike would be one key — the
+derive-an-id-from-attributes hazard, arriving by the back door.
+
+Only an `if` and a `switch` statement are gated, because only they have the deciding value already
+lowered when the join happens. A loop's condition is computed *from* its header phi and lowered
+after it; an enhanced `for` has no condition at all; and which `throw` reached a handler is control
+flow rather than any value. Those joins fall back to the variable's name, and the fixtures
+`forLoop`, `enhancedFor`, `varargs`, `tryCatch` and `catchParameter` are the check that they stayed
+that way. A `switch` is gated by its **selector**, not by each arm's `==`, so those comparisons still
+have no outgoing edge — coarser than the truth, but naming them would need the case labels threaded
+through to say which comparison belongs to which path.
 
 A branch that cannot fall out of its own bottom contributes nothing to the join —
 `completesNormally` decides, and errs towards yes, since merging a value that cannot arrive is the
-lesser wrong.
+lesser wrong. It is also why the arm names are built alongside the path list rather than assumed:
+`if (x == null) return 0;` has one path, and it is the false one.
 
 A loop is the same idea with the phi at the *header*. `Lowering.loop` emits one for every variable
 the loop assigns before the body is lowered, so a use inside the body names one instruction whichever

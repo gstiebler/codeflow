@@ -357,7 +357,12 @@ class Frame(
      *
      * Keyed by occurrence rather than by declaration, because it is not a place anything looks up:
      * a use below the join was resolved to this instruction while the method was being lowered, so
-     * what the box has to be is the merge itself, at the line of the `if` that caused it.
+     * what the box has to be is the merge itself, at the line of the `if` that caused it. Keyed by
+     * the *variable* even where the box is captioned with the construct, since the key is
+     * `(position, label)` and two joins at one `if` captioned `if` would be one key.
+     *
+     * The gate flows in with the paths, which is what says why either value would be taken - see
+     * [Gate]. It is never among the objects the join can be, only among its inputs.
      *
      * Which object it is is every object any path could have left it holding, which is the whole
      * point of the set: it used to be the first path that named one, and a field read below the
@@ -370,9 +375,11 @@ class Frame(
      * rather than an invented one.
      */
     private fun phi(insn: Phi, run: Run): Value {
-        val (arrived, pending) = insn.inputs.partition { it.index < run.reached }
+        val (arrived, pending) = insn.paths.partition { it.index < run.reached }
         val id = labelId(insn.name, insn)
-        val node = block.addJoin(base(id, insn), arrived.map { run.node(it) }, insn.isPrimitive)
+        val gate = insn.gate?.let { run.node(it.value) }
+        val inputs = arrived.map { run.node(it) } + listOfNotNull(gate)
+        val node = block.addJoin(base(id, insn, insn.gate?.label), inputs, insn.isPrimitive)
         pending.forEach { run.backEdges.add(node to it) }
         return Value(node, arrived.flatMapTo(HashSet()) { run.objects(it) })
     }
@@ -548,5 +555,6 @@ class Frame(
     /** A node that stands for an occurrence rather than for a variable: an operator, a literal. */
     private fun labelId(label: String, insn: Insn) = GraphNodeId(stack.push(insn.source), label)
 
-    private fun base(id: GraphNodeId, insn: Insn) = GraphNode.Base(id, insn.source)
+    private fun base(id: GraphNodeId, insn: Insn, caption: String? = null) =
+        GraphNode.Base(id, insn.source, caption)
 }

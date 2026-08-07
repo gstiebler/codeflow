@@ -75,6 +75,27 @@ class WriteLocal(
 }
 
 /**
+ * What decided which path arrived at a [Phi], when that is a value the source computed.
+ *
+ * A classic phi carries no condition: its operands are matched positionally against a control-flow
+ * graph's incoming edges, and the test lives in the block that branches. There is no such graph
+ * here, so nothing recorded the association at all - the `==` of an `if` was drawn with both
+ * operands flowing in and no edge leaving it, the value the whole branch turns on rendered as
+ * though nothing consumed it. Naming it here is what SSA calls a *gated* phi, and it is the form
+ * [Select] has always had for the same choice written as `?:`.
+ *
+ * [label] is what the box is captioned - `if`, `switch` - since a join that is a choice should say
+ * which construct made it rather than repeat the variable's name a third time.
+ *
+ * [arms] names the edge each path arrives on, for the paths where that can be said honestly: a
+ * value reaching the join down exactly one path of an `if` is the true one or the false one, and a
+ * value reaching it down several is neither. Keyed by the value rather than held as a list
+ * alongside the paths because [Lowering] collapses the reaching values with `distinct`, which
+ * loses any positional correspondence a parallel list would depend on.
+ */
+class Gate(val label: String, val value: Val, val arms: Map<Val, String> = emptyMap())
+
+/**
  * The value a variable holds where two paths come back together.
  *
  * One instruction per variable per join, taking the value that reaches it from each path, so a use
@@ -82,20 +103,37 @@ class WriteLocal(
  * and the branch walked last wins - `if (c) { b = 13; }` followed by `use(b)` was drawn as taking
  * only the 13, which is the diagram asserting the other value cannot arrive.
  *
- * It is drawn, as a box carrying the variable's name, because it is a place in the program: the two
- * values really do meet there, and the alternative - joining every path straight onto every use -
- * loses where that happened and fans out with every nested branch.
+ * It is drawn, as a box of its own, because it is a place in the program: the two values really do
+ * meet there, and the alternative - joining every path straight onto every use - loses where that
+ * happened and fans out with every nested branch.
+ *
+ * [gate] is what chose, where anything did. An `if` and a `switch` statement have theirs lowered
+ * before the join and so carry one; a loop's condition is computed *from* its header phi and lowered
+ * after it, and which `throw` reached a handler is control flow rather than a value, so both of
+ * those are ungated and the box falls back to the variable's name.
  */
 class Phi(
     val name: String,
     val element: Element?,
     val isPrimitive: Boolean,
     entry: Val,
-    source: String
+    source: String,
+    val gate: Gate? = null
 ) : Insn(source) {
-    private val paths = arrayListOf(entry)
+    private val arrived = arrayListOf(entry)
 
-    override val inputs: List<Val> get() = paths
+    /**
+     * The value from each path, which is what the variable can hold.
+     *
+     * Deliberately not [inputs]: the gate is consumed here too, but the variable is never *equal*
+     * to the thing that chose it. Unioning the objects over the inputs instead would make a
+     * `switch (name)` over a String point the joined variable at the selector's object, filing one
+     * object's fields under another's name - the mistake [Select.alternatives] exists to prevent,
+     * made in the other half of the model.
+     */
+    val paths: List<Val> get() = arrived
+
+    override val inputs: List<Val> get() = arrived + listOfNotNull(gate?.value)
 
     /**
      * A path arriving after this instruction: the bottom of a loop body, back to its header.
@@ -106,10 +144,11 @@ class Phi(
      * once the body has been walked, so the phi is completed rather than built in one go.
      */
     fun addPath(value: Val) {
-        paths.add(value)
+        arrived.add(value)
     }
 
-    override fun render() = "phi $name" + inputs.joinToString("") { " $it" }
+    override fun render() = "phi $name" + arrived.joinToString("") { " $it" } +
+            (gate?.let { " ? ${it.value}" } ?: "")
 }
 
 /** `a + b`. [label] is already the display form, since `/` cannot be drawn as itself - see below. */
@@ -137,9 +176,12 @@ class UnOp(val label: String, val operand: Val, source: String) : Insn(source) {
  * Every input reaches the output, which is coarse rather than wrong: the reader is shown every value
  * the expression can produce, and the condition that decides among them.
  *
- * Not a [Phi], although both stand for a choice. This is an expression the source wrote, with a
- * value of its own and a condition that flows into it; a phi is a variable at a place where two
- * paths meet, and what decided between them is the branch above rather than any value.
+ * Not a [Phi], although both stand for a choice and both now name what chose. This is an expression
+ * the source wrote and its node stands for the value that expression produced; a phi is a variable
+ * at a place where two paths meet, and exists whether or not anything was written there. `c ? a : b`
+ * and `if (c) x = a; else x = b;` should come out the same shape, which is why [Gate] exists - they
+ * are the same choice, and drawing one with its condition and the other without was the tool
+ * disagreeing with itself about the same program.
  *
  * [alternatives] is which of the inputs the value can *be*, which is not all of them and is not
  * something the graph could work out from the list. `c ? a : b` can be `a` or `b` and never `c`,

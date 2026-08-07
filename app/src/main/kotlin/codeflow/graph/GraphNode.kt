@@ -41,10 +41,15 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
      * tree belongs to*, which is not always the one being walked: a callee is inlined with the
      * caller's context in hand, and asking that one for a line number in another file gives a
      * number from the wrong line map.
+     *
+     * @param caption what the box says, when that is not what it is keyed under. Almost nothing
+     *   needs this: a key's label is normally the name the reader wants. A gated join is the case
+     *   that does - it is keyed by the variable it is for, since two joins at one `if` keyed alike
+     *   would be one entry in the lookup map, and captioned with the construct that made it, since
+     *   three boxes in a row all saying `a` is what made the choice invisible.
      */
-    class Base(val id: GraphNodeId, val source: String) {
-        val label: String
-            get() = id.label
+    class Base(val id: GraphNodeId, val source: String, caption: String? = null) {
+        val label: String = caption ?: id.label
     }
 
     fun edgesIterator() = edges.iterator()

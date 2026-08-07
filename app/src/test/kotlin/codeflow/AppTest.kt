@@ -255,6 +255,45 @@ class AppTest {
     }
 
     /**
+     * The condition of an `if` reaches every join it decides, as the condition of a `?:` already does.
+     *
+     * `b == 7` is what picks between the two values each of `a` and `b` can hold below the branch,
+     * and it used to be drawn with both operands flowing in and no edge leaving it at all - the
+     * value the whole branch turns on, sitting on the page as though nothing consumed it. The join
+     * boxes had the mirror problem: labelled with the variable's name, they were three boxes called
+     * `a` in a row and nothing said which one was the choice.
+     *
+     * This is the same claim [ternaryConnectsBothBranchesAndCondition] makes about the expression
+     * form. Writing the choice as a statement rather than an expression is not a reason to draw it
+     * differently.
+     */
+    @Test
+    fun theConditionOfAnIfReachesEachValueItDecides() {
+        val graph = buildGraph("if1", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertEquals(2, edges.count { it == "==" to "if" }, "the condition does not reach both joins: $edges")
+        assertTrue("if" to "c" in edges, "the join does not reach the use below it: $edges")
+        assertTrue("if" to "d" in edges, "the join does not reach the use below it: $edges")
+        assertTrue(reaches(graph, "13", "if"), "the value written in the branch does not reach a join")
+        assertTrue(reaches(graph, "17", "if"), "the value written in the branch does not reach a join")
+    }
+
+    /**
+     * The selector of a `switch` statement reaches the join below it, for the same reason.
+     *
+     * Which arm ran is decided by the selector, so a join that does not take it is a diagram of a
+     * `switch` with nothing on it saying what was switched on. The arms' own `==` comparisons stay
+     * where they are - the join is gated by the selector rather than by each arm's test, which is
+     * coarser and is the honest thing to draw without threading case labels through.
+     */
+    @Test
+    fun theSelectorOfASwitchReachesTheJoinItDecides() {
+        val edges = edgeLabels(buildGraph("switchStatement", listOf("App.java")))
+        assertTrue("selector" to "switch" in edges, "the selector does not reach the join: $edges")
+        assertTrue("switch" to "+" in edges, "the join does not reach the use below it: $edges")
+    }
+
+    /**
      * A loop body runs some number of times including none, and every count has to be on the page.
      *
      * `int y = 0; for (...) { y = 7; } int z = y;` gives `z` either 0 or 7, and the loop was drawn

@@ -72,23 +72,30 @@ Cytoscape.js **compound nodes** are the method boundaries: a node's `parent` is 
 what `subgraph` was doing in Mermaid. Layout is ELK `layered` with `elk.hierarchyHandling:
 INCLUDE_CHILDREN` — without that it lays each container out independently and the boxes overlap.
 
-The page opens with only the outermost method expanded. This is not cosmetic: a callee's body is
-inlined at *every* call site, so node count grows with call sites rather than source size, and
-opening everything at once is the wall the viewer exists to avoid.
+The page opens with the entry method's own leaf children revealed and nothing else — every callee
+box is in the graph, drawn as nothing because none of its contents are showing. This is not
+cosmetic: a callee's body is inlined at *every* call site, so node count grows with call sites
+rather than source size, and showing everything at once is the wall the viewer exists to avoid.
 
-Two behaviours that are easy to get subtly wrong:
+Visibility is derived, and that is the one rule to respect: **never set `display` on a `METHOD`
+node.** A `Set` of revealed *leaf* ids is the only state. Cytoscape works out the rest — an edge
+hides when either endpoint does, and a box hides when every descendant does, transitively. Setting
+`display:none` on a box breaks the transitive case: a box whose only visible node is a grandchild
+would be hidden, and the grandchild would have nowhere to live. That case is reachable by clicking
+and is guarded by the browser test *draws a box whose only revealed nodes are grandchildren* —
+clicking `X1` in the `funcCall` fixture reveals nodes inside the nested `methodC` boxes and none of
+`methodB`'s own, so `methodB` is on screen through grandchildren alone.
 
-- **Collapsing removes children from the graph**, it does not hide them. `cy.nodes().length` after
-  a fold is not the payload's node count, and a test comparing the two has to `expandAll()` first.
-- A collapsed block's edges are replaced by **meta-edges**, which say only that *something* inside
-  connects to the other end. Drawn like a real edge that asserts a flow between two nodes that never
-  touched, so they are styled dashed and grey.
+Nothing is ever removed from the graph, so `cy.nodes().length` is always the payload's node count.
 
-`traceFrom(edges, startId)` is the click behaviour: everything the value reached and everything it
-came from. It runs against the **payload**, not the rendered graph — a trace that stopped at the
-edge of whatever happens to be open would answer a different question. It is a closure in each
-direction *separately*: for `c = a + b`, clicking `a` lights `+` and `c` but not `b`. Its `reached`
-set is what makes it terminate, since a loop feeding a variable back into itself is a cycle.
+`neighbourhood(edges, startId, depth)` is the click behaviour: an undirected ball of radius
+`REVEAL_DEPTH`. It is breadth-first on purpose — the walk is bounded, so a node first reached by a
+long path would be recorded at the wrong distance and pruned early. Undirected on purpose too: for
+`c = a + b`, clicking `a` shows `b`, because an operator drawn with one operand missing is worse
+than one more node.
+
+Clicks union into the revealed set and never subtract. Only a box click (which removes its leaf
+*descendants* — a box holds boxes) or `R` takes anything away.
 
 ### Attributed, and asked rather than guessed
 
@@ -209,7 +216,8 @@ and still in the pre-serial id format.
 Split by what they can actually catch:
 
 - `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `viewer.mjs`.
-  `traceFrom` is tested here, including that it terminates on a cycle.
+  `neighbourhood` is tested here: the depth bound, that a node reachable both ways is recorded at
+  the *short* distance so nodes past it stay in range, and that it terminates on a cycle.
 - `app/src/test/js/browser/` (`npm run test:browser`) — Playwright against a page built from a real
   fixture. `global-setup.mjs` runs `gradlew run --args="<fixture> --html"` first, with an
   **absolute** fixture path: the `run` task's working directory is `app/`, so a repo-relative one
@@ -222,5 +230,5 @@ Two traps, both of which produced a green run on a broken page:
   The guard is `typeof window.cy?.nodes === 'function'` for the same reason.
 - A negative assertion (`not.toContain`, `count === 0`) passes trivially when the feature does
   nothing at all. Each one is paired with a positive assertion that fails in that case. Confirm a
-  new test fails against a *wrong* implementation, not just an absent one — for the trace, lighting
-  every node is the mutation to try.
+  new test fails against a *wrong* implementation, not just an absent one — revealing every node is
+  the mutation to try.

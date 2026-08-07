@@ -4,13 +4,6 @@ import { resolve } from 'node:path';
 
 const PAGE = pathToFileURL(resolve('build/viewer-test/funcCall.html')).href;
 
-/** Cytoscape is on window and holds the graph; this is how the tests see what rendered. */
-const counts = (page) => page.evaluate(() => ({
-  nodes: window.cy.nodes().length,
-  edges: window.cy.edges().length,
-  methods: window.cy.nodes('[type = "METHOD"]').length,
-}));
-
 test.beforeEach(async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -21,123 +14,108 @@ test.beforeEach(async ({ page }) => {
   expect(errors, 'the page threw while loading').toEqual([]);
 });
 
-// The failure this exists for: a page that renders nothing looks exactly like an empty graph.
-//
-// Counted with everything expanded, because folding a block removes its children from the graph
-// rather than hiding them - so the totals are only comparable to the payload once nothing is
-// folded. 39 nodes and 26 edges is what --json and --graphml report for this fixture.
-test('renders the whole graph once everything is expanded', async ({ page }) => {
-  await page.evaluate(() => window.api.expandAll());
-  const { nodes, edges, methods } = await counts(page);
-  expect(nodes).toBe(39);
-  expect(edges).toBe(26);
-  expect(methods).toBe(5);
-});
-
 test('draws the canvas at a usable size', async ({ page }) => {
   const box = await page.locator('#graph canvas').first().boundingBox();
   expect(box.width).toBeGreaterThan(100);
   expect(box.height).toBeGreaterThan(100);
 });
 
-const methodState = (page) => page.evaluate(() => {
-  const methods = window.cy.nodes('[type = "METHOD"]');
-  return {
-    present: methods.map((n) => n.data('label')).sort(),
-    // isExpandable means folded and openable; isCollapsible means open and foldable.
-    folded: methods.filter((n) => window.api.isExpandable(n)).map((n) => n.data('label')).sort(),
-    open: methods.filter((n) => window.api.isCollapsible(n)).map((n) => n.data('label')).sort(),
-  };
-});
+const leafLabels = (page) => page.evaluate(() => window.cy.nodes()
+  .filter((n) => n.data('type') !== 'METHOD' && n.visible())
+  .map((n) => n.data('label')).sort());
 
-test('opens with only the outermost method expanded', async ({ page }) => {
-  const { present, folded, open } = await methodState(page);
-  // main is open, so both of its calls are in the graph and both are folded. The two methodC
-  // blocks are inside the folded methodB and so are not in the graph at all yet - which is the
-  // point: the cost of a deep call tree is not paid until it is asked for.
-  expect(present).toEqual(['main', 'methodA', 'methodB']);
-  expect(open).toEqual(['main']);
-  expect(folded).toEqual(['methodA', 'methodB']);
-});
+const boxLabels = (page) => page.evaluate(() => window.cy.nodes('[type = "METHOD"]')
+  .filter((n) => n.visible())
+  .map((n) => n.data('label')).sort());
 
-test('expanding a method reveals the calls nested inside it', async ({ page }) => {
-  await page.evaluate(() => {
-    const methodB = window.cy.nodes('[type = "METHOD"]').filter((n) => n.data('label') === 'methodB');
-    window.api.expand(methodB);
-  });
-  const { present, folded } = await methodState(page);
-  // methodC is inlined at both of methodB's call sites, so opening methodB brings in two of them,
-  // each folded in turn.
-  expect(present).toEqual(['main', 'methodA', 'methodB', 'methodC', 'methodC']);
-  expect(folded).toEqual(['methodA', 'methodC', 'methodC']);
-});
+const tapLeaf = (page, label) => page.evaluate((l) => window.cy.nodes()
+  .filter((n) => n.data('type') !== 'METHOD' && n.data('label') === l).emit('tap'), label);
 
-/**
- * A collapsed block's edges become meta-edges, which say only that *something* inside connects to
- * the other end. Drawn like a real edge, that asserts a flow between two nodes that never touched.
- */
-test('draws meta-edges differently from real ones', async ({ page }) => {
-  const styles = await page.evaluate(() => {
-    const meta = window.cy.edges('.cy-expand-collapse-meta-edge');
-    const real = window.cy.edges().not(meta);
-    return {
-      metaCount: meta.length,
-      metaStyle: meta.length ? meta[0].renderedStyle('line-style') : null,
-      realStyle: real.length ? real[0].renderedStyle('line-style') : null,
-    };
-  });
-  expect(styles.metaCount).toBeGreaterThan(0);
-  expect(styles.metaStyle).toBe('dashed');
-  expect(styles.realStyle).toBe('solid');
-});
+const tapBox = (page, label) => page.evaluate((l) => window.cy.nodes('[type = "METHOD"]')
+  .filter((n) => n.data('label') === l).emit('tap'), label);
 
-const tapNode = (page, label) => page.evaluate((l) => {
-  window.cy.nodes().filter((n) => n.data('label') === l).emit('tap');
-}, label);
+const OPENING = ['5', '8', 'app', 'args', 'e', 'main', 'x', 'y'];
 
-/**
- * The question the tool exists to answer. In main, `5` is assigned to `x`, which is passed to
- * methodA, whose result reaches `y` - so clicking `x` has to light the literal it came from and
- * the variable it ends up in, both of which are several hops away.
- */
-test('clicking a node traces the value in both directions', async ({ page }) => {
-  await page.evaluate(() => window.api.expandAll());
-  await tapNode(page, 'x');
-
-  const { traced, dimmed } = await page.evaluate(() => ({
-    traced: window.cy.nodes('.traced').map((n) => n.data('label')).sort(),
-    dimmed: window.cy.nodes('.dimmed').length,
+// Hiding, not removing. Under the old folding this read 11 - which is exactly the trap that made
+// a node count comparable to the payload only after expanding everything first.
+test('holds the whole payload however little is displayed', async ({ page }) => {
+  const { nodes, edges } = await page.evaluate(() => ({
+    nodes: window.cy.nodes().length,
+    edges: window.cy.edges().length,
   }));
-  expect(traced).toContain('x');
-  expect(traced).toContain('5');
-  expect(traced).toContain('y');
-  expect(dimmed).toBeGreaterThan(0);
+  expect(nodes).toBe(39);
+  expect(edges).toBe(26);
 });
 
-/** A value in one method must not light up an unrelated one, or the highlight means nothing. */
-test('leaves an unrelated method out of the trace', async ({ page }) => {
-  await page.evaluate(() => window.api.expandAll());
-  await tapNode(page, 'x');
-
-  const traced = await page.evaluate(
-    () => window.cy.nodes('.traced').map((n) => n.data('label')),
-  );
-  // Without this the rest of the test passes on a page that traces nothing at all.
-  expect(traced).toContain('x');
-  // paramH and g belong to methodC, which nothing in the x -> methodA -> y chain touches.
-  expect(traced).not.toContain('paramH');
-  expect(traced).not.toContain('g');
+test('opens showing the entry method body and nothing from a callee', async ({ page }) => {
+  expect(await leafLabels(page)).toEqual(OPENING);
+  // No callee has a visible node, so no callee box is drawn.
+  expect(await boxLabels(page)).toEqual(['main']);
 });
 
-const markedCount = (page) => page.evaluate(
-  () => window.cy.elements('.dimmed').length + window.cy.elements('.traced').length,
-);
+test('clicking a node reveals its neighbourhood three hops out', async ({ page }) => {
+  await tapLeaf(page, 'x');
+  const leaves = await leafLabels(page);
+  // a, + , b and c are 1..3 hops from x and were all hidden a moment ago.
+  expect(leaves).toContain('a');
+  expect(leaves).toContain('+');
+  expect(leaves).toContain('b');
+  expect(leaves).toContain('c');
+  // methodA's return node is exactly 4 hops out. This is what fails if the bound is off by one,
+  // and it only means anything next to the four assertions above.
+  expect(leaves).not.toContain('methodA');
+  // The box appears because it now contains something, never because we showed it.
+  expect(await boxLabels(page)).toEqual(['main', 'methodA']);
+});
 
-test('clicking the background clears the trace', async ({ page }) => {
-  await tapNode(page, 'x');
-  // Clearing nothing is not the same as clearing something, and only this tells them apart.
-  expect(await markedCount(page)).toBeGreaterThan(0);
+test('reveals accumulate across clicks', async ({ page }) => {
+  await tapLeaf(page, 'x');
+  const afterX = await leafLabels(page);
+  await tapLeaf(page, 'e');
+  const afterE = await leafLabels(page);
 
-  await page.evaluate(() => window.cy.emit('tap', [{ target: window.cy }]));
-  expect(await markedCount(page)).toBe(0);
+  // Nothing the first click revealed may vanish on the second.
+  for (const label of afterX) expect(afterE).toContain(label);
+  // And the second click has to actually add something, or the loop above proves nothing.
+  expect(afterE.length).toBeGreaterThan(afterX.length);
+  expect(afterE).toContain('d');
+});
+
+// The state the "never set display on a METHOD node" rule exists for. X1 flows only into X2, both
+// of them inside the methodC boxes nested in methodB, so methodB is drawn purely on the strength of
+// grandchildren. A box whose display came from its own children would go dark here and take the
+// revealed grandchildren with it.
+test('draws a box whose only revealed nodes are grandchildren', async ({ page }) => {
+  await tapLeaf(page, 'X1');
+
+  // Both methodC call sites: the label appears twice, so the tap fans out to both.
+  expect(await boxLabels(page)).toEqual(['main', 'methodB', 'methodC', 'methodC']);
+
+  const leaves = await leafLabels(page);
+  expect(leaves).toContain('X1');
+  expect(leaves).toContain('X2');
+  // Every one of methodB's own children is still hidden - without these the assertion above would
+  // hold on a page that reveals far more than it was asked to.
+  for (const own of ['methodB', 'd', '11', 'f', '13']) expect(leaves).not.toContain(own);
+});
+
+test('folding a method box hides its contents, nested boxes and all', async ({ page }) => {
+  await tapLeaf(page, 'e');
+  // methodC's return node sits two levels down, inside methodB's methodC box.
+  expect(await boxLabels(page)).toEqual(['main', 'methodB', 'methodC']);
+
+  await tapBox(page, 'methodB');
+  // Both go. If the fold used children() instead of descendants(), methodC would survive.
+  expect(await boxLabels(page)).toEqual(['main']);
+  expect(await leafLabels(page)).toEqual(OPENING);
+});
+
+test('R returns to the opening set', async ({ page }) => {
+  await tapLeaf(page, 'x');
+  await tapLeaf(page, 'e');
+  // Without this, the reset below would pass on a page where clicking never revealed anything.
+  expect((await leafLabels(page)).length).toBeGreaterThan(OPENING.length);
+
+  await page.keyboard.press('r');
+  expect(await leafLabels(page)).toEqual(OPENING);
 });

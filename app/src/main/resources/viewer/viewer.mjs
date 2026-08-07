@@ -5,36 +5,44 @@
  * only from init() - the tests run in Node, where `document` and `cytoscape` do not exist.
  */
 
+/** How far a click reaches. Three hops is enough to cross a call and land in the callee's body. */
+export const REVEAL_DEPTH = 3;
+
 /**
- * The clicked node plus everything a value could have come from and everything it can reach.
+ * Every node within `depth` edges of `startId`, following edges in either direction.
  *
- * `reached` is what makes this terminate: the graph has cycles wherever a loop feeds a variable
- * back into itself, and following one forever hangs the page with nothing on screen to explain why.
+ * Breadth-first, and that matters: the walk is bounded, so a node reached by a long path before
+ * a short one would be recorded at the wrong distance, and anything past it pruned away. Popping
+ * from the end of the queue instead is harmless only for an unbounded walk.
+ *
+ * `distance` is also what makes this terminate, since the graph has cycles wherever a loop feeds
+ * a variable back into itself.
  */
-export function traceFrom(edges, startId) {
-  const outgoing = new Map();
-  const incoming = new Map();
+export function neighbourhood(edges, startId, depth) {
+  const adjacent = new Map();
+  const link = (from, to) => {
+    if (!adjacent.has(from)) adjacent.set(from, []);
+    adjacent.get(from).push(to);
+  };
   for (const edge of edges) {
-    if (!outgoing.has(edge.source)) outgoing.set(edge.source, []);
-    outgoing.get(edge.source).push(edge.target);
-    if (!incoming.has(edge.target)) incoming.set(edge.target, []);
-    incoming.get(edge.target).push(edge.source);
+    link(edge.source, edge.target);
+    link(edge.target, edge.source);
   }
 
-  const reached = new Set([startId]);
-  for (const adjacency of [outgoing, incoming]) {
-    const queue = [startId];
-    while (queue.length > 0) {
-      const id = queue.pop();
-      for (const next of adjacency.get(id) ?? []) {
-        if (!reached.has(next)) {
-          reached.add(next);
-          queue.push(next);
-        }
+  const distance = new Map([[startId, 0]]);
+  const queue = [startId];
+  // Index rather than shift(): same order, without re-indexing the array on every step.
+  for (let head = 0; head < queue.length; head += 1) {
+    const id = queue[head];
+    if (distance.get(id) === depth) continue;
+    for (const next of adjacent.get(id) ?? []) {
+      if (!distance.has(next)) {
+        distance.set(next, distance.get(id) + 1);
+        queue.push(next);
       }
     }
   }
-  return reached;
+  return new Set(distance.keys());
 }
 
 const PALETTE = {
@@ -85,60 +93,57 @@ export function init(payload) {
         width: 1.5, 'line-color': '#999', 'target-arrow-color': '#999',
         'target-arrow-shape': 'triangle', 'curve-style': 'bezier',
       } },
-      { selector: '.dimmed', style: { opacity: 0.15 } },
-      { selector: '.traced', style: { 'border-width': 3, 'border-color': '#d33' } },
-      // A collapsed block's edges are replaced by meta-edges, which say only that *something*
-      // inside connects to the other end. That is a summary, not a flow the code has; drawn like a
-      // real edge it would assert a connection between two nodes that never touched.
-      { selector: 'edge.cy-expand-collapse-meta-edge', style: {
-        'line-style': 'dashed', 'line-color': '#bbb', 'target-arrow-color': '#bbb',
-      } },
     ],
-    layout: LAYOUT,
+    // No layout here: apply() runs one at the end of init, and a second on every click. Laying out
+    // in the constructor as well only costs a run nobody sees.
   });
 
-  const api = cy.expandCollapse({
-    layoutBy: LAYOUT,
-    fisheye: false,
-    animate: false,
-    undoable: false,
-  });
+  const isBox = (node) => node.data('type') === 'METHOD';
+  const entryBox = cy.nodes('[type = "METHOD"]').filter((n) => n.isOrphan());
+  // The entry method's own values, and nothing from anything it calls.
+  const opening = () => new Set(
+    entryBox.children().filter((n) => !isBox(n)).map((n) => n.id()),
+  );
 
-  // Everything folded except the outermost method. The graph inlines a callee's body at every call
-  // site, so node count grows with call sites rather than source size - opening it all at once is
-  // the wall this viewer exists to avoid. The root stays open so the first click is never wasted.
-  const root = cy.nodes('[type = "METHOD"]').filter((n) => n.isOrphan());
-  api.collapseAll();
-  api.expand(root);
+  let revealed = opening();
 
-  const clear = () => cy.elements().removeClass('dimmed traced');
+  const apply = () => {
+    for (const node of cy.nodes()) {
+      // Never a box. Cytoscape works a box's visibility out from its descendants, transitively -
+      // display:none here would hide a box whose only visible node is a grandchild, and that
+      // grandchild would have nowhere to live.
+      if (isBox(node)) continue;
+      node.style('display', revealed.has(node.id()) ? 'element' : 'none');
+    }
+    cy.layout(LAYOUT).run();
+  };
 
   cy.on('tap', 'node', (event) => {
     const node = event.target;
-    // A method box is for folding, not tracing; expand-collapse owns that click.
-    if (node.isParent()) return;
-
-    clear();
-    // Traced against the payload rather than the rendered graph: folding removes nodes, and a
-    // trace that stopped at the edge of what happens to be open would answer a different question.
-    const lit = traceFrom(payload.edges, node.id());
-    cy.elements().addClass('dimmed');
-    const onPath = cy.nodes().filter((n) => lit.has(n.id()));
-    // The enclosing boxes stay lit too, or a highlighted node sits inside a dimmed container.
-    onPath.forEach((n) => n.ancestors().removeClass('dimmed'));
-    onPath.removeClass('dimmed').addClass('traced');
-    cy.edges()
-      .filter((e) => lit.has(e.source().id()) && lit.has(e.target().id()))
-      .removeClass('dimmed');
+    if (isBox(node)) {
+      // descendants(), not children(): a box holds boxes, and folding one has to take the lot.
+      for (const inside of node.descendants()) {
+        if (!isBox(inside)) revealed.delete(inside.id());
+      }
+    } else {
+      for (const id of neighbourhood(payload.edges, node.id(), REVEAL_DEPTH)) revealed.add(id);
+    }
+    apply();
   });
 
-  cy.on('tap', (event) => {
-    if (event.target === cy) clear();
+  // Folding needs a box, so a sprawl inside the entry method has nothing to fold. Without this
+  // the only way back is a reload, which re-runs the whole layout.
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'r' || event.key === 'R') {
+      revealed = opening();
+      apply();
+    }
   });
 
-  // The browser tests read the graph off these. Nothing in the page uses them.
+  apply();
+
+  // The browser tests read the graph off this. Nothing in the page uses it.
   window.cy = cy;
-  window.api = api;
   return cy;
 }
 

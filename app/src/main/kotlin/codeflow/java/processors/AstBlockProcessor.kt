@@ -3,6 +3,7 @@ package codeflow.java.processors
 import codeflow.graph.*
 import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
+import javax.lang.model.element.Modifier
 import codeflow.java.ids.JNodeId
 import com.sun.source.tree.*
 import com.sun.source.util.TreeScanner
@@ -207,6 +208,27 @@ open class AstBlockProcessor(
     private fun getLastNodeOfVariable(id: GraphNodeId): GraphNode? = graphBuilderBlock.getVariable(id)?.lastNode
 
     private fun staticHolder(tree: Tree): MemPos? = globalCtx.staticHolder(tree)
+
+    /**
+     * The object a call runs on.
+     *
+     * Only the receiver written at the call site used to be consulted, and two ordinary forms write
+     * none. An unqualified `record()` inside a method of Gauge is `this.record()`, and `super.m()`
+     * runs on the same object the caller is running on; both were inlined with no owner, so every
+     * field the callee wrote landed somewhere nobody could look up, and every field it read came
+     * back as a fresh value with nothing flowing in. One level deep hid the first case, because
+     * `gauge.record()` names its receiver, and two levels did not.
+     *
+     * A receiver that is *present but untracked* is deliberately still null. Falling back to the
+     * enclosing instance there would file the callee's fields on the caller's object - a different
+     * object, drawn as the same one.
+     */
+    private fun receiverMemPos(receiver: ExpressionTree?, method: Method, ctx: ProcessorContext): MemPos? {
+        val isSuper = receiver is IdentifierTree && receiver.name.contentEquals("super")
+        if (receiver != null && !isSuper) return getMemPos(receiver, ctx)
+        // A static method runs on no object at all, so it has nothing to inherit.
+        return owner.takeIf { Modifier.STATIC !in method.element.modifiers }
+    }
 
     /**
      * The node for a name we are tracking the object of but have found no value for.
@@ -650,7 +672,7 @@ open class AstBlockProcessor(
 
         val invocationPos = ctx.getPosId(node)
         val localPos = Position(invocationPos, ctx.path)
-        val exprMemPos = getMemPos(methodIdentifier.expression, ctx)
+        val exprMemPos = receiverMemPos(methodIdentifier.expression, method, ctx)
 
         val graphBlock = GraphBuilderBlock(graphBuilderBlock, method, getStack().push(localPos), exprMemPos, ctx)
         val blockProcessor = AstBlockProcessor(globalCtx, this, graphBlock, localPos, exprMemPos)

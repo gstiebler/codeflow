@@ -6,7 +6,7 @@ flowchart TD
     n3[Child]:::EXTERNAL
     n4[child]:::OBJ_VARIABLE
     n5[30]:::LITERAL
-    n23[out]:::VARIABLE
+    n22[out]:::VARIABLE
     n3[Child]:::EXTERNAL --> n4[child]:::OBJ_VARIABLE
     n5[30]:::LITERAL --> n8[input]:::FUNC_PARAM
     subgraph b6["adjust"]
@@ -14,32 +14,31 @@ flowchart TD
       n8[input]:::FUNC_PARAM
       n9[5]:::LITERAL
       n10[offset]:::VARIABLE
-      n16[shifted]:::VARIABLE
-      n22[scaled]:::VARIABLE
-      n7[adjust]:::RETURN --> n23[out]:::VARIABLE
+      n15[shifted]:::VARIABLE
+      n21[scaled]:::VARIABLE
+      n7[adjust]:::RETURN --> n22[out]:::VARIABLE
       n8[input]:::FUNC_PARAM --> n13[amount]:::FUNC_PARAM
       n9[5]:::LITERAL --> n10[offset]:::VARIABLE
-      n16[shifted]:::VARIABLE --> n19[factor]:::FUNC_PARAM
-      n22[scaled]:::VARIABLE --> n7[adjust]:::RETURN
+      n10[offset]:::VARIABLE --> n14[+]:::BIN_OP
+      n15[shifted]:::VARIABLE --> n18[factor]:::FUNC_PARAM
+      n21[scaled]:::VARIABLE --> n7[adjust]:::RETURN
       subgraph b11["shift"]
         n12[shift]:::RETURN
         n13[amount]:::FUNC_PARAM
-        n14[offset]:::VARIABLE
-        n15[+]:::BIN_OP
-        n12[shift]:::RETURN --> n16[shifted]:::VARIABLE
-        n13[amount]:::FUNC_PARAM --> n15[+]:::BIN_OP
-        n14[offset]:::VARIABLE --> n15[+]:::BIN_OP
-        n15[+]:::BIN_OP --> n12[shift]:::RETURN
+        n14[+]:::BIN_OP
+        n12[shift]:::RETURN --> n15[shifted]:::VARIABLE
+        n13[amount]:::FUNC_PARAM --> n14[+]:::BIN_OP
+        n14[+]:::BIN_OP --> n12[shift]:::RETURN
       end
-      subgraph b17["scale"]
-        n18[scale]:::RETURN
-        n19[factor]:::FUNC_PARAM
-        n20[3]:::LITERAL
-        n21[*]:::BIN_OP
-        n18[scale]:::RETURN --> n22[scaled]:::VARIABLE
-        n19[factor]:::FUNC_PARAM --> n21[*]:::BIN_OP
-        n20[3]:::LITERAL --> n21[*]:::BIN_OP
-        n21[*]:::BIN_OP --> n18[scale]:::RETURN
+      subgraph b16["scale"]
+        n17[scale]:::RETURN
+        n18[factor]:::FUNC_PARAM
+        n19[3]:::LITERAL
+        n20[*]:::BIN_OP
+        n17[scale]:::RETURN --> n21[scaled]:::VARIABLE
+        n18[factor]:::FUNC_PARAM --> n20[*]:::BIN_OP
+        n19[3]:::LITERAL --> n20[*]:::BIN_OP
+        n20[*]:::BIN_OP --> n17[scale]:::RETURN
       end
     end
   end

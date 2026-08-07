@@ -659,6 +659,27 @@ class AppTest {
     }
 
     /**
+     * A call written with no receiver runs on the enclosing instance, so a field it writes is a
+     * write to the object the outer call was made on, and the caller's read afterwards finds it.
+     *
+     * Only the receiver written at the call site was used, and an unqualified call has none, so the
+     * callee was inlined with no owner and its write landed on nothing anyone could look up. One
+     * level deep hid it - `gauge.record()` has a receiver - and two levels did not, so the caller's
+     * read quietly kept the value from before the call. The negative assertion is what says the
+     * write replaced rather than merely joined, and is paired with the positive above it.
+     *
+     * Ported from codemap's `deep_method` fixture.
+     */
+    @Test
+    fun aFieldWrittenTwoCallsDeepReachesTheCaller() {
+        val graph = buildGraph("deepField", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("18" to "reading" in edges, "the innermost write is missing: $edges")
+        assertTrue(reaches(graph, "18", "taken"), "the write two calls down does not reach the caller: $edges")
+        assertTrue(!reaches(graph, "17", "taken"), "the value from before the call was not replaced: $edges")
+    }
+
+    /**
      * `x = x + 1` reads x before it writes it, so the operand is the value x held going in.
      *
      * The target used to be created first, which registered it as the current value of x under the
@@ -750,10 +771,16 @@ class AppTest {
      */
     @Test
     fun anInheritedMethodIsInlinedHoweverItIsReached() {
-        val edges = edgeLabels(buildGraph("parentMethod", listOf("App.java")))
+        val graph = buildGraph("parentMethod", listOf("App.java"))
+        val edges = edgeLabels(graph)
         assertTrue("input" to "amount" in edges, "the argument does not reach super.shift's parameter: $edges")
         assertTrue("amount" to "+" in edges, "super.shift's body was not inlined: $edges")
         assertTrue("offset" to "+" in edges, "the field the parent method reads is missing: $edges")
+        // `super.m()` runs on the object the caller is running on, so the field the subclass wrote
+        // is the one the parent method reads. Without this the edge above is still drawn, from a
+        // fresh `offset` with nothing flowing into it - the same picture, asserting a value that
+        // never arrives.
+        assertTrue(reaches(graph, "5", "out"), "the subclass's write is not what super.shift reads: $edges")
         assertTrue("shift" to "shifted" in edges, "super.shift does not return its value: $edges")
         assertTrue("shifted" to "factor" in edges, "the argument does not reach the inherited static: $edges")
         assertTrue("factor" to "*" in edges, "the inherited static's body was not inlined: $edges")
@@ -1061,4 +1088,5 @@ class AppTest {
     @Test fun subpackage() = codeflow("subpackage", listOf("App.java", "util/Adder.java"))
     @Test fun selfAssignment() = codeflow("selfAssignment", listOf("App.java"))
     @Test fun staticField() = codeflow("staticField", listOf("App.java"))
+    @Test fun deepField() = codeflow("deepField", listOf("App.java"))
 }

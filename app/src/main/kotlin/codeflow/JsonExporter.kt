@@ -69,10 +69,10 @@ class JsonExporter {
         edges: MutableList<String>
     ) {
         val ownId = blockId(block)
-        nodes.add(entry(ownId, block.getMethodName(), "METHOD", parentId))
+        nodes.add(entry(ownId, block.getMethodName(), "METHOD", block.getSource(), parentId))
 
         for (node in block.graph.getNodes()) {
-            nodes.add(entry(nodeId(node), node.label, node.getType().toString(), ownId))
+            nodes.add(entry(nodeId(node), node.label, node.getType().toString(), node.source, ownId))
             for (toNode in node.edgesIterator()) {
                 edges.add("""{"source": "${nodeId(node)}", "target": "${nodeId(toNode)}"}""")
             }
@@ -82,9 +82,17 @@ class JsonExporter {
         }
     }
 
-    /** The outermost block has no enclosing box, so it carries no `parent` key at all. */
-    private fun entry(id: String, label: String, type: String, parentId: String?): String {
+    /**
+     * The outermost block has no enclosing box, so it carries no `parent` key at all.
+     *
+     * `source` is on every node, including the method boxes: it is what lets the viewer answer
+     * "which line is this?", and a key present on only some kinds is worse than one on none, since
+     * nothing on screen distinguishes a node with no position from one the viewer failed to use.
+     * It is escaped like the label because a path on Windows contains backslashes.
+     */
+    private fun entry(id: String, label: String, type: String, source: String, parentId: String?): String {
         val parent = if (parentId == null) "" else """, "parent": "$parentId""""
-        return """{"id": "$id", "label": "${escape(label)}", "type": "$type"$parent}"""
+        return """{"id": "$id", "label": "${escape(label)}", "type": "$type", """ +
+                """"source": "${escape(source)}"$parent}"""
     }
 }

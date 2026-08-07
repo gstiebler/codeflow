@@ -42,6 +42,7 @@ class GraphmlExporter {
         writer("""<graphml xmlns="http://graphml.graphdrawing.org/xmlns">""")
         writer("""  <key id="label" for="node" attr.name="label" attr.type="string"/>""")
         writer("""  <key id="type" for="node" attr.name="type" attr.type="string"/>""")
+        writer("""  <key id="source" for="node" attr.name="source" attr.type="string"/>""")
         writer("""  <graph id="G" edgedefault="directed">""")
         processMethod(mainMethod, 4, writer)
         for ((source, target) in collectEdges(mainMethod)) {
@@ -55,11 +56,13 @@ class GraphmlExporter {
         writer(genSpaces(depth) + """<node id="${blockId(block)}">""")
         writer(genSpaces(depth + 2) + """<data key="label">${escape(block.getMethodName())}</data>""")
         writer(genSpaces(depth + 2) + """<data key="type">METHOD</data>""")
+        writer(genSpaces(depth + 2) + """<data key="source">${escape(block.getSource())}</data>""")
         writer(genSpaces(depth + 2) + """<graph id="${blockId(block)}:" edgedefault="directed">""")
         for (node in block.graph.getNodes()) {
             writer(genSpaces(depth + 4) + """<node id="${nodeId(node)}">""")
             writer(genSpaces(depth + 6) + """<data key="label">${escape(node.label)}</data>""")
             writer(genSpaces(depth + 6) + """<data key="type">${node.getType()}</data>""")
+            writer(genSpaces(depth + 6) + """<data key="source">${escape(node.source)}</data>""")
             writer(genSpaces(depth + 4) + "</node>")
         }
         for (calledMethod in block.calledMethods) {

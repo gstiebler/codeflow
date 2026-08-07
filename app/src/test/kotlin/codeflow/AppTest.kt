@@ -76,6 +76,8 @@ class AppTest {
 
     private fun jsonParent(node: JsonObject) = node.get("parent")?.asString
 
+    private fun jsonSource(node: JsonObject) = node.get("source")?.asString
+
     /** The JSON edges as (source label, target label) pairs, to compare against [edgeLabels]. */
     private fun jsonEdgeLabels(doc: JsonObject): List<Pair<String, String>> {
         val labels = jsonNodes(doc).associate { it.get("id").asString to jsonLabel(it) }
@@ -481,6 +483,49 @@ class AppTest {
         assertTrue("read" to "viaInterface" in edges, "the opaque call produces no value: $edges")
         assertTrue("seed" to "+" in edges, "the body reached through the class is not inlined: $edges")
         assertTrue(reaches(graph, "4", "viaClass"), "the value does not survive the direct call: $graph")
+    }
+
+    /**
+     * A node says where in the source it came from.
+     *
+     * "Which line is this?" is the question a reader of unfamiliar code asks constantly, and nothing
+     * carried a position past the builder, so no exporter and no viewer could answer it. codemap
+     * tags every node with its line and asserts it in the goldens; this is that, arrived at from the
+     * other direction.
+     *
+     * The line is pinned and the column is not. The line is the behaviour - it is what a reader
+     * navigates by - and the column moves whenever the fixture is reindented, which would make this
+     * fail for a reason that has nothing to do with what it tests.
+     */
+    @Test
+    fun aNodeCarriesTheSourceLineItWasWrittenOn() {
+        val nodes = jsonNodes(buildJson("base", listOf("App.java")))
+        val literal = nodes.single { jsonLabel(it) == "5" }
+        val source = jsonSource(literal)
+        assertTrue(
+            source != null && source.startsWith("base/App.java:8:"),
+            "the literal on line 8 does not say so: $source"
+        )
+    }
+
+    /**
+     * Every node, not merely the ones that were easy.
+     *
+     * A position on most nodes is worse than none on any: the viewer would offer to navigate and
+     * silently do nothing on whichever kinds were missed, and which kinds those are is invisible
+     * from the outside. Every node has a declaration or an expression to point at - a RETURN node
+     * and a parameter have the method's, and a METHOD box is a declaration itself - so there is no
+     * node in the graph with nothing honest to say.
+     *
+     * `funcCall` is the fixture because it has calls nested three deep, so a callee's nodes are
+     * built while the *caller's* context is the one in hand. Taking that one would name the wrong
+     * file as soon as a call crosses one, which no single-file fixture can show.
+     */
+    @Test
+    fun everyNodeCarriesASource() {
+        val nodes = jsonNodes(buildJson("funcCall", listOf("App.java")))
+        val missing = nodes.filter { jsonSource(it).isNullOrBlank() }.map { jsonLabel(it) }
+        assertTrue(missing.isEmpty(), "nodes with no source position: $missing")
     }
 
     /**

@@ -60,7 +60,7 @@ class GraphBuilderBlock(
     // per tree, and is what a read of the parameter inside the body resolves to.
     val parameterNodes = method.name.parameters.mapIndexed { index, parameter ->
         val id = JNodeId(stack.push(ctx, parameter), parameter.name, method.element.parameters[index], memPos)
-        graph.createGraphNode(NodeType.FUNC_PARAM, GraphNode.Base(id))
+        graph.createGraphNode(NodeType.FUNC_PARAM, GraphNode.Base(id, method.ctx.location(parameter)))
     }
 
     init {
@@ -86,11 +86,25 @@ class GraphBuilderBlock(
      * A return is not a variable and has no declaration to be keyed by, so it uses the plain
      * label-and-stack key. The stack is this block's, which is unique to this invocation, and
      * nothing looks the node up: whatever returns a value reaches it through [addReturnNode].
+     *
+     * It stands for the method as a whole rather than for any one `return`, of which there may be
+     * several, so the declaration is what it points at.
      */
     private fun createReturnNode(stack: PosStack): GraphNode {
-        val nodeBase = GraphNode.Base(GraphNodeId(stack, method.name.name.toString()))
+        val nodeBase = GraphNode.Base(
+            GraphNodeId(stack, method.name.name.toString()), method.ctx.location(method.name)
+        )
         return graph.createGraphNode(NodeType.RETURN, nodeBase)
     }
+
+    /**
+     * Where the method this block draws was declared, as `path:line:column`.
+     *
+     * From the method's own context, not the caller's [ctx]: a method inlined at a call site in
+     * another file would otherwise be given a line number read off the caller's line map, which is
+     * a real position naming the wrong file - the kind of wrong that reads as fact.
+     */
+    fun getSource(): String = method.ctx.location(method.name)
 
     override fun toString() = method.name.name.toString()
 

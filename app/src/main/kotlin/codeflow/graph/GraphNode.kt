@@ -22,9 +22,27 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
     val label: String
         get() = base.label
 
+    /** See [Base.source]. */
+    val source: String
+        get() = base.source
+
     open fun getType() = NodeType.BASE
 
-    class Base(val id: GraphNodeId) {
+    /**
+     * @param source where this node was written, as `path:line:column`.
+     *
+     * Required rather than optional, and on Base rather than set afterwards, so that a node cannot
+     * exist without one. A position on most nodes is worse than none on any: a viewer offering to
+     * navigate would silently do nothing on whichever kinds were missed, and which kinds those are
+     * is invisible from the outside. The compiler is what enforces it - a new call site that has no
+     * position to give has to say so at the call site rather than at run time.
+     *
+     * It comes from the [codeflow.java.processors.ProcessorContext] of the *compilation unit the
+     * tree belongs to*, which is not always the one being walked: a callee is inlined with the
+     * caller's context in hand, and asking that one for a line number in another file gives a
+     * number from the wrong line map.
+     */
+    class Base(val id: GraphNodeId, val source: String) {
         val label: String
             get() = id.label
     }

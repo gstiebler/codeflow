@@ -71,6 +71,21 @@ open class AstBlockProcessor(
     fun evaluate(tree: ExpressionTree, ctx: ProcessorContext): GraphNode =
         scan(tree, ctx) ?: throw GraphException("'$tree' at ${ctx.location(tree)} produced no value")
 
+    /**
+     * What a node is built from: its lookup key, and where in the source it was written.
+     *
+     * The two are asked for together so that a new node cannot be created without a position - see
+     * [GraphNode.Base]. [tree] is the construct the node stands for, which for an operator is the
+     * whole expression and for a variable its declaration or its mention.
+     *
+     * [ctx] is the context of the compilation unit [tree] belongs to rather than of whatever is
+     * being walked at the top: a callee's body is scanned with the callee's own context (see
+     * [invokeMethod]), so every visitor here is handed the one that matches its trees, and the
+     * pairing cannot drift across a call into another file.
+     */
+    private fun nodeBase(id: GraphNodeId, tree: Tree, ctx: ProcessorContext) =
+        GraphNode.Base(id, ctx.location(tree))
+
     override fun visitAssignment(node: AssignmentTree, ctx: ProcessorContext): GraphNode? {
         val lhs = node.variable
         val rhs = node.expression
@@ -89,9 +104,9 @@ open class AstBlockProcessor(
         }
         val lhsId = JNodeId(getStack(), lhsName, globalCtx.symbols.element(lhs), lhsMemPos)
         if (lhsIsPrimitive) {
-            assignPrimitive(lhsMemPos, lhsId, rhs, ctx)
+            assignPrimitive(lhsMemPos, lhsId, lhs, rhs, ctx)
         } else {
-            assignMemPos(lhsMemPos, lhsId, rhs, ctx)
+            assignMemPos(lhsMemPos, lhsId, lhs, rhs, ctx)
         }
         return null
     }
@@ -103,9 +118,9 @@ open class AstBlockProcessor(
         if (node.initializer != null) {
             val variableNodeId = JNodeId(getStack().push(ctx, node), name, globalCtx.symbols.element(node), owner)
             if (isPrimitive) {
-                return assignPrimitive(owner, variableNodeId, node.initializer, ctx)
+                return assignPrimitive(owner, variableNodeId, node, node.initializer, ctx)
             } else {
-                assignMemPos(owner, variableNodeId, node.initializer, ctx)
+                assignMemPos(owner, variableNodeId, node, node.initializer, ctx)
             }
         }
 
@@ -129,7 +144,7 @@ open class AstBlockProcessor(
         val elements = evaluate(node.expression, ctx)
         val variable = node.variable
         val id = JNodeId(getStack().push(ctx, variable), variable.name, globalCtx.symbols.element(variable), owner)
-        val base = GraphNode.Base(id)
+        val base = nodeBase(id, variable, ctx)
         val loopNode = if (globalCtx.symbols.isPrimitive(variable)) {
             graphBuilderBlock.addPrimitiveVariable(base, owner)
         } else {
@@ -154,7 +169,7 @@ open class AstBlockProcessor(
         val parameter = node.parameter
         val id = JNodeId(getStack().push(ctx, parameter), parameter.name, globalCtx.symbols.element(parameter), owner)
         globalCtx.addMemPos(id, globalCtx.createMemPos(parameter))
-        graphBuilderBlock.addObjectVariable(GraphNode.Base(id), owner)
+        graphBuilderBlock.addObjectVariable(nodeBase(id, parameter, ctx), owner)
         scan(node.block, ctx)
         return null
     }
@@ -170,9 +185,15 @@ open class AstBlockProcessor(
      * form `x += 1` was always right, because it evaluates the variable first, so the two spellings
      * of one statement drew different graphs.
      */
-    private fun assignPrimitive(owner: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
+    private fun assignPrimitive(
+        owner: MemPos?,
+        lhsId: JNodeId,
+        lhs: Tree,
+        rhs: ExpressionTree,
+        ctx: ProcessorContext
+    ): GraphNode {
         val rhsNode = evaluate(rhs, ctx)
-        val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), owner)
+        val lhsNode = graphBuilderBlock.addPrimitiveVariable(nodeBase(lhsId, lhs, ctx), owner)
         graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         return lhsNode
     }
@@ -186,14 +207,20 @@ open class AstBlockProcessor(
      * into it. That is not a smaller version of the failure, it is the wrong graph the gate in
      * [scan] exists to prevent, and object assignment is most of real Java.
      */
-    private fun assignMemPos(owner: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext) {
+    private fun assignMemPos(
+        owner: MemPos?,
+        lhsId: JNodeId,
+        lhs: Tree,
+        rhs: ExpressionTree,
+        ctx: ProcessorContext
+    ) {
         // An object we know nothing about: it came from outside the analysed sources, or from a
         // call whose returns we do not follow. It still gets a memory position of its own, so that
         // fields set on it and calls made on it have somewhere to hang.
         val rhsMemPos = getMemPos(rhs, ctx) ?: globalCtx.createMemPos(rhs)
         // Before the target exists, for the reason given on [assignPrimitive].
         val rhsNode = evaluate(rhs, ctx)
-        val lhsNode = graphBuilderBlock.addObjectVariable(GraphNode.Base(lhsId), owner)
+        val lhsNode = graphBuilderBlock.addObjectVariable(nodeBase(lhsId, lhs, ctx), owner)
         graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         globalCtx.addMemPos(lhsId, rhsMemPos)
     }
@@ -249,14 +276,14 @@ open class AstBlockProcessor(
     private fun unassigned(id: JNodeId, tree: Tree, owner: MemPos?, ctx: ProcessorContext): GraphNode {
         val kind = globalCtx.symbols.element(tree)?.kind
         if (kind == ElementKind.ENUM_CONSTANT) {
-            return graphBuilderBlock.addExternal(GraphNode.Base(id), emptyList())
+            return graphBuilderBlock.addExternal(nodeBase(id, tree, ctx), emptyList())
         }
         if (kind != ElementKind.FIELD) {
             throw GraphException(
                 "Identifier '$id' at ${ctx.location(tree)} not found in graph: ${graphBuilderBlock.graph}"
             )
         }
-        val base = GraphNode.Base(id)
+        val base = nodeBase(id, tree, ctx)
         return if (globalCtx.symbols.isPrimitive(tree)) {
             graphBuilderBlock.addPrimitiveVariable(base, owner)
         } else {
@@ -284,7 +311,7 @@ open class AstBlockProcessor(
             return getLastNodeOfVariable(nodeId) ?: unassigned(nodeId, node, exprMemPos, ctx)
         }
         return graphBuilderBlock.getVariable(nodeId)?.lastNode
-            ?: graphBuilderBlock.addExternal(GraphNode.Base(nodeId), emptyList())
+            ?: graphBuilderBlock.addExternal(nodeBase(nodeId, node, ctx), emptyList())
     }
 
     /**
@@ -340,7 +367,7 @@ open class AstBlockProcessor(
     private fun thisValue(node: IdentifierTree, ctx: ProcessorContext): GraphNode = thisNode ?: run {
         val instance = owner ?: globalCtx.createMemPos(node)
         val id = JNodeId(getStack().push(ctx, node), node.name, globalCtx.symbols.element(node), instance)
-        val created = graphBuilderBlock.addObjectVariable(GraphNode.Base(id), instance)
+        val created = graphBuilderBlock.addObjectVariable(nodeBase(id, node, ctx), instance)
         globalCtx.addMemPos(id, instance)
         thisNode = created
         created
@@ -348,7 +375,7 @@ open class AstBlockProcessor(
 
     override fun visitLiteral(node: LiteralTree, ctx: ProcessorContext): GraphNode {
         val nodeId = GraphNodeId(getStack().push(ctx, node), node.toString())
-        val gNode = GraphNode.Base(nodeId)
+        val gNode = nodeBase(nodeId, node, ctx)
         val newNode = graphBuilderBlock.addLiteral(gNode)
         super.visitLiteral(node, ctx)
         return newNode
@@ -358,7 +385,7 @@ open class AstBlockProcessor(
         val rightNode = evaluate(node.leftOperand, ctx)
         val leftNode = evaluate(node.rightOperand, ctx)
         val jId = GraphNodeId(getStack().push(ctx, node), binaryOperatorLabel(node))
-        return graphBuilderBlock.addBinOp(GraphNode.Base(jId), leftNode, rightNode)
+        return graphBuilderBlock.addBinOp(nodeBase(jId, node, ctx), leftNode, rightNode)
     }
 
     /**
@@ -374,7 +401,7 @@ open class AstBlockProcessor(
         val trueNode = evaluate(node.trueExpression, ctx)
         val falseNode = evaluate(node.falseExpression, ctx)
         val jId = GraphNodeId(getStack().push(ctx, node), "ternary")
-        return graphBuilderBlock.addTernaryOp(GraphNode.Base(jId), conditionNode, trueNode, falseNode)
+        return graphBuilderBlock.addTernaryOp(nodeBase(jId, node, ctx), conditionNode, trueNode, falseNode)
     }
 
     /**
@@ -387,7 +414,7 @@ open class AstBlockProcessor(
         val arrayNode = evaluate(node.expression, ctx)
         val indexNode = evaluate(node.index, ctx)
         val jId = GraphNodeId(getStack().push(ctx, node), "index")
-        return graphBuilderBlock.addBinOp(GraphNode.Base(jId), arrayNode, indexNode)
+        return graphBuilderBlock.addBinOp(nodeBase(jId, node, ctx), arrayNode, indexNode)
     }
 
     /**
@@ -408,7 +435,7 @@ open class AstBlockProcessor(
         val dimensions = node.dimensions.orEmpty().map { evaluate(it, ctx) }
         val elements = node.initializers.orEmpty().map { evaluate(it, ctx) }
         val jId = GraphNodeId(getStack().push(ctx, node), "array")
-        return graphBuilderBlock.addSelection(GraphNode.Base(jId), dimensions + elements)
+        return graphBuilderBlock.addSelection(nodeBase(jId, node, ctx), dimensions + elements)
     }
 
     /**
@@ -424,7 +451,7 @@ open class AstBlockProcessor(
         val testedNode = evaluate(node.expression, ctx)
         bindPattern(node.pattern, node.expression, testedNode, ctx)
         val jId = GraphNodeId(getStack().push(ctx, node), "instanceof")
-        return graphBuilderBlock.addUnaryOp(GraphNode.Base(jId), testedNode)
+        return graphBuilderBlock.addUnaryOp(nodeBase(jId, node, ctx), testedNode)
     }
 
     /**
@@ -446,9 +473,9 @@ open class AstBlockProcessor(
     override fun visitLambdaExpression(node: LambdaExpressionTree, ctx: ProcessorContext): GraphNode {
         node.parameters.forEach { parameter ->
             val id = JNodeId(getStack().push(ctx, parameter), parameter.name, globalCtx.symbols.element(parameter), owner)
-            graphBuilderBlock.addObjectVariable(GraphNode.Base(id), owner)
+            graphBuilderBlock.addObjectVariable(nodeBase(id, parameter, ctx), owner)
         }
-        val base = GraphNode.Base(GraphNodeId(getStack().push(ctx, node), "lambda"))
+        val base = nodeBase(GraphNodeId(getStack().push(ctx, node), "lambda"), node, ctx)
         val body = node.body
         if (body is ExpressionTree) {
             return graphBuilderBlock.addUnaryOp(base, evaluate(body, ctx))
@@ -479,7 +506,7 @@ open class AstBlockProcessor(
         val qualifier = node.qualifierExpression
         val captured = if (isValue(qualifier)) evaluate(qualifier, ctx) else null
         val jId = GraphNodeId(getStack().push(ctx, node), node.name.toString())
-        return graphBuilderBlock.addExternal(GraphNode.Base(jId), listOfNotNull(captured))
+        return graphBuilderBlock.addExternal(nodeBase(jId, node, ctx), listOfNotNull(captured))
     }
 
     /** Whether an expression is something the graph holds a value for, rather than a type name. */
@@ -518,7 +545,7 @@ open class AstBlockProcessor(
         val variable = (pattern as? BindingPatternTree)?.variable
             ?: throw GraphException("Unsupported pattern at ${ctx.location(pattern)}: '$pattern'")
         val boundId = JNodeId(getStack().push(ctx, variable), variable.name, globalCtx.symbols.element(variable), owner)
-        val boundNode = graphBuilderBlock.addObjectVariable(GraphNode.Base(boundId), owner)
+        val boundNode = graphBuilderBlock.addObjectVariable(nodeBase(boundId, variable, ctx), owner)
         graphBuilderBlock.addAssignment(boundNode, testedNode)
         getMemPos(tested, ctx)?.let { globalCtx.addMemPos(boundId, it) }
     }
@@ -536,7 +563,7 @@ open class AstBlockProcessor(
     override fun visitUnary(node: UnaryTree, ctx: ProcessorContext): GraphNode {
         val operandNode = evaluate(node.expression, ctx)
         val jId = GraphNodeId(getStack().push(ctx, node), unaryOperatorLabel(node))
-        return graphBuilderBlock.addUnaryOp(GraphNode.Base(jId), operandNode)
+        return graphBuilderBlock.addUnaryOp(nodeBase(jId, node, ctx), operandNode)
     }
 
     /**
@@ -550,11 +577,11 @@ open class AstBlockProcessor(
         val currentNode = evaluate(node.variable, ctx)
         val rhsNode = evaluate(node.expression, ctx)
         val opId = GraphNodeId(getStack().push(ctx, node), compoundAssignmentLabel(node))
-        val opNode = graphBuilderBlock.addBinOp(GraphNode.Base(opId), currentNode, rhsNode)
+        val opNode = graphBuilderBlock.addBinOp(nodeBase(opId, node, ctx), currentNode, rhsNode)
 
         val lhsName = node.variable.accept(AstLastNameProcessor(), ctx)
         val lhsId = JNodeId(getStack().push(ctx, node), lhsName, globalCtx.symbols.element(node.variable), owner)
-        val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), owner)
+        val lhsNode = graphBuilderBlock.addPrimitiveVariable(nodeBase(lhsId, node.variable, ctx), owner)
         graphBuilderBlock.addAssignment(lhsNode, opNode)
         return lhsNode
     }
@@ -580,7 +607,7 @@ open class AstBlockProcessor(
             evaluate(body, ctx)
         }
         val jId = GraphNodeId(getStack().push(ctx, node), "switch")
-        return graphBuilderBlock.addSelection(GraphNode.Base(jId), listOf(selectorNode) + branchNodes)
+        return graphBuilderBlock.addSelection(nodeBase(jId, node, ctx), listOf(selectorNode) + branchNodes)
     }
 
     /**
@@ -607,7 +634,7 @@ open class AstBlockProcessor(
             case.labels.filterIsInstance<ConstantCaseLabelTree>().forEach { label ->
                 val labelNode = evaluate(label.constantExpression, ctx)
                 val jId = GraphNodeId(getStack().push(ctx, label), "==")
-                graphBuilderBlock.addBinOp(GraphNode.Base(jId), selectorNode, labelNode)
+                graphBuilderBlock.addBinOp(nodeBase(jId, label, ctx), selectorNode, labelNode)
             }
             scan(case.guard, ctx)
             // The colon form carries statements and the arrow form a body, and each returns null
@@ -840,7 +867,7 @@ open class AstBlockProcessor(
             val typeName = node.identifier.accept(AstLastNameProcessor(), ctx)?.toString()
                 ?: node.identifier.toString()
             val jId = GraphNodeId(getStack().push(ctx, node), typeName)
-            return graphBuilderBlock.addExternal(GraphNode.Base(jId), argumentNodes)
+            return graphBuilderBlock.addExternal(nodeBase(jId, node, ctx), argumentNodes)
         }
         val localPos = Position(ctx.getPosId(node), ctx.path)
         val graphBlock = GraphBuilderBlock(
@@ -869,7 +896,7 @@ open class AstBlockProcessor(
         val receiver = methodIdentifier.expression?.takeUnless { isTypeName(it) }
         val receiverNode = receiver?.let { evaluate(it, ctx) }
         val jId = GraphNodeId(getStack().push(ctx, node), methodIdentifier.methodName.toString())
-        return graphBuilderBlock.addExternal(GraphNode.Base(jId), listOfNotNull(receiverNode) + argumentNodes)
+        return graphBuilderBlock.addExternal(nodeBase(jId, node, ctx), listOfNotNull(receiverNode) + argumentNodes)
     }
 
     /**

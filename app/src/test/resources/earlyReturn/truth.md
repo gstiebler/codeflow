@@ -3,35 +3,35 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[result]:::VARIABLE
-    n4[70]:::LITERAL
-    n4[70]:::LITERAL --> n7[score]:::FUNC_PARAM
-    subgraph b5["classify"]
-      n6[classify]:::RETURN
-      n7[score]:::FUNC_PARAM
-      n8[90]:::LITERAL
-      n9[>]:::BIN_OP
-      n10[100]:::LITERAL
-      n11[50]:::LITERAL
-      n12[>]:::BIN_OP
-      n13[55]:::LITERAL
+    n3[70]:::LITERAL
+    n18[result]:::VARIABLE
+    n3[70]:::LITERAL --> n6[score]:::FUNC_PARAM
+    subgraph b4["classify"]
+      n5[classify]:::RETURN
+      n6[score]:::FUNC_PARAM
+      n7[90]:::LITERAL
+      n8[>]:::BIN_OP
+      n9[100]:::LITERAL
+      n10[50]:::LITERAL
+      n11[>]:::BIN_OP
+      n12[55]:::LITERAL
+      n13[10]:::LITERAL
       n14[floor]:::VARIABLE
-      n15[10]:::LITERAL
+      n15[2]:::LITERAL
       n16[scale]:::VARIABLE
-      n17[2]:::LITERAL
-      n18[*]:::BIN_OP
-      n6[classify]:::RETURN --> n3[result]:::VARIABLE
-      n7[score]:::FUNC_PARAM --> n9[>]:::BIN_OP
-      n7[score]:::FUNC_PARAM --> n12[>]:::BIN_OP
-      n8[90]:::LITERAL --> n9[>]:::BIN_OP
-      n10[100]:::LITERAL --> n6[classify]:::RETURN
-      n11[50]:::LITERAL --> n12[>]:::BIN_OP
-      n13[55]:::LITERAL --> n6[classify]:::RETURN
-      n14[floor]:::VARIABLE --> n18[*]:::BIN_OP
-      n15[10]:::LITERAL --> n14[floor]:::VARIABLE
-      n16[scale]:::VARIABLE --> n18[*]:::BIN_OP
-      n17[2]:::LITERAL --> n16[scale]:::VARIABLE
-      n18[*]:::BIN_OP --> n6[classify]:::RETURN
+      n17[*]:::BIN_OP
+      n5[classify]:::RETURN --> n18[result]:::VARIABLE
+      n6[score]:::FUNC_PARAM --> n8[>]:::BIN_OP
+      n6[score]:::FUNC_PARAM --> n11[>]:::BIN_OP
+      n7[90]:::LITERAL --> n8[>]:::BIN_OP
+      n9[100]:::LITERAL --> n5[classify]:::RETURN
+      n10[50]:::LITERAL --> n11[>]:::BIN_OP
+      n12[55]:::LITERAL --> n5[classify]:::RETURN
+      n13[10]:::LITERAL --> n14[floor]:::VARIABLE
+      n14[floor]:::VARIABLE --> n17[*]:::BIN_OP
+      n15[2]:::LITERAL --> n16[scale]:::VARIABLE
+      n16[scale]:::VARIABLE --> n17[*]:::BIN_OP
+      n17[*]:::BIN_OP --> n5[classify]:::RETURN
     end
   end
   classDef LITERAL fill:#00FF0030

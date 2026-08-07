@@ -6,7 +6,9 @@ import com.sun.source.tree.MethodTree
 import com.sun.source.tree.Tree
 import mu.KotlinLogging
 import javax.lang.model.element.Element
+import javax.lang.model.element.ElementKind
 import javax.lang.model.element.ExecutableElement
+import javax.lang.model.element.Modifier
 
 class GlobalContext(val symbols: Symbols) {
     /**
@@ -18,6 +20,19 @@ class GlobalContext(val symbols: Symbols) {
      */
     private val methods = HashMap<Element, Method>()
     private val idToMemPos = HashMap<GraphNodeId, MemPos>()
+
+    /**
+     * One memory position per class, holding that class's static fields.
+     *
+     * A static belongs to the class rather than to any instance, so there is no object to hang it
+     * on, and the block-parent chain cannot stand in: a method that writes a static is a sibling of
+     * the one that reads it, not an ancestor. Giving the class a position of its own makes a static
+     * the same kind of thing as an instance field, found the same way, and makes `Counter.total`
+     * and a bare `total` inside `Counter` one variable rather than two.
+     *
+     * Keyed by the class's Element, so two classes each declaring `total` stay apart.
+     */
+    private val staticMemPositions = HashMap<Element, MemPos>()
     private val logger = KotlinLogging.logger {}
 
     fun addMethod(methodTree: MethodTree, element: ExecutableElement, ctx: ProcessorContext) {
@@ -49,6 +64,28 @@ class GlobalContext(val symbols: Symbols) {
 
     fun createMemPos(label: Tree): MemPos {
         return MemPos(label)
+    }
+
+    /**
+     * The class's memory position when [tree] names a static field, and null for anything else.
+     *
+     * Callers read it as "the holder this name has of its own", falling back to the instance they
+     * were going to use otherwise. A static has no instance to fall back to - a static method has
+     * no `this` at all - so without this the qualified form found no memory position, took the
+     * receiver-is-from-outside path, and came out as an opaque EXTERNAL node: two reads of one
+     * field drawn as one box, with the write that happened between them reaching neither.
+     *
+     * Only for a field these sources declare. `System.out` is a static field too, and resolves just
+     * as confidently, but it is not ours to model: tracking it would draw a variable standing for
+     * an object we know nothing about, where the opaque EXTERNAL node is the honest answer.
+     *
+     * The tree only labels the position in a log line, so the first caller's will do.
+     */
+    fun staticHolder(tree: Tree): MemPos? {
+        val element = symbols.element(tree)
+        if (element?.kind != ElementKind.FIELD || Modifier.STATIC !in element.modifiers) return null
+        if (!symbols.isDeclaredInSources(element)) return null
+        return staticMemPositions.getOrPut(element.enclosingElement) { MemPos(tree) }
     }
 
     fun addMemPos(nodeId: GraphNodeId, rhsMemPos: MemPos) {

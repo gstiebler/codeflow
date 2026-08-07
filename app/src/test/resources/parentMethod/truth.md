@@ -3,43 +3,43 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[child]:::OBJ_VARIABLE
-    n4[Child]:::EXTERNAL
-    n5[out]:::VARIABLE
-    n6[30]:::LITERAL
-    n4[Child]:::EXTERNAL --> n3[child]:::OBJ_VARIABLE
-    n6[30]:::LITERAL --> n9[input]:::FUNC_PARAM
-    subgraph b7["adjust"]
-      n8[adjust]:::RETURN
-      n9[input]:::FUNC_PARAM
+    n3[Child]:::EXTERNAL
+    n4[child]:::OBJ_VARIABLE
+    n5[30]:::LITERAL
+    n23[out]:::VARIABLE
+    n3[Child]:::EXTERNAL --> n4[child]:::OBJ_VARIABLE
+    n5[30]:::LITERAL --> n8[input]:::FUNC_PARAM
+    subgraph b6["adjust"]
+      n7[adjust]:::RETURN
+      n8[input]:::FUNC_PARAM
+      n9[5]:::LITERAL
       n10[offset]:::VARIABLE
-      n11[5]:::LITERAL
-      n12[shifted]:::VARIABLE
-      n18[scaled]:::VARIABLE
-      n8[adjust]:::RETURN --> n5[out]:::VARIABLE
-      n9[input]:::FUNC_PARAM --> n15[amount]:::FUNC_PARAM
-      n11[5]:::LITERAL --> n10[offset]:::VARIABLE
-      n12[shifted]:::VARIABLE --> n21[factor]:::FUNC_PARAM
-      n18[scaled]:::VARIABLE --> n8[adjust]:::RETURN
-      subgraph b13["shift"]
-        n14[shift]:::RETURN
-        n15[amount]:::FUNC_PARAM
-        n16[offset]:::VARIABLE
-        n17[+]:::BIN_OP
-        n14[shift]:::RETURN --> n12[shifted]:::VARIABLE
-        n15[amount]:::FUNC_PARAM --> n17[+]:::BIN_OP
-        n16[offset]:::VARIABLE --> n17[+]:::BIN_OP
-        n17[+]:::BIN_OP --> n14[shift]:::RETURN
+      n16[shifted]:::VARIABLE
+      n22[scaled]:::VARIABLE
+      n7[adjust]:::RETURN --> n23[out]:::VARIABLE
+      n8[input]:::FUNC_PARAM --> n13[amount]:::FUNC_PARAM
+      n9[5]:::LITERAL --> n10[offset]:::VARIABLE
+      n16[shifted]:::VARIABLE --> n19[factor]:::FUNC_PARAM
+      n22[scaled]:::VARIABLE --> n7[adjust]:::RETURN
+      subgraph b11["shift"]
+        n12[shift]:::RETURN
+        n13[amount]:::FUNC_PARAM
+        n14[offset]:::VARIABLE
+        n15[+]:::BIN_OP
+        n12[shift]:::RETURN --> n16[shifted]:::VARIABLE
+        n13[amount]:::FUNC_PARAM --> n15[+]:::BIN_OP
+        n14[offset]:::VARIABLE --> n15[+]:::BIN_OP
+        n15[+]:::BIN_OP --> n12[shift]:::RETURN
       end
-      subgraph b19["scale"]
-        n20[scale]:::RETURN
-        n21[factor]:::FUNC_PARAM
-        n22[3]:::LITERAL
-        n23[*]:::BIN_OP
-        n20[scale]:::RETURN --> n18[scaled]:::VARIABLE
-        n21[factor]:::FUNC_PARAM --> n23[*]:::BIN_OP
-        n22[3]:::LITERAL --> n23[*]:::BIN_OP
-        n23[*]:::BIN_OP --> n20[scale]:::RETURN
+      subgraph b17["scale"]
+        n18[scale]:::RETURN
+        n19[factor]:::FUNC_PARAM
+        n20[3]:::LITERAL
+        n21[*]:::BIN_OP
+        n18[scale]:::RETURN --> n22[scaled]:::VARIABLE
+        n19[factor]:::FUNC_PARAM --> n21[*]:::BIN_OP
+        n20[3]:::LITERAL --> n21[*]:::BIN_OP
+        n21[*]:::BIN_OP --> n18[scale]:::RETURN
       end
     end
   end

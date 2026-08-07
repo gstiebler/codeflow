@@ -3,20 +3,20 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[a]:::VARIABLE
-    n4[5]:::LITERAL
+    n3[5]:::LITERAL
+    n4[a]:::VARIABLE
     n5[b]:::VARIABLE
-    n6[c]:::VARIABLE
-    n7[8]:::LITERAL
-    n8[+]:::BIN_OP
+    n6[8]:::LITERAL
+    n7[+]:::BIN_OP
+    n8[c]:::VARIABLE
     n9[d]:::VARIABLE
     n10[e]:::VARIABLE
-    n3[a]:::VARIABLE --> n5[b]:::VARIABLE
-    n4[5]:::LITERAL --> n3[a]:::VARIABLE
-    n5[b]:::VARIABLE --> n8[+]:::BIN_OP
+    n3[5]:::LITERAL --> n4[a]:::VARIABLE
+    n4[a]:::VARIABLE --> n5[b]:::VARIABLE
+    n5[b]:::VARIABLE --> n7[+]:::BIN_OP
     n5[b]:::VARIABLE --> n9[d]:::VARIABLE
-    n7[8]:::LITERAL --> n8[+]:::BIN_OP
-    n8[+]:::BIN_OP --> n6[c]:::VARIABLE
+    n6[8]:::LITERAL --> n7[+]:::BIN_OP
+    n7[+]:::BIN_OP --> n8[c]:::VARIABLE
     n9[d]:::VARIABLE --> n10[e]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030

@@ -3,22 +3,22 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[helper]:::OBJ_VARIABLE
-    n4[Helper]:::EXTERNAL
-    n5[seed]:::VARIABLE
-    n6[21]:::LITERAL
-    n7[doubled]:::VARIABLE
-    n4[Helper]:::EXTERNAL --> n3[helper]:::OBJ_VARIABLE
-    n5[seed]:::VARIABLE --> n10[v]:::FUNC_PARAM
-    n6[21]:::LITERAL --> n5[seed]:::VARIABLE
-    subgraph b8["twice"]
-      n9[twice]:::RETURN
-      n10[v]:::FUNC_PARAM
-      n11[+]:::BIN_OP
-      n9[twice]:::RETURN --> n7[doubled]:::VARIABLE
-      n10[v]:::FUNC_PARAM --> n11[+]:::BIN_OP
-      n10[v]:::FUNC_PARAM --> n11[+]:::BIN_OP
-      n11[+]:::BIN_OP --> n9[twice]:::RETURN
+    n3[Helper]:::EXTERNAL
+    n4[helper]:::OBJ_VARIABLE
+    n5[21]:::LITERAL
+    n6[seed]:::VARIABLE
+    n11[doubled]:::VARIABLE
+    n3[Helper]:::EXTERNAL --> n4[helper]:::OBJ_VARIABLE
+    n5[21]:::LITERAL --> n6[seed]:::VARIABLE
+    n6[seed]:::VARIABLE --> n9[v]:::FUNC_PARAM
+    subgraph b7["twice"]
+      n8[twice]:::RETURN
+      n9[v]:::FUNC_PARAM
+      n10[+]:::BIN_OP
+      n8[twice]:::RETURN --> n11[doubled]:::VARIABLE
+      n9[v]:::FUNC_PARAM --> n10[+]:::BIN_OP
+      n9[v]:::FUNC_PARAM --> n10[+]:::BIN_OP
+      n10[+]:::BIN_OP --> n8[twice]:::RETURN
     end
   end
   classDef LITERAL fill:#00FF0030

@@ -3,31 +3,31 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[a]:::VARIABLE
-    n4[10]:::LITERAL
-    n5[b]:::VARIABLE
-    n6[2]:::LITERAL
-    n7[c]:::VARIABLE
-    n8[3]:::LITERAL
-    n9[chained]:::VARIABLE
+    n3[10]:::LITERAL
+    n4[a]:::VARIABLE
+    n5[2]:::LITERAL
+    n6[b]:::VARIABLE
+    n7[3]:::LITERAL
+    n8[c]:::VARIABLE
+    n9[+]:::BIN_OP
     n10[+]:::BIN_OP
-    n11[+]:::BIN_OP
-    n12[nested]:::VARIABLE
+    n11[chained]:::VARIABLE
+    n12[-]:::BIN_OP
     n13[-]:::BIN_OP
-    n14[-]:::BIN_OP
-    n3[a]:::VARIABLE --> n10[+]:::BIN_OP
-    n3[a]:::VARIABLE --> n13[-]:::BIN_OP
-    n4[10]:::LITERAL --> n3[a]:::VARIABLE
-    n5[b]:::VARIABLE --> n10[+]:::BIN_OP
-    n5[b]:::VARIABLE --> n13[-]:::BIN_OP
-    n6[2]:::LITERAL --> n5[b]:::VARIABLE
-    n7[c]:::VARIABLE --> n11[+]:::BIN_OP
-    n7[c]:::VARIABLE --> n14[-]:::BIN_OP
-    n8[3]:::LITERAL --> n7[c]:::VARIABLE
-    n10[+]:::BIN_OP --> n11[+]:::BIN_OP
-    n11[+]:::BIN_OP --> n9[chained]:::VARIABLE
-    n13[-]:::BIN_OP --> n14[-]:::BIN_OP
-    n14[-]:::BIN_OP --> n12[nested]:::VARIABLE
+    n14[nested]:::VARIABLE
+    n3[10]:::LITERAL --> n4[a]:::VARIABLE
+    n4[a]:::VARIABLE --> n9[+]:::BIN_OP
+    n4[a]:::VARIABLE --> n12[-]:::BIN_OP
+    n5[2]:::LITERAL --> n6[b]:::VARIABLE
+    n6[b]:::VARIABLE --> n9[+]:::BIN_OP
+    n6[b]:::VARIABLE --> n12[-]:::BIN_OP
+    n7[3]:::LITERAL --> n8[c]:::VARIABLE
+    n8[c]:::VARIABLE --> n10[+]:::BIN_OP
+    n8[c]:::VARIABLE --> n13[-]:::BIN_OP
+    n9[+]:::BIN_OP --> n10[+]:::BIN_OP
+    n10[+]:::BIN_OP --> n11[chained]:::VARIABLE
+    n12[-]:::BIN_OP --> n13[-]:::BIN_OP
+    n13[-]:::BIN_OP --> n14[nested]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

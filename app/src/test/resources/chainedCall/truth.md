@@ -3,17 +3,17 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[items]:::OBJ_VARIABLE
-    n4[of]:::EXTERNAL
-    n5[size]:::VARIABLE
-    n6[stream]:::EXTERNAL
-    n7[toList]:::EXTERNAL
-    n8[size]:::EXTERNAL
-    n3[items]:::OBJ_VARIABLE --> n6[stream]:::EXTERNAL
-    n4[of]:::EXTERNAL --> n3[items]:::OBJ_VARIABLE
-    n6[stream]:::EXTERNAL --> n7[toList]:::EXTERNAL
-    n7[toList]:::EXTERNAL --> n8[size]:::EXTERNAL
-    n8[size]:::EXTERNAL --> n5[size]:::VARIABLE
+    n3[of]:::EXTERNAL
+    n4[items]:::OBJ_VARIABLE
+    n5[stream]:::EXTERNAL
+    n6[toList]:::EXTERNAL
+    n7[size]:::EXTERNAL
+    n8[size]:::VARIABLE
+    n3[of]:::EXTERNAL --> n4[items]:::OBJ_VARIABLE
+    n4[items]:::OBJ_VARIABLE --> n5[stream]:::EXTERNAL
+    n5[stream]:::EXTERNAL --> n6[toList]:::EXTERNAL
+    n6[toList]:::EXTERNAL --> n7[size]:::EXTERNAL
+    n7[size]:::EXTERNAL --> n8[size]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

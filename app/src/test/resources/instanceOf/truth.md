@@ -4,19 +4,19 @@ flowchart TD
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
     n3[value]:::OBJ_VARIABLE
-    n4[isText]:::VARIABLE
-    n5[instanceof]:::BIN_OP
+    n4[instanceof]:::BIN_OP
+    n5[isText]:::VARIABLE
     n6[text]:::OBJ_VARIABLE
     n7[instanceof]:::BIN_OP
-    n8[size]:::VARIABLE
-    n9[length]:::EXTERNAL
+    n8[length]:::EXTERNAL
+    n9[size]:::VARIABLE
     n2[args]:::FUNC_PARAM --> n3[value]:::OBJ_VARIABLE
-    n3[value]:::OBJ_VARIABLE --> n5[instanceof]:::BIN_OP
+    n3[value]:::OBJ_VARIABLE --> n4[instanceof]:::BIN_OP
     n3[value]:::OBJ_VARIABLE --> n6[text]:::OBJ_VARIABLE
     n3[value]:::OBJ_VARIABLE --> n7[instanceof]:::BIN_OP
-    n5[instanceof]:::BIN_OP --> n4[isText]:::VARIABLE
-    n6[text]:::OBJ_VARIABLE --> n9[length]:::EXTERNAL
-    n9[length]:::EXTERNAL --> n8[size]:::VARIABLE
+    n4[instanceof]:::BIN_OP --> n5[isText]:::VARIABLE
+    n6[text]:::OBJ_VARIABLE --> n8[length]:::EXTERNAL
+    n8[length]:::EXTERNAL --> n9[size]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

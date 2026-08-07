@@ -3,26 +3,26 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[leaf]:::OBJ_VARIABLE
-    n4[Leaf]:::EXTERNAL
-    n5[fromBase]:::VARIABLE
-    n6[5]:::LITERAL
-    n7[fromMiddle]:::VARIABLE
-    n8[10]:::LITERAL
-    n9[fromLeaf]:::VARIABLE
-    n10[20]:::LITERAL
-    n11[total]:::VARIABLE
+    n3[Leaf]:::EXTERNAL
+    n4[leaf]:::OBJ_VARIABLE
+    n5[5]:::LITERAL
+    n6[fromBase]:::VARIABLE
+    n7[10]:::LITERAL
+    n8[fromMiddle]:::VARIABLE
+    n9[20]:::LITERAL
+    n10[fromLeaf]:::VARIABLE
+    n11[+]:::BIN_OP
     n12[+]:::BIN_OP
-    n13[+]:::BIN_OP
-    n4[Leaf]:::EXTERNAL --> n3[leaf]:::OBJ_VARIABLE
-    n5[fromBase]:::VARIABLE --> n12[+]:::BIN_OP
-    n6[5]:::LITERAL --> n5[fromBase]:::VARIABLE
-    n7[fromMiddle]:::VARIABLE --> n12[+]:::BIN_OP
-    n8[10]:::LITERAL --> n7[fromMiddle]:::VARIABLE
-    n9[fromLeaf]:::VARIABLE --> n13[+]:::BIN_OP
-    n10[20]:::LITERAL --> n9[fromLeaf]:::VARIABLE
-    n12[+]:::BIN_OP --> n13[+]:::BIN_OP
-    n13[+]:::BIN_OP --> n11[total]:::VARIABLE
+    n13[total]:::VARIABLE
+    n3[Leaf]:::EXTERNAL --> n4[leaf]:::OBJ_VARIABLE
+    n5[5]:::LITERAL --> n6[fromBase]:::VARIABLE
+    n6[fromBase]:::VARIABLE --> n11[+]:::BIN_OP
+    n7[10]:::LITERAL --> n8[fromMiddle]:::VARIABLE
+    n8[fromMiddle]:::VARIABLE --> n11[+]:::BIN_OP
+    n9[20]:::LITERAL --> n10[fromLeaf]:::VARIABLE
+    n10[fromLeaf]:::VARIABLE --> n12[+]:::BIN_OP
+    n11[+]:::BIN_OP --> n12[+]:::BIN_OP
+    n12[+]:::BIN_OP --> n13[total]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

@@ -3,18 +3,18 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[position]:::VARIABLE
-    n4[1]:::LITERAL
-    n5[picked]:::OBJ_VARIABLE
-    n6[index]:::BIN_OP
-    n7[size]:::VARIABLE
-    n8[length]:::EXTERNAL
-    n2[args]:::FUNC_PARAM --> n6[index]:::BIN_OP
-    n3[position]:::VARIABLE --> n6[index]:::BIN_OP
-    n4[1]:::LITERAL --> n3[position]:::VARIABLE
-    n5[picked]:::OBJ_VARIABLE --> n8[length]:::EXTERNAL
-    n6[index]:::BIN_OP --> n5[picked]:::OBJ_VARIABLE
-    n8[length]:::EXTERNAL --> n7[size]:::VARIABLE
+    n3[1]:::LITERAL
+    n4[position]:::VARIABLE
+    n5[index]:::BIN_OP
+    n6[picked]:::OBJ_VARIABLE
+    n7[length]:::EXTERNAL
+    n8[size]:::VARIABLE
+    n2[args]:::FUNC_PARAM --> n5[index]:::BIN_OP
+    n3[1]:::LITERAL --> n4[position]:::VARIABLE
+    n4[position]:::VARIABLE --> n5[index]:::BIN_OP
+    n5[index]:::BIN_OP --> n6[picked]:::OBJ_VARIABLE
+    n6[picked]:::OBJ_VARIABLE --> n7[length]:::EXTERNAL
+    n7[length]:::EXTERNAL --> n8[size]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

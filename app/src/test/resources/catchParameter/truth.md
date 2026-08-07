@@ -3,26 +3,26 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[out]:::VARIABLE
-    n4[0]:::LITERAL
-    n5[out]:::VARIABLE
-    n6[0]:::LITERAL
-    n7[index]:::BIN_OP
-    n8[parseInt]:::EXTERNAL
+    n3[0]:::LITERAL
+    n4[out]:::VARIABLE
+    n5[0]:::LITERAL
+    n6[index]:::BIN_OP
+    n7[parseInt]:::EXTERNAL
+    n8[out]:::VARIABLE
     n9[failure]:::OBJ_VARIABLE
-    n10[reason]:::OBJ_VARIABLE
-    n11[getMessage]:::EXTERNAL
-    n12[out]:::VARIABLE
-    n13[length]:::EXTERNAL
-    n2[args]:::FUNC_PARAM --> n7[index]:::BIN_OP
-    n4[0]:::LITERAL --> n3[out]:::VARIABLE
-    n6[0]:::LITERAL --> n7[index]:::BIN_OP
-    n7[index]:::BIN_OP --> n8[parseInt]:::EXTERNAL
-    n8[parseInt]:::EXTERNAL --> n5[out]:::VARIABLE
-    n9[failure]:::OBJ_VARIABLE --> n11[getMessage]:::EXTERNAL
-    n10[reason]:::OBJ_VARIABLE --> n13[length]:::EXTERNAL
-    n11[getMessage]:::EXTERNAL --> n10[reason]:::OBJ_VARIABLE
-    n13[length]:::EXTERNAL --> n12[out]:::VARIABLE
+    n10[getMessage]:::EXTERNAL
+    n11[reason]:::OBJ_VARIABLE
+    n12[length]:::EXTERNAL
+    n13[out]:::VARIABLE
+    n2[args]:::FUNC_PARAM --> n6[index]:::BIN_OP
+    n3[0]:::LITERAL --> n4[out]:::VARIABLE
+    n5[0]:::LITERAL --> n6[index]:::BIN_OP
+    n6[index]:::BIN_OP --> n7[parseInt]:::EXTERNAL
+    n7[parseInt]:::EXTERNAL --> n8[out]:::VARIABLE
+    n9[failure]:::OBJ_VARIABLE --> n10[getMessage]:::EXTERNAL
+    n10[getMessage]:::EXTERNAL --> n11[reason]:::OBJ_VARIABLE
+    n11[reason]:::OBJ_VARIABLE --> n12[length]:::EXTERNAL
+    n12[length]:::EXTERNAL --> n13[out]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

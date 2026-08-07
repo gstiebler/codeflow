@@ -29,7 +29,9 @@ class AstMemPosProcessor(
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos? {
         val expr = node.expression
-        val exprMemPos = expr.accept(this, ctx)
+        // A static field is held by its class, whose name before the dot is a type and so has no
+        // memory position of its own to ask for. See [GlobalContext.staticHolder].
+        val exprMemPos = globalCtx.staticHolder(node) ?: expr.accept(this, ctx)
         val nodeId = JNodeId(stack, node.identifier, globalCtx.symbols.element(node), exprMemPos)
         // Null for a field of an object we know nothing about, and for the `System.out` half of a
         // call on a type from outside the analysed sources.
@@ -50,6 +52,14 @@ class AstMemPosProcessor(
         if (node.name.toString() == "this") {
             return memPos
         }
+        globalCtx.staticHolder(node)?.let { holder ->
+            return globalCtx.findMemPos(JNodeId(stack, node.name, globalCtx.symbols.element(node), holder))
+        }
+        // A bare type name - the `System` of `System.out`, or the class in front of a static - is
+        // not a value and has no memory position. That is the answer, not a surprise, so it does
+        // not go through the warning below, which used to fire on ordinary code and bury the
+        // static-field bug it was reporting.
+        if (globalCtx.symbols.element(node)?.kind?.isClass == true) return null
         try {
             val nodeId = JNodeId(stack, node.name, globalCtx.symbols.element(node), memPos)
             return globalCtx.getMemPos(nodeId)

@@ -3,27 +3,27 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[amount]:::OBJ_VARIABLE
-    n4[3]:::LITERAL
-    n12[out]:::VARIABLE
-    n4[3]:::LITERAL --> n7[seed]:::FUNC_PARAM
-    subgraph b5["of"]
-      n6[of]:::RETURN
-      n7[seed]:::FUNC_PARAM
-      n6[of]:::RETURN --> n3[amount]:::OBJ_VARIABLE
-      n7[seed]:::FUNC_PARAM --> n10[seed]:::FUNC_PARAM
-      subgraph b8["Amount.constructor"]
-        n9[<init>]:::RETURN
-        n10[seed]:::FUNC_PARAM
-        n11[held]:::VARIABLE
-        n9[<init>]:::RETURN --> n6[of]:::RETURN
-        n10[seed]:::FUNC_PARAM --> n11[held]:::VARIABLE
-        n11[held]:::VARIABLE --> n14[read]:::RETURN
+    n3[3]:::LITERAL
+    n11[amount]:::OBJ_VARIABLE
+    n14[out]:::VARIABLE
+    n3[3]:::LITERAL --> n6[seed]:::FUNC_PARAM
+    subgraph b4["of"]
+      n5[of]:::RETURN
+      n6[seed]:::FUNC_PARAM
+      n5[of]:::RETURN --> n11[amount]:::OBJ_VARIABLE
+      n6[seed]:::FUNC_PARAM --> n9[seed]:::FUNC_PARAM
+      subgraph b7["Amount.constructor"]
+        n8[<init>]:::RETURN
+        n9[seed]:::FUNC_PARAM
+        n10[held]:::VARIABLE
+        n8[<init>]:::RETURN --> n5[of]:::RETURN
+        n9[seed]:::FUNC_PARAM --> n10[held]:::VARIABLE
+        n10[held]:::VARIABLE --> n13[read]:::RETURN
       end
     end
-    subgraph b13["read"]
-      n14[read]:::RETURN
-      n14[read]:::RETURN --> n12[out]:::VARIABLE
+    subgraph b12["read"]
+      n13[read]:::RETURN
+      n13[read]:::RETURN --> n14[out]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

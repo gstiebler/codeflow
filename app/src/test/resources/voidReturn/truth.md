@@ -3,11 +3,11 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[sink]:::OBJ_VARIABLE
-    n4[Sink]:::EXTERNAL
+    n3[Sink]:::EXTERNAL
+    n4[sink]:::OBJ_VARIABLE
     n5[5]:::LITERAL
     n12[out]:::VARIABLE
-    n4[Sink]:::EXTERNAL --> n3[sink]:::OBJ_VARIABLE
+    n3[Sink]:::EXTERNAL --> n4[sink]:::OBJ_VARIABLE
     n5[5]:::LITERAL --> n8[seed]:::FUNC_PARAM
     subgraph b6["store"]
       n7[store]:::RETURN

@@ -3,27 +3,27 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[value]:::VARIABLE
-    n4[7]:::LITERAL
-    n5[flag]:::VARIABLE
-    n6[true]:::LITERAL
-    n7[negated]:::VARIABLE
-    n8[neg]:::BIN_OP
-    n9[inverted]:::VARIABLE
-    n10[not]:::BIN_OP
-    n11[counter]:::VARIABLE
-    n12[0]:::LITERAL
+    n3[7]:::LITERAL
+    n4[value]:::VARIABLE
+    n5[true]:::LITERAL
+    n6[flag]:::VARIABLE
+    n7[neg]:::BIN_OP
+    n8[negated]:::VARIABLE
+    n9[not]:::BIN_OP
+    n10[inverted]:::VARIABLE
+    n11[0]:::LITERAL
+    n12[counter]:::VARIABLE
     n13[postInc]:::BIN_OP
     n14[afterIncrement]:::VARIABLE
-    n3[value]:::VARIABLE --> n8[neg]:::BIN_OP
-    n4[7]:::LITERAL --> n3[value]:::VARIABLE
-    n5[flag]:::VARIABLE --> n10[not]:::BIN_OP
-    n6[true]:::LITERAL --> n5[flag]:::VARIABLE
-    n8[neg]:::BIN_OP --> n7[negated]:::VARIABLE
-    n10[not]:::BIN_OP --> n9[inverted]:::VARIABLE
-    n11[counter]:::VARIABLE --> n13[postInc]:::BIN_OP
-    n11[counter]:::VARIABLE --> n14[afterIncrement]:::VARIABLE
-    n12[0]:::LITERAL --> n11[counter]:::VARIABLE
+    n3[7]:::LITERAL --> n4[value]:::VARIABLE
+    n4[value]:::VARIABLE --> n7[neg]:::BIN_OP
+    n5[true]:::LITERAL --> n6[flag]:::VARIABLE
+    n6[flag]:::VARIABLE --> n9[not]:::BIN_OP
+    n7[neg]:::BIN_OP --> n8[negated]:::VARIABLE
+    n9[not]:::BIN_OP --> n10[inverted]:::VARIABLE
+    n11[0]:::LITERAL --> n12[counter]:::VARIABLE
+    n12[counter]:::VARIABLE --> n13[postInc]:::BIN_OP
+    n12[counter]:::VARIABLE --> n14[afterIncrement]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

@@ -3,23 +3,23 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[adder]:::OBJ_VARIABLE
-    n4[Adder]:::EXTERNAL
-    n5[sum]:::VARIABLE
-    n6[3]:::LITERAL
-    n7[5]:::LITERAL
-    n4[Adder]:::EXTERNAL --> n3[adder]:::OBJ_VARIABLE
-    n6[3]:::LITERAL --> n10[left]:::FUNC_PARAM
-    n7[5]:::LITERAL --> n11[right]:::FUNC_PARAM
-    subgraph b8["add"]
-      n9[add]:::RETURN
-      n10[left]:::FUNC_PARAM
-      n11[right]:::FUNC_PARAM
-      n12[+]:::BIN_OP
-      n9[add]:::RETURN --> n5[sum]:::VARIABLE
-      n10[left]:::FUNC_PARAM --> n12[+]:::BIN_OP
-      n11[right]:::FUNC_PARAM --> n12[+]:::BIN_OP
-      n12[+]:::BIN_OP --> n9[add]:::RETURN
+    n3[Adder]:::EXTERNAL
+    n4[adder]:::OBJ_VARIABLE
+    n5[3]:::LITERAL
+    n6[5]:::LITERAL
+    n12[sum]:::VARIABLE
+    n3[Adder]:::EXTERNAL --> n4[adder]:::OBJ_VARIABLE
+    n5[3]:::LITERAL --> n9[left]:::FUNC_PARAM
+    n6[5]:::LITERAL --> n10[right]:::FUNC_PARAM
+    subgraph b7["add"]
+      n8[add]:::RETURN
+      n9[left]:::FUNC_PARAM
+      n10[right]:::FUNC_PARAM
+      n11[+]:::BIN_OP
+      n8[add]:::RETURN --> n12[sum]:::VARIABLE
+      n9[left]:::FUNC_PARAM --> n11[+]:::BIN_OP
+      n10[right]:::FUNC_PARAM --> n11[+]:::BIN_OP
+      n11[+]:::BIN_OP --> n8[add]:::RETURN
     end
   end
   classDef LITERAL fill:#00FF0030

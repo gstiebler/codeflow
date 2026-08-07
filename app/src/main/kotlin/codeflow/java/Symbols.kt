@@ -28,6 +28,8 @@ class Symbols private constructor(
     private val elementUtils: Elements,
     private val elements: IdentityHashMap<Tree, Element>,
     private val types: IdentityHashMap<Tree, TypeMirror>,
+    /** See [isDeclaredInSources]. */
+    private val declared: Set<Element>,
     /** References javac could not work out the type of. */
     val unresolved: Int,
     /** References looked at, resolved or not. */
@@ -51,6 +53,18 @@ class Symbols private constructor(
 
     /** Whether the tree's type is a primitive, and so holds a value rather than a reference. */
     fun isPrimitive(tree: Tree): Boolean = types[tree]?.kind?.isPrimitive ?: false
+
+    /**
+     * Whether this declaration is one of the analysed sources', rather than one javac loaded from
+     * the platform or the classpath to resolve a reference into.
+     *
+     * `element(tree)` answers both alike - `System.out` resolves as confidently as a field of a
+     * class in the directory - and the two get opposite treatment: what these sources declare is
+     * modelled, and everything else takes the opaque EXTERNAL path. Nothing could ask the
+     * difference before, because every question was about a tree, and a tree is by construction
+     * from these sources.
+     */
+    fun isDeclaredInSources(element: Element?): Boolean = element != null && element in declared
 
     /**
      * Whether this declaration was written in the source.
@@ -77,6 +91,12 @@ class Symbols private constructor(
             Tree.Kind.METHOD_INVOCATION, Tree.Kind.NEW_CLASS
         )
 
+        /** The trees that *declare* something, and so name what these sources contain. */
+        private val DECLARATION_KINDS = setOf(
+            Tree.Kind.VARIABLE, Tree.Kind.METHOD, Tree.Kind.CLASS, Tree.Kind.INTERFACE,
+            Tree.Kind.ENUM, Tree.Kind.RECORD, Tree.Kind.ANNOTATION_TYPE
+        )
+
         fun collect(
             trees: Trees,
             elementUtils: Elements,
@@ -84,6 +104,7 @@ class Symbols private constructor(
         ): Symbols {
             val elements = IdentityHashMap<Tree, Element>()
             val types = IdentityHashMap<Tree, TypeMirror>()
+            val declared = HashSet<Element>()
             var unresolved = 0
             var total = 0
 
@@ -96,7 +117,10 @@ class Symbols private constructor(
                     // overriding every one of those to catch it there is the alternative. The path
                     // to this tree is the current one with this tree on the end.
                     val path = TreePath(currentPath, tree)
-                    trees.getElement(path)?.let { elements[tree] = it }
+                    trees.getElement(path)?.let {
+                        elements[tree] = it
+                        if (tree.kind in DECLARATION_KINDS) declared.add(it)
+                    }
                     val type = trees.getTypeMirror(path)
                     type?.let { types[tree] = it }
 
@@ -111,7 +135,7 @@ class Symbols private constructor(
             }
             compilationUnits.forEach { collector.scan(it, null) }
 
-            return Symbols(elementUtils, elements, types, unresolved, total)
+            return Symbols(elementUtils, elements, types, declared, unresolved, total)
         }
     }
 }

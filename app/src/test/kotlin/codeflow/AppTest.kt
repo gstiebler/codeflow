@@ -659,6 +659,54 @@ class AppTest {
     }
 
     /**
+     * `x = x + 1` reads x before it writes it, so the operand is the value x held going in.
+     *
+     * The target used to be created first, which registered it as the current value of x under the
+     * same key, so the x in the expression found the node about to be written. That draws a cycle -
+     * `x -> + -> x` on one box - orphans the previous value, and cuts the literal that produced it
+     * off from everything downstream. `x += 1` was always right, because it evaluates the variable
+     * first, so the two spellings of one statement disagreed. The assertion is on all three forms
+     * for that reason.
+     *
+     * Found while porting codemap's `static_member`, where `total = total + by` made the write
+     * unreachable from the read that fed it.
+     */
+    @Test
+    fun anAssignmentReadsTheValueTheVariableHeldGoingIn() {
+        val graph = buildGraph("selfAssignment", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue(reaches(graph, "1", "expanded"), "the previous value is orphaned by `x = x + n`: $edges")
+        assertTrue(reaches(graph, "10", "expanded"), "the added value does not reach the result: $edges")
+        assertTrue(reaches(graph, "2", "compound"), "the previous value is orphaned by `x += n`: $edges")
+        assertTrue(reaches(graph, "3", "field"), "the previous value of a field is orphaned: $edges")
+        assertTrue(reaches(graph, "30", "field"), "the added value does not reach the field: $edges")
+    }
+
+    /**
+     * `Counter.total` and a bare `total` inside `Counter` are one variable, so a write through
+     * either form has to be found by a read through the other.
+     *
+     * A static has no instance, so the MemPos that carries an instance field is not available, and
+     * the block-parent chain is the wrong shape to fall back on: `bump`'s block is a *child* of
+     * `main`'s, so a read in `main` after the call cannot walk to it. Written out, the qualified
+     * form degraded to an opaque EXTERNAL node - both reads collapsed onto one, and `bump`'s write
+     * reached neither. The type assertion is what catches that; it is paired with the reachability
+     * ones, which fail if nothing is connected at all.
+     *
+     * Ported from codemap's `static_member` and `global_var` fixtures.
+     */
+    @Test
+    fun aStaticFieldIsOneVariableQualifiedOrNot() {
+        val graph = buildGraph("staticField", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("total" to "VARIABLE" in nodeTypes(graph), "the static field is not a variable: $edges")
+        assertTrue("total" to "EXTERNAL" !in nodeTypes(graph), "the static field went opaque: ${nodeTypes(graph)}")
+        assertTrue(reaches(graph, "5", "before"), "the qualified write does not reach the qualified read: $edges")
+        assertTrue(reaches(graph, "5", "after"), "the value before the call does not survive it: $edges")
+        assertTrue(reaches(graph, "3", "after"), "the unqualified write inside bump is not seen by main: $edges")
+    }
+
+    /**
      * A method leaves by whichever `return` runs, so each one produces the method's value and all
      * of them have to reach the RETURN node. Keeping only the last would draw the guard clauses as
      * dead code - readable, plausible, and claiming the method can only ever return one thing.
@@ -1011,4 +1059,6 @@ class AppTest {
     @Test fun aliasInBlock() = codeflow("aliasInBlock", listOf("App.java"))
     @Test fun generic() = codeflow("generic", listOf("App.java"))
     @Test fun subpackage() = codeflow("subpackage", listOf("App.java", "util/Adder.java"))
+    @Test fun selfAssignment() = codeflow("selfAssignment", listOf("App.java"))
+    @Test fun staticField() = codeflow("staticField", listOf("App.java"))
 }

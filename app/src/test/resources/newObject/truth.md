@@ -3,24 +3,24 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[seed]:::VARIABLE
-    n4[4]:::LITERAL
-    n5[box]:::OBJ_VARIABLE
-    n10[sb]:::OBJ_VARIABLE
-    n11["text"]:::LITERAL
-    n12[StringBuilder]:::EXTERNAL
+    n3[4]:::LITERAL
+    n4[seed]:::VARIABLE
+    n9[box]:::OBJ_VARIABLE
+    n10["text"]:::LITERAL
+    n11[StringBuilder]:::EXTERNAL
+    n12[sb]:::OBJ_VARIABLE
     n13[read]:::VARIABLE
-    n3[seed]:::VARIABLE --> n8[v]:::FUNC_PARAM
-    n4[4]:::LITERAL --> n3[seed]:::VARIABLE
-    n11["text"]:::LITERAL --> n12[StringBuilder]:::EXTERNAL
-    n12[StringBuilder]:::EXTERNAL --> n10[sb]:::OBJ_VARIABLE
-    subgraph b6["Box.constructor"]
-      n7[<init>]:::RETURN
-      n8[v]:::FUNC_PARAM
-      n9[held]:::VARIABLE
-      n7[<init>]:::RETURN --> n5[box]:::OBJ_VARIABLE
-      n8[v]:::FUNC_PARAM --> n9[held]:::VARIABLE
-      n9[held]:::VARIABLE --> n13[read]:::VARIABLE
+    n3[4]:::LITERAL --> n4[seed]:::VARIABLE
+    n4[seed]:::VARIABLE --> n7[v]:::FUNC_PARAM
+    n10["text"]:::LITERAL --> n11[StringBuilder]:::EXTERNAL
+    n11[StringBuilder]:::EXTERNAL --> n12[sb]:::OBJ_VARIABLE
+    subgraph b5["Box.constructor"]
+      n6[<init>]:::RETURN
+      n7[v]:::FUNC_PARAM
+      n8[held]:::VARIABLE
+      n6[<init>]:::RETURN --> n9[box]:::OBJ_VARIABLE
+      n7[v]:::FUNC_PARAM --> n8[held]:::VARIABLE
+      n8[held]:::VARIABLE --> n13[read]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

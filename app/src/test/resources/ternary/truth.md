@@ -3,28 +3,28 @@ flowchart TD
   subgraph b0["main"]
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
-    n3[divisor]:::VARIABLE
-    n4[0]:::LITERAL
-    n5[value]:::VARIABLE
-    n6[100]:::LITERAL
-    n7[fallback]:::VARIABLE
-    n8[7]:::LITERAL
-    n9[guarded]:::VARIABLE
-    n10[0]:::LITERAL
-    n11[==]:::BIN_OP
-    n12[div]:::BIN_OP
-    n13[ternary]:::BIN_OP
-    n3[divisor]:::VARIABLE --> n11[==]:::BIN_OP
-    n3[divisor]:::VARIABLE --> n12[div]:::BIN_OP
-    n4[0]:::LITERAL --> n3[divisor]:::VARIABLE
-    n5[value]:::VARIABLE --> n12[div]:::BIN_OP
-    n6[100]:::LITERAL --> n5[value]:::VARIABLE
-    n7[fallback]:::VARIABLE --> n13[ternary]:::BIN_OP
-    n8[7]:::LITERAL --> n7[fallback]:::VARIABLE
-    n10[0]:::LITERAL --> n11[==]:::BIN_OP
-    n11[==]:::BIN_OP --> n13[ternary]:::BIN_OP
-    n12[div]:::BIN_OP --> n13[ternary]:::BIN_OP
-    n13[ternary]:::BIN_OP --> n9[guarded]:::VARIABLE
+    n3[0]:::LITERAL
+    n4[divisor]:::VARIABLE
+    n5[100]:::LITERAL
+    n6[value]:::VARIABLE
+    n7[7]:::LITERAL
+    n8[fallback]:::VARIABLE
+    n9[0]:::LITERAL
+    n10[==]:::BIN_OP
+    n11[div]:::BIN_OP
+    n12[ternary]:::BIN_OP
+    n13[guarded]:::VARIABLE
+    n3[0]:::LITERAL --> n4[divisor]:::VARIABLE
+    n4[divisor]:::VARIABLE --> n10[==]:::BIN_OP
+    n4[divisor]:::VARIABLE --> n11[div]:::BIN_OP
+    n5[100]:::LITERAL --> n6[value]:::VARIABLE
+    n6[value]:::VARIABLE --> n11[div]:::BIN_OP
+    n7[7]:::LITERAL --> n8[fallback]:::VARIABLE
+    n8[fallback]:::VARIABLE --> n12[ternary]:::BIN_OP
+    n9[0]:::LITERAL --> n10[==]:::BIN_OP
+    n10[==]:::BIN_OP --> n12[ternary]:::BIN_OP
+    n11[div]:::BIN_OP --> n12[ternary]:::BIN_OP
+    n12[ternary]:::BIN_OP --> n13[guarded]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

@@ -81,7 +81,7 @@ open class AstBlockProcessor(
         val lhsIsPrimitive = globalCtx.symbols.isPrimitive(lhs)
 
         val lhsParentExpr = lhs.accept(AstParentExprProcessor(), ctx)
-        val lhsMemPos = if (lhsParentExpr == null) {
+        val lhsMemPos = staticHolder(lhs) ?: if (lhsParentExpr == null) {
             owner
         } else {
             getMemPos(lhsParentExpr, ctx)
@@ -158,9 +158,20 @@ open class AstBlockProcessor(
         return null
     }
 
+    /**
+     * The right-hand side is evaluated before the left-hand node exists, which is both Java's own
+     * order and the only order that reads `x = x + 1` correctly.
+     *
+     * Creating the target first registers it as the current value of `x` under the same key, so the
+     * `x` in the expression found the node about to be written instead of the one holding the old
+     * value. The result was a cycle - `x -> + -> x` on one box - the previous value orphaned with no
+     * edge out, and the literal that produced it unable to reach anything downstream. The compound
+     * form `x += 1` was always right, because it evaluates the variable first, so the two spellings
+     * of one statement drew different graphs.
+     */
     private fun assignPrimitive(owner: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext): GraphNode {
-        val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), owner)
         val rhsNode = evaluate(rhs, ctx)
+        val lhsNode = graphBuilderBlock.addPrimitiveVariable(GraphNode.Base(lhsId), owner)
         graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         return lhsNode
     }
@@ -175,12 +186,14 @@ open class AstBlockProcessor(
      * [scan] exists to prevent, and object assignment is most of real Java.
      */
     private fun assignMemPos(owner: MemPos?, lhsId: JNodeId, rhs: ExpressionTree, ctx: ProcessorContext) {
-        val lhsNode = graphBuilderBlock.addObjectVariable(GraphNode.Base(lhsId), owner)
         // An object we know nothing about: it came from outside the analysed sources, or from a
         // call whose returns we do not follow. It still gets a memory position of its own, so that
         // fields set on it and calls made on it have somewhere to hang.
         val rhsMemPos = getMemPos(rhs, ctx) ?: globalCtx.createMemPos(rhs)
-        graphBuilderBlock.addAssignment(lhsNode, evaluate(rhs, ctx))
+        // Before the target exists, for the reason given on [assignPrimitive].
+        val rhsNode = evaluate(rhs, ctx)
+        val lhsNode = graphBuilderBlock.addObjectVariable(GraphNode.Base(lhsId), owner)
+        graphBuilderBlock.addAssignment(lhsNode, rhsNode)
         globalCtx.addMemPos(lhsId, rhsMemPos)
     }
 
@@ -192,6 +205,8 @@ open class AstBlockProcessor(
     }
 
     private fun getLastNodeOfVariable(id: GraphNodeId): GraphNode? = graphBuilderBlock.getVariable(id)?.lastNode
+
+    private fun staticHolder(tree: Tree): MemPos? = globalCtx.staticHolder(tree)
 
     /**
      * The node for a name we are tracking the object of but have found no value for.
@@ -232,8 +247,9 @@ open class AstBlockProcessor(
         val expression = node.expression
         // after the dot
         val identifier = node.identifier
-        // memory position of the class instance
-        val exprMemPos = getMemPos(expression, ctx)
+        // memory position of the class instance, or of the class itself for a static field, whose
+        // receiver is a type name and so has no memory position to ask for.
+        val exprMemPos = staticHolder(node) ?: getMemPos(expression, ctx)
         val nodeId = JNodeId(getStack().push(ctx, node), identifier, globalCtx.symbols.element(node), exprMemPos)
         exprMemPos?.getNode(nodeId)?.let { return it }
         // With a memory position we are tracking the object, so the field either has a value here
@@ -277,10 +293,11 @@ open class AstBlockProcessor(
      */
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): GraphNode {
         if (node.name.contentEquals("this")) return thisValue(node, ctx)
-        val nId = JNodeId(getStack().push(ctx, node), node.name, globalCtx.symbols.element(node), owner)
-        return owner?.getNode(nId)
+        val holder = staticHolder(node) ?: owner
+        val nId = JNodeId(getStack().push(ctx, node), node.name, globalCtx.symbols.element(node), holder)
+        return holder?.getNode(nId)
             ?: graphBuilderBlock.getVariable(nId)?.lastNode
-            ?: unassigned(nId, node, owner, ctx)
+            ?: unassigned(nId, node, holder, ctx)
     }
 
     /**

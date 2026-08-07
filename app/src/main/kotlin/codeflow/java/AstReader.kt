@@ -19,6 +19,16 @@ import kotlin.io.path.toPath
 
 class AstReader(private val basePath: Path) {
 
+    /**
+     * The constructs this run could not model, as `KIND at file:line:col`, filled in by [process].
+     *
+     * Exposed so the caller can set an exit status from it. The document on stdout is complete and
+     * usable either way; what the status says is whether everything in it was understood, which is
+     * a question a pipeline can act on and a reader watching stdout scroll past cannot.
+     */
+    var unmodelled: List<String> = emptyList()
+        private set
+
     fun process(fileNames: List<Path>): GraphBuilderBlock {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
@@ -61,9 +71,26 @@ class AstReader(private val basePath: Path) {
         val mainAstBlockProcessor = AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null)
         mainAstBlockProcessor.invokeMethod(emptyList())
 
+        unmodelled = globalCtx.unmodelled()
+        reportUnmodelled()
+
         manager.close()
 
         return mainAstBlockProcessor.graphBuilderBlock
+    }
+
+    /**
+     * What the run could not model, on stderr in the style of the counters above it.
+     *
+     * Each one is on the graph too, as its own node type, but a reader who opens a diagram of a
+     * thousand nodes has no reason to go looking for them. The summary is what makes the gaps
+     * something you are told about rather than something you happen across.
+     */
+    private fun reportUnmodelled() {
+        if (unmodelled.isEmpty()) return
+        val plural = if (unmodelled.size == 1) "construct" else "constructs"
+        System.err.println("codeflow: ${unmodelled.size} $plural not modelled")
+        unmodelled.forEach { System.err.println("codeflow:   $it") }
     }
 
     /**

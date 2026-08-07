@@ -54,4 +54,5 @@ flowchart TD
   classDef FUNC_PARAM fill:#8080FF30
   classDef RETURN fill:#FF808080
   classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

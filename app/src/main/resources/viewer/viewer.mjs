@@ -56,6 +56,8 @@ const PALETTE = {
   RETURN:       'rgba(255, 128, 128, 0.50)',
   EXTERNAL:     'rgba(255, 165, 0, 0.25)',
   MEM_SPACE:    'rgba(200, 200, 128, 0.25)',
+  // Where codeflow stopped rather than something the code does - see GraphNode.Unmodelled.
+  UNMODELLED:   'rgba(255, 0, 0, 0.19)',
   METHOD:       'rgba(240, 240, 240, 0.60)',
 };
 

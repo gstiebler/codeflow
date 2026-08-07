@@ -197,11 +197,30 @@ gate exists to prevent, with the loud failure removed. `aLocalWithNoValueStillFa
 ## Adding support for a Java construct
 
 `AstBlockProcessor.scan` is a gate: any `ExpressionTree` whose kind is not in
-`MODELLED_EXPRESSIONS` throws a `GraphException` naming the kind and `file:line:col`. This exists
-because `TreeScanner`'s default — scan the children, return one of their results — is a *fabricated
-edge* for an expression: `!flag` comes back as the node for `flag`, so the operator vanishes and
-the graph claims something the code does not do. Two real bugs (the dropped ternary branch, vanished
+`MODELLED_EXPRESSIONS` becomes an `UNMODELLED` node labelled with the kind and carrying
+`file:line:col`, with its operands flowing in and its value flowing out. This exists because
+`TreeScanner`'s default — scan the children, return one of their results — is a *fabricated edge*
+for an expression: `!flag` comes back as the node for `flag`, so the operator vanishes and the
+graph claims something the code does not do. Two real bugs (the dropped ternary branch, vanished
 unary operators) came from exactly that.
+
+It used to throw, and the cost was out of proportion to the gap: one `(int)` cast on a reachable
+path produced **zero bytes of output for the entire corpus**. The principle is unchanged — a gap
+must never be drawn as a flow — but codeflow already had an honest rendering for "something here I
+cannot see inside", and a cast is not more dangerous than `java.util`. `UNMODELLED` is its own node
+type rather than `EXTERNAL` because the two say different things: `EXTERNAL` is a limit of the
+*sources*, this is a limit of *codeflow*, and what it hides is code sitting in the corpus that the
+diagram is not showing. Each one is also reported on stderr (`codeflow: N constructs not modelled`,
+deduplicated, since a method is inlined once per call site) and makes the process exit non-zero —
+the document still goes to stdout in full.
+
+The failure that stays hard is the one that really is the analysis having lost something: a local
+read with no reaching definition (`unassigned`). See "A name with no value" above.
+
+`TYPE_KINDS` is the companion set to `MODELLED_EXPRESSIONS`. javac makes `PrimitiveTypeTree` and
+friends subclasses of its expression type, so `is ExpressionTree` says yes to the `int` of
+`(int) x` and it arrives at the gate looking like a value; drawn as one it is a node on the diagram
+that nothing in the program corresponds to. Types produce no value and are skipped.
 
 So, to add a construct: write the visitor, then add its `Tree.Kind` to `MODELLED_EXPRESSIONS`.
 Never widen that set without a visitor behind it.
@@ -229,8 +248,12 @@ Two related rules:
 - Use `evaluate(tree, ctx)` — not `tree.accept(...)` — for anything that needs a *value*. It routes
   through `scan`, so the gate cannot be bypassed, and it fails loudly when an expression produces
   nothing.
-- Put `ctx.location(tree)` in `GraphException` messages. The first question about any failure is
-  which line of which file.
+- Put `ctx.location(tree)` in `GraphException` messages, and on every node — `GraphNode.Base`
+  takes it as a required parameter, so a node cannot exist without one. The first question about
+  any failure, and about any box on a diagram, is which line of which file. It comes from the
+  `ProcessorContext` of the compilation unit the *tree* belongs to, which is not always the one
+  being walked: a callee is inlined with the caller's context in hand, and asking that one for a
+  line number gives a real position naming the wrong file.
 
 Operator labels go through `binaryOperatorLabel` / `unaryOperatorLabel` / `compoundAssignmentLabel`,
 which map symbols that are also Mermaid syntax to words (`/` → `div`, `|` → `bitOr`, `&` → `bitAnd`,
@@ -240,7 +263,7 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
 
 `AppTest.kt` has three kinds of assertion, and the mix is deliberate:
 
-- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 46 of them. They certify
+- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 50 of them. They certify
   *unchanged*, not *correct*. `ternary/truth.md` was once written from a buggy run and passed
   happily while encoding a graph with a branch missing. Treat a green golden file as evidence of
   nothing.

@@ -44,11 +44,32 @@ class GlobalContext(val symbols: Symbols) {
      */
     private val classes = HashMap<Element, SourceClass>()
 
+    /**
+     * Every construct met that codeflow does not model, as `KIND at file:line:col`.
+     *
+     * A set, because a method is inlined once per call site and one cast written once would
+     * otherwise be reported as many as there are callers - a count nobody could reconcile with the
+     * source. Ordered, so the same input reports the same way twice.
+     *
+     * These are drawn on the graph as well (see [AstBlockProcessor.unmodelledExpression]); this is
+     * what lets the run *say* how many there were, so a reader who never scrolls to one still
+     * knows to look.
+     */
+    private val unmodelledConstructs = LinkedHashSet<String>()
+
     /** See [enumConstantMemPos]. */
     private val enumConstantMemPositions = HashMap<Element, MemPos>()
     private val logger = KotlinLogging.logger {}
 
     class SourceClass(val tree: ClassTree, val ctx: ProcessorContext)
+
+    /** See [unmodelledConstructs]. */
+    fun recordUnmodelled(description: String) {
+        unmodelledConstructs.add(description)
+    }
+
+    /** See [unmodelledConstructs]. */
+    fun unmodelled(): List<String> = unmodelledConstructs.toList()
 
     fun addMethod(methodTree: MethodTree, element: ExecutableElement, ctx: ProcessorContext) {
         methods[element] = Method(methodTree, ctx, element)

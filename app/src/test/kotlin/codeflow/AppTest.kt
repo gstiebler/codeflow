@@ -285,35 +285,48 @@ class AppTest {
     }
 
     /**
-     * An expression codeflow does not model must fail, and must say where. A silently wrong graph
-     * is worse than none, because nothing about it invites a second look.
+     * An expression codeflow does not model becomes a node saying so, rather than ending the run.
+     *
+     * One `(int)` cast on a reachable path used to produce zero bytes of output for the entire
+     * corpus: `Helper.twice` containing `(int)(v * 2.0)` took down a graph of which it was one node,
+     * and a thousand other files went with it.
+     *
+     * The principle behind the gate is unchanged - a gap must never be drawn as a flow - but there
+     * is already an honest rendering for "something here I cannot see inside", and a cast is not
+     * more dangerous than `java.util`. So the construct is drawn, labelled with its kind and
+     * carrying the line it was written on, with what it was built from flowing in and its value
+     * flowing out. It is its own node type, so nothing on the diagram can mistake it for a value
+     * codeflow understood.
      */
     @Test
-    fun unmodelledExpressionFailsWithSourceLocation() {
-        val error = assertFailsWith<GraphException> { buildGraph("unsupported", listOf("App.java")) }
-        val message = error.message ?: ""
-        assertTrue("TYPE_CAST" in message, "error does not name the construct: $message")
-        assertTrue("unsupported/App.java:14" in message, "error does not give file and line: $message")
+    fun anUnmodelledExpressionBecomesANodeInsteadOfEndingTheRun() {
+        val graph = buildGraph("unsupported", listOf("App.java"))
+        val types = nodeTypes(graph)
+        val edges = edgeLabels(graph)
+        assertTrue("TYPE_CAST" to "UNMODELLED" in types, "the cast is not drawn as unmodelled: $types")
+        assertTrue("3L" to "TYPE_CAST" in edges, "the operand does not reach the cast: $edges")
+        assertTrue("TYPE_CAST" to "count" in edges, "the cast does not reach the variable: $edges")
     }
 
     /**
-     * The gate has to hold on the right-hand side of an object assignment too.
+     * The same on the right-hand side of an object assignment.
      *
      * That path caught every exception from evaluating the right-hand side and carried on, so an
      * unmodelled construct there did not fail - the variable was simply drawn with nothing flowing
      * into it, which reads as a value that has no source rather than one codeflow could not follow.
-     * Object assignment is most of real Java, so this was the gate's largest blind spot.
+     * Object assignment is most of real Java, so this was the gate's largest blind spot, and the
+     * node has to arrive on this path rather than the edge being dropped again.
      */
     @Test
-    fun unmodelledExpressionAssignedToAnObjectAlsoFails() {
-        val error = assertFailsWith<GraphException> { buildGraph("unsupportedAssignment", listOf("App.java")) }
-        val message = error.message ?: ""
-        assertTrue("TYPE_CAST" in message, "error does not name the construct: $message")
-        assertTrue("unsupportedAssignment/App.java:13" in message, "error does not give file and line: $message")
+    fun anUnmodelledExpressionAssignedToAnObjectIsDrawnToo() {
+        val graph = buildGraph("unsupportedAssignment", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("args" to "TYPE_CAST" in edges, "the operand does not reach the cast: $edges")
+        assertTrue("TYPE_CAST" to "cast" in edges, "the cast does not reach the variable: $edges")
     }
 
     /**
-     * And it has to hold for the receiver of a call reaching outside the sources.
+     * And for the receiver of a call reaching outside the sources.
      *
      * That receiver was evaluated inside a catch-everything that dropped whatever came back, so the
      * one position where the gate could be reached and ignored was the position it exists for. The
@@ -321,11 +334,56 @@ class AppTest {
      * drawn as reading nothing.
      */
     @Test
-    fun unmodelledReceiverFailsRatherThanVanishing() {
-        val error = assertFailsWith<GraphException> { buildGraph("unmodelledReceiver", listOf("App.java")) }
-        val message = error.message ?: ""
-        assertTrue("TYPE_CAST" in message, "error does not name the construct: $message")
-        assertTrue("unmodelledReceiver/App.java:9" in message, "error does not give file and line: $message")
+    fun anUnmodelledReceiverStillReachesTheCall() {
+        val graph = buildGraph("unmodelledReceiver", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("args" to "TYPE_CAST" in edges, "the operand does not reach the cast: $edges")
+        assertTrue("TYPE_CAST" to "toString" in edges, "the cast does not reach the call: $edges")
+    }
+
+    /**
+     * The run says what it could not model, so a reader is told rather than left to notice.
+     *
+     * The node on the diagram is not enough on its own: nobody opens a graph of a thousand nodes
+     * looking for the handful that are gaps. This is also what the exit status is taken from, which
+     * is the only part of it a build can act on.
+     *
+     * Once per construct, not once per call site. A method is inlined at every call, so one cast in
+     * a helper called from twenty places would otherwise be reported twenty times - a count nobody
+     * could reconcile with the source.
+     */
+    @Test
+    fun theRunReportsEachConstructItCouldNotModelOnce() {
+        val testDirPath = testResourcesPath.resolve("unsupported")
+        val reader = AstReader(testResourcesPath)
+        reader.process(listOf(testDirPath.resolve("App.java")))
+        assertEquals(listOf("TYPE_CAST at unsupported/App.java:15:21"), reader.unmodelled)
+    }
+
+    /** And says nothing when there was nothing to say, so the summary means something. */
+    @Test
+    fun aRunThatModelledEverythingReportsNothing() {
+        val testDirPath = testResourcesPath.resolve("base")
+        val reader = AstReader(testResourcesPath)
+        reader.process(listOf(testDirPath.resolve("App.java")))
+        assertTrue(reader.unmodelled.isEmpty(), "reported a gap where there is none: ${reader.unmodelled}")
+    }
+
+    /**
+     * The node carries the construct's own line, not the enclosing statement's.
+     *
+     * A reader who sees `TYPE_CAST` on the diagram has one question, and it is where to look. The
+     * label alone names the kind, which on a file with several casts narrows nothing.
+     */
+    @Test
+    fun anUnmodelledNodeSaysWhereTheConstructWas() {
+        val cast = jsonNodes(buildJson("unsupported", listOf("App.java")))
+            .single { it.get("type").asString == "UNMODELLED" }
+        assertEquals("TYPE_CAST", jsonLabel(cast))
+        assertTrue(
+            jsonSource(cast)?.startsWith("unsupported/App.java:15:") == true,
+            "the cast on line 15 does not say so: ${jsonSource(cast)}"
+        )
     }
 
     /**
@@ -1250,4 +1308,9 @@ class AppTest {
     @Test fun fieldInitializer() = codeflow("fieldInitializer", listOf("App.java"))
     @Test fun enumConstructor() = codeflow("enumConstructor", listOf("App.java"))
     @Test fun recursion() = codeflow("recursion", listOf("App.java"))
+    // These three used to have no golden because they produced no graph, only an exception. They
+    // draw one now, so the suite-wide invariants apply to them like any other fixture.
+    @Test fun unsupported() = codeflow("unsupported", listOf("App.java"))
+    @Test fun unsupportedAssignment() = codeflow("unsupportedAssignment", listOf("App.java"))
+    @Test fun unmodelledReceiver() = codeflow("unmodelledReceiver", listOf("App.java"))
 }

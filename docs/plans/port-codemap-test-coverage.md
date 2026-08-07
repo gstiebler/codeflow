@@ -159,8 +159,12 @@ needs" at the end.
       means finding another construct that loses a local, or accepting that the gate goes untested.
 - [ ] **C1.** A join node at `if`, `switch` and `try`/`catch`/`finally`, so a value written in one
       branch does not silently replace the other.
-- [ ] **D1.** A visitor for `TYPE_CAST`, then its kind in `MODELLED_EXPRESSIONS`.
-- [ ] **D2.** Carry source line onto every node and out through the exporters.
+- [ ] **D1.** A visitor for `TYPE_CAST`, then its kind in `MODELLED_EXPRESSIONS`. Much less urgent
+      than it was: a cast no longer ends the run, it is drawn as an `UNMODELLED` node with its
+      operand flowing in. Still blocked on the same choice — see below.
+- [x] **D2.** Carry source line onto every node and out through the exporters. Required on
+      `GraphNode.Base`, so a node cannot be created without one, and emitted by the JSON and
+      GraphML exporters. Not by Mermaid: it would put a path in every box and move all 50 goldens.
 - [ ] **D3.** Wire up or delete the untested `codemap` and `ls` fixtures — CLAUDE.md flags both, and
       `codemap/truth.md` is stale in the pre-serial id format.
 
@@ -186,12 +190,13 @@ that explicit rather than to pick. It moves every branching golden, so it wants 
 
 **D1 — a visitor for `TYPE_CAST`.** Small, but not free: `unsupported`, `unsupportedAssignment` and
 `unmodelledReceiver` all use a cast as their stand-in for "an expression codeflow does not model",
-and all three assert on the message and the line. Modelling casts means picking a different
-construct for those three fixtures to be unmodelled *in*, and the set of candidates is shrinking as
-this list gets worked. Decide what that construct is before writing the visitor.
+and all three now assert on the `UNMODELLED` node it produces. Modelling casts means picking a
+different construct for those three fixtures to be unmodelled *in*, and the set of candidates is
+shrinking as this list gets worked. Decide what that construct is before writing the visitor.
 
-**D2 — source line on every node.** A feature rather than a port. It touches `GraphNode` and all
-four exporters, and §6 of `if-written-again.md` argues the same thing from the other direction.
+The pressure behind it is largely gone, though. What made a missing cast visitor expensive was that
+one cast cost the reader the whole corpus; now it costs them one node's worth of detail, marked as
+such on the diagram and counted on stderr. It is a gap to close for accuracy, not a fire.
 
 **D3 — the untested `codemap` and `ls` fixtures.** `codemap/truth.md` is stale, in the pre-serial id
 format, and nothing references it; `ls` has no golden at all. Wiring them up means accepting

@@ -315,7 +315,7 @@ open class AstBlockProcessor(
     }
 
     /**
-     * The single point every tree passes through, and where an unmodelled expression is rejected.
+     * The single point every tree passes through, and where an unmodelled expression is caught.
      *
      * TreeScanner's default for a node it is not told about is to scan the children and return
      * one of their results. For a statement that is fine, because a statement produces no value.
@@ -324,14 +324,74 @@ open class AstBlockProcessor(
      * as if the code did something it does not. The dropped branch of `cond ? a : b` was the
      * same mistake, and cost a real debugging session before it was noticed.
      *
-     * So expressions have to be modelled explicitly, and anything missing says so on the spot,
-     * with a file and line, rather than being found later by someone who trusted the diagram.
+     * So expressions have to be modelled explicitly, and anything missing is drawn as missing -
+     * see [unmodelledExpression] - rather than being found later by someone who trusted the
+     * diagram.
      */
     override fun scan(node: Tree?, ctx: ProcessorContext): GraphNode? {
+        if (node != null && node.kind in TYPE_KINDS) return null
         if (node is ExpressionTree && node.kind !in MODELLED_EXPRESSIONS) {
-            throw GraphException("Unsupported expression '${node.kind}' at ${ctx.location(node)}: '$node'")
+            return unmodelledExpression(node, ctx)
         }
         return super.scan(node, ctx)
+    }
+
+    /**
+     * What an expression codeflow does not model is drawn as: a node saying so.
+     *
+     * This used to throw, and the cost was out of all proportion to the gap. One `(int)` cast on a
+     * reachable path produced zero bytes of output for the entire corpus - `Helper.twice` holding
+     * `(int)(v * 2.0)` took down a graph of which it was one node, and every other file went with
+     * it. The principle behind the gate is right and unchanged: a gap must never be drawn as a
+     * flow. But there is already an honest rendering for "something here I cannot see inside", and
+     * a cast is not more dangerous than `java.util`.
+     *
+     * So it becomes a node of its own type, labelled with the kind javac gave it and carrying the
+     * line it was written on, with its operands flowing in and its value flowing out. Nothing on
+     * the diagram can read it as a value codeflow understood, and one cast no longer costs the
+     * reader the other 999 files. It is recorded on [GlobalContext] as well, so the run can say how
+     * many there were rather than leaving them to be noticed.
+     *
+     * The failure that stays hard is the one that really is the analysis having lost something: a
+     * local read with no reaching definition, in [unassigned]. That is not a construct nobody
+     * wrote a visitor for, it is a name whose value went missing, and drawing it would be the
+     * silent wrongness with the loud failure removed.
+     */
+    private fun unmodelledExpression(node: ExpressionTree, ctx: ProcessorContext): GraphNode {
+        val kind = node.kind.toString()
+        globalCtx.recordUnmodelled("$kind at ${ctx.location(node)}")
+        val operands = Operands(this).also { node.accept(it, ctx) }.values
+        val jId = GraphNodeId(getStack().push(ctx, node), kind)
+        return graphBuilderBlock.addUnmodelled(nodeBase(jId, node, ctx), operands)
+    }
+
+    /**
+     * The values an unmodelled expression is built out of, so they still reach what it produces.
+     *
+     * Dropping them would leave the node with nothing flowing in, and a value drawn as arriving
+     * from nowhere is the failure this whole area exists to prevent - `(int)(v * 2.0)` would lose
+     * `v` entirely rather than showing it reaching a gap.
+     *
+     * Applied with `accept` rather than `scan`, so the visitor's own `visitXxx` runs and this sees
+     * the construct's *children*; scanning the construct itself would come straight back here. A
+     * child that is an expression goes to the outer processor, which either evaluates it or makes
+     * another node like this one; anything else is descended into, since a value can sit under a
+     * child that is not an expression. A type name is not a value - the `Object` of `(Object) x` -
+     * and contributes nothing, the same distinction [invokeExternalMethod] draws for a receiver.
+     *
+     * [AstBlockProcessor.evaluate], not `scan`, because an expression the gate has already let
+     * through and that still produces nothing is the analysis having gone wrong, and that stays a
+     * loud failure rather than becoming a quietly missing edge.
+     */
+    private class Operands(private val outer: AstBlockProcessor) : TreeScanner<Unit, ProcessorContext>() {
+        val values = ArrayList<GraphNode>()
+
+        override fun scan(tree: Tree?, ctx: ProcessorContext) {
+            if (tree == null || tree.kind in TYPE_KINDS) return
+            if (tree !is ExpressionTree) return super.scan(tree, ctx)
+            if (outer.isTypeName(tree)) return
+            values.add(outer.evaluate(tree, ctx))
+        }
     }
 
     /**
@@ -1085,6 +1145,25 @@ open class AstBlockProcessor(
             Tree.Kind.SWITCH_EXPRESSION, Tree.Kind.NEW_CLASS,
             Tree.Kind.ARRAY_ACCESS, Tree.Kind.INSTANCE_OF, Tree.Kind.LAMBDA_EXPRESSION,
             Tree.Kind.MEMBER_REFERENCE, Tree.Kind.NEW_ARRAY
+        )
+
+        /**
+         * Kinds that spell a type rather than produce a value: the `int` of `(int) x`, the
+         * `List<String>` of a generic declaration, the bound of a wildcard.
+         *
+         * javac makes several of these subclasses of its expression type, so `is ExpressionTree`
+         * says yes to all of them and they arrive here looking like values. Drawn as one, `int`
+         * becomes a node on the diagram that nothing in the program corresponds to - which is the
+         * fabricated node the gate exists to prevent, arriving through the gate itself.
+         *
+         * A type *name*, the `Object` of `(Object) x`, is an IDENTIFIER and is not caught here;
+         * [isTypeName] asks javac what the name resolved to instead. A kind missing from this set
+         * announces itself rather than hiding: it comes out as a node labelled with that kind.
+         */
+        private val TYPE_KINDS = setOf(
+            Tree.Kind.PRIMITIVE_TYPE, Tree.Kind.ARRAY_TYPE, Tree.Kind.PARAMETERIZED_TYPE,
+            Tree.Kind.ANNOTATED_TYPE, Tree.Kind.UNION_TYPE, Tree.Kind.INTERSECTION_TYPE,
+            Tree.Kind.EXTENDS_WILDCARD, Tree.Kind.SUPER_WILDCARD, Tree.Kind.UNBOUNDED_WILDCARD
         )
     }
 }

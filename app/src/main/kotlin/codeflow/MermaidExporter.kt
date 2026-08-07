@@ -18,7 +18,10 @@ class MermaidExporter() {
         "classDef BIN_OP fill:#80808080",
         "classDef FUNC_PARAM fill:#8080FF30",
         "classDef RETURN fill:#FF808080",
-        "classDef EXTERNAL fill:#FFA50040"
+        "classDef EXTERNAL fill:#FFA50040",
+        // Dashed, because it is the one node type that is not a claim about the code: it marks
+        // where codeflow stopped, and it should not sit on the diagram looking like the rest.
+        "classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2"
     )
 
     private fun genSpaces(n: Int) = " ".repeat(n)

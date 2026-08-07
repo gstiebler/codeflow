@@ -4,7 +4,8 @@
  * That path used to catch every exception from evaluating the right-hand side and carry on, so
  * the variable was drawn with nothing flowing into it. On a diagram a value arriving from nowhere
  * is indistinguishable from one that genuinely has no source, which is the silent wrongness the
- * whole gate exists to prevent - and object assignment is most of real Java.
+ * whole gate exists to prevent - and object assignment is most of real Java. The node standing for
+ * the cast has to arrive here too, with the operand reaching it and it reaching the variable.
  */
 package unsupportedAssignment;
 

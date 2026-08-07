@@ -189,6 +189,21 @@ class GraphBuilderBlock(
     }
 
     /**
+     * The node standing for a construct codeflow does not model.
+     *
+     * Shaped like [addExternal] - what it was built from flows in, its value flows out - because
+     * that is the honest reading of "something here I cannot see inside", and it is the reading
+     * that keeps a value traceable across the gap instead of ending the analysis there. It is a
+     * separate type from EXTERNAL for the reason on [GraphNode.Unmodelled].
+     */
+    fun addUnmodelled(base: GraphNode.Base, inputs: List<GraphNode>): GraphNode {
+        val node = graph.createGraphNode(NodeType.UNMODELLED, base)
+        setLastNode(node)
+        inputs.forEach { it.addEdge(node) }
+        return node
+    }
+
+    /**
      * The node standing for a value made out of several others: one picked from alternatives by
      * `?:` or by a `switch` used as an expression, or an array built from its size and elements.
      * All of them flow in, since all of them go into deciding what the value is.

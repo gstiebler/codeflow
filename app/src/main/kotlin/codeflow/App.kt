@@ -7,6 +7,7 @@ import codeflow.java.AstReader
 import java.nio.file.FileVisitOption
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
     val javaRootDir = args.first { !it.startsWith("--") }
@@ -15,7 +16,8 @@ fun main(args: Array<String>) {
     val javaRootDirPath = Path.of(javaRootDir).toAbsolutePath().normalize()
 
     val filesPaths = generateListOfJavaFilesFromDir(javaRootDirPath)
-    val mainMethod = AstReader(javaRootDirPath).process(filesPaths)
+    val reader = AstReader(javaRootDirPath)
+    val mainMethod = reader.process(filesPaths)
 
     val result = ArrayList<String>()
     // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on
@@ -31,6 +33,11 @@ fun main(args: Array<String>) {
     }
 
     result.forEach { println(it) }
+
+    // The document is complete and usable, so it is written first and in full; the status is what
+    // says whether everything in it was understood. A build that graphs a corpus can fail on this
+    // and get the diagram anyway, which is the point of no longer throwing - see AstBlockProcessor.
+    if (reader.unmodelled.isNotEmpty()) exitProcess(1)
 }
 
 fun generateListOfJavaFilesFromDir(dir: Path): List<Path> {

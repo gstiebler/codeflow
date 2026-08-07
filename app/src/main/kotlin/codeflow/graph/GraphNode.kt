@@ -3,7 +3,7 @@ package codeflow.graph
 import mu.KotlinLogging
 
 enum class NodeType {
-    BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE, EXTERNAL
+    BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE, EXTERNAL, UNMODELLED
 }
 
 /**
@@ -88,6 +88,7 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
                 NodeType.MEM_SPACE -> MemSpace(base, serial)
                 NodeType.RETURN -> MethodReturn(base, serial)
                 NodeType.EXTERNAL -> External(base, serial)
+                NodeType.UNMODELLED -> Unmodelled(base, serial)
                 NodeType.BASE -> throw GraphException("BASE is the abstract case and has no node")
             }
 
@@ -116,6 +117,18 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
      *  such as an enum constant, that we can only treat as opaque. */
     class External(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.EXTERNAL
+    }
+    /**
+     * A construct codeflow does not model, drawn rather than being an error that ends the run.
+     *
+     * Its own type, and not [External], because the two say different things and the difference is
+     * the reader's to act on: EXTERNAL is a limit of the *sources* - a call into `java.util` whose
+     * body is not there to read - while this is a limit of *codeflow*, and what it hides is code
+     * sitting in the corpus, readable, that the diagram is not showing. Sharing a type would make a
+     * gap in the tool indistinguishable from a gap in the input.
+     */
+    class Unmodelled(base: Base, serial: Int) : GraphNode(base, serial) {
+        override fun getType() = NodeType.UNMODELLED
     }
     class MethodReturn(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.RETURN

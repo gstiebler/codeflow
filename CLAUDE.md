@@ -213,7 +213,7 @@ parameter and the multiply, not naming a variable twice and leaving "which write
 settled by whoever draws the graph. Parameters are definitions too (`Param`), which is what makes
 the resolution total: every use in a body resolves to an instruction.
 
-`visitIf` is where the map forks. Both branches are lowered from the same definitions, and at the
+`visitIf` and `visitSwitch` are where the map forks. Both branches are lowered from the same definitions, and at the
 join each variable the two paths disagree about gets a `Phi` taking the value from each — drawn as
 one box carrying the variable's name. That box is why `c = b` after `if (…) { b = 13; }` reaches
 both 13 and whatever `b` held before, where a single mutable slot per variable gave it only the
@@ -231,6 +231,11 @@ iteration produced the value, and the value the body leaves behind is added to t
 header. That back edge is the **one place an instruction names a value produced later in the list** —
 which is why a `Val` is an index rather than a reference, why `Frame.execute` drains `Run.backEdges`
 after the run, and why the forward-reference sweep in `LoweringTest` names `Phi` as its exception.
+
+A `switch` statement is the same join with one path per arm, plus two things an `if` does not have:
+falling out of the bottom of an arm is a path into the next one (so `case 3:` below a `break`-less
+`case 2:` starts from the two joined), and with no `default` the values from above the `switch` reach
+the bottom unchanged. `everyArmOfASwitchStatementReachesAUseBelowIt` is the assertion.
 
 `i++` is a write as well as an operator: after it the variable holds what the operator produced.
 Without that the counter a loop condition tests came from nowhere, and `counter++; int after =

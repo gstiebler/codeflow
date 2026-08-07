@@ -364,11 +364,7 @@ class Lowering(private val symbols: Symbols) {
             } else {
                 null
             }
-            if (fromThen == null || fromElse == null) {
-                (fromThen ?: fromElse)?.let { definitions.clear(); definitions.putAll(it) }
-                return null
-            }
-            join(fromThen, fromElse, ctx.location(node))
+            join(listOfNotNull(fromThen, fromElse), ctx.location(node))
             return null
         }
 
@@ -379,26 +375,25 @@ class Lowering(private val symbols: Symbols) {
          * inside a branch is out of scope below it - so it is carried across as it stands rather
          * than merged with nothing.
          */
-        private fun join(
-            fromThen: LinkedHashMap<Any, Definition>,
-            fromElse: LinkedHashMap<Any, Definition>,
-            source: String
-        ) {
-            definitions.clear()
-            (fromThen.keys + fromElse.keys).forEach { key ->
-                val onThen = fromThen[key]
-                val onElse = fromElse[key]
-                definitions[key] = when {
-                    onThen == null -> onElse!!
-                    onElse == null -> onThen
-                    onThen.value == onElse.value -> onThen
-                    else -> {
-                        val phi = Phi(onThen.name, onThen.element, onThen.isPrimitive, onThen.value, source)
-                        phi.addPath(onElse.value)
-                        Definition(onThen.name, onThen.element, onThen.isPrimitive, emit(phi))
-                    }
+        private fun join(paths: List<Map<Any, Definition>>, source: String) {
+            if (paths.isEmpty()) return
+            val keys = LinkedHashSet<Any>()
+            paths.forEach { keys.addAll(it.keys) }
+            val joined = LinkedHashMap<Any, Definition>()
+            keys.forEach { key ->
+                val reaching = paths.mapNotNull { it[key] }
+                val values = reaching.map { it.value }.distinct()
+                val first = reaching.first()
+                joined[key] = if (values.size == 1) {
+                    first
+                } else {
+                    val phi = Phi(first.name, first.element, first.isPrimitive, values.first(), source)
+                    values.drop(1).forEach { phi.addPath(it) }
+                    Definition(first.name, first.element, first.isPrimitive, emit(phi))
                 }
             }
+            definitions.clear()
+            definitions.putAll(joined)
         }
 
         /**
@@ -639,18 +634,50 @@ class Lowering(private val symbols: Symbols) {
          * failed, because nothing declared a name. Each constant label is compared against the
          * selector, which is what the code does; a pattern label binds instead.
          *
-         * Every arm is lowered, whichever one runs. Control flow is not modelled yet, so `break` and
-         * fall-through make no difference here - §1 is where that changes.
+         * Every arm is lowered from the definitions before the `switch`, and the ones that can reach
+         * the bottom are joined there - the same shape as an `if`, with as many paths as there are
+         * arms. Lowered in sequence instead, each arm saw what the one above it wrote and the last
+         * one won: `out = chosen + side` took the default's values and nothing else, which is a
+         * diagram of a `switch` asserting the last arm always runs.
+         *
+         * Falling out of the bottom of an arm is a path of its own. `case 3:` below a `case 2:` with
+         * no `break` is reached both ways, so its arm starts from the two joined - taking only the
+         * falling one drops whatever the direct entry held.
+         *
+         * With no `default` the `switch` can match nothing, so the values from above it reach the
+         * bottom unchanged.
          */
         override fun visitSwitch(node: SwitchTree, ctx: ProcessorContext): Val? {
             val selector = evaluate(node.expression, ctx)
+            val entry = LinkedHashMap(definitions)
+            val exits = ArrayList<Map<Any, Definition>>()
+            var fellThrough = false
+            var hasDefault = false
             node.cases.forEach { case ->
+                if (fellThrough) {
+                    join(listOf(LinkedHashMap(definitions), entry), ctx.location(case))
+                } else {
+                    definitions.clear()
+                    definitions.putAll(entry)
+                }
                 case.labels.forEach { label -> caseLabel(label, selector, ctx) }
+                hasDefault = hasDefault || case.labels.any { it is DefaultCaseLabelTree }
                 scan(case.guard, ctx)
                 // The colon form carries statements and the arrow form a body, and each is null for
-                // the other, so both have to be asked.
-                case.body?.let { scan(it, ctx) } ?: case.statements?.forEach { scan(it, ctx) }
+                // the other, so both have to be asked. Only the colon form falls through.
+                val body = case.body
+                val last = if (body != null) body else case.statements?.lastOrNull()
+                if (body != null) scan(body, ctx) else case.statements?.forEach { scan(it, ctx) }
+                val runsOn = last !is StatementTree || completesNormally(last)
+                fellThrough = body == null && runsOn
+                val reachesTheBottom = when {
+                    runsOn -> body != null || case === node.cases.last()
+                    else -> last is BreakTree
+                }
+                if (reachesTheBottom) exits.add(LinkedHashMap(definitions))
             }
+            if (!hasDefault) exits.add(entry)
+            join(exits, ctx.location(node))
             return null
         }
 

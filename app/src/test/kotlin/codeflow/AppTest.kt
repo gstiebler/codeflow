@@ -284,6 +284,30 @@ class AppTest {
     }
 
     /**
+     * Every arm of a `switch` statement reaches a use below it, and so does falling between them.
+     *
+     * The fixture's arms are deliberately uneven - one writes a second variable and falls into the
+     * next, the default writes both - so that walking them as if they ran in sequence shows up.
+     * That is what happened: `out = chosen + side` took the default's 100 and 500 and nothing else,
+     * which is a diagram of a `switch` claiming the last arm always runs.
+     *
+     * `side` is the one that needs the fall-through. `case 3:` is reached either directly, with
+     * `side` still 200, or out of the bottom of `case 2:`, which set it to 300, so both have to be
+     * there - and a join that took only the falling path would drop the 200 with nothing to show
+     * for it.
+     */
+    @Test
+    fun everyArmOfASwitchStatementReachesAUseBelowIt() {
+        val graph = buildGraph("switchStatement", listOf("App.java"))
+        listOf("10", "30", "100").forEach {
+            assertTrue(reaches(graph, it, "out"), "the arm writing $it does not reach 'out'")
+        }
+        listOf("200", "300", "500").forEach {
+            assertTrue(reaches(graph, it, "out"), "the value $it of 'side' does not reach 'out'")
+        }
+    }
+
+    /**
      * A call to a method outside the analysed sources has no body to inline, so it becomes one
      * node that the arguments flow into and the result flows out of. Values still have to be
      * traceable through it.

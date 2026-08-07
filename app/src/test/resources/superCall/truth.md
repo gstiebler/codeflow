@@ -10,6 +10,7 @@ flowchart TD
       n9[10]:::LITERAL
       n11[derivedMember]:::VARIABLE
       n12[20]:::LITERAL
+      n5[<init>]:::RETURN --> n3[derived]:::OBJ_VARIABLE
       n9[10]:::LITERAL --> n8[init]:::FUNC_PARAM
       n11[derivedMember]:::VARIABLE --> n16[+]:::BIN_OP
       n12[20]:::LITERAL --> n11[derivedMember]:::VARIABLE

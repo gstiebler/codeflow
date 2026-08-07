@@ -1,5 +1,5 @@
 /*
- * A construct codeflow does not model: a lambda.
+ * A construct codeflow does not model: a cast.
  *
  * The point of this fixture is the failure. Silently scanning through an unmodelled expression
  * and returning one of its children produces a graph that reads fine and is wrong, which is
@@ -8,11 +8,9 @@
  */
 package test;
 
-import java.util.List;
-
 public class App {
     public static void main(String[] args) {
-        final List<String> items = List.of();
-        items.forEach(item -> System.out.println(item));
+        System.out.println("x");
+        int count = (int) 3L;
     }
 }

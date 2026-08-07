@@ -38,8 +38,16 @@ output, not just to the build.
 
 `AstReader.process` parses, attributes, then makes two passes over the compilation units:
 
-1. `AstProcessor` — records each method under the `ExecutableElement` it declares.
+1. `AstProcessor` — records each method under the `ExecutableElement` it declares. A method with no
+   body is skipped: which implementation a call to an abstract or interface method reaches is
+   decided at run time by the receiver's class, and picking one would be a guess drawn as fact, so
+   the call takes the opaque `EXTERNAL` path instead.
 2. `AstBlockProcessor.invokeMethod` starting from `main` — walks statements and builds the graph.
+
+Which `main` is a decision, not a detail: on a corpus with several, the choice is the whole diagram.
+`GlobalContext.mainMethods` sorts by path so the same input gives the same answer twice, and
+`AstReader` prints the one it took and the ones it did not to stderr. Silence there reads as "this
+is the codebase" when it is one of four.
 
 An exporter then renders the root `GraphBuilderBlock` and its `calledMethods` recursively. There are
 four, chosen by flag, and all four walk the same tree — a construct is supported once
@@ -138,6 +146,16 @@ in-progress set, so a recursive method has nothing stopping it. A method with no
 (outside the analysed sources) becomes a single opaque `EXTERNAL` node instead: arguments and
 receiver flow in, the result flows out.
 
+Two questions get asked of the same call site — what value it produced, and which object that value
+*is* — so `AstBlockProcessor` caches each `new X(...)` and each invocation in `evaluated`, keyed by
+identity. Without the cache the callee is inlined twice and every box in it is drawn twice over.
+The object comes from the callee's own `return` (`GraphBuilderBlock.returnedMemPos`); giving the
+result a fresh empty `MemPos` instead is what made `Money.of(...).getAmount()` resolve to nothing,
+and a factory followed by a getter is most of a real codebase.
+
+An argument past the last declared parameter binds to the last one, which is what varargs means.
+Any other count mismatch is the analysis having gone wrong and says so.
+
 ### Identity vs. lookup — do not conflate these again
 
 Two different questions, deliberately answered by two different things:
@@ -164,6 +182,18 @@ another method all find each other — the block-parent chain does not span sibl
 `visitIdentifier` and `visitMemberSelect` consult the owning `MemPos` first. `MemPos` has no
 `equals`, so two instances are two objects, which is what identity should mean here.
 
+### A name with no value: field or local decides
+
+When a read finds no node, `unassigned` splits on what javac says the name is. A **field** becomes a
+value with nothing flowing into it — a field nothing has assigned yet holds its default, and reading
+one is ordinary Java, so that is what the diagram should say. So does an **enum constant**, whose
+declaration *is* the value. A **local or parameter** cannot be read before it is written, so finding
+none means the analysis lost it, and that still fails loudly with a file and a line.
+
+Do not widen this. Turning the local case into a value too would draw every name codeflow has lost
+as one arriving from nowhere, which is indistinguishable from a real one — the silent wrongness the
+gate exists to prevent, with the loud failure removed. `aLocalWithNoValueStillFails` guards it.
+
 ## Adding support for a Java construct
 
 `AstBlockProcessor.scan` is a gate: any `ExpressionTree` whose kind is not in
@@ -175,6 +205,13 @@ unary operators) came from exactly that.
 
 So, to add a construct: write the visitor, then add its `Tree.Kind` to `MODELLED_EXPRESSIONS`.
 Never widen that set without a visitor behind it.
+
+**The gate covers expressions only.** A *statement* codeflow does not model is not caught here: it
+declares nothing, and the failure surfaces further down as a read of a name with no node, blaming a
+line that is not the one at fault. The enhanced `for` and the `catch` parameter were both found
+that way, so a construct that binds a name needs a visitor even when it produces no value —
+`visitEnhancedForLoop`, `visitCatch`, `bindPattern`. A pattern on a `switch` used as a *statement*
+is the one still missing, which is what the `unboundLocal` fixture is.
 
 Two related rules:
 
@@ -192,7 +229,7 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
 
 `AppTest.kt` has three kinds of assertion, and the mix is deliberate:
 
-- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 17 of them. They certify
+- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 33 of them. They certify
   *unchanged*, not *correct*. `ternary/truth.md` was once written from a buggy run and passed
   happily while encoding a graph with a branch missing. Treat a green golden file as evidence of
   nothing.

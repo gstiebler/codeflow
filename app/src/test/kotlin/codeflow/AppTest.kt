@@ -290,8 +290,389 @@ class AppTest {
     fun unmodelledExpressionFailsWithSourceLocation() {
         val error = assertFailsWith<GraphException> { buildGraph("unsupported", listOf("App.java")) }
         val message = error.message ?: ""
-        assertTrue("LAMBDA_EXPRESSION" in message, "error does not name the construct: $message")
-        assertTrue("unsupported/App.java:16" in message, "error does not give file and line: $message")
+        assertTrue("TYPE_CAST" in message, "error does not name the construct: $message")
+        assertTrue("unsupported/App.java:14" in message, "error does not give file and line: $message")
+    }
+
+    /**
+     * The gate has to hold on the right-hand side of an object assignment too.
+     *
+     * That path caught every exception from evaluating the right-hand side and carried on, so an
+     * unmodelled construct there did not fail - the variable was simply drawn with nothing flowing
+     * into it, which reads as a value that has no source rather than one codeflow could not follow.
+     * Object assignment is most of real Java, so this was the gate's largest blind spot.
+     */
+    @Test
+    fun unmodelledExpressionAssignedToAnObjectAlsoFails() {
+        val error = assertFailsWith<GraphException> { buildGraph("unsupportedAssignment", listOf("App.java")) }
+        val message = error.message ?: ""
+        assertTrue("TYPE_CAST" in message, "error does not name the construct: $message")
+        assertTrue("unsupportedAssignment/App.java:13" in message, "error does not give file and line: $message")
+    }
+
+    /**
+     * And it has to hold for the receiver of a call reaching outside the sources.
+     *
+     * That receiver was evaluated inside a catch-everything that dropped whatever came back, so the
+     * one position where the gate could be reached and ignored was the position it exists for. The
+     * result was the opaque call drawn with no input at all: a call that plainly reads a value,
+     * drawn as reading nothing.
+     */
+    @Test
+    fun unmodelledReceiverFailsRatherThanVanishing() {
+        val error = assertFailsWith<GraphException> { buildGraph("unmodelledReceiver", listOf("App.java")) }
+        val message = error.message ?: ""
+        assertTrue("TYPE_CAST" in message, "error does not name the construct: $message")
+        assertTrue("unmodelledReceiver/App.java:9" in message, "error does not give file and line: $message")
+    }
+
+    /**
+     * `new X(...)` is a value, and the variable it is assigned to has to receive it.
+     *
+     * It was not modelled as one: the constructor was inlined as a side effect of working out the
+     * memory position, and nothing produced a node for the object. In an argument position that
+     * failed outright; in an assignment position the failure was swallowed, so the variable was
+     * simply drawn with nothing flowing into it and the diagram read as if the object came from
+     * nowhere. That is on nearly every line of real Java.
+     */
+    @Test
+    fun constructedObjectReachesTheVariableItIsAssignedTo() {
+        val edges = edgeLabels(buildGraph("newObject", listOf("App.java")))
+        assertTrue("seed" to "v" in edges, "argument does not reach the constructor parameter: $edges")
+        assertTrue("<init>" to "box" in edges, "the constructed object does not reach the variable: $edges")
+        assertTrue("\"text\"" to "StringBuilder" in edges, "argument does not reach the opaque construction: $edges")
+        assertTrue("StringBuilder" to "sb" in edges, "the opaque construction does not reach the variable: $edges")
+    }
+
+    /**
+     * A method on a nested class is code in the analysed sources and has to be inlined like any
+     * other. Only the top level was walked, so every nested and inner class came out as the opaque
+     * external node - a box labelled with the method name and nothing inside it, indistinguishable
+     * on the diagram from a call into the standard library.
+     */
+    @Test
+    fun aMethodOnANestedClassIsInlinedLikeAnyOther() {
+        val edges = edgeLabels(buildGraph("nestedClass", listOf("App.java")))
+        assertTrue("seed" to "v" in edges, "argument does not reach the parameter: $edges")
+        assertTrue("v" to "+" in edges, "the nested class's body was not inlined: $edges")
+        assertTrue("+" to "twice" in edges, "the nested class's body does not reach its return: $edges")
+        assertTrue("twice" to "doubled" in edges, "the return does not reach the variable: $edges")
+    }
+
+    /**
+     * `this` passed as an argument is a value like any other, and it is the object the method is
+     * running on - so what the callee reads off it has to be that object's fields.
+     *
+     * It had no node at all: `this` was handled when working out a memory position but not when
+     * evaluating, so a bare `this` was a name that resolved to nothing and took the method down.
+     * A builder handing itself to a constructor is the ordinary case.
+     */
+    @Test
+    fun thisIsAValueCarryingTheObjectItRefersTo() {
+        val graph = buildGraph("thisReference", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("this" to "origin" in edges, "`this` does not reach the parameter it is passed to: $edges")
+        assertTrue("value" to "held" in edges, "the field read through `this` is not the object's own: $edges")
+        assertTrue(reaches(graph, "7", "out"), "the value does not survive the round trip through `this`: $graph")
+    }
+
+    /**
+     * An object passed to a method is the same object inside it, so a field read off the parameter
+     * has to find the field the caller's object holds.
+     *
+     * Only the nodes were connected, never the memory positions, so the parameter named an object
+     * nothing was known about and `origin.value` took the opaque path: a node labelled `value`,
+     * of the type that means "outside the analysed sources", with no edge to the field really
+     * holding the value. The diagram was complete and readable and the flow it drew was false.
+     */
+    @Test
+    fun anObjectArgumentIsTheSameObjectInsideTheMethod() {
+        val graph = buildGraph("objectArgument", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("seed" to "value" in edges, "the constructor does not fill the field: $edges")
+        assertTrue("value" to "read" in edges, "the field read off the parameter is not the object's own: $edges")
+        assertTrue(reaches(graph, "7", "out"), "the value does not survive being passed as an object: $graph")
+    }
+
+    /**
+     * The object a factory method returns is the object it constructed, so a method inlined on it
+     * afterwards reads that object's fields.
+     *
+     * The result of a call was given a memory position of its own, holding nothing. That is not a
+     * harmless approximation: inlining a method against it means the body's own field reads resolve
+     * to nothing, so `Money.of(...)` followed by `.getAmount()` - a factory then a getter, which is
+     * most of a real codebase - took the whole run down.
+     */
+    @Test
+    fun theObjectAMethodReturnsKeepsItsIdentity() {
+        val graph = buildGraph("returnedObject", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("seed" to "held" in edges, "the constructor does not fill the field: $edges")
+        assertTrue("held" to "read" in edges, "the getter does not read the constructed object's field: $edges")
+        assertTrue(reaches(graph, "3", "out"), "the value does not survive the factory and the getter: $graph")
+    }
+
+    /**
+     * Every argument past the last declared parameter flows into the varargs one.
+     *
+     * They all end up in the array it names, so they all reach it. Indexing straight into the
+     * parameter list walked off the end instead, and an IndexOutOfBoundsException names no source
+     * at all - `String.format(fmt, x, y)` against an in-source method is enough to reach it.
+     */
+    @Test
+    fun everyArgumentPastTheLastParameterReachesTheVarargsOne() {
+        val graph = buildGraph("varargs", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("1" to "base" in edges, "the fixed argument does not reach its parameter: $edges")
+        assertTrue("2" to "rest" in edges, "the first variadic argument does not reach the array: $edges")
+        assertTrue("3" to "rest" in edges, "the second variadic argument does not reach the array: $edges")
+        assertTrue(reaches(graph, "3", "out"), "a variadic value does not survive the call: $graph")
+    }
+
+    /**
+     * A bare `return;` carries no value, and does not stop the rest of the method being graphed.
+     *
+     * Every return was assumed to have a value, so an early exit - the ordinary guard clause at the
+     * top of a method - came out as a NullPointerException with no file and no line. That is worse
+     * to be handed than a wrong graph: there is nothing in it to look at.
+     */
+    @Test
+    fun aReturnWithNoValueCarriesNone() {
+        val graph = buildGraph("voidReturn", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("seed" to "held" in edges, "the method past the early exit was not graphed: $edges")
+        assertTrue(reaches(graph, "5", "out"), "the value does not survive the call: $graph")
+        assertTrue(edges.none { it.second == "store" }, "the valueless return was wired up: $edges")
+    }
+
+    /**
+     * `names::size` is a value, and the object it is bound to flows into it.
+     *
+     * Nothing here calls it, so the method it names has no arguments to bind and no call site to be
+     * inlined under - it is opaque, like a call outside the sources. What it captures is not: the
+     * receiver is a real value the function holds on to, and dropping that edge would break the
+     * chain through every stream pipeline in a modern codebase.
+     */
+    @Test
+    fun aMethodReferenceIsAValueCarryingWhatItCaptures() {
+        val graph = buildGraph("memberReference", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("names" to "size" in edges, "the captured receiver does not reach the reference: $edges")
+        assertTrue("size" to "counter" in edges, "the reference does not reach the variable: $edges")
+        assertTrue("size" to "EXTERNAL" in nodeTypes(graph), "the reference is not opaque: ${nodeTypes(graph)}")
+    }
+
+    /**
+     * A call through an interface is opaque; a call to a class that has the body inlines it.
+     *
+     * The declaration with no body was registered as if it had one, so reaching it was a
+     * NullPointerException with no file or line - the one failure mode worse than a wrong graph,
+     * because it names nothing to look at. It is left unregistered instead: which implementation a
+     * call reaches is decided by the receiver's run-time class, and picking one would be a guess
+     * drawn as fact.
+     */
+    @Test
+    fun aCallThroughAnInterfaceIsOpaqueAndACallWithABodyIsNot() {
+        val graph = buildGraph("abstractMethod", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        val types = nodeTypes(graph)
+        assertTrue("read" to "EXTERNAL" in types, "the interface call is not opaque: $types")
+        assertTrue("read" to "RETURN" in types, "the direct call was not inlined: $types")
+        assertTrue("read" to "viaInterface" in edges, "the opaque call produces no value: $edges")
+        assertTrue("seed" to "+" in edges, "the body reached through the class is not inlined: $edges")
+        assertTrue(reaches(graph, "4", "viaClass"), "the value does not survive the direct call: $graph")
+    }
+
+    /**
+     * The variable of an enhanced `for` is bound to what is being iterated, and the body can read it.
+     *
+     * Nothing bound it before, so every read in the body found no node and took the run down - and
+     * the gate in `scan` covers expressions only, so the failure named a missing identifier several
+     * lines from the loop that should have declared it, rather than naming the loop.
+     */
+    @Test
+    fun theVariableOfAnEnhancedForIsBoundToWhatIsIterated() {
+        val graph = buildGraph("enhancedFor", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("names" to "name" in edges, "the collection does not reach the loop variable: $edges")
+        assertTrue("name" to "length" in edges, "the loop variable does not reach the body: $edges")
+        assertTrue(reaches(graph, "names", "total"), "the elements do not reach what the body computes: $graph")
+    }
+
+    /**
+     * An enum constant is a value whichever way it is written.
+     *
+     * `Size.SMALL` was already a value with nothing flowing into it - the declaration is the value,
+     * so there is no assignment to find. A bare `LARGE` inside the enum is the same thing written
+     * shorter, and used to be a hard failure instead: `case 1 -> FLAT` in a `fromInt` switch, which
+     * is on nearly every enum in a real codebase.
+     */
+    @Test
+    fun anEnumConstantIsAValueBareOrQualified() {
+        val graph = buildGraph("enumConstant", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("LARGE" to "ternary" in edges, "the bare constant does not reach the selection: $edges")
+        assertTrue("SMALL" to "ternary" in edges, "the qualified constant does not reach the selection: $edges")
+        assertTrue(
+            edges.none { it.second == "LARGE" || it.second == "SMALL" },
+            "a constant is drawn with something flowing into it: $edges"
+        )
+    }
+
+    /**
+     * A lambda's body is drawn, and what it captures flows through it.
+     *
+     * Failing on every lambda stopped codeflow dead on most modern Java, and drawing it as one
+     * opaque box would hide source the reader can see - the same black box the nested-class defect
+     * produced. The body is walked in the enclosing block because nothing here calls the lambda, so
+     * there is no call site to nest it under.
+     */
+    @Test
+    fun aLambdaBodyIsDrawnAndWhatItCapturesFlowsThrough() {
+        val graph = buildGraph("lambda", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("base" to "*" in edges, "the captured value does not reach the body: $edges")
+        assertTrue("*" to "lambda" in edges, "the body does not reach the function value: $edges")
+        assertTrue(reaches(graph, "3", "lambda"), "the captured value does not survive the lambda: $graph")
+    }
+
+    /**
+     * A lambda with a statement body returns to the lambda, not to the method around it.
+     *
+     * Its body is walked in the enclosing method's block, so a `return` inside it would otherwise
+     * be wired to that method's return node - an edge asserting `main` returns a value it does not,
+     * which is exactly the plausible-and-wrong diagram the gate exists to prevent.
+     */
+    @Test
+    fun aStatementBodiedLambdaReturnsToItselfNotToTheMethodAroundIt() {
+        val graph = buildGraph("statementLambda", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("+" to "lambda" in edges, "the body does not reach the function value: $edges")
+        assertTrue(edges.none { it.second == "main" }, "the lambda returns into the enclosing method: $edges")
+    }
+
+    /**
+     * A field read before anything assigns it is a value with nothing flowing into it, and does not
+     * stop the fields around it being tracked.
+     *
+     * This used to be a hard failure, on the grounds that a tracked object should know its own
+     * fields. It should not: a builder left half-filled and then copied field by field is the usual
+     * shape of real code, and `builder.neverSet` there is Java's default rather than something the
+     * analysis lost. Taking the run down over it stopped every diagram containing one.
+     */
+    @Test
+    fun aFieldReadBeforeItIsAssignedIsAValueRatherThanAFailure() {
+        val graph = buildGraph("unassignedField", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("neverSet" to "fromNeverSet" in edges, "the unassigned field does not reach the copy: $edges")
+        assertTrue(
+            edges.none { it.second == "neverSet" },
+            "the unassigned field is drawn with something flowing into it: $edges"
+        )
+        assertTrue(reaches(graph, "4", "out"), "the assigned field alongside it lost its value: $graph")
+    }
+
+    /**
+     * A local with no value is still a failure, and says where.
+     *
+     * This is the other half of [aFieldReadBeforeItIsAssignedIsAValueRatherThanAFailure]: a local
+     * cannot be read before it is written, so not finding one means the analysis lost it. Letting
+     * every missing name through as a value from nowhere would turn the loud failure into a
+     * plausible diagram, which is the trade this project refuses to make.
+     */
+    @Test
+    fun aLocalWithNoValueStillFails() {
+        val thrown = assertFailsWith<GraphException> {
+            buildGraph("unboundLocal", listOf("App.java"))
+        }
+        assertTrue(
+            thrown.message!!.contains("unboundLocal/App.java:15"),
+            "the failure does not say which line: ${thrown.message}"
+        )
+    }
+
+    /**
+     * With several entry points, the one graphed is the first by source path, whichever order the
+     * files arrive in.
+     *
+     * The whole diagram is whatever that one method reaches, and the choice used to come out of a
+     * HashMap: on a corpus with three `main`s it picked one reaching a single file and drew that,
+     * complete and plausible, as the codebase. Order-independence is the testable half of the fix;
+     * the other half is that the run says on stderr which one it took and what it passed over.
+     */
+    @Test
+    fun theEntryPointIsChosenTheSameWayWhateverOrderTheFilesArriveIn() {
+        val alphaFirst = edgeLabels(buildGraph("twoMains", listOf("Alpha.java", "Zeta.java")))
+        val zetaFirst = edgeLabels(buildGraph("twoMains", listOf("Zeta.java", "Alpha.java")))
+        assertTrue("fromAlpha" to "+" in alphaFirst, "the first main by path was not the one graphed: $alphaFirst")
+        assertEquals(alphaFirst, zetaFirst, "the file order decided which main was graphed")
+    }
+
+    /**
+     * `args[position]` takes a value out of the array, and which one depends on the index, so both
+     * flow into it. `[]` cannot be the label: square brackets delimit a node in Mermaid.
+     */
+    @Test
+    fun arrayAccessIsAValueFromBothTheArrayAndTheIndex() {
+        val edges = edgeLabels(buildGraph("arrayAccess", listOf("App.java")))
+        assertTrue("args" to "index" in edges, "the array does not reach the access: $edges")
+        assertTrue("position" to "index" in edges, "the index does not reach the access: $edges")
+        assertTrue("index" to "picked" in edges, "the access does not reach the variable: $edges")
+        assertTrue("picked" to "length" in edges, "flow does not continue past the access: $edges")
+    }
+
+    /**
+     * `new int[size]` and `new int[] { seed, 9 }` are both values built out of what is written
+     * inside them, so the size and the elements flow into the array.
+     *
+     * The size counts as much as an element does. It is not what the array holds, but it is what
+     * decides how much of it there is, and an array drawn with nothing flowing in reads as a value
+     * that came from nowhere - the same wrongness as any other dropped operand.
+     */
+    @Test
+    fun anArrayIsBuiltFromItsSizeAndItsElements() {
+        val graph = buildGraph("arrayCreation", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("size" to "array" in edges, "the size does not reach the array: $edges")
+        assertTrue("seed" to "array" in edges, "an element does not reach the array: $edges")
+        assertTrue("array" to "sized" in edges, "the array does not reach the variable: $edges")
+        assertTrue("array" to "filled" in edges, "the array does not reach the variable: $edges")
+        assertTrue(reaches(graph, "seed", "out"), "flow does not continue past the array: $edges")
+    }
+
+    /**
+     * `catch (NumberFormatException failure)` binds a name the handler then reads.
+     *
+     * Nothing flows into it. Which throw reached this handler is control flow, and codeflow models
+     * none, so the honest drawing is a value with no source - the same answer a lambda parameter
+     * gets. What it must not be is absent: the gate in `scan` only covers expressions, so an
+     * unmodelled *statement* names nothing and surfaces further down as a read of a name that has
+     * no node, taking the whole run out on a line that is not the one at fault.
+     */
+    @Test
+    fun aCaughtExceptionIsAValueTheHandlerCanRead() {
+        val graph = buildGraph("catchParameter", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("failure" to "getMessage" in edges, "the caught exception is not read: $edges")
+        assertTrue("getMessage" to "reason" in edges, "the read does not reach the variable: $edges")
+        assertTrue(reaches(graph, "failure", "out"), "flow does not continue out of the handler: $edges")
+    }
+
+    /**
+     * `value instanceof String` is a value derived from `value`, and `value instanceof String text`
+     * additionally binds `text` to the very same object.
+     *
+     * Without the binding the graph is not merely missing an edge: every later read of `text` is a
+     * name that resolves to nothing, so the whole method fails. With it, the object has to be the
+     * one tested, not a new one, or a receiver's fields are looked for in the wrong place.
+     */
+    @Test
+    fun instanceOfTestsAValueAndBindsThePatternToIt() {
+        val edges = edgeLabels(buildGraph("instanceOf", listOf("App.java")))
+        assertTrue("value" to "instanceof" in edges, "the tested value does not reach the test: $edges")
+        assertTrue("instanceof" to "isText" in edges, "the test does not reach the variable: $edges")
+        assertTrue("value" to "text" in edges, "the pattern variable is not bound to the tested value: $edges")
+        assertTrue("text" to "length" in edges, "the pattern variable is not usable as a receiver: $edges")
     }
 
     /**
@@ -501,4 +882,22 @@ class AppTest {
     @Test fun externalObject() = codeflow("externalObject", listOf("App.java"))
     @Test fun chainedCall() = codeflow("chainedCall", listOf("App.java"))
     @Test fun unary() = codeflow("unary", listOf("App.java"))
+    @Test fun newObject() = codeflow("newObject", listOf("App.java"))
+    @Test fun nestedClass() = codeflow("nestedClass", listOf("App.java"))
+    @Test fun arrayAccess() = codeflow("arrayAccess", listOf("App.java"))
+    @Test fun instanceOf() = codeflow("instanceOf", listOf("App.java"))
+    @Test fun thisReference() = codeflow("thisReference", listOf("App.java"))
+    @Test fun objectArgument() = codeflow("objectArgument", listOf("App.java"))
+    @Test fun returnedObject() = codeflow("returnedObject", listOf("App.java"))
+    @Test fun unassignedField() = codeflow("unassignedField", listOf("App.java"))
+    @Test fun enumConstant() = codeflow("enumConstant", listOf("App.java"))
+    @Test fun lambda() = codeflow("lambda", listOf("App.java"))
+    @Test fun statementLambda() = codeflow("statementLambda", listOf("App.java"))
+    @Test fun enhancedFor() = codeflow("enhancedFor", listOf("App.java"))
+    @Test fun abstractMethod() = codeflow("abstractMethod", listOf("App.java"))
+    @Test fun memberReference() = codeflow("memberReference", listOf("App.java"))
+    @Test fun voidReturn() = codeflow("voidReturn", listOf("App.java"))
+    @Test fun varargs() = codeflow("varargs", listOf("App.java"))
+    @Test fun arrayCreation() = codeflow("arrayCreation", listOf("App.java"))
+    @Test fun catchParameter() = codeflow("catchParameter", listOf("App.java"))
 }

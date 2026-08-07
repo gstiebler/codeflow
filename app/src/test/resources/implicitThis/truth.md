@@ -4,16 +4,17 @@ flowchart TD
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
     n3[counter]:::OBJ_VARIABLE
-    n7[10]:::LITERAL
+    n4[10]:::LITERAL
     n11[result]:::VARIABLE
-    n7[10]:::LITERAL --> n6[initial]:::FUNC_PARAM
-    subgraph b4["Counter.constructor"]
-      n5[<init>]:::RETURN
-      n6[initial]:::FUNC_PARAM
+    n4[10]:::LITERAL --> n7[initial]:::FUNC_PARAM
+    subgraph b5["Counter.constructor"]
+      n6[<init>]:::RETURN
+      n7[initial]:::FUNC_PARAM
       n8[value]:::VARIABLE
       n9[step]:::VARIABLE
       n10[3]:::LITERAL
-      n6[initial]:::FUNC_PARAM --> n8[value]:::VARIABLE
+      n6[<init>]:::RETURN --> n3[counter]:::OBJ_VARIABLE
+      n7[initial]:::FUNC_PARAM --> n8[value]:::VARIABLE
       n8[value]:::VARIABLE --> n14[+]:::BIN_OP
       n9[step]:::VARIABLE --> n14[+]:::BIN_OP
       n10[3]:::LITERAL --> n9[step]:::VARIABLE

@@ -1,12 +1,16 @@
 package codeflow.graph
 
-import com.sun.source.tree.ExpressionTree
+import com.sun.source.tree.Tree
 import mu.KotlinLogging
 
 /**
  * Represents a memory position. Multiple variables can point to the same memory position.
+ *
+ * [label] is only what the memory position is called in a log line or an error, so it is any tree
+ * at all: a `catch` parameter is bound by a declaration rather than by an expression, and has no
+ * expression to name it with.
  */
-class MemPos(val expr: ExpressionTree) {
+class MemPos(private val label: Tree) {
 
     // nodes for primitive variables inside this instance
     // In x.memberX = 5; a node is created for memberX, and receives 5
@@ -25,7 +29,7 @@ class MemPos(val expr: ExpressionTree) {
     }
 
     override fun toString(): String {
-        return "MemPos($id, '$expr')"
+        return "MemPos($id, '$label')"
     }
 
     fun addNode(node: GraphNode) {

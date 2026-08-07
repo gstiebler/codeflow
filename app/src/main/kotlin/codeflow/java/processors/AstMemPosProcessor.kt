@@ -19,39 +19,13 @@ class AstMemPosProcessor(
 ) : TreeScanner<MemPos, ProcessorContext>()  {
     private val logger = KotlinLogging.logger {}
 
-    override fun visitNewClass(node: NewClassTree, ctx: ProcessorContext): MemPos {
-        val identifier = node.identifier
-        val arguments = node.arguments
-
-        val createdMemPos = globalCtx.createMemPos(identifier)
-        val invocationPos = ctx.getPosId(node)
-
-        // Which overload `new X(...)` selects is javac's answer to give. Comparing the argument
-        // types as uppercased strings, which is what this did, guessed - and said so in its own
-        // TODO.
-        val method = globalCtx.findMethod(globalCtx.symbols.element(node, ElementKind.CONSTRUCTOR))
-        if (method != null) {
-            val graphBlock = GraphBuilderBlock(graphBuilder, method, stack.push(ctx, node), createdMemPos, ctx)
-            val localPos = Position(invocationPos, ctx.path)
-            val constructorBlockProcessor =
-                AstBlockProcessor(globalCtx, callerBlockProcessor, graphBlock, localPos, createdMemPos)
-            // The arguments belong to the caller, so they have to be resolved there. Resolving them
-            // in the constructor's own block makes an argument that happens to share a name with a
-            // parameter resolve to that parameter, which connects the parameter to itself and drops
-            // the edge from the value actually passed in.
-            val argumentNodes = arguments.map {
-                callerBlockProcessor.evaluate(it, ctx)
-            }
-            constructorBlockProcessor.invokeMethod(argumentNodes)
-            graphBuilder.addCalledMethod(graphBlock)
-        } else {
-            logger.debug { "No constructor found: $node" }
-        }
-
-        logger.debug { "visitNewClass: $identifier" }
-
-        return createdMemPos
-    }
+    /**
+     * `new X(...)` creates an object and produces it as a value, and both come from the caller's
+     * own [AstBlockProcessor.constructedMemPos]. Building the constructor here as well would inline
+     * its body twice, since an assignment asks for the memory position and the value separately.
+     */
+    override fun visitNewClass(node: NewClassTree, ctx: ProcessorContext): MemPos =
+        callerBlockProcessor.constructedMemPos(node, ctx)
 
     override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): MemPos? {
         val expr = node.expression
@@ -63,11 +37,14 @@ class AstMemPosProcessor(
     }
 
     /**
-     * The object a call returns is not one of the memory positions being tracked: an external
-     * method has no body to look into, and a local one would mean following every return. The
-     * caller gives the result a memory position of its own instead.
+     * The object a call returns, which for a method in the analysed sources is whatever its own
+     * `return` named. Like [visitNewClass] this goes through the caller's block processor, so the
+     * callee is inlined once and answers both what the call produced and which object that is.
+     *
+     * Null for a call with no body to look into, and for one that returns nothing being tracked.
      */
-    override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): MemPos? = null
+    override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): MemPos? =
+        callerBlockProcessor.invocationMemPos(node, ctx)
 
     override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): MemPos? {
         if (node.name.toString() == "this") {

@@ -34,7 +34,10 @@ const tapLeaf = (page, label) => page.evaluate((l) => window.cy.nodes()
 const tapBox = (page, label) => page.evaluate((l) => window.cy.nodes('[type = "METHOD"]')
   .filter((n) => n.data('label') === l).emit('tap'), label);
 
-const OPENING = ['5', '8', 'app', 'args', 'e', 'main', 'x', 'y'];
+// `App` is the opaque node for `new App()`: the class writes no constructor, so there is no body
+// to inline and the object is a value from outside. It is a leaf child of `main`, so it opens with
+// the rest of the entry method's own nodes.
+const OPENING = ['5', '8', 'App', 'app', 'args', 'e', 'main', 'x', 'y'];
 
 // Hiding, not removing. Under the old folding this read 11 - which is exactly the trap that made
 // a node count comparable to the payload only after expanding everything first.
@@ -43,8 +46,10 @@ test('holds the whole payload however little is displayed', async ({ page }) => 
     nodes: window.cy.nodes().length,
     edges: window.cy.edges().length,
   }));
-  expect(nodes).toBe(39);
-  expect(edges).toBe(26);
+  // Three more than before `new X(...)` became a value: one opaque constructor node per `new` of a
+  // class that declares none, each with an edge into the variable it is assigned to.
+  expect(nodes).toBe(42);
+  expect(edges).toBe(29);
 });
 
 test('opens showing the entry method body and nothing from a callee', async ({ page }) => {

@@ -45,6 +45,16 @@ class GraphBuilderBlock(
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = createReturnNode(stack)
 
+    /**
+     * Which object this invocation returned, so the caller can go on tracking it.
+     *
+     * The first return that names one wins. Control flow is not modelled at all - both branches of
+     * an `if` are walked - so there is no basis for choosing between two returns, and a factory
+     * method, which is what this exists for, has one.
+     */
+    var returnedMemPos: MemPos? = null
+        private set
+
     // should it be here? or on a MethodBlock class?
     // The parameter's declaration comes off the method's own element rather than being looked up
     // per tree, and is what a read of the parameter inside the body resolves to.
@@ -86,9 +96,28 @@ class GraphBuilderBlock(
 
     fun connectParameters(methodArguments: List<GraphNode>) {
         methodArguments.forEachIndexed { index, callingParameter ->
-            val methodParameter = parameterNodes[index]
-            callingParameter.addEdge(methodParameter)
+            callingParameter.addEdge(parameterFor(index, methodArguments.size))
         }
+    }
+
+    /**
+     * The parameter an argument is bound to.
+     *
+     * Everything past the last declared parameter goes into it, which is what varargs means:
+     * `f(a, b, c)` on `f(A a, B... rest)` puts `b` and `c` in the array `rest` names. Indexing
+     * straight into the list walked off the end instead, and an IndexOutOfBoundsException names no
+     * source at all - `String.format(fmt, x, y)` is enough to reach it.
+     *
+     * Any other count mismatch is the analysis having gone wrong, not the language, so it says so.
+     */
+    private fun parameterFor(index: Int, argumentCount: Int): GraphNode {
+        parameterNodes.getOrNull(index)?.let { return it }
+        if (!method.element.isVarArgs || parameterNodes.isEmpty()) {
+            throw GraphException(
+                "$argumentCount arguments for ${parameterNodes.size} parameters of '${method.displayName()}'"
+            )
+        }
+        return parameterNodes.last()
     }
 
     fun addCalledMethod(graphBlock: GraphBuilderBlock) {
@@ -146,9 +175,9 @@ class GraphBuilderBlock(
     }
 
     /**
-     * The node standing for a value picked from several alternatives, by `?:` or by a `switch`
-     * used as an expression. Every branch can produce the value and the selector decides which,
-     * so the selector and all the branches flow into it.
+     * The node standing for a value made out of several others: one picked from alternatives by
+     * `?:` or by a `switch` used as an expression, or an array built from its size and elements.
+     * All of them flow in, since all of them go into deciding what the value is.
      */
     fun addSelection(base: GraphNode.Base, inputs: List<GraphNode>): GraphNode {
         val selectionNode = graph.createGraphNode(NodeType.BIN_OP, base)
@@ -165,8 +194,9 @@ class GraphBuilderBlock(
         rhsNode.addEdge(lhsNode)
     }
 
-    fun addReturnNode(newReturnNode: GraphNode) {
+    fun addReturnNode(newReturnNode: GraphNode, returned: MemPos? = null) {
         newReturnNode.addEdge(returnNode)
+        if (returnedMemPos == null) returnedMemPos = returned
     }
 
     fun getMethodName(): String = method.displayName()

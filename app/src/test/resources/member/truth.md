@@ -4,36 +4,42 @@ flowchart TD
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
     n3[app]:::OBJ_VARIABLE
-    subgraph b4["func1"]
-      n5[func1]:::RETURN
-      n6[a]:::VARIABLE
-      n7[5]:::LITERAL
-      n8[a]:::VARIABLE
-      n9[6]:::LITERAL
-      n10[memberA]:::VARIABLE
-      n11[b]:::VARIABLE
-      n12[y]:::OBJ_VARIABLE
-      n13[x]:::OBJ_VARIABLE
-      n14[memberX]:::VARIABLE
-      n15[8]:::LITERAL
-      n16[y1]:::OBJ_VARIABLE
-      n17[c]:::VARIABLE
-      n20[x1]:::OBJ_VARIABLE
-      n21[d]:::VARIABLE
-      n22[j]:::VARIABLE
-      n7[5]:::LITERAL --> n6[a]:::VARIABLE
-      n8[a]:::VARIABLE --> n10[memberA]:::VARIABLE
-      n9[6]:::LITERAL --> n8[a]:::VARIABLE
-      n10[memberA]:::VARIABLE --> n11[b]:::VARIABLE
-      n12[y]:::OBJ_VARIABLE --> n16[y1]:::OBJ_VARIABLE
-      n13[x]:::OBJ_VARIABLE --> n20[x1]:::OBJ_VARIABLE
-      n14[memberX]:::VARIABLE --> n19[getMemberX]:::RETURN
-      n14[memberX]:::VARIABLE --> n21[d]:::VARIABLE
-      n15[8]:::LITERAL --> n14[memberX]:::VARIABLE
-      n17[c]:::VARIABLE --> n22[j]:::VARIABLE
-      subgraph b18["getMemberX"]
-        n19[getMemberX]:::RETURN
-        n19[getMemberX]:::RETURN --> n17[c]:::VARIABLE
+    n4[App]:::EXTERNAL
+    n4[App]:::EXTERNAL --> n3[app]:::OBJ_VARIABLE
+    subgraph b5["func1"]
+      n6[func1]:::RETURN
+      n7[a]:::VARIABLE
+      n8[5]:::LITERAL
+      n9[a]:::VARIABLE
+      n10[6]:::LITERAL
+      n11[memberA]:::VARIABLE
+      n12[b]:::VARIABLE
+      n13[y]:::OBJ_VARIABLE
+      n14[ClassY]:::EXTERNAL
+      n15[x]:::OBJ_VARIABLE
+      n16[ClassX]:::EXTERNAL
+      n17[memberX]:::VARIABLE
+      n18[8]:::LITERAL
+      n19[y1]:::OBJ_VARIABLE
+      n20[c]:::VARIABLE
+      n23[x1]:::OBJ_VARIABLE
+      n24[d]:::VARIABLE
+      n25[j]:::VARIABLE
+      n8[5]:::LITERAL --> n7[a]:::VARIABLE
+      n9[a]:::VARIABLE --> n11[memberA]:::VARIABLE
+      n10[6]:::LITERAL --> n9[a]:::VARIABLE
+      n11[memberA]:::VARIABLE --> n12[b]:::VARIABLE
+      n13[y]:::OBJ_VARIABLE --> n19[y1]:::OBJ_VARIABLE
+      n14[ClassY]:::EXTERNAL --> n13[y]:::OBJ_VARIABLE
+      n15[x]:::OBJ_VARIABLE --> n23[x1]:::OBJ_VARIABLE
+      n16[ClassX]:::EXTERNAL --> n15[x]:::OBJ_VARIABLE
+      n17[memberX]:::VARIABLE --> n22[getMemberX]:::RETURN
+      n17[memberX]:::VARIABLE --> n24[d]:::VARIABLE
+      n18[8]:::LITERAL --> n17[memberX]:::VARIABLE
+      n20[c]:::VARIABLE --> n25[j]:::VARIABLE
+      subgraph b21["getMemberX"]
+        n22[getMemberX]:::RETURN
+        n22[getMemberX]:::RETURN --> n20[c]:::VARIABLE
       end
     end
   end

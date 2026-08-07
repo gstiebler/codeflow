@@ -1,6 +1,8 @@
 package codeflow.java
 
 import codeflow.graph.GraphBuilderBlock
+import codeflow.graph.GraphException
+import codeflow.graph.Method
 import codeflow.graph.PosStack
 import codeflow.graph.Position
 import codeflow.java.processors.*
@@ -47,24 +49,14 @@ class AstReader(private val basePath: Path) {
             "codeflow: ${symbols.unresolved} of ${symbols.total} references unresolved"
         )
         val globalCtx = GlobalContext(symbols)
-        var mainCtx: ProcessorContext? = null
         for (compUnitTree in compUnitTrees) {
             val ctx = getContext(compUnitTree, sourcePositions)
-            val astProcessor = AstProcessor(globalCtx)
-            compUnitTree.accept(astProcessor, ctx)
-            if (astProcessor.methodNames.any { it.toString() == "main" }) {
-                mainCtx = ctx
-            }
+            compUnitTree.accept(AstProcessor(globalCtx), ctx)
         }
 
-        // throw an exception if there is no main context
-        if (mainCtx == null) {
-            throw Exception("No main method found")
-        }
-
-        val mainMethod = globalCtx.getMainMethod()
+        val mainMethod = selectMain(globalCtx.mainMethods())
         val mainMethodGraphBuilderBlock =
-            GraphBuilderBlock(null, mainMethod, PosStack(), null, mainCtx)
+            GraphBuilderBlock(null, mainMethod, PosStack(), null, mainMethod.ctx)
         val pos = Position(0, Path.of(""))
         val mainAstBlockProcessor = AstBlockProcessor(globalCtx, null, mainMethodGraphBuilderBlock, pos, null)
         mainAstBlockProcessor.invokeMethod(emptyList())
@@ -72,6 +64,30 @@ class AstReader(private val basePath: Path) {
         manager.close()
 
         return mainAstBlockProcessor.graphBuilderBlock
+    }
+
+    /**
+     * The entry point to graph, and a note to stderr saying so.
+     *
+     * The whole diagram is whatever this one method reaches, so on a codebase with several entry
+     * points the reader has to be told which one they are looking at - and that there were others.
+     * Silence here reads as "this is the codebase" when it is one of several, which is the same
+     * failure as a wrong edge: complete-looking, plausible, and giving no sign anything is missing.
+     *
+     * The context comes off the chosen method rather than being tracked separately, because the two
+     * used to disagree - the method came out of a HashMap and the context was the last file seen to
+     * contain a `main` - so positions in the root block could belong to a different file entirely.
+     */
+    private fun selectMain(mains: List<Method>): Method {
+        val chosen = mains.firstOrNull() ?: throw GraphException("No method named 'main' in the analysed sources")
+        System.err.println("codeflow: graphing 'main' in ${chosen.ctx.path}")
+        if (mains.size > 1) {
+            System.err.println(
+                "codeflow: ${mains.size - 1} other 'main' not graphed: " +
+                        mains.drop(1).joinToString(", ") { it.ctx.path.toString() }
+            )
+        }
+        return chosen
     }
 
     private fun getContext(compUnitTree: CompilationUnitTree, sourcePositions: SourcePositions): ProcessorContext {

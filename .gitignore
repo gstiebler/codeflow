@@ -8,6 +8,9 @@ build
 .idea
 result.md
 *.class
+# The lowered instruction list of each fixture, written next to its source on every test run so it
+# can be read alongside App.java and truth.md. Nothing asserts on it - see LoweringTest.write.
+app/src/test/resources/*/ir.txt
 # The viewer's browser libraries are vendored into app/src/main/resources/viewer and committed;
 # node_modules only exists to pin where they came from and to run the JS tests.
 node_modules

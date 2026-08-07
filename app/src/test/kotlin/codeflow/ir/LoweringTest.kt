@@ -2,6 +2,7 @@ package codeflow.ir
 
 import codeflow.graph.GraphException
 import codeflow.java.AstReader
+import codeflow.java.MethodSpec
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
@@ -38,7 +39,27 @@ class LoweringTest {
         val paths = Files.walk(testDirPath).filter { it.toString().endsWith(".java") }.toList()
         val analysis = AstReader(testResourcesPath).analyse(paths)
         val lowering = Lowering(analysis.symbols)
-        return analysis.methods().map { lowering.lower(it) }
+        return analysis.methods().map { lowering.lower(it) }.also { write(testDirPath, it) }
+    }
+
+    /**
+     * The instruction list of every method of a fixture, written next to the source it came from.
+     *
+     * Not an assertion and not a golden file - `ir.txt` is gitignored, and nothing reads it back.
+     * It is there to be looked at: the IR is what the lowering actually decided, and the only other
+     * way to see it is to add a test that spells the whole list out. Reading `App.java`, `ir.txt`
+     * and `truth.md` side by side is source, meaning and diagram for the same fixture, which is
+     * what makes it possible to say which of the three a surprise came from.
+     *
+     * Written on every run rather than only when missing, for the opposite reason to
+     * [codeflow.AppTest.codeflow]'s snapshots: a golden that rewrote itself would certify nothing,
+     * and this certifies nothing by design - a stale one would be worse than none.
+     */
+    private fun write(testDirPath: Path, bodies: List<MethodBody>) {
+        val text = bodies.joinToString("\n\n") { body ->
+            (listOf(MethodSpec.of(body.method)) + body.render()).joinToString("\n")
+        }
+        Files.writeString(testDirPath.resolve("ir.txt"), text + "\n")
     }
 
     private fun fixtures(): List<String> = Files.list(testResourcesPath)

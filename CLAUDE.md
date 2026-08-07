@@ -387,7 +387,11 @@ left over is a real change and needs explaining.
 Two suites sit alongside `AppTest` and assert on something a rendered document cannot show:
 
 - `LoweringTest.kt` — the instruction list itself, as text, for one method or swept over every
-  fixture. What a method *means*, before anything has decided how to draw it.
+  fixture. What a method *means*, before anything has decided how to draw it. The sweep also writes
+  each fixture's whole IR to `app/src/test/resources/<fixture>/ir.txt`, gitignored and rewritten on
+  every run: nothing asserts on it, it is there so that `App.java`, `ir.txt` and `truth.md` can be
+  read side by side as source, meaning and diagram for one fixture. A stale one would be worse than
+  none, which is why it is not a snapshot.
 - `IrGraphBuilderTest.kt` — the graph as `label:TYPE` nodes and edges, for the few cases where the
   node *type* is the claim. While both builders existed this was the port's differential harness:
   every fixture built both ways and compared as multisets, with each disagreement asserted by name.

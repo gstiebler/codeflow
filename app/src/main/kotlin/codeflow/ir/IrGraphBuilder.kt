@@ -366,12 +366,18 @@ class Frame(
      *
      * Keyed by occurrence rather than by declaration, because it is not a place anything looks up:
      * a use below the join was resolved to this instruction while the method was being lowered, so
-     * what the box has to be is the merge itself, at the line of the `if` that caused it. Keyed by
-     * the *variable* even where the box is captioned with the construct, since the key is
-     * `(position, label)` and two joins at one `if` captioned `if` would be one key.
+     * what the box has to be is the merge itself, at the line of the `if` that caused it.
      *
-     * The gate flows in with the paths, which is what says why either value would be taken - see
-     * [Gate]. It is never among the objects the join can be, only among its inputs.
+     * A *gated* join is two boxes, not one. The choosing takes the paths and the gate - which is
+     * what says why either value would be taken, see [Gate] - and what comes out of it is the
+     * variable, which is what a use below the branch reads. That is the shape a `?:` has already:
+     * `int g = c ? a : b` draws the `ternary` feeding `g`, and drawing the same choice written as a
+     * statement any other way makes two pictures of one program. Collapsing them into a single box
+     * captioned `if` also left the variable's name off the diagram entirely at the one point the
+     * reader most needs it - the join is the only place `a` means something neither assignment to
+     * `a` says on its own.
+     *
+     * The gate is never among the objects the join can be, only among its inputs.
      *
      * Which object it is is every object any path could have left it holding, which is the whole
      * point of the set: it used to be the first path that named one, and a field read below the
@@ -385,11 +391,23 @@ class Frame(
      */
     private fun phi(insn: Phi, run: Run): Value {
         val (arrived, pending) = insn.paths.partition { it.index < run.reached }
-        val id = labelId(insn.name, insn)
         val paths = arrived.map { run.node(it) to edgeKind(it, null, insn.gate?.arms ?: emptyMap()) }
-        val gate = insn.gate?.let { run.node(it.value) to EdgeKind.CONDITION }
-        val node = block.addJoin(base(id, insn, insn.gate?.label), paths + listOfNotNull(gate), insn.isPrimitive)
-        pending.forEach { run.backEdges.add(node to it) }
+        val chosen = insn.gate?.let { gate ->
+            block.addSelection(
+                // Keyed by the construct *and* the variable, since one `if` decides several and the
+                // key is `(position, label)` - two joins at one `if` keyed `if` would be one box.
+                base(labelId("${gate.label} ${insn.name}", insn), insn, gate.label),
+                paths + (run.node(gate.value) to EdgeKind.CONDITION)
+            )
+        }
+        val node = block.addJoin(
+            base(labelId(insn.name, insn), insn),
+            chosen?.let { listOf(it to EdgeKind.FLOW) } ?: paths,
+            insn.isPrimitive
+        )
+        // The choosing takes the paths when there is one, so a back edge has to land where the rest
+        // of the paths did or the loop's own contribution arrives at the wrong box.
+        pending.forEach { run.backEdges.add((chosen ?: node) to it) }
         return Value(node, arrived.flatMapTo(HashSet()) { run.objects(it) })
     }
 

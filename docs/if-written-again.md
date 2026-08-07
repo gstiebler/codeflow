@@ -31,8 +31,9 @@ These are load-bearing, and a rewrite that lost them would be worse than what ex
 
 **Since done**, in `ir.Lowering`: a use resolves to its defining instruction, and `if`, `switch`,
 loops and `try`/`catch` join with a `Phi`. The join an `if` or a `switch` statement makes is *gated*
-— the condition is an input to it, and each path's edge says which arm it came in on — so the same
-choice written as a statement and written as a ternary now come out as the same shape. The
+— the condition is an input to it, each path's edge says which arm it came in on, and what comes out
+is the variable, so the same choice written as a statement and written as a ternary now come out as
+the same shape: `== -->|if| if --> a --> d`, against `== --> ternary --> g`. The
 diagnosis below is left in the past tense it was written in — the `if1` and `forLoop` goldens it
 quotes have moved, and are now what this section asked for. What it names and this does not have:
 `break` and `continue` as edges of their own (a `continue` mid-body does not reach the loop header),

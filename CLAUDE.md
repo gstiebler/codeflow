@@ -247,17 +247,27 @@ no such graph here, so nothing recorded the association at all — the `==` of a
 both operands flowing in and *no edge leaving it*, the value the whole branch turns on rendered as
 though nothing consumed it, while the same choice written as `?:` had its condition flowing into the
 `Select`. Two shapes for one program. `Phi.gate` (`ir.Gate`) closes that: the deciding value is an
-input, and the box is captioned with the construct — `if`, `switch` — rather than repeating the
-variable's name a third time. SSA calls this a *gated* phi; codeflow's ternary node always was one.
+input. SSA calls this a *gated* phi; codeflow's ternary node always was one.
 `theConditionOfAnIfReachesEachValueItDecides` is the assertion.
 
-Two rules the gate must not break. It is in `inputs` but **not** in `Phi.paths`, and the object
+**A gated join is two boxes.** The choosing takes the paths and the gate and is captioned with the
+construct — `if`, `switch` — and what comes out of it is the *variable*, which is what a use below
+the branch reads. That is the shape `?:` has already: `int g = c ? a : b` draws the `ternary` box
+feeding `g`, so the choosing and the naming were never one node, and drawing the statement form as
+a single box captioned `if` made two pictures of one program in the other direction. It also left
+the variable's name off the page at the one point the reader most needs it — the join is the only
+place `a` means something neither assignment to `a` says on its own. So `if1` draws
+`== -->|if| if --> a --> d`, and the choosing is a `BIN_OP` like the `ternary` it is a spelling of.
+
+Three rules the gate must not break. It is in `inputs` but **not** in `Phi.paths`, and the object
 union runs over `paths` — a variable is never the thing that chose it, and unioning the inputs would
 make `switch (name)` over a `String` point the joined variable at the selector's object. It is the
-same discipline `Select.alternatives` enforces, in the other half of the model. And the node is
-*keyed* by the variable while *captioned* with the construct (`GraphNode.Base(caption = …)`), since
-the key is `(position, label)` and two joins at one `if` captioned alike would be one key — the
-derive-an-id-from-attributes hazard, arriving by the back door.
+same discipline `Select.alternatives` enforces, in the other half of the model. The choosing is
+keyed by construct *and* variable (`labelId("$label ${insn.name}", …)`) while captioned with the
+construct alone (`GraphNode.Base(caption = …)`), since the key is `(position, label)` and one `if`
+deciding two variables would otherwise key both boxes `if` at one position and merge them — the
+derive-an-id-from-attributes hazard, arriving by the back door. And a pending back edge lands on
+the choosing when there is one, because that is where the rest of the paths went.
 
 Only an `if` and a `switch` statement are gated, because only they have the deciding value already
 lowered when the join happens. A loop's condition is computed *from* its header phi and lowered

@@ -10,24 +10,26 @@ flowchart TD
     n11[chosen]:::OBJ_VARIABLE
     n12[22]:::LITERAL
     n17[chosen]:::OBJ_VARIABLE
-    n18[if]:::OBJ_VARIABLE
-    n19[amount]:::VARIABLE
-    n20[total]:::VARIABLE
+    n18[if]:::BIN_OP
+    n19[chosen]:::OBJ_VARIABLE
+    n20[amount]:::VARIABLE
+    n21[total]:::VARIABLE
     n3[length]:::EXTERNAL --> n5[>]:::BIN_OP
     n4[0]:::LITERAL --> n5[>]:::BIN_OP
-    n5[>]:::BIN_OP -->|if| n18[if]:::OBJ_VARIABLE
+    n5[>]:::BIN_OP -->|if| n18[if]:::BIN_OP
     n6[11]:::LITERAL --> n9[amount]:::FUNC_PARAM
-    n11[chosen]:::OBJ_VARIABLE -->|true| n18[if]:::OBJ_VARIABLE
+    n11[chosen]:::OBJ_VARIABLE -->|true| n18[if]:::BIN_OP
     n12[22]:::LITERAL --> n15[amount]:::FUNC_PARAM
-    n17[chosen]:::OBJ_VARIABLE -->|false| n18[if]:::OBJ_VARIABLE
-    n19[amount]:::VARIABLE --> n20[total]:::VARIABLE
+    n17[chosen]:::OBJ_VARIABLE -->|false| n18[if]:::BIN_OP
+    n18[if]:::BIN_OP --> n19[chosen]:::OBJ_VARIABLE
+    n20[amount]:::VARIABLE --> n21[total]:::VARIABLE
     subgraph b7["Holder.constructor"]
       n8[<init>]:::RETURN
       n9[amount]:::FUNC_PARAM
       n10[amount]:::VARIABLE
       n8[<init>]:::RETURN --> n11[chosen]:::OBJ_VARIABLE
       n9[amount]:::FUNC_PARAM --> n10[amount]:::VARIABLE
-      n10[amount]:::VARIABLE --> n19[amount]:::VARIABLE
+      n10[amount]:::VARIABLE --> n20[amount]:::VARIABLE
     end
     subgraph b13["Holder.constructor"]
       n14[<init>]:::RETURN
@@ -35,7 +37,7 @@ flowchart TD
       n16[amount]:::VARIABLE
       n14[<init>]:::RETURN --> n17[chosen]:::OBJ_VARIABLE
       n15[amount]:::FUNC_PARAM --> n16[amount]:::VARIABLE
-      n16[amount]:::VARIABLE --> n19[amount]:::VARIABLE
+      n16[amount]:::VARIABLE --> n20[amount]:::VARIABLE
     end
   end
   linkStyle 2 stroke:#6a6a6a,color:#6a6a6a

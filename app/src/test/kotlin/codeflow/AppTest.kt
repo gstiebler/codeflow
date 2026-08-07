@@ -271,16 +271,21 @@ class AppTest {
      * `a` in a row and nothing said which one was the choice.
      *
      * This is the same claim [ternaryConnectsBothBranchesAndCondition] makes about the expression
-     * form. Writing the choice as a statement rather than an expression is not a reason to draw it
-     * differently.
+     * form, down to the shape: there the choice is a `ternary` box feeding the variable it was
+     * assigned to, and here it is an `if` box feeding `a` and `b`. Writing the choice as a
+     * statement rather than an expression is not a reason to draw it differently - so the join is
+     * two boxes, the choosing and the variable that results, and `final int d = a` reads the
+     * latter.
      */
     @Test
     fun theConditionOfAnIfReachesEachValueItDecides() {
         val graph = buildGraph("if1", listOf("App.java"))
         val edges = edgeLabels(graph)
         assertEquals(2, edges.count { it == "==" to "if" }, "the condition does not reach both joins: $edges")
-        assertTrue("if" to "c" in edges, "the join does not reach the use below it: $edges")
-        assertTrue("if" to "d" in edges, "the join does not reach the use below it: $edges")
+        assertTrue("if" to "a" in edges, "the choice does not reach the variable it decides: $edges")
+        assertTrue("if" to "b" in edges, "the choice does not reach the variable it decides: $edges")
+        assertTrue("a" to "d" in edges, "the joined variable does not reach the use below it: $edges")
+        assertTrue("b" to "c" in edges, "the joined variable does not reach the use below it: $edges")
         assertTrue(reaches(graph, "13", "if"), "the value written in the branch does not reach a join")
         assertTrue(reaches(graph, "17", "if"), "the value written in the branch does not reach a join")
     }
@@ -319,9 +324,12 @@ class AppTest {
      */
     @Test
     fun theSelectorOfASwitchReachesTheJoinItDecides() {
-        val edges = edgeLabels(buildGraph("switchStatement", listOf("App.java")))
+        val graph = buildGraph("switchStatement", listOf("App.java"))
+        val edges = edgeLabels(graph)
         assertTrue("selector" to "switch" in edges, "the selector does not reach the join: $edges")
-        assertTrue("switch" to "+" in edges, "the join does not reach the use below it: $edges")
+        assertTrue("switch" to "chosen" in edges, "the choice does not reach the variable it decides: $edges")
+        assertTrue("switch" to "side" in edges, "the choice does not reach the variable it decides: $edges")
+        assertTrue(reaches(graph, "switch", "+"), "the join does not reach the use below it: $edges")
     }
 
     /**

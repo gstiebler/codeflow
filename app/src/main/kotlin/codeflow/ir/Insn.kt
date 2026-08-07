@@ -209,18 +209,24 @@ class Select(
 /**
  * The object an access or a call happens on.
  *
- * Three cases rather than a nullable value, because "no receiver written" and "no object at all"
- * are different facts and were conflated: an unqualified `record()` inside a method of Gauge runs on
- * the same object the method does, while `Math.abs(x)` runs on nothing. Both were lowered to a
- * missing receiver, so every field the first one wrote landed where nobody could look it up.
+ * Four cases rather than a nullable value, because "no receiver written", "no object at all" and
+ * "this object, but the implementation the written class names" are different facts. The first two
+ * were conflated once already: an unqualified `record()` inside a method of Gauge runs on the same
+ * object the method does, while `Math.abs(x)` runs on nothing, and both were lowered to a missing
+ * receiver, so every field the first one wrote landed where nobody could look it up.
  */
 sealed class Receiver {
     /** The value it consumes, which is none unless an expression was written. */
     open val inputs: List<Val> get() = emptyList()
 
-    /** `value`, `this.value`, `record()`, `super.m()` - the object the enclosing method is on. */
+    /** `value`, `this.value`, `record()` - the object the enclosing method is on. */
     data object Enclosing : Receiver() {
         override fun toString() = "this"
+    }
+
+    /** `super.m()` - the same object, but the implementation the written class names, not the one it is. */
+    data object Super : Receiver() {
+        override fun toString() = "super"
     }
 
     /** `Math.abs(x)`, `Counter.total` - the receiver is a type name and produces no value. */

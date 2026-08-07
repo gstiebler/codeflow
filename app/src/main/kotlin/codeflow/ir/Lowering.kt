@@ -236,16 +236,16 @@ class Lowering(private val symbols: Symbols) {
         /**
          * The object an access or a call is written against.
          *
-         * `this` and `super` both name the object the enclosing method is running on, so neither
-         * produces a value: `super.m()` runs on the same instance `this.m()` would. A type name
+         * `this` and `super` both name the object the enclosing method is running on, and neither
+         * produces a value, but they are not interchangeable: `super.m()` runs the implementation
+         * the *written* class names, while `this.m()` runs the one the object *is*. A type name
          * produces no value either, but for the opposite reason - there is no object at all.
          */
         private fun receiverOf(expression: ExpressionTree?, ctx: ProcessorContext): Receiver {
             if (expression == null) return Receiver.Enclosing
-            if (expression is IdentifierTree &&
-                (expression.name.contentEquals("this") || expression.name.contentEquals("super"))
-            ) {
-                return Receiver.Enclosing
+            if (expression is IdentifierTree) {
+                if (expression.name.contentEquals("this")) return Receiver.Enclosing
+                if (expression.name.contentEquals("super")) return Receiver.Super
             }
             if (isTypeName(expression)) return Receiver.TypeName
             return Receiver.Value(evaluate(expression, ctx))

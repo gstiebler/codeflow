@@ -228,7 +228,7 @@ class Frame(
     private fun holderOf(receiver: Receiver, element: Element?, insn: Insn, run: Run): Set<MemPos> {
         globalCtx.staticHolder(element, insn.source)?.let { return setOf(it) }
         return when (receiver) {
-            Receiver.Enclosing -> owner
+            Receiver.Enclosing, Receiver.Super -> owner
             Receiver.TypeName -> emptySet()
             is Receiver.Value -> run.objects(receiver.value)
         }
@@ -245,6 +245,8 @@ class Frame(
     private fun readField(insn: ReadField, run: Run): Value {
         enumConstant(insn)?.let { return it }
         val holders = holderOf(insn.receiver, insn.element, insn, run)
+        // `super.f` and `this.f` are both a receiver somebody wrote, and neither is the unqualified
+        // name that falls back to this method's own field.
         val written = insn.receiver != Receiver.Enclosing
         return read(insn.name, insn.element, insn.isPrimitive, holders, written, insn)
     }
@@ -486,7 +488,8 @@ class Frame(
         }
         val receiverMemPos = when (insn.receiver) {
             // A static method runs on no object at all, so it has nothing to inherit.
-            Receiver.Enclosing -> if (Modifier.STATIC in method.element.modifiers) emptySet() else owner
+            Receiver.Enclosing, Receiver.Super ->
+                if (Modifier.STATIC in method.element.modifiers) emptySet() else owner
             Receiver.TypeName -> emptySet()
             is Receiver.Value -> run.objects(insn.receiver.value)
         }

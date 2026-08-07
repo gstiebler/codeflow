@@ -157,7 +157,7 @@ class LoweringTest {
                 "9: const 0",
                 "10: write counter <- 9",
                 "11: unOp postInc 10",
-                "12: write afterIncrement <- 10"
+                "12: write afterIncrement <- 11"
             ),
             lower("unary", listOf("App.java"), "App#main")
         )
@@ -320,6 +320,9 @@ class LoweringTest {
      * approach is meant to make impossible. The forward-reference check is what makes the list a
      * dataflow graph rather than a transcript: `binOp * 0 1` is only meaningful if 0 and 1 have
      * already been produced.
+     *
+     * A loop's header is the one exception, and is named as one: the value arriving back at it is
+     * produced by the body below it. See [Phi.addPath].
      */
     @Test
     fun everyFixtureLowersAndEveryValueIsProducedBeforeItIsUsed() {
@@ -329,6 +332,7 @@ class LoweringTest {
         assertTrue(swept.size > 50, "the sweep found almost nothing to lower: ${swept.size}")
         swept.forEach { (fixture, body) ->
             body.instructions.forEachIndexed { index, insn ->
+                if (insn is Phi) return@forEachIndexed
                 insn.inputs.forEach { input ->
                     assertTrue(
                         input.index < index,
@@ -373,6 +377,44 @@ class LoweringTest {
                 "13: write d <- 10"
             ),
             lower("if1", listOf("App.java"), "App#main")
+        )
+    }
+
+    /**
+     * A loop's header holds what the body left behind, which is produced after it.
+     *
+     * `phi y 4 11` at instruction 7 names instruction 11, which is the `y = 7` inside the body -
+     * the only place the instruction list points forwards, and the reason a [Val] is an index
+     * rather than a reference to an instruction. The header has to exist before the body is
+     * lowered, since every use inside the body resolves to it; what the body leaves behind is only
+     * known once the body has been walked.
+     *
+     * `i` gets one too, from the update: the condition tests the incremented counter on every
+     * iteration but the first, and `i++` used to produce a box with nothing leaving it.
+     */
+    @Test
+    fun aLoopHeaderTakesTheValueTheBodyLeavesBehind() {
+        assertEquals(
+            listOf(
+                "0: param args",
+                "1: const 5",
+                "2: write x <- 1",
+                "3: const 0",
+                "4: write y <- 3",
+                "5: const 0",
+                "6: write i <- 5",
+                "7: phi y 4 11",
+                "8: phi i 6 12",
+                "9: binOp < 8 2",
+                "10: const 7",
+                "11: write y <- 10",
+                "12: unOp postInc 8",
+                "13: write z <- 7",
+                "14: const 1",
+                "15: binOp += 7 14",
+                "16: write y <- 15"
+            ),
+            lower("forLoop", listOf("App.java"), "App#main")
         )
     }
 

@@ -90,9 +90,25 @@ class Phi(
     val name: String,
     val element: Element?,
     val isPrimitive: Boolean,
-    override val inputs: List<Val>,
+    entry: Val,
     source: String
 ) : Insn(source) {
+    private val paths = arrayListOf(entry)
+
+    override val inputs: List<Val> get() = paths
+
+    /**
+     * A path arriving after this instruction: the bottom of a loop body, back to its header.
+     *
+     * The one place an instruction names a value produced later in the list, and the reason [Val]
+     * is an index rather than a reference. A loop's header has to be lowered before its body -
+     * every use inside the body resolves to it - and what the body leaves behind is only known
+     * once the body has been walked, so the phi is completed rather than built in one go.
+     */
+    fun addPath(value: Val) {
+        paths.add(value)
+    }
+
     override fun render() = "phi $name" + inputs.joinToString("") { " $it" }
 }
 

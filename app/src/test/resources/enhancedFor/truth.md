@@ -8,20 +8,23 @@ flowchart TD
     n5[names]:::OBJ_VARIABLE
     n6[0]:::LITERAL
     n7[total]:::VARIABLE
-    n8[name]:::OBJ_VARIABLE
-    n9[length]:::EXTERNAL
-    n10[size]:::VARIABLE
-    n11[+]:::BIN_OP
-    n12[total]:::VARIABLE
+    n8[total]:::VARIABLE
+    n9[name]:::OBJ_VARIABLE
+    n10[length]:::EXTERNAL
+    n11[size]:::VARIABLE
+    n12[+]:::BIN_OP
+    n13[total]:::VARIABLE
     n3["a"]:::LITERAL --> n4[of]:::EXTERNAL
     n4[of]:::EXTERNAL --> n5[names]:::OBJ_VARIABLE
-    n5[names]:::OBJ_VARIABLE --> n8[name]:::OBJ_VARIABLE
+    n5[names]:::OBJ_VARIABLE --> n9[name]:::OBJ_VARIABLE
     n6[0]:::LITERAL --> n7[total]:::VARIABLE
-    n7[total]:::VARIABLE --> n11[+]:::BIN_OP
-    n8[name]:::OBJ_VARIABLE --> n9[length]:::EXTERNAL
-    n9[length]:::EXTERNAL --> n10[size]:::VARIABLE
-    n10[size]:::VARIABLE --> n11[+]:::BIN_OP
-    n11[+]:::BIN_OP --> n12[total]:::VARIABLE
+    n7[total]:::VARIABLE --> n8[total]:::VARIABLE
+    n8[total]:::VARIABLE --> n12[+]:::BIN_OP
+    n9[name]:::OBJ_VARIABLE --> n10[length]:::EXTERNAL
+    n10[length]:::EXTERNAL --> n11[size]:::VARIABLE
+    n11[size]:::VARIABLE --> n12[+]:::BIN_OP
+    n12[+]:::BIN_OP --> n13[total]:::VARIABLE
+    n13[total]:::VARIABLE --> n8[total]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

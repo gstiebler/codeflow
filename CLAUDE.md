@@ -222,8 +222,19 @@ looked like without one.
 
 A branch that cannot fall out of its own bottom contributes nothing to the join —
 `completesNormally` decides, and errs towards yes, since merging a value that cannot arrive is the
-lesser wrong. Loops are not this yet: a back edge needs a phi whose operand is defined *later* in
-the list, which is the one forward-reference rule the instruction list currently keeps.
+lesser wrong.
+
+A loop is the same idea with the phi at the *header*. `Lowering.loop` emits one for every variable
+the loop assigns before the body is lowered, so a use inside the body names one instruction whichever
+iteration produced the value, and the value the body leaves behind is added to that phi afterwards
+(`Phi.addPath`). It is also what the variable holds after the loop, since a loop is left from its
+header. That back edge is the **one place an instruction names a value produced later in the list** —
+which is why a `Val` is an index rather than a reference, why `Frame.execute` drains `Run.backEdges`
+after the run, and why the forward-reference sweep in `LoweringTest` names `Phi` as its exception.
+
+`i++` is a write as well as an operator: after it the variable holds what the operator produced.
+Without that the counter a loop condition tests came from nowhere, and `counter++; int after =
+counter;` drew `after` taking the value from before the increment.
 
 ### A name with no value: which kind decides
 

@@ -6,7 +6,7 @@ flowchart TD
     n3[1]:::LITERAL
     n4[2]:::LITERAL
     n5[3]:::LITERAL
-    n14[out]:::VARIABLE
+    n15[out]:::VARIABLE
     n3[1]:::LITERAL --> n8[base]:::FUNC_PARAM
     n4[2]:::LITERAL --> n9[rest]:::FUNC_PARAM
     n5[3]:::LITERAL --> n9[rest]:::FUNC_PARAM
@@ -15,16 +15,19 @@ flowchart TD
       n8[base]:::FUNC_PARAM
       n9[rest]:::FUNC_PARAM
       n10[sum]:::VARIABLE
-      n11[part]:::VARIABLE
-      n12[+]:::BIN_OP
-      n13[sum]:::VARIABLE
-      n7[total]:::RETURN --> n14[out]:::VARIABLE
+      n11[sum]:::VARIABLE
+      n12[part]:::VARIABLE
+      n13[+]:::BIN_OP
+      n14[sum]:::VARIABLE
+      n7[total]:::RETURN --> n15[out]:::VARIABLE
       n8[base]:::FUNC_PARAM --> n10[sum]:::VARIABLE
-      n9[rest]:::FUNC_PARAM --> n11[part]:::VARIABLE
-      n10[sum]:::VARIABLE --> n12[+]:::BIN_OP
-      n11[part]:::VARIABLE --> n12[+]:::BIN_OP
-      n12[+]:::BIN_OP --> n13[sum]:::VARIABLE
-      n13[sum]:::VARIABLE --> n7[total]:::RETURN
+      n9[rest]:::FUNC_PARAM --> n12[part]:::VARIABLE
+      n10[sum]:::VARIABLE --> n11[sum]:::VARIABLE
+      n11[sum]:::VARIABLE --> n13[+]:::BIN_OP
+      n11[sum]:::VARIABLE --> n7[total]:::RETURN
+      n12[part]:::VARIABLE --> n13[+]:::BIN_OP
+      n13[+]:::BIN_OP --> n14[sum]:::VARIABLE
+      n14[sum]:::VARIABLE --> n11[sum]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

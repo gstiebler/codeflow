@@ -309,9 +309,33 @@ class Lowering(private val symbols: Symbols) {
             return emit(BinOp(binaryOperatorLabel(node), left, right, ctx.location(node)))
         }
 
+        /**
+         * `-x`, `!flag`, `i++`.
+         *
+         * An increment is also a *write*: after `counter++` the variable holds what the operator
+         * produced, and a read below it that still names the value from before is an arithmetic
+         * error sitting in a diagram that otherwise looks right. The value of the expression is
+         * taken to be the new one either way - `y = x++` yields the old value in Java, and drawing
+         * the extra hop through the operator claims nothing the program does not do.
+         */
         override fun visitUnary(node: UnaryTree, ctx: ProcessorContext): Val {
             val operand = evaluate(node.expression, ctx)
-            return emit(UnOp(unaryOperatorLabel(node), operand, ctx.location(node)))
+            val value = emit(UnOp(unaryOperatorLabel(node), operand, ctx.location(node)))
+            if (node.kind in STEPPING_OPERATORS) redefine(node.expression, value)
+            return value
+        }
+
+        /**
+         * Records a new value for a name already being tracked, when the write is implicit.
+         *
+         * Only for a local: `this.count++` is a field, whose value lives on the object rather than
+         * here, and quietly filing it under a local's key would put it somewhere no field read
+         * looks.
+         */
+        private fun redefine(target: ExpressionTree, value: Val) {
+            if (target !is IdentifierTree) return
+            val existing = definitions[key(symbols.element(target), target.name.toString())] ?: return
+            define(existing.element, existing.name, existing.isPrimitive, value)
         }
 
         /**
@@ -368,20 +392,11 @@ class Lowering(private val symbols: Symbols) {
                     onThen == null -> onElse!!
                     onElse == null -> onThen
                     onThen.value == onElse.value -> onThen
-                    else -> Definition(
-                        onThen.name,
-                        onThen.element,
-                        onThen.isPrimitive,
-                        emit(
-                            Phi(
-                                onThen.name,
-                                onThen.element,
-                                onThen.isPrimitive,
-                                listOf(onThen.value, onElse.value),
-                                source
-                            )
-                        )
-                    )
+                    else -> {
+                        val phi = Phi(onThen.name, onThen.element, onThen.isPrimitive, onThen.value, source)
+                        phi.addPath(onElse.value)
+                        Definition(onThen.name, onThen.element, onThen.isPrimitive, emit(phi))
+                    }
                 }
             }
         }
@@ -662,9 +677,94 @@ class Lowering(private val symbols: Symbols) {
          */
         override fun visitEnhancedForLoop(node: EnhancedForLoopTree, ctx: ProcessorContext): Val? {
             val elements = evaluate(node.expression, ctx)
-            bind(node.variable, elements, Identity.Fresh, ctx)
-            scan(node.statement, ctx)
+            loop(ctx.location(node), listOf(node.statement)) {
+                bind(node.variable, elements, Identity.Fresh, ctx)
+                scan(node.statement, ctx)
+            }
             return null
+        }
+
+        override fun visitWhileLoop(node: WhileLoopTree, ctx: ProcessorContext): Val? {
+            loop(ctx.location(node), listOf(node.condition, node.statement)) {
+                evaluate(node.condition, ctx)
+                scan(node.statement, ctx)
+            }
+            return null
+        }
+
+        override fun visitDoWhileLoop(node: DoWhileLoopTree, ctx: ProcessorContext): Val? {
+            loop(ctx.location(node), listOf(node.condition, node.statement)) {
+                scan(node.statement, ctx)
+                evaluate(node.condition, ctx)
+            }
+            return null
+        }
+
+        /** The initializers run once, before the header, so they are not part of the loop. */
+        override fun visitForLoop(node: ForLoopTree, ctx: ProcessorContext): Val? {
+            node.initializer.forEach { scan(it, ctx) }
+            loop(ctx.location(node), node.update + node.statement + listOfNotNull(node.condition)) {
+                node.condition?.let { evaluate(it, ctx) }
+                scan(node.statement, ctx)
+                node.update.forEach { scan(it, ctx) }
+            }
+            return null
+        }
+
+        /**
+         * A loop, as a header the body arrives back at.
+         *
+         * Every variable the loop assigns gets a [Phi] before the body is lowered, so a use inside
+         * it names one instruction whichever iteration the value came from, and the value the body
+         * leaves behind is added to that phi afterwards. Drawn straight through instead, a loop
+         * asserts it always runs at least once: `int y = 0; for (...) { y = 7; }` left `y` holding
+         * only the 7, and the zero the loop can skip past was nowhere on the page.
+         *
+         * The phi is also what the variable holds *after* the loop, since a loop is left from its
+         * header - which for a `do`/`while` is one value too many rather than one too few.
+         */
+        private fun loop(source: String, parts: List<Tree>, body: () -> Unit) {
+            val carried = definitions.keys.filter { it in assignedIn(parts) }
+            val headers = carried.map { key ->
+                val before = definitions.getValue(key)
+                val phi = Phi(before.name, before.element, before.isPrimitive, before.value, source)
+                key to Definition(before.name, before.element, before.isPrimitive, emit(phi)) to phi
+            }
+            headers.forEach { (entry, _) -> definitions[entry.first] = entry.second }
+            body()
+            headers.forEach { (entry, phi) ->
+                phi.addPath(definitions.getValue(entry.first).value)
+                definitions[entry.first] = entry.second
+            }
+        }
+
+        /**
+         * The names a subtree assigns, of those already being tracked.
+         *
+         * A declaration inside the loop is not one of them - it is a fresh variable on every
+         * iteration and nothing outside the body can see it. What is left is the assignments and
+         * the increments, which are exactly the ones a later iteration can see differently.
+         */
+        private fun assignedIn(parts: List<Tree>): Set<Any> {
+            val found = HashSet<Any>()
+            val record = { target: ExpressionTree ->
+                if (target is IdentifierTree) {
+                    found.add(key(symbols.element(target), target.name.toString()))
+                }
+            }
+            val scanner = object : TreeScanner<Unit, Unit>() {
+                override fun visitAssignment(node: AssignmentTree, p: Unit?) =
+                    record(node.variable).let { super.visitAssignment(node, p) }
+
+                override fun visitCompoundAssignment(node: CompoundAssignmentTree, p: Unit?) =
+                    record(node.variable).let { super.visitCompoundAssignment(node, p) }
+
+                override fun visitUnary(node: UnaryTree, p: Unit?) =
+                    (if (node.kind in STEPPING_OPERATORS) record(node.expression) else Unit)
+                        .let { super.visitUnary(node, p) }
+            }
+            parts.forEach { scanner.scan(it, null) }
+            return found
         }
 
         /**
@@ -786,6 +886,12 @@ class Lowering(private val symbols: Symbols) {
          * and deliberately approximate: an `if` lowers to both arms in sequence, which §1 replaces
          * with a join.
          */
+        /** The operators that write back to what they read: `i++`, `--n`. */
+        private val STEPPING_OPERATORS = setOf(
+            Tree.Kind.PREFIX_INCREMENT, Tree.Kind.PREFIX_DECREMENT,
+            Tree.Kind.POSTFIX_INCREMENT, Tree.Kind.POSTFIX_DECREMENT
+        )
+
         private val MODELLED_STATEMENTS = setOf(
             Tree.Kind.BLOCK, Tree.Kind.EXPRESSION_STATEMENT, Tree.Kind.VARIABLE, Tree.Kind.RETURN,
             Tree.Kind.IF, Tree.Kind.WHILE_LOOP, Tree.Kind.DO_WHILE_LOOP, Tree.Kind.FOR_LOOP,

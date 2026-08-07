@@ -89,10 +89,18 @@ class Frame(
     private inner class Run {
         val values = ArrayList<Value?>()
 
+        /** Edges waiting on a value from further down the list - see [Phi.addPath]. */
+        val backEdges = ArrayList<Pair<GraphNode, Val>>()
+
+        /** How far the run has got, which is what makes a [Val] a back reference or not. */
+        val reached get() = values.size
+
         fun node(v: Val): GraphNode = values[v.index]?.node
             ?: throw GraphException("Instruction ${v.index} produced no value in ${block.getMethodName()}")
 
         fun memPos(v: Val): MemPos? = values[v.index]?.memPos
+
+        fun connectBackEdges() = backEdges.forEach { (phi, value) -> node(value).addEdge(phi) }
     }
 
     /**
@@ -131,6 +139,7 @@ class Frame(
     private fun execute(instructions: List<Insn>): Run {
         val run = Run()
         instructions.forEach { run.values.add(draw(it, run)) }
+        run.connectBackEdges()
         return run
     }
 
@@ -309,9 +318,11 @@ class Frame(
      * better tracked through one of its two possibilities than through neither.
      */
     private fun phi(insn: Phi, run: Run): Value {
+        val (arrived, pending) = insn.inputs.partition { it.index < run.reached }
         val id = labelId(insn.name, insn)
-        val node = block.addPhi(base(id, insn), insn.inputs.map { run.node(it) }, insn.isPrimitive)
-        return Value(node, insn.inputs.firstNotNullOfOrNull { run.memPos(it) })
+        val node = block.addPhi(base(id, insn), arrived.map { run.node(it) }, insn.isPrimitive)
+        pending.forEach { run.backEdges.add(node to it) }
+        return Value(node, arrived.firstNotNullOfOrNull { run.memPos(it) })
     }
 
     /**

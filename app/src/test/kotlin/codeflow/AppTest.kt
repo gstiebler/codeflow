@@ -255,6 +255,35 @@ class AppTest {
     }
 
     /**
+     * A loop body runs some number of times including none, and every count has to be on the page.
+     *
+     * `int y = 0; for (...) { y = 7; } int z = y;` gives `z` either 0 or 7, and the loop was drawn
+     * straight through - `z` took the 7 and nothing else, which reads as "this loop always runs".
+     * The counter had the mirror problem: `i++` produced a box with no edge leaving it, so the
+     * value the condition tests on every iteration but the first came from nowhere.
+     */
+    @Test
+    fun aValueFromBeforeALoopAndOneFromInsideItBothReachAUseAfterIt() {
+        val graph = buildGraph("forLoop", listOf("App.java"))
+        assertTrue(reaches(graph, "7", "z"), "the value written in the loop does not reach 'z'")
+        assertTrue(reaches(graph, "0", "z"), "the value from before the loop does not reach 'z'")
+        assertTrue(reaches(graph, "postInc", "<"), "the incremented counter is never tested again")
+    }
+
+    /**
+     * `counter++` moves the variable on, so the next read of it is of the incremented value.
+     *
+     * The operator had a box and the box had no consequence: `counter++; int after = counter;` drew
+     * `after` taking the value from before the increment, which is a plain arithmetic error sitting
+     * in a diagram that otherwise looks right.
+     */
+    @Test
+    fun anIncrementIsTheValueTheVariableHoldsAfterIt() {
+        val edges = edgeLabels(buildGraph("unary", listOf("App.java")))
+        assertTrue("postInc" to "afterIncrement" in edges, "the increment does not reach the read after it: $edges")
+    }
+
+    /**
      * A call to a method outside the analysed sources has no body to inline, so it becomes one
      * node that the arguments flow into and the result flows out of. Values still have to be
      * traceable through it.

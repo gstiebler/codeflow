@@ -9,25 +9,31 @@ flowchart TD
     n6[y]:::VARIABLE
     n7[0]:::LITERAL
     n8[i]:::VARIABLE
-    n9[<]:::BIN_OP
-    n10[postInc]:::BIN_OP
-    n11[7]:::LITERAL
-    n12[y]:::VARIABLE
-    n13[z]:::VARIABLE
-    n14[1]:::LITERAL
-    n15[+=]:::BIN_OP
-    n16[y]:::VARIABLE
+    n9[y]:::VARIABLE
+    n10[i]:::VARIABLE
+    n11[<]:::BIN_OP
+    n12[7]:::LITERAL
+    n13[y]:::VARIABLE
+    n14[postInc]:::BIN_OP
+    n15[z]:::VARIABLE
+    n16[1]:::LITERAL
+    n17[+=]:::BIN_OP
+    n18[y]:::VARIABLE
     n3[5]:::LITERAL --> n4[x]:::VARIABLE
-    n4[x]:::VARIABLE --> n9[<]:::BIN_OP
+    n4[x]:::VARIABLE --> n11[<]:::BIN_OP
     n5[0]:::LITERAL --> n6[y]:::VARIABLE
+    n6[y]:::VARIABLE --> n9[y]:::VARIABLE
     n7[0]:::LITERAL --> n8[i]:::VARIABLE
-    n8[i]:::VARIABLE --> n9[<]:::BIN_OP
-    n8[i]:::VARIABLE --> n10[postInc]:::BIN_OP
-    n11[7]:::LITERAL --> n12[y]:::VARIABLE
-    n12[y]:::VARIABLE --> n13[z]:::VARIABLE
-    n12[y]:::VARIABLE --> n15[+=]:::BIN_OP
-    n14[1]:::LITERAL --> n15[+=]:::BIN_OP
-    n15[+=]:::BIN_OP --> n16[y]:::VARIABLE
+    n8[i]:::VARIABLE --> n10[i]:::VARIABLE
+    n9[y]:::VARIABLE --> n15[z]:::VARIABLE
+    n9[y]:::VARIABLE --> n17[+=]:::BIN_OP
+    n10[i]:::VARIABLE --> n11[<]:::BIN_OP
+    n10[i]:::VARIABLE --> n14[postInc]:::BIN_OP
+    n12[7]:::LITERAL --> n13[y]:::VARIABLE
+    n13[y]:::VARIABLE --> n9[y]:::VARIABLE
+    n14[postInc]:::BIN_OP --> n10[i]:::VARIABLE
+    n16[1]:::LITERAL --> n17[+=]:::BIN_OP
+    n17[+=]:::BIN_OP --> n18[y]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

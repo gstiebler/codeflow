@@ -40,9 +40,10 @@ output, not just to the build.
 `AstReader.process` parses, attributes, then:
 
 1. `AstProcessor` — records each method under the `ExecutableElement` it declares, and each class
-   under its own. A method with no body is skipped: which implementation a call to an abstract or
-   interface method reaches is decided at run time by the receiver's class, and picking one would be
-   a guess drawn as fact, so the call takes the opaque `EXTERNAL` path instead.
+   under its own. A method with no body is skipped: there is nothing to inline. Which implementation
+   a call to an abstract or interface method reaches is decided at run time by the receiver's class,
+   and that class is now *asked* rather than guessed — see "Dispatch is on the object" below. A
+   receiver that names no object still takes the opaque `EXTERNAL` path.
 2. `ir.Lowering` — javac trees to instructions, **once per method**. Names resolved, overloads
    selected, primitives decided; no `MemPos`, no ids, no edges.
 3. `ir.IrGraphBuilder` — instructions to graph, **once per call site**, starting from the entry
@@ -177,6 +178,33 @@ nothing, and a factory followed by a getter is most of a real codebase.
 
 An argument past the last declared parameter binds to the last one, which is what varargs means.
 Any other count mismatch is the analysis having gone wrong and says so.
+
+### Dispatch is on the object, not on the declared type
+
+javac resolves a call against the receiver's **declared** type, which is a correct answer to a
+different question: `Base b = new Sub(); b.f(7)` comes back as `Base.f`. Inlining that drew the
+superclass body with nothing on the page saying a choice had been made — the silently wrong graph,
+in the one case no fixture covered.
+
+`Frame.resolve` asks the receiver instead. `MemPos.type` is the class the object was constructed as
+(`construct` takes it from the constructor's enclosing element, which is present even when the class
+declares no constructor), and `GlobalContext.implementation` walks that class and its superclasses
+for the method javac says overrides the declared one. This is only possible because the graph is
+already context-sensitive: inlining is per call site and `Frame.invoke` binds each argument's
+`Set<MemPos>` onto the callee's parameter, so a receiver is a concrete set here even when it is a
+parameter several frames down.
+
+**Only when the objects agree on one implementation.** Several is a real answer that needs a box
+saying "one of these", which does not exist yet; picking one of them would be the guess this exists
+to stop. So several takes `EXTERNAL`, and so does a receiver whose objects carry no type — a loop
+element, a caught exception, an object from outside the corpus. A receiver with no tracked object at
+all falls back to what javac resolved, which is what keeps every existing fixture still.
+
+`Receiver.Super` exists for this and only this. `this.step()` must dispatch and `super.step()` must
+not, or a base class calling `super` inlines the subclass override and recurses into itself — and
+`isBeingInlined` would catch it and draw an opaque box, so the failure would read as a limit of the
+sources. `overriddenSuper` and `templateMethod` are the two halves of that assertion. `static` and
+`private` methods are not dispatched either, since neither can be overridden.
 
 ### Identity vs. lookup — do not conflate these again
 

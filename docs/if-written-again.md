@@ -155,6 +155,13 @@ drawn rather than as its own pass over the IR, so it still has no observable but
 still have no element model; and a phi's back edge contributes no objects, because the value it
 names has not been drawn when the phi is.
 
+**Since partly done.** Dispatch reads the points-to set: a call resolves to the implementation the
+receiver's `MemPos` was constructed as, rather than to whichever method javac resolved against the
+declared type. That is the first thing in codeflow to *consume* the alias model rather than only
+maintain it, and it inherits the model's open edge — a receiver assigned inside a loop from a
+variable declared above it dispatches on an incomplete set, because a phi whose back edge has not
+been drawn yet contributes no objects.
+
 ## 4. An IR between javac and the graph
 
 `AstBlockProcessor` is 902 lines that simultaneously resolve names, decide primitive versus

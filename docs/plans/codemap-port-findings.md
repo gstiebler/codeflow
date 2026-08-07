@@ -184,12 +184,11 @@ By contrast, fix 3 moved exactly one golden and the multiset diff named it in on
 ## Deliberately not ported
 
 **Polymorphic dispatch** — `polymorphism`, `polymorphism2`, `polymorphism3`, codemap's headline
-fixtures and the whole of its README. codemap tracks the object through the pointer and dispatches to
-the concrete class. codeflow refuses to guess, and `abstractMethod` is an existing test asserting the
-opaque `EXTERNAL` path. Worth noting that the machinery is already there: at `Handler h = new
-HandlerA(); h.process(40)`, `h` is an `OBJ_VARIABLE` carrying `HandlerA`'s `MemPos`, so the concrete
-class *is* known at that call site. Whether to use it is a reversal of a stated decision, not a gap,
-and belongs in its own plan with its own argument.
+fixtures and the whole of its README. **Since done**, in `Frame.resolve` — and it turned out to be a
+bug rather than a gap: the case codeflow got *wrong* was not the interface call, which honestly went
+opaque, but the overridden concrete method, which confidently inlined the superclass body. See
+"Dispatch is on the object" in CLAUDE.md. What is still not done is a receiver that could be several
+implementations: that needs a join box and stays `EXTERNAL` for now.
 
 **No Java equivalent, or already covered** — `destructor`, `operator_overload`, `typedef`, `pointer`,
 `reference`, `namespace`, `char_str`. `header_only_func` is `abstractMethod`.

@@ -12,16 +12,22 @@ flowchart TD
     n9[b]:::VARIABLE
     n10[17]:::LITERAL
     n11[a]:::VARIABLE
-    n12[c]:::VARIABLE
-    n13[d]:::VARIABLE
+    n12[a]:::VARIABLE
+    n13[b]:::VARIABLE
+    n14[c]:::VARIABLE
+    n15[d]:::VARIABLE
     n3[5]:::LITERAL --> n4[a]:::VARIABLE
     n4[a]:::VARIABLE --> n5[b]:::VARIABLE
+    n4[a]:::VARIABLE --> n12[a]:::VARIABLE
     n5[b]:::VARIABLE --> n7[==]:::BIN_OP
+    n5[b]:::VARIABLE --> n13[b]:::VARIABLE
     n6[7]:::LITERAL --> n7[==]:::BIN_OP
     n8[13]:::LITERAL --> n9[b]:::VARIABLE
-    n9[b]:::VARIABLE --> n12[c]:::VARIABLE
+    n9[b]:::VARIABLE --> n13[b]:::VARIABLE
     n10[17]:::LITERAL --> n11[a]:::VARIABLE
-    n11[a]:::VARIABLE --> n13[d]:::VARIABLE
+    n11[a]:::VARIABLE --> n12[a]:::VARIABLE
+    n12[a]:::VARIABLE --> n15[d]:::VARIABLE
+    n13[b]:::VARIABLE --> n14[c]:::VARIABLE
   end
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

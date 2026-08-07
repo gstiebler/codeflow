@@ -150,6 +150,8 @@ class Frame(
 
         is ThisRef -> thisValue(insn)
 
+        is Phi -> phi(insn, run)
+
         is Bind -> bind(insn, run)
 
         is BinOp -> Value(
@@ -293,6 +295,23 @@ class Frame(
         }
         memPos?.let { globalCtx.addMemPos(id, it) }
         return Value(node, memPos)
+    }
+
+    /**
+     * A variable where two paths meet, as one box taking the value from each - see [Phi].
+     *
+     * Keyed by occurrence rather than by declaration, because it is not a place anything looks up:
+     * a use below the join was resolved to this instruction while the method was being lowered, so
+     * what the box has to be is the merge itself, at the line of the `if` that caused it.
+     *
+     * Which object it is is the first path that names one, on the same terms as a method with two
+     * returns: control flow says which, nothing here knows which way it went, and an object is
+     * better tracked through one of its two possibilities than through neither.
+     */
+    private fun phi(insn: Phi, run: Run): Value {
+        val id = labelId(insn.name, insn)
+        val node = block.addPhi(base(id, insn), insn.inputs.map { run.node(it) }, insn.isPrimitive)
+        return Value(node, insn.inputs.firstNotNullOfOrNull { run.memPos(it) })
     }
 
     /**

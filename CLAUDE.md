@@ -201,20 +201,44 @@ asserting flows that do not exist, with nothing to notice. `assertNoDuplicateNod
 A `MemPos` stands for one object instance and owns the nodes for its fields. It is how
 `this.field`, an implicit-`this` field read, and a field written in a constructor and read in
 another method all find each other — the block-parent chain does not span sibling methods, so
-`Frame.read` and `Frame.write` consult the owning `MemPos` before the block. `MemPos` has no
+`Frame.read` and `Frame.write` consult the owning `MemPos` before the block — and they are about
+fields only, since locals are resolved by then. `MemPos` has no
 `equals`, so two instances are two objects, which is what identity should mean here.
 
-### A name with no value: field or local decides
+### A local resolves to its definition, and a branch joins with a phi
 
-When a read finds no node, `unassigned` splits on what javac says the name is. A **field** becomes a
+A use of a local is not an instruction. `Lowering` keeps a map from the declaration javac resolved
+to the value that variable currently holds, so `base + bonus` lowers to `binOp + 0 3` — naming the
+parameter and the multiply, not naming a variable twice and leaving "which write was that" to be
+settled by whoever draws the graph. Parameters are definitions too (`Param`), which is what makes
+the resolution total: every use in a body resolves to an instruction.
+
+`visitIf` is where the map forks. Both branches are lowered from the same definitions, and at the
+join each variable the two paths disagree about gets a `Phi` taking the value from each — drawn as
+one box carrying the variable's name. That box is why `c = b` after `if (…) { b = 13; }` reaches
+both 13 and whatever `b` held before, where a single mutable slot per variable gave it only the
+branch walked last. `bothPathsOfABranchReachAUseAfterIt` is the assertion; `if1/truth.md` is what it
+looked like without one.
+
+A branch that cannot fall out of its own bottom contributes nothing to the join —
+`completesNormally` decides, and errs towards yes, since merging a value that cannot arrive is the
+lesser wrong. Loops are not this yet: a back edge needs a phi whose operand is defined *later* in
+the list, which is the one forward-reference rule the instruction list currently keeps.
+
+### A name with no value: which kind decides
+
+When a *field* read finds no node, `unassigned` splits on what javac says the name is. A **field** becomes a
 value with nothing flowing into it — a field nothing has assigned yet holds its default, and reading
 one is ordinary Java, so that is what the diagram should say. So does an **enum constant**, whose
-declaration *is* the value. A **local or parameter** cannot be read before it is written, so finding
-none means the analysis lost it, and that still fails loudly with a file and a line.
+declaration *is* the value. Anything else is the analysis having lost the
+name, and that still fails loudly with a file and a line.
 
-Do not widen this. Turning the local case into a value too would draw every name codeflow has lost
-as one arriving from nowhere, which is indistinguishable from a real one — the silent wrongness the
-gate exists to prevent, with the loud failure removed. `aLocalWithNoValueStillFails` guards it.
+A **local** never reaches there at all: a use resolves to its definition while the tree is still in
+hand, so `Lowering` is where a local with nothing reaching it fails, and the position in the message
+is the read itself. Do not widen either gate. Turning the failure into a value would draw every name
+codeflow has lost as one arriving from nowhere, which is indistinguishable from a real one — the
+silent wrongness the gate exists to prevent, with the loud failure removed.
+`aLocalWithNoReachingDefinitionFailsWhereItIsRead` and `aLocalWithNoValueStillFails` guard it.
 
 ## Adding support for a Java construct
 

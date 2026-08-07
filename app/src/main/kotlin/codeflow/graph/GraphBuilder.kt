@@ -219,6 +219,21 @@ class GraphBuilderBlock(
     fun addTernaryOp(base: GraphNode.Base, condition: GraphNode, ifTrue: GraphNode, ifFalse: GraphNode) =
         addSelection(base, listOf(condition, ifTrue, ifFalse))
 
+    /**
+     * The variable at a join, drawn as a variable: the paths' values flow into one box.
+     *
+     * Not a [addSelection], although the shape is the same. A selection is an expression the source
+     * wrote and its condition flows in with the branches; this is a variable, and what decides
+     * between its inputs is the `if` above it rather than a value.
+     */
+    fun addPhi(base: GraphNode.Base, inputs: List<GraphNode>, isPrimitive: Boolean): GraphNode {
+        val type = if (isPrimitive) NodeType.VARIABLE else NodeType.OBJ_VARIABLE
+        val phiNode = graph.createGraphNode(type, base)
+        setLastNode(phiNode)
+        inputs.forEach { it.addEdge(phiNode) }
+        return phiNode
+    }
+
     fun addAssignment(lhsNode: GraphNode, rhsNode: GraphNode) {
         rhsNode.addEdge(lhsNode)
     }

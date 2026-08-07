@@ -234,6 +234,27 @@ class AppTest {
     }
 
     /**
+     * A value written in one branch of an `if` and one written before it both reach a use below it.
+     *
+     * `if (b == 7) { b = 13; } else { a = 17; }` leaves `c = b` able to hold 5 or 13 and `d = a` able
+     * to hold 5 or 17, and the diagram used to claim each could hold only one - the value from
+     * whichever branch was walked last. That is the failure this project is arranged around: not an
+     * error, not a gap, a complete-looking graph asserting a flow the program does not have and
+     * missing one it does.
+     *
+     * Asked with [reaches] rather than on adjacent edges because the join is a box of its own: `13`
+     * arrives at `c` through the phi for `b`, which is the point.
+     */
+    @Test
+    fun bothPathsOfABranchReachAUseAfterIt() {
+        val graph = buildGraph("if1", listOf("App.java"))
+        assertTrue(reaches(graph, "13", "c"), "the value written in the branch does not reach 'c'")
+        assertTrue(reaches(graph, "5", "c"), "the value written before the branch does not reach 'c'")
+        assertTrue(reaches(graph, "17", "d"), "the value written in the branch does not reach 'd'")
+        assertTrue(reaches(graph, "5", "d"), "the value written before the branch does not reach 'd'")
+    }
+
+    /**
      * A call to a method outside the analysed sources has no body to inline, so it becomes one
      * node that the arguments flow into and the result flows out of. Values still have to be
      * traceable through it.

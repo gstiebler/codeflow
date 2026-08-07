@@ -74,6 +74,28 @@ class WriteLocal(
     override fun render() = "write $name <- $value"
 }
 
+/**
+ * The value a variable holds where two paths come back together.
+ *
+ * One instruction per variable per join, taking the value that reaches it from each path, so a use
+ * below the join still resolves to a single instruction. Without it there is one slot per variable
+ * and the branch walked last wins - `if (c) { b = 13; }` followed by `use(b)` was drawn as taking
+ * only the 13, which is the diagram asserting the other value cannot arrive.
+ *
+ * It is drawn, as a box carrying the variable's name, because it is a place in the program: the two
+ * values really do meet there, and the alternative - joining every path straight onto every use -
+ * loses where that happened and fans out with every nested branch.
+ */
+class Phi(
+    val name: String,
+    val element: Element?,
+    val isPrimitive: Boolean,
+    override val inputs: List<Val>,
+    source: String
+) : Insn(source) {
+    override fun render() = "phi $name" + inputs.joinToString("") { " $it" }
+}
+
 /** `a + b`. [label] is already the display form, since `/` cannot be drawn as itself - see below. */
 class BinOp(val label: String, val left: Val, val right: Val, source: String) : Insn(source) {
     override val inputs get() = listOf(left, right)
@@ -96,9 +118,12 @@ class UnOp(val label: String, val operand: Val, source: String) : Insn(source) {
  * One value chosen from several, each of which reaches the result: `c ? a : b`, a `switch`
  * expression, the elements of an array.
  *
- * Which one is chosen is control flow, which is not modelled yet - §1 replaces this with a phi at a
- * join. Until then every input reaches the output, which is coarse rather than wrong: the reader is
- * shown every value the expression can produce, and the condition that decides among them.
+ * Every input reaches the output, which is coarse rather than wrong: the reader is shown every value
+ * the expression can produce, and the condition that decides among them.
+ *
+ * Not a [Phi], although both stand for a choice. This is an expression the source wrote, with a
+ * value of its own and a condition that flows into it; a phi is a variable at a place where two
+ * paths meet, and what decided between them is the branch above rather than any value.
  */
 class Select(val label: String, override val inputs: List<Val>, source: String) : Insn(source) {
     override fun render() = "select $label ${inputs.joinToString(" ")}"

@@ -109,7 +109,7 @@ class Lowering(private val symbols: Symbols) {
          * falls back to the name itself, which is the same compromise `JNodeId` makes and for the
          * same reason: on input that does not compile there is nothing better to key by.
          */
-        private val definitions = HashMap<Any, Val>()
+        private val definitions = LinkedHashMap<Any, Definition>()
 
         private fun emit(insn: Insn): Val {
             instructions.add(insn)
@@ -118,9 +118,23 @@ class Lowering(private val symbols: Symbols) {
 
         private fun key(element: Element?, name: String): Any = element ?: name
 
+        /**
+         * One variable and the value it currently holds.
+         *
+         * The name and the kind travel with the value because a join has to *emit* a definition -
+         * a [Phi] carries the variable's name like the writes it merges, and by then there is no
+         * declaration tree left to ask.
+         */
+        private class Definition(
+            val name: String,
+            val element: Element?,
+            val isPrimitive: Boolean,
+            val value: Val
+        )
+
         /** Records what a local holds from here on. Every write and every binding goes through it. */
-        private fun define(element: Element?, name: String, value: Val): Val {
-            definitions[key(element, name)] = value
+        private fun define(element: Element?, name: String, isPrimitive: Boolean, value: Val): Val {
+            definitions[key(element, name)] = Definition(name, element, isPrimitive, value)
             return value
         }
 
@@ -134,7 +148,12 @@ class Lowering(private val symbols: Symbols) {
             method.name.parameters.forEachIndexed { index, parameter ->
                 val element = method.element.parameters.getOrNull(index)
                 val name = parameter.name.toString()
-                define(element, name, emit(Param(name, element, index, ctx.location(parameter))))
+                define(
+                    element,
+                    name,
+                    symbols.isPrimitive(parameter),
+                    emit(Param(name, element, index, ctx.location(parameter)))
+                )
             }
         }
 
@@ -185,7 +204,7 @@ class Lowering(private val symbols: Symbols) {
          * it holds its default, which is ordinary Java, and is lowered as a field read instead.
          */
         private fun use(element: Element?, name: String, source: String): Val =
-            definitions[key(element, name)]
+            definitions[key(element, name)]?.value
                 ?: throw GraphException("'$name' at $source has no value reaching it")
 
         /**
@@ -198,8 +217,9 @@ class Lowering(private val symbols: Symbols) {
         private fun bind(variable: VariableTree, value: Val?, identity: Identity, ctx: ProcessorContext): Val {
             val element = symbols.element(variable)
             val name = variable.name.toString()
-            val insn = Bind(name, element, symbols.isPrimitive(variable), value, identity, ctx.location(variable))
-            return define(element, name, emit(insn))
+            val isPrimitive = symbols.isPrimitive(variable)
+            val insn = Bind(name, element, isPrimitive, value, identity, ctx.location(variable))
+            return define(element, name, isPrimitive, emit(insn))
         }
 
         override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): Val =
@@ -249,10 +269,12 @@ class Lowering(private val symbols: Symbols) {
             val value = evaluate(initializer, ctx)
             val element = symbols.element(node)
             val name = node.name.toString()
+            val isPrimitive = symbols.isPrimitive(node)
             return define(
                 element,
                 name,
-                emit(WriteLocal(name, element, symbols.isPrimitive(node), value, ctx.location(node)))
+                isPrimitive,
+                emit(WriteLocal(name, element, isPrimitive, value, ctx.location(node)))
             )
         }
 
@@ -275,7 +297,10 @@ class Lowering(private val symbols: Symbols) {
                 return emit(WriteField(receiver, lastName(target), element, primitive, value, ctx.location(target)))
             }
             val name = lastName(target)
-            return define(element, name, emit(WriteLocal(name, element, primitive, value, ctx.location(target))))
+            return define(
+                element, name, primitive,
+                emit(WriteLocal(name, element, primitive, value, ctx.location(target)))
+            )
         }
 
         override fun visitBinary(node: BinaryTree, ctx: ProcessorContext): Val {
@@ -287,6 +312,95 @@ class Lowering(private val symbols: Symbols) {
         override fun visitUnary(node: UnaryTree, ctx: ProcessorContext): Val {
             val operand = evaluate(node.expression, ctx)
             return emit(UnOp(unaryOperatorLabel(node), operand, ctx.location(node)))
+        }
+
+        /**
+         * `if`, which is where two paths part and come back together.
+         *
+         * The control flow is not in the instruction list - a [Phi] at the join is all of it that
+         * dataflow needs, and the list stays flat and linear for whoever reads it. Each branch is
+         * lowered from the same set of definitions, so the second one does not see what the first
+         * wrote; what merges them is the join, per variable the two paths disagree about.
+         *
+         * A branch that cannot reach the join contributes nothing to it. `if (x == null) return 0;`
+         * is most of the real cases, and merging the returning path would put a value on the
+         * diagram that no line below the `if` can ever hold.
+         */
+        override fun visitIf(node: IfTree, ctx: ProcessorContext): Val? {
+            evaluate(node.condition, ctx)
+            val before = LinkedHashMap(definitions)
+            scan(node.thenStatement, ctx)
+            val fromThen = if (completesNormally(node.thenStatement)) LinkedHashMap(definitions) else null
+            definitions.clear()
+            definitions.putAll(before)
+            val otherwise = node.elseStatement
+            otherwise?.let { scan(it, ctx) }
+            val fromElse = if (otherwise == null || completesNormally(otherwise)) {
+                LinkedHashMap(definitions)
+            } else {
+                null
+            }
+            if (fromThen == null || fromElse == null) {
+                (fromThen ?: fromElse)?.let { definitions.clear(); definitions.putAll(it) }
+                return null
+            }
+            join(fromThen, fromElse, ctx.location(node))
+            return null
+        }
+
+        /**
+         * The definitions after a branch: one per variable, and a [Phi] wherever the paths disagree.
+         *
+         * A name only one side knows is one the other side cannot see either - a variable declared
+         * inside a branch is out of scope below it - so it is carried across as it stands rather
+         * than merged with nothing.
+         */
+        private fun join(
+            fromThen: LinkedHashMap<Any, Definition>,
+            fromElse: LinkedHashMap<Any, Definition>,
+            source: String
+        ) {
+            definitions.clear()
+            (fromThen.keys + fromElse.keys).forEach { key ->
+                val onThen = fromThen[key]
+                val onElse = fromElse[key]
+                definitions[key] = when {
+                    onThen == null -> onElse!!
+                    onElse == null -> onThen
+                    onThen.value == onElse.value -> onThen
+                    else -> Definition(
+                        onThen.name,
+                        onThen.element,
+                        onThen.isPrimitive,
+                        emit(
+                            Phi(
+                                onThen.name,
+                                onThen.element,
+                                onThen.isPrimitive,
+                                listOf(onThen.value, onElse.value),
+                                source
+                            )
+                        )
+                    )
+                }
+            }
+        }
+
+        /**
+         * Whether control can fall out of the bottom of a statement.
+         *
+         * Only asked of a branch, and only to decide whether its definitions reach the join. It is
+         * an approximation and errs towards yes: a loop that never terminates and a `switch` whose
+         * every case returns both count as completing, which merges a value that cannot arrive
+         * rather than dropping one that can.
+         */
+        private fun completesNormally(statement: StatementTree): Boolean = when (statement) {
+            is ReturnTree, is ThrowTree, is BreakTree, is ContinueTree -> false
+            is BlockTree -> statement.statements.lastOrNull()?.let { completesNormally(it) } ?: true
+            is IfTree -> statement.elseStatement == null ||
+                    completesNormally(statement.thenStatement) ||
+                    completesNormally(statement.elseStatement)
+            else -> true
         }
 
         /**
@@ -382,7 +496,10 @@ class Lowering(private val symbols: Symbols) {
                 return emit(WriteField(receiver, lastName(target), element, true, combined, ctx.location(target)))
             }
             val name = lastName(target)
-            return define(element, name, emit(WriteLocal(name, element, true, combined, ctx.location(target))))
+            return define(
+                element, name, true,
+                emit(WriteLocal(name, element, true, combined, ctx.location(target)))
+            )
         }
 
         /**

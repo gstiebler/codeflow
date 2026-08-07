@@ -341,6 +341,42 @@ class LoweringTest {
     }
 
     /**
+     * A use after an `if` names both the value the branch wrote and the one it did not.
+     *
+     * `if (b == 7) { b = 13; } else { a = 17; }` leaves each of `a` and `b` with two values that can
+     * reach the lines below it, depending on which way the branch went. The walk had one slot per
+     * variable and the branch that ran last won: `c = b` was drawn taking only the 13 and `d = a`
+     * only the 17, so the diagram asserted that `c` cannot be 5 - a flow the program has, missing,
+     * with the two boxes it needed sitting right there on the page.
+     *
+     * A phi is the join written down. It takes the value from each path and is what a use below the
+     * `if` resolves to, which is what makes a use resolve to *one* instruction even where control
+     * flow means several values arrive.
+     */
+    @Test
+    fun aUseAfterABranchNamesTheValueFromEachPath() {
+        assertEquals(
+            listOf(
+                "0: param args",
+                "1: const 5",
+                "2: write a <- 1",
+                "3: write b <- 2",
+                "4: const 7",
+                "5: binOp == 3 4",
+                "6: const 13",
+                "7: write b <- 6",
+                "8: const 17",
+                "9: write a <- 8",
+                "10: phi a 2 9",
+                "11: phi b 7 3",
+                "12: write c <- 11",
+                "13: write d <- 10"
+            ),
+            lower("if1", listOf("App.java"), "App#main")
+        )
+    }
+
+    /**
      * A local read with nothing reaching it fails here, at the line that reads it.
      *
      * This is the one failure that stays hard, and it is now the lowering's to raise: a local cannot

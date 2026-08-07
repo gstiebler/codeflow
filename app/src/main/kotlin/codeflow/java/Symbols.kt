@@ -8,6 +8,8 @@ import com.sun.source.util.Trees
 import java.util.IdentityHashMap
 import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
+import javax.lang.model.element.ExecutableElement
+import javax.lang.model.element.TypeElement
 import javax.lang.model.util.Elements
 import javax.lang.model.type.TypeKind
 import javax.lang.model.type.TypeMirror
@@ -65,6 +67,17 @@ class Symbols private constructor(
      * from these sources.
      */
     fun isDeclaredInSources(element: Element?): Boolean = element != null && element in declared
+
+    /**
+     * Whether [candidate], seen from [type], is the method that runs for a call to [declared].
+     *
+     * javac's own answer rather than a name-and-signature comparison of ours: overriding has rules
+     * about visibility, static-ness, return types and generic substitution that a match on the
+     * simple name gets wrong in both directions, and getting it wrong here inlines a body the call
+     * cannot reach.
+     */
+    fun overrides(candidate: ExecutableElement, declared: ExecutableElement, type: TypeElement): Boolean =
+        elementUtils.overrides(candidate, declared, type)
 
     /**
      * Whether this declaration was written in the source.

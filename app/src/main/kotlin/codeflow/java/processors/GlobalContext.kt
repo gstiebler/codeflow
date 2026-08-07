@@ -10,6 +10,9 @@ import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.Modifier
+import javax.lang.model.element.TypeElement
+import javax.lang.model.type.DeclaredType
+import javax.lang.model.util.ElementFilter
 
 class GlobalContext(val symbols: Symbols) {
     /**
@@ -84,6 +87,36 @@ class GlobalContext(val symbols: Symbols) {
 
     /** Null for a method outside the analysed sources, which has no body to inline. */
     fun findMethod(element: Element?): Method? = element?.let { methods[it] }
+
+    /**
+     * The body a value of [type] runs for a call to [declared], or null when these sources have none.
+     *
+     * Which implementation a call reaches is decided at run time by the receiver's class, so asking
+     * the class rather than the call site is the whole of dispatch. The walk goes up the superclass
+     * chain because a class that does not override inherits, and the inherited declaration is the
+     * one registered - `Child` declaring no `shift` runs `Parent.shift`, which is what the
+     * parentMethod fixture already draws.
+     *
+     * Null means these sources register nothing for it: an interface method whose implementation is
+     * outside the corpus, or a class javac loaded from the classpath. The caller falls back to what
+     * javac resolved statically, which is the opaque EXTERNAL path when that has no body either.
+     */
+    fun implementation(declared: ExecutableElement, type: Element): Method? {
+        // `overrides` is asked *seen from* the receiver's own class, not from whichever superclass
+        // the walk has reached - that is the parameter's whole purpose, and passing `current`
+        // instead would ask whether Base.f overrides Base.f as seen from Base.
+        val receiverType = type as? TypeElement ?: return null
+        var current: TypeElement? = receiverType
+        while (current != null) {
+            for (candidate in ElementFilter.methodsIn(current.enclosedElements)) {
+                if (candidate == declared || symbols.overrides(candidate, declared, receiverType)) {
+                    return methods[candidate]
+                }
+            }
+            current = (current.superclass as? DeclaredType)?.asElement() as? TypeElement
+        }
+        return null
+    }
 
     /**
      * Every method named `main`, ordered by where it was written.

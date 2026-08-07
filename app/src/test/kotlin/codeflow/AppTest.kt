@@ -16,6 +16,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 
@@ -784,24 +785,80 @@ class AppTest {
     }
 
     /**
-     * A call through an interface is opaque; a call to a class that has the body inlines it.
+     * A call through an interface reaches the implementation its receiver was constructed as.
      *
-     * The declaration with no body was registered as if it had one, so reaching it was a
-     * NullPointerException with no file or line - the one failure mode worse than a wrong graph,
-     * because it names nothing to look at. It is left unregistered instead: which implementation a
-     * call reaches is decided by the receiver's run-time class, and picking one would be a guess
-     * drawn as fact.
+     * This was the fixture that asserted the opposite: a declaration with no body was left
+     * unregistered, so the call went opaque rather than guessing which implementation it reached.
+     * The refusal was right and the reason it gave was wrong - which implementation a call reaches
+     * is decided by the receiver's class, and the receiver's class is *known* here, because
+     * `new Doubling()` is on the page two lines up.
+     *
+     * What is still refused is a receiver that says nothing: no tracked object means no dispatch,
+     * and the opaque path is what that draws.
      */
     @Test
-    fun aCallThroughAnInterfaceIsOpaqueAndACallWithABodyIsNot() {
+    fun aCallThroughAnInterfaceReachesTheImplementationItsReceiverHas() {
         val graph = buildGraph("abstractMethod", listOf("App.java"))
         val edges = edgeLabels(graph)
-        val types = nodeTypes(graph)
-        assertTrue("read" to "EXTERNAL" in types, "the interface call is not opaque: $types")
-        assertTrue("read" to "RETURN" in types, "the direct call was not inlined: $types")
-        assertTrue("read" to "viaInterface" in edges, "the opaque call produces no value: $edges")
-        assertTrue("seed" to "+" in edges, "the body reached through the class is not inlined: $edges")
+        assertFalse("read" to "EXTERNAL" in nodeTypes(graph), "the interface call is still opaque: ${nodeTypes(graph)}")
+        assertTrue(reaches(graph, "3", "viaInterface"), "the interface call drops its argument: $graph")
         assertTrue(reaches(graph, "4", "viaClass"), "the value does not survive the direct call: $graph")
+        // One per call site: the body is inlined at each, so `Doubling.read` is drawn twice.
+        assertEquals(2, edges.count { it == "+" to "read" }, "both calls should inline the same body: $edges")
+    }
+
+    /**
+     * A call reaches the implementation the receiver's object has, not the one its declared type
+     * names.
+     *
+     * `Base b = new Sub(); b.f(7)` resolved to `Base.f`, which is what javac answers about the
+     * declared type, and codeflow inlined it: `out` received `7 + 1` for a program returning 700.
+     * No EXTERNAL node and no warning - the wrong body drawn with the same confidence as a right
+     * one, which is the failure the whole project is organised against.
+     *
+     * The object is what decides, and it was already known here: `b` carries the MemPos that
+     * `new Sub()` created, and inlining is per call site, so nothing had to be invented to ask.
+     */
+    @Test
+    fun aCallReachesTheOverrideTheReceiverActuallyHas() {
+        val graph = buildGraph("overriddenMethod", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("100" to "*" in edges, "the override's body is not drawn: $edges")
+        assertTrue(reaches(graph, "7", "out"), "the argument does not reach the result: $graph")
+        assertFalse("1" to "+" in edges, "the superclass body was inlined instead: $edges")
+    }
+
+    /**
+     * `super.f(...)` runs the implementation the written class names, not the one the object is.
+     *
+     * The receiver of a `super` call is the same object as `this`, so dispatching on the object
+     * sends it back to the method it is written inside. The lowering used to collapse `this` and
+     * `super` into one receiver, which was right until the object started deciding anything.
+     */
+    @Test
+    fun aSuperCallDoesNotDispatchBackToTheOverride() {
+        val graph = buildGraph("overriddenSuper", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("1" to "+" in edges, "the superclass body is not drawn: $edges")
+        assertTrue("100" to "*" in edges, "the override's own body is not drawn: $edges")
+        assertFalse("f" to "EXTERNAL" in nodeTypes(graph), "the super call went opaque: ${nodeTypes(graph)}")
+    }
+
+    /**
+     * An unqualified call inside a superclass method reaches the subclass's override.
+     *
+     * `step(x)` in `Base.template` names no receiver, so it runs on the object `template` was
+     * entered on. One object is one MemPos across the whole inheritance chain - `construct` makes
+     * one and `delegate` runs the superclass constructors on it - so the position says `Sub` even
+     * while a method of `Base` is running on it. Without that, a template method is drawn as
+     * though the hook were never overridden.
+     */
+    @Test
+    fun anUnqualifiedCallInASuperclassReachesTheOverride() {
+        val graph = buildGraph("templateMethod", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("100" to "*" in edges, "the override is not reached through `this`: $edges")
+        assertTrue(reaches(graph, "7", "out"), "the argument does not reach the result: $graph")
     }
 
     /**
@@ -1558,6 +1615,9 @@ class AppTest {
     @Test fun statementLambda() = codeflow("statementLambda", listOf("App.java"))
     @Test fun enhancedFor() = codeflow("enhancedFor", listOf("App.java"))
     @Test fun abstractMethod() = codeflow("abstractMethod", listOf("App.java"))
+    @Test fun overriddenMethod() = codeflow("overriddenMethod", listOf("App.java"))
+    @Test fun overriddenSuper() = codeflow("overriddenSuper", listOf("App.java"))
+    @Test fun templateMethod() = codeflow("templateMethod", listOf("App.java"))
     @Test fun memberReference() = codeflow("memberReference", listOf("App.java"))
     @Test fun voidReturn() = codeflow("voidReturn", listOf("App.java"))
     @Test fun varargs() = codeflow("varargs", listOf("App.java"))

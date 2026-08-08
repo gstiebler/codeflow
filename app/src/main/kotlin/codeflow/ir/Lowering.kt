@@ -40,6 +40,7 @@ class Lowering(private val symbols: Symbols) {
         val body = Body(symbols, method.ctx)
         body.declareParameters(method)
         method.name.body?.accept(body, method.ctx)
+        body.finish()
         return MethodBody(method, body.instructions)
     }
 
@@ -100,6 +101,28 @@ class Lowering(private val symbols: Symbols) {
 
         /** Where a `return` goes when it belongs to a lambda rather than to the method. */
         private val lambdaReturns = ArrayDeque<MutableList<Val>>()
+
+        /**
+         * Every `return` that carries a value, held until the body has been walked - see [finish].
+         *
+         * A guarded exit does not reach the join below its `if`, so nothing gated it and the value
+         * the whole guard turns on was left with no edge out of it. The association can only be made
+         * once the value the *surviving* path returns is known, which is at the bottom of the method.
+         */
+        private val exits = ArrayList<Exit>()
+
+        /** One `return`, and the guard that decided it ran. */
+        private class Exit(val value: Val, val source: String, var gate: ExitGate? = null)
+
+        /**
+         * The `if` a [Exit] sits under, claimed once and by the innermost one.
+         *
+         * A `return` two branches deep is really guarded by both conditions, and naming only the
+         * inner one is coarser than the truth - but it is the condition nearest the exit, and the
+         * alternative is a conjunction node the source never wrote. Re-claiming it from further out
+         * would replace the near guard with the far one, which is worse than either.
+         */
+        private class ExitGate(val condition: Val, val arm: String, val source: String)
 
         /**
          * Where a `yield` goes: the arm of the `switch` expression currently being lowered.
@@ -402,12 +425,19 @@ class Lowering(private val symbols: Symbols) {
         override fun visitIf(node: IfTree, ctx: ProcessorContext): Val? {
             val condition = evaluate(node.condition, ctx)
             val before = LinkedHashMap(definitions)
+            val source = ctx.location(node)
+            // A branch that leaves the method is claimed here rather than at the join, because it is
+            // not at the join: that is the whole reason a guarded exit had nothing gating it.
+            val beforeThen = exits.size
             scan(node.thenStatement, ctx)
+            guard(beforeThen, condition, "true", source)
             val fromThen = if (completesNormally(node.thenStatement)) LinkedHashMap(definitions) else null
             definitions.clear()
             definitions.putAll(before)
             val otherwise = node.elseStatement
+            val beforeElse = exits.size
             otherwise?.let { scan(it, ctx) }
+            guard(beforeElse, condition, "false", source)
             val fromElse = if (otherwise == null || completesNormally(otherwise)) {
                 LinkedHashMap(definitions)
             } else {
@@ -417,7 +447,7 @@ class Lowering(private val symbols: Symbols) {
             // join is not there to be named: `if (x == null) return 0;` has one path, and it is the
             // false one.
             val paths = listOfNotNull(fromThen?.to("true"), fromElse?.to("false"))
-            join(paths.map { it.first }, ctx.location(node), Gate("if", condition), paths.map { it.second })
+            join(paths.map { it.first }, source, Gate("if", condition), paths.map { it.second })
             return null
         }
 
@@ -972,14 +1002,86 @@ class Lowering(private val symbols: Symbols) {
             return null
         }
 
-        /** A `return` inside a lambda belongs to the lambda - see [visitLambdaExpression]. */
+        /**
+         * A `return` inside a lambda belongs to the lambda - see [visitLambdaExpression].
+         *
+         * A value-carrying `return` is recorded rather than emitted, because which value the method
+         * produces is a question the exits can only answer together - see [finish]. `return;`
+         * carries none and joins nothing, so it is emitted where it stands.
+         */
         private fun returnValue(value: Val?, node: ReturnTree, ctx: ProcessorContext): Val? {
             val lambda = lambdaReturns.lastOrNull()
             if (lambda != null) {
                 value?.let { lambda.add(it) }
                 return value
             }
-            return emit(Return(value, ctx.location(node)))
+            if (value == null) return emit(Return(null, ctx.location(node)))
+            exits.add(Exit(value, ctx.location(node)))
+            return null
+        }
+
+        /**
+         * The value the method produces, and the guards that chose between the candidates.
+         *
+         * Run once, after the body: a guarded `return` is the same choice a `?:` writes as an
+         * expression, and it is drawn the same way - one [Select] per guard, captioned `if`, taking
+         * the guarded value on one arm and everything below it on the other. Folded newest-first, so
+         * the guard nearest the final `return` ends up innermost, which is the order they are tested
+         * in.
+         *
+         * The fold needs a value for the path that fell through, so it only runs when there is at
+         * most one exit no `if` claimed. Several means the method leaves from places this cannot
+         * order - every arm of a `switch` returning is the shape - and inventing an order between
+         * them would be a diagram asserting a test the source does not make. Those stay as they were:
+         * one [Return] each, arriving at the result unlabelled, which says "one of these" and stops
+         * there honestly.
+         */
+        fun finish() {
+            if (exits.isEmpty()) return
+            val ungated = exits.filter { it.gate == null }
+            if (ungated.size > 1) {
+                exits.forEach { emit(Return(it.value, it.source)) }
+                return
+            }
+            var result = ungated.firstOrNull()?.value
+            var source = ungated.firstOrNull()?.source
+            for (exit in exits.asReversed()) {
+                val gate = exit.gate ?: continue
+                if (result == null) {
+                    result = exit.value
+                    source = exit.source
+                    continue
+                }
+                // The same value on both arms is not a choice, and naming it twice in `arms` would
+                // keep only one of the two names anyway.
+                if (exit.value == result) continue
+                val onTrue = if (gate.arm == "true") exit.value else result
+                val onFalse = if (gate.arm == "true") result else exit.value
+                result = emit(
+                    Select(
+                        "if",
+                        listOf(onTrue, onFalse, gate.condition),
+                        gate.source,
+                        alternatives = listOf(onTrue, onFalse),
+                        condition = gate.condition,
+                        arms = mapOf(onTrue to "true", onFalse to "false")
+                    )
+                )
+                source = gate.source
+            }
+            emit(Return(result, source ?: exits.last().source))
+        }
+
+        /**
+         * Claims the exits one branch of an `if` left behind, for the branch that cannot fall out of
+         * its own bottom. Only the ungated ones: a nearer `if` inside the branch has already named
+         * the ones it decided - see [ExitGate].
+         */
+        private fun guard(from: Int, condition: Val, arm: String, source: String) {
+            for (index in from until exits.size) {
+                val exit = exits[index]
+                if (exit.gate == null) exit.gate = ExitGate(condition, arm, source)
+            }
         }
 
         /**

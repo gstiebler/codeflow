@@ -1437,14 +1437,66 @@ class AppTest {
      * dead code - readable, plausible, and claiming the method can only ever return one thing.
      *
      * Ported from codemap's `return` fixture.
+     *
+     * Asked with [reaches] rather than on adjacent edges because a guarded exit joins through the
+     * choosing its guard gates - see [theGuardOfAnEarlyReturnReachesTheValueItDecides]. That every
+     * one of the three still arrives is the claim, and it is the half of it a gate could have
+     * broken: folding the exits is where a value the method really can produce would go missing.
      */
     @Test
     fun everyReturnInAMethodProducesItsValue() {
-        val edges = edgeLabels(buildGraph("earlyReturn", listOf("App.java")))
-        assertTrue("100" to "classify" in edges, "the first guard's return is missing: $edges")
-        assertTrue("55" to "classify" in edges, "the second guard's return is missing: $edges")
-        assertTrue("*" to "classify" in edges, "the fall-through return is missing: $edges")
+        val graph = buildGraph("earlyReturn", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue(reaches(graph, "100", "classify"), "the first guard's return is missing: $edges")
+        assertTrue(reaches(graph, "55", "classify"), "the second guard's return is missing: $edges")
+        assertTrue(reaches(graph, "*", "classify"), "the fall-through return is missing: $edges")
         assertTrue("classify" to "result" in edges, "the method's value does not reach the caller: $edges")
+    }
+
+    /**
+     * The guard of an early `return` reaches the value it decides, as the condition of an `if` that
+     * writes a variable already does.
+     *
+     * `if (v > 100) { return r; }` above a `return s` is a choice between two values, and it used to
+     * be drawn as two plain arrows into the RETURN node with the comparison that chose sitting on
+     * the page with no edge leaving it at all. That is [theConditionOfAnIfReachesEachValueItDecides]'
+     * wound in the one place the join for a variable never looked: a guarded exit does not reach the
+     * join below the `if`, so nothing gated it and nothing said so.
+     *
+     * `if2` has the two shapes side by side. The outer `if` falls out of its own bottom on both
+     * paths, so `r` joins below it in the ordinary way; the inner one leaves the method, so its
+     * value joins at the exit. Three gated joins, and the counts are the assertion so that a run
+     * gating all of them or none of them fails.
+     */
+    @Test
+    fun theGuardOfAnEarlyReturnReachesTheValueItDecides() {
+        val graph = buildGraph("if2", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertEquals(4, graph.count { it.contains("-->|if|") }, "a condition does not reach its join: $graph")
+        assertEquals(4, graph.count { it.contains("-->|true|") }, "the true paths are not marked: $graph")
+        assertEquals(4, graph.count { it.contains("-->|false|") }, "the false paths are not marked: $graph")
+        assertTrue("if" to "classify" in edges, "the choice does not reach the method's value: $edges")
+        assertFalse("s" to "classify" in edges, "the fall-through arrives ungated: $edges")
+        assertTrue(reaches(graph, "1", "classify"), "the guarded return does not reach the method's value")
+        assertTrue(reaches(graph, "2", "classify"), "the fall-through does not reach the method's value")
+    }
+
+    /**
+     * When both arms of an `if` leave the method, the choice between them is still drawn.
+     *
+     * There is no path falling through for the guard to choose against, so the older exit is what
+     * the younger one is gated against - the case the fold would otherwise have no second value for,
+     * and `int f(x) { if (c) return a; else return b; }` is ordinary Java rather than a corner.
+     * Both arms named, and neither arriving at the result on its own.
+     */
+    @Test
+    fun bothArmsOfAnIfThatLeavesTheMethodStillJoin() {
+        val edges = edgeLabels(buildGraph("if2", listOf("App.java")))
+        assertTrue("6" to "if" in edges, "the value returned by the true arm is missing: $edges")
+        assertTrue("7" to "if" in edges, "the value returned by the false arm is missing: $edges")
+        assertTrue("if" to "either" in edges, "the choice does not reach the method's value: $edges")
+        assertFalse("6" to "either" in edges, "the true arm arrives ungated: $edges")
+        assertFalse("7" to "either" in edges, "the false arm arrives ungated: $edges")
     }
 
     /**
@@ -1756,6 +1808,7 @@ class AppTest {
     @Test fun files() = codeflow("files", listOf("App.java", "ClassX.java", "ClassY.java"))
     @Test fun constructor() = codeflow("constructor", listOf("App.java"))
     @Test fun if1() = codeflow("if1", listOf("App.java"))
+    @Test fun if2() = codeflow("if2", listOf("App.java"))
     @Test fun tryCatch() = codeflow("tryCatch", listOf("App.java"))
     @Test fun forLoop() = codeflow("forLoop", listOf("App.java"))
     @Test fun implicitThis() = codeflow("implicitThis", listOf("App.java"))

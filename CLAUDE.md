@@ -366,6 +366,32 @@ A branch that cannot fall out of its own bottom contributes nothing to the join 
 lesser wrong. It is also why the arm names are built alongside the path list rather than assumed:
 `if (x == null) return 0;` has one path, and it is the false one.
 
+**A guarded `return` joins at the exit, since it is not at the join.** That branch leaves the
+method, so it contributes nothing below the `if` — and for a guard clause that is the *whole* branch,
+so no phi is built, and the comparison the method turns on had no edge leaving it at all. The same
+wound, in the one place a variable's join could never look. `Lowering.finish` closes it: a
+value-carrying `return` is recorded as an `Exit` rather than emitted, an enclosing `if` whose branch
+cannot complete claims the exits that branch left, and after the body they fold newest-first into one
+`Select` per guard — captioned `if`, the guarded value on one arm, everything below it on the other,
+gated by the comparison. So `earlyReturn` draws `> -->|if| if`, and `recursion` draws the base case
+and the recursive case as the two arms of `n == 0` rather than as two arrows arriving at `fact`.
+
+It is a `Select` and not a `Phi` because a guarded exit is the same choice `return c ? a : b` writes
+as an expression, and the result is not a variable — the RETURN node the method already has is what
+the choosing feeds, so there is no second box to name. The fold reuses the ternary's drawing
+unchanged.
+
+Two things it deliberately does not do. A `return` two branches deep is claimed by the **innermost**
+`if` alone, so the guard named is the one nearest the exit rather than the conjunction of every
+condition enclosing it — coarser than the truth, and the alternative is an `and` node the source
+never wrote. And the fold needs a value for the path that fell through, so it runs only when at most
+one exit went unclaimed: several means the method leaves from places nothing here can order — every
+arm of a `switch` returning, or a `try` and its handler each returning — and those stay as they were,
+one `Return` each arriving unlabelled, which says "one of these" and stops there honestly. `if2` is
+the fixture for both halves that do fold, `theGuardOfAnEarlyReturnReachesTheValueItDecides` for the
+guard clause and `bothArmsOfAnIfThatLeavesTheMethodStillJoin` for the case where no path falls
+through and the older exit is what the younger one is gated against.
+
 **An edge says what it means, not just where it goes.** A gated join takes three things that are not
 interchangeable — the value if the test held, the value if it did not, and the test — and three
 identical arrows say only "one of these reached it", which is most of what the gate was added to
@@ -514,7 +540,7 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
 
 `AppTest.kt` has three kinds of assertion, and the mix is deliberate:
 
-- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 63 of them. They certify
+- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 64 of them. They certify
   *unchanged*, not *correct*. `ternary/truth.md` was once written from a buggy run and passed
   happily while encoding a graph with a branch missing. Treat a green golden file as evidence of
   nothing.

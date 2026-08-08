@@ -4,7 +4,7 @@ flowchart TD
     n1[main]:::RETURN
     n2[args]:::FUNC_PARAM
     n3[70]:::LITERAL
-    n18[result]:::VARIABLE
+    n20[result]:::VARIABLE
     n3[70]:::LITERAL --> n6[score]:::FUNC_PARAM
     subgraph b4["classify"]
       n5[classify]:::RETURN
@@ -20,20 +20,32 @@ flowchart TD
       n15[2]:::LITERAL
       n16[scale]:::VARIABLE
       n17[*]:::BIN_OP
-      n5[classify]:::RETURN --> n18[result]:::VARIABLE
+      n18[if]:::BIN_OP
+      n19[if]:::BIN_OP
+      n5[classify]:::RETURN --> n20[result]:::VARIABLE
       n6[score]:::FUNC_PARAM --> n8[>]:::BIN_OP
       n6[score]:::FUNC_PARAM --> n11[>]:::BIN_OP
       n7[90]:::LITERAL --> n8[>]:::BIN_OP
-      n9[100]:::LITERAL --> n5[classify]:::RETURN
+      n8[>]:::BIN_OP -->|if| n19[if]:::BIN_OP
+      n9[100]:::LITERAL -->|true| n19[if]:::BIN_OP
       n10[50]:::LITERAL --> n11[>]:::BIN_OP
-      n12[55]:::LITERAL --> n5[classify]:::RETURN
+      n11[>]:::BIN_OP -->|if| n18[if]:::BIN_OP
+      n12[55]:::LITERAL -->|true| n18[if]:::BIN_OP
       n13[10]:::LITERAL --> n14[floor]:::VARIABLE
       n14[floor]:::VARIABLE --> n17[*]:::BIN_OP
       n15[2]:::LITERAL --> n16[scale]:::VARIABLE
       n16[scale]:::VARIABLE --> n17[*]:::BIN_OP
-      n17[*]:::BIN_OP --> n5[classify]:::RETURN
+      n17[*]:::BIN_OP -->|false| n18[if]:::BIN_OP
+      n18[if]:::BIN_OP -->|false| n19[if]:::BIN_OP
+      n19[if]:::BIN_OP --> n5[classify]:::RETURN
     end
   end
+  linkStyle 5 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 6 stroke:#2e7d32,color:#2e7d32
+  linkStyle 8 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 9 stroke:#2e7d32,color:#2e7d32
+  linkStyle 14 stroke:#c62828,color:#c62828
+  linkStyle 15 stroke:#c62828,color:#c62828
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

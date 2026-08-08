@@ -102,6 +102,14 @@ class Lowering(private val symbols: Symbols) {
         private val lambdaReturns = ArrayDeque<MutableList<Val>>()
 
         /**
+         * Where a `yield` goes: the arm of the `switch` expression currently being lowered.
+         *
+         * A stack, because an arm may hold a `switch` expression of its own, and a `yield` belongs
+         * to the innermost one.
+         */
+        private val yields = ArrayDeque<MutableList<Val>>()
+
+        /**
          * The value each local currently holds, which is what a use of it resolves to.
          *
          * Keyed by the declaration javac resolved, so two `x`es in disjoint scopes are two entries
@@ -176,6 +184,15 @@ class Lowering(private val symbols: Symbols) {
          * Which it is comes from javac, asked once here, rather than from two visitors each
          * remembering to consult the object the method runs on - which is how a field written in a
          * constructor and read in another method came to resolve to nothing at all.
+         *
+         * And believed only when the answer is the kind a name can be. `import static
+         * OtherModule.SOME_CONSTANT` resolves to nothing when that module is not in the directory,
+         * and javac says so by handing back a `ClassSymbol` - kind CLASS, where a variable was asked
+         * for, the same wrong-kind answer a call on an error-typed receiver gives. Taken at face
+         * value it reached [use] and took the whole run down, so one statically imported constant
+         * from one module away produced no output for the entire corpus. A name that is not a
+         * variable is not a *local* codeflow lost, which is what [use] is there to catch, so the gate
+         * below is exactly as tight as it was: it still sees every name javac resolved to a variable.
          */
         override fun visitIdentifier(node: IdentifierTree, ctx: ProcessorContext): Val {
             if (node.name.contentEquals("this")) return emit(ThisRef(ctx.location(node)))
@@ -191,6 +208,9 @@ class Lowering(private val symbols: Symbols) {
                     )
                 )
             }
+            if (element != null && !element.kind.isVariable) {
+                return emit(Opaque(node.name.toString(), emptyList(), ctx.location(node)))
+            }
             return use(element, node.name.toString(), ctx.location(node))
         }
 
@@ -203,9 +223,19 @@ class Lowering(private val symbols: Symbols) {
          * arriving from nowhere is indistinguishable from a real one. A *field* never reaches here -
          * it holds its default, which is ordinary Java, and is lowered as a field read instead.
          */
-        private fun use(element: Element?, name: String, source: String): Val =
-            definitions[key(element, name)]?.value
-                ?: throw GraphException("'$name' at $source has no value reaching it")
+        private fun use(element: Element?, name: String, source: String): Val {
+            definitions[key(element, name)]?.let { return it.value }
+            // Attribution can resolve a *declaration* and not a use of it: a class whose supertype is
+            // outside the corpus has its own parameters attributed while the body reading them does
+            // not, so `super(reason.errorCode(), ...)` recorded `reason` under its PARAMETER element
+            // and read it under a null one. Two keys, one variable, same method - and the read failed
+            // the whole corpus. Falling back to the name is the compromise `definitions` documents
+            // already; what is new is applying it when only one side is unresolved. Only then, and
+            // only to a definition this body emitted: a name javac *did* resolve to a variable with
+            // nothing reaching it is the analysis having lost it, and still says so.
+            if (element == null) definitions.values.lastOrNull { it.name == name }?.let { return it.value }
+            throw GraphException("'$name' at $source has no value reaching it")
+        }
 
         /**
          * A name introduced by something other than a declaration or an assignment - see [Bind].
@@ -222,16 +252,30 @@ class Lowering(private val symbols: Symbols) {
             return define(element, name, isPrimitive, emit(insn))
         }
 
-        override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): Val =
-            emit(
+        override fun visitMemberSelect(node: MemberSelectTree, ctx: ProcessorContext): Val {
+            val receiver = receiverOf(node.expression, ctx)
+            val element = symbols.element(node)
+            // The wrong-kind rule at a member: javac reports a member it could not find by handing
+            // back a `ClassSymbol` named `Owner.member`, kind CLASS, typed ERROR - the same answer
+            // `visitIdentifier` gets for a name it could not find. A class whose supertype is
+            // outside the corpus has every inherited field come back that way, so `this.currency`
+            // in a subclass of a class one module over reached `unassigned` as a name javac had
+            // resolved to something that is not a field, and the run died. The field belongs to a
+            // class codeflow cannot see, which is what `EXTERNAL` says.
+            if (element != null && !element.kind.isVariable) {
+                val inputs = if (receiver is Receiver.Value) listOf(receiver.value) else emptyList()
+                return emit(Opaque(node.identifier.toString(), inputs, ctx.location(node)))
+            }
+            return emit(
                 ReadField(
-                    receiverOf(node.expression, ctx),
+                    receiver,
                     node.identifier.toString(),
-                    symbols.element(node),
+                    element,
                     symbols.isPrimitive(node),
                     ctx.location(node)
                 )
             )
+        }
 
         /**
          * The object an access or a call is written against.
@@ -248,6 +292,11 @@ class Lowering(private val symbols: Symbols) {
                 if (expression.name.contentEquals("super")) return Receiver.Super
             }
             if (isTypeName(expression)) return Receiver.TypeName
+            // `boolean.class`. A primitive type name has no Element for isTypeName to ask about, so
+            // this fell through to being evaluated as a value - and a type produces none, so the run
+            // died at `enum JavaType { BOOLEAN(boolean.class), ... }`. The kind is the only thing
+            // that can answer here, which is the companion check to the one in `scan`.
+            if (expression.kind in TYPE_KINDS) return Receiver.TypeName
             return Receiver.Value(evaluate(expression, ctx))
         }
 
@@ -647,20 +696,67 @@ class Lowering(private val symbols: Symbols) {
         }
 
         /**
-         * `switch` used as an expression, which is `?:` with more than two branches.
+         * `switch` used as an expression: `?:` with more than two branches, and the statement form
+         * with the value kept.
          *
-         * Only the `case X -> expression` form produces a value here. A branch that yields out of a
-         * block would need the `yield` traced out of it, and guessing instead would produce a value
-         * arriving from nowhere.
+         * Same shape as [visitSwitch] for the same reasons, and it was not: the labels were never
+         * lowered, so `case FLAT ->` compared nothing where the statement form compared it, and a
+         * pattern label bound no name at all - the read below it then failed several lines from the
+         * construct at fault, which is the trap [scan]'s own comment describes. The arms were also
+         * lowered in sequence from one set of definitions, so an arm saw what the arm above it wrote;
+         * exactly one arm runs, so they fork from the entry and are joined at the end.
          */
         override fun visitSwitchExpression(node: SwitchExpressionTree, ctx: ProcessorContext): Val {
             val selector = evaluate(node.expression, ctx)
-            val branches = node.cases.map { case ->
-                val body = case.body
-                if (body is ExpressionTree) evaluate(body, ctx) else unmodelled(case, listOf(selector), ctx)
+            val entry = LinkedHashMap(definitions)
+            val exits = ArrayList<Map<Any, Definition>>()
+            val alternatives = ArrayList<Val>()
+            node.cases.forEach { case ->
+                definitions.clear()
+                definitions.putAll(entry)
+                case.labels.forEach { label -> caseLabel(label, selector, ctx) }
+                scan(case.guard, ctx)
+                alternatives.addAll(armValues(case, ctx))
+                // An arm that throws reaches neither the value nor the code below the switch. There
+                // is no fall-through to allow for: every arm of an expression switch, arrow or
+                // colon, has to complete abruptly, so a `yield` is the only way out of the bottom.
+                val last = case.body ?: case.statements?.lastOrNull()
+                if (last !is StatementTree || completesNormally(last)) exits.add(LinkedHashMap(definitions))
             }
-            return emit(Select("switch", listOf(selector) + branches, ctx.location(node),
-                alternatives = branches, condition = selector))
+            join(exits, ctx.location(node), Gate("switch", selector))
+            return emit(Select("switch", listOf(selector) + alternatives, ctx.location(node),
+                alternatives = alternatives, condition = selector))
+        }
+
+        /**
+         * The values one arm of a `switch` expression can produce, which is not always one.
+         *
+         * An arrow arm with an expression body produces that expression. A block body produces what
+         * its `yield`s hand back, and there is one per path through the block. An arm that cannot
+         * complete produces *nothing*: `default -> throw new UnsupportedOperationException(...)` is
+         * how most real switches spell "no other value is possible", and it was being drawn as an
+         * [Unmodelled] alternative of the result - the switch claiming it could evaluate to a value
+         * that arm can never hand back, and passing that value's objects on through
+         * [Select.alternatives]. The block was not walked either, so everything it computed was
+         * absent from the diagram with only the arm's own box to suggest anything was there.
+         */
+        private fun armValues(case: CaseTree, ctx: ProcessorContext): List<Val> {
+            val body = case.body
+            if (body is ExpressionTree) return listOf(evaluate(body, ctx))
+            val collected = ArrayList<Val>()
+            yields.addLast(collected)
+            if (body != null) scan(body, ctx) else case.statements?.forEach { scan(it, ctx) }
+            yields.removeLast()
+            return collected
+        }
+
+        /** `yield x;` hands a value to the enclosing `switch` expression, the way `return` does. */
+        override fun visitYield(node: YieldTree, ctx: ProcessorContext): Val? {
+            val value = evaluate(node.value, ctx)
+            val arm = yields.lastOrNull()
+                ?: throw GraphException("'yield' at ${ctx.location(node)} is in no switch expression")
+            arm.add(value)
+            return null
         }
 
         /**
@@ -973,22 +1069,20 @@ class Lowering(private val symbols: Symbols) {
             Tree.Kind.MEMBER_REFERENCE, Tree.Kind.NEW_ARRAY
         )
 
-        /**
-         * Statement kinds either handled above or whose children are the whole of their dataflow.
-         *
-         * A statement produces no value, so scanning through one is not the fabricated edge that
-         * doing the same to an expression is. What makes a statement dangerous is *binding a name*,
-         * *reading a value* that nothing then notices, or *containing code that does not run here* -
-         * so those have visitors, and this set is what is left. Control flow is deliberately in it
-         * and deliberately approximate: an `if` lowers to both arms in sequence, which §1 replaces
-         * with a join.
-         */
         /** The operators that write back to what they read: `i++`, `--n`. */
         private val STEPPING_OPERATORS = setOf(
             Tree.Kind.PREFIX_INCREMENT, Tree.Kind.PREFIX_DECREMENT,
             Tree.Kind.POSTFIX_INCREMENT, Tree.Kind.POSTFIX_DECREMENT
         )
 
+        /**
+         * Statement kinds either handled above or whose children are the whole of their dataflow.
+         *
+         * A statement produces no value, so scanning through one is not the fabricated edge that
+         * doing the same to an expression is. What makes a statement dangerous is *binding a name*,
+         * *reading a value* that nothing then notices, or *containing code that does not run here* -
+         * so those have visitors, and this set is what is left.
+         */
         private val MODELLED_STATEMENTS = setOf(
             Tree.Kind.BLOCK, Tree.Kind.EXPRESSION_STATEMENT, Tree.Kind.VARIABLE, Tree.Kind.RETURN,
             Tree.Kind.IF, Tree.Kind.WHILE_LOOP, Tree.Kind.DO_WHILE_LOOP, Tree.Kind.FOR_LOOP,

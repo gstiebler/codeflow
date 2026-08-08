@@ -387,6 +387,171 @@ class AppTest {
     }
 
     /**
+     * Every value a `switch` expression can produce reaches its result, whichever arm spells it.
+     *
+     * Java gives an arm three shapes and only one of them worked. An expression body was evaluated;
+     * a block body was not walked at all, so `int doubled = bonus * 2;` was code sitting in the
+     * corpus that the diagram did not contain, and the `yield` handing it back was replaced by an
+     * `UNMODELLED` box standing in for the whole arm. `case 3 -> note - fallback` is here as a
+     * second expression arm so the check is about the shape and not about arm order.
+     */
+    @Test
+    fun everyArmOfASwitchExpressionReachesItsResult() {
+        val graph = buildGraph("switchExpression", listOf("App.java"))
+        assertTrue(reaches(graph, "7", "total"), "the expression arm's value does not reach 'total'")
+        assertTrue(reaches(graph, "*", "total"), "the yielded value does not reach 'total'")
+        assertTrue(reaches(graph, "-", "total"), "the third arm's value does not reach 'total'")
+        assertTrue(reaches(graph, "11", "total"), "the block arm's own computation is not on the page")
+        val edges = edgeLabels(graph)
+        assertEquals(
+            3, edges.count { it == ("kind" to "==") },
+            "the selector is not compared against each of the three constant labels: $edges"
+        )
+    }
+
+    /**
+     * An arm that throws is not a value the `switch` can evaluate to.
+     *
+     * `default -> throw new IllegalStateException(...)` is how most real `switch` expressions spell
+     * "no other value is possible", and it was being listed among the alternatives of the result -
+     * so the diagram claimed the switch could produce the exception, and `Select.alternatives` is
+     * also what passes objects on, so the result was pointed at the exception's fields too. The
+     * exception still has to be *drawn*, or this assertion would also pass on an arm that was
+     * dropped on the floor, so the pair is checked together.
+     */
+    @Test
+    fun anArmThatThrowsIsNotAValueTheSwitchCanProduce() {
+        val graph = buildGraph("switchExpression", listOf("App.java"))
+        assertTrue(
+            graph.any { it.contains("""["unsupported"]:::LITERAL""") },
+            "the throwing arm is not drawn at all, so the negative below proves nothing"
+        )
+        assertTrue(
+            reaches(graph, "\"unsupported\"", "IllegalStateException"),
+            "the throwing arm's own operands are not on the page"
+        )
+        assertFalse(
+            reaches(graph, "\"unsupported\"", "total"),
+            "the switch is drawn as able to evaluate to a value the throwing arm cannot hand back"
+        )
+    }
+
+    /**
+     * One arm of a `switch` expression does not see what another wrote, because only one of them runs.
+     *
+     * The same wound as §1's, in the construct where it survived longest: the arms were lowered in
+     * sequence from one set of definitions, so `case 3 -> note - fallback` subtracted from the 41
+     * that `case 2` assigns. Below the switch both values are right, since either arm may have run -
+     * which is the pair that makes this an ordering bug rather than a missing edge.
+     */
+    @Test
+    fun oneArmOfASwitchExpressionDoesNotSeeWhatAnotherWrote() {
+        val graph = buildGraph("switchExpression", listOf("App.java"))
+        assertTrue(reaches(graph, "0", "-"), "the arm does not read the value from before the switch")
+        assertFalse(reaches(graph, "41", "-"), "the arm reads what a different arm wrote")
+        assertTrue(reaches(graph, "0", "out"), "the unwritten value of 'note' does not reach below the switch")
+        assertTrue(reaches(graph, "41", "out"), "the value 'note' is written in an arm does not reach below it")
+    }
+
+    /**
+     * A `case` label naming a constant from outside the sources is opaque, not a failure.
+     *
+     * javac needs the selector's type to work out which constant `case UP` names, so with the enum
+     * one module away it answers with a `ClassSymbol` where a field was asked for. Believed, that
+     * reached the lowering's local-resolution path, which fails - correctly, for a local - and so a
+     * `switch` over an enum from a neighbouring module produced no output for the entire corpus.
+     * Pointing codeflow at one module of a multi-module build is the normal way to point it at
+     * anything, which is what makes this the common case rather than an exotic one.
+     */
+    @Test
+    fun aCaseLabelFromOutsideTheSourcesIsOpaqueRatherThanAFailure() {
+        val graph = buildGraph("externalEnumSwitch", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("UP" to "==" in edges, "the unresolved label of the statement form is not drawn: $edges")
+        assertTrue("DOWN" to "==" in edges, "the unresolved label of the expression form is not drawn: $edges")
+        assertTrue(reaches(graph, "1", "out"), "the statement form's arm does not reach the use below it")
+        assertTrue(reaches(graph, "3", "out"), "the expression form's arm does not reach the use below it")
+    }
+
+    /**
+     * A constant imported statically from outside the sources is opaque, not a failure.
+     *
+     * The same wrong-kind answer as the case label, at the commonest site there is: javac reports a
+     * name it could not find by handing back a `ClassSymbol`, so a bare identifier came back as kind
+     * CLASS where a variable was asked for. Believed, it reached the lowering's local-resolution
+     * path, which fails - and rightly, for a local - so one `import static` of a constant declared
+     * one module away produced no output for the whole corpus. The gate itself is unchanged: a name
+     * javac *did* resolve to a variable, with no definition reaching it, still fails, which is what
+     * [aLocalWithNoValueStillFails] holds.
+     */
+    @Test
+    fun aConstantImportedFromOutsideTheSourcesIsOpaqueRatherThanAFailure() {
+        val graph = buildGraph("externalConstant", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("MAX_RETRIES" to "budget" in edges, "the constant does not reach the variable it initialises: $edges")
+        assertTrue(reaches(graph, "MAX_RETRIES", "spent"), "the constant's value does not flow on to its use")
+    }
+
+    /**
+     * `boolean.class` names a type in the place a value would go, and so does `String.class`.
+     *
+     * Whether the receiver of a class literal names a type was asked of what javac resolved it to,
+     * and a primitive type name has no `Element` to answer with - so `boolean` fell through to being
+     * evaluated as a value, and a type produces none. The reference form always worked, which is what
+     * makes the pair the assertion: they are one expression with a different type named in it, and
+     * they have to come out as one shape.
+     */
+    @Test
+    fun aClassLiteralNamesATypeWhetherOrNotItIsPrimitive() {
+        val graph = buildGraph("classLiteral", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("class" to "primitive" in edges, "the primitive class literal is not drawn: $edges")
+        assertTrue("class" to "reference" in edges, "the reference class literal is not drawn: $edges")
+    }
+
+    /**
+     * A parameter of a class javac could not attribute still resolves to its declaration.
+     *
+     * `Report extends outside.Base` makes attribution give up on the body but not on the signature,
+     * so the parameter's declaration resolved and every read of it did not - one variable recorded
+     * under a PARAMETER element and looked up under a null one. The read then failed, and with it the
+     * whole corpus, although the definition it wanted was in the same method under a different key.
+     * Every exception class whose base class lives in another module has this shape.
+     *
+     * The whole run throws without the fallback, so any assertion here would do; these two are the
+     * ones that say the fallback found the *parameter* rather than something else of that name - the
+     * argument at the call site reaching the `super` call through it is what shows that.
+     */
+    @Test
+    fun aParameterOfAnUnattributedClassStillResolvesToItsDeclaration() {
+        val graph = buildGraph("unattributedParameter", listOf("App.java", "Report.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("reason" to "code" in edges, "the parameter does not reach the call reading it: $edges")
+        assertTrue(reaches(graph, "LOGGED", "super"), "the argument does not reach the super call through the parameter")
+    }
+
+    /**
+     * A field inherited from a class outside the corpus is external, not a field nothing declares.
+     *
+     * The other half of the unattributed-supertype shape. javac reports a member it could not find
+     * the same way it reports a *name* it could not find - an `Element` of kind CLASS, typed ERROR -
+     * so `this.currency` in a subclass of a class one module over arrived at `unassigned` as a name
+     * javac had resolved to something that is not a field, and the run died. The field is real and
+     * one module away, which is a limit of the sources and is what `EXTERNAL` says.
+     *
+     * Two assertions because the receiver decides what flows in, and the second is the one that can
+     * fail on a graph that is otherwise complete: drop the receiver and `other` reaches nothing,
+     * which is the local the reader would use to tell the two reads apart.
+     */
+    @Test
+    fun aFieldInheritedFromOutsideTheSourcesIsExternalRatherThanAFailure() {
+        val graph = buildGraph("inheritedField", listOf("App.java", "Report.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("code" to "+" in edges, "the inherited field does not reach the concatenation: $edges")
+        assertTrue("other" to "code" in edges, "the object the field was read from does not reach it: $edges")
+    }
+
+    /**
      * A `try` and its handler are alternatives, so both reach the line after them.
      *
      * A handler runs because the `try` did not finish, which makes this an `if`'s join arrived at
@@ -1635,6 +1800,12 @@ class AppTest {
     @Test fun staticField() = codeflow("staticField", listOf("App.java"))
     @Test fun deepField() = codeflow("deepField", listOf("App.java"))
     @Test fun switchStatement() = codeflow("switchStatement", listOf("App.java"))
+    @Test fun switchExpression() = codeflow("switchExpression", listOf("App.java"))
+    @Test fun externalEnumSwitch() = codeflow("externalEnumSwitch", listOf("App.java"))
+    @Test fun externalConstant() = codeflow("externalConstant", listOf("App.java"))
+    @Test fun classLiteral() = codeflow("classLiteral", listOf("App.java"))
+    @Test fun unattributedParameter() = codeflow("unattributedParameter", listOf("App.java", "Report.java"))
+    @Test fun inheritedField() = codeflow("inheritedField", listOf("App.java", "Report.java"))
     @Test fun fieldInitializer() = codeflow("fieldInitializer", listOf("App.java"))
     @Test fun enumConstructor() = codeflow("enumConstructor", listOf("App.java"))
     @Test fun recursion() = codeflow("recursion", listOf("App.java"))

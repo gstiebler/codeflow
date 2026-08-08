@@ -156,6 +156,35 @@ site** — `symbols.element(tree, ElementKind.METHOD)`, not `symbols.element(tre
 treated as outside the analysed sources and takes the opaque `EXTERNAL` path. Taking the wrong-kind
 element at face value would resolve a call to a class, which is the silently-wrong graph again.
 
+The rule holds at a **bare name** too, and that is where it was missing. A name javac could not find
+— a statically imported constant, an enum constant in a `case` label whose enum is one module away —
+comes back as a `ClassSymbol`, kind `CLASS`, and `visitIdentifier` believed it and went looking for a
+local of that name. There is none, so the run died, and one `import static` was enough to produce
+zero bytes for the whole corpus. So a name whose element is not `isVariable` is `Opaque`, the same
+answer a call on an error-typed receiver gets. Pointing codeflow at one module of a multi-module
+build is the *normal* way to point it at anything, so this is the common case rather than an exotic
+one. `externalConstant` and `externalEnumSwitch` are the fixtures.
+
+It holds at a **member** too, for the same reason and in the same words: javac reports a member it
+could not find by handing back a `ClassSymbol` named `Owner.member`, kind `CLASS`, typed `ERROR`. A
+class whose supertype is outside the corpus has *every* inherited field come back that way, so
+`this.currency` in a subclass of a class one module over reached `unassigned` as a name javac had
+resolved to something that is not a field — and that gate fails loudly, so the run died. The field is
+real and one module away, which is a limit of the sources, so `visitMemberSelect` makes it `Opaque`.
+The receiver flows in when there is one (`other.code`) and does not when there is not (`this.code`):
+the object a field was read from is the only thing on the page saying where the value came from, and
+dropping it would also leave the receiver reaching nothing. `inheritedField` is the fixture and
+`aFieldInheritedFromOutsideTheSourcesIsExternalRatherThanAFailure` the assertion.
+
+One name resolves the other way round, and it is the only place a *name* is trusted over an element:
+a class whose supertype is outside the corpus has its signature attributed and its body not, so a
+parameter's declaration resolves to a `PARAMETER` and every read of it resolves to nothing — two keys
+for one variable in one method. `Lowering.use` falls back to the name **only when the read is the
+unresolved side**, and only to a definition the same body emitted. A name javac *did* resolve to a
+variable with nothing reaching it is still the analysis having lost it, and still fails loudly. Every
+exception class whose base exception lives elsewhere has this shape;
+`aParameterOfAnUnattributedClassStillResolvesToItsDeclaration` is the assertion.
+
 `Symbols` (`java/Symbols.kt`) is how the answers get to the processors. `Trees.getElement` needs a
 `TreePath`, but every processor is a `TreeScanner` holding a bare `Tree` and `invokeMethod`
 re-enters a callee's body with no path at all. Since `analyze()` annotates the *same* tree objects
@@ -262,6 +291,19 @@ A ternary and a `switch` expression are the same choice written as an expression
 something only the lowering knows: `c ? a : b` is never `c`, and `new Holder[]{a, b}` is an array
 and neither of the objects in it. Unioning every input would file one object's fields under
 another's. `aFieldReadThroughEitherArmOfATernaryFindsBoth` is the assertion.
+
+A `switch` **expression** is that union plus everything the statement form needs, because an arm is a
+block: it forks `definitions` per arm and joins at the bottom exactly as `visitIf` does, since arms
+are mutually exclusive and one writing `note = 41` must not be what the next one reads. Its value can
+arrive two ways — `case 1 -> base` produces one directly, and a block arm produces one per `yield`,
+which `visitYield` pushes onto the arm the `yields` stack names. A stack, because an arm may hold a
+`switch` expression of its own. An arm that **throws** contributes to neither the value nor the join,
+and `completesNormally` is what says so. There is no fall-through to allow for: every arm of an
+expression switch has to complete abruptly, so a `yield` is the only way out of the bottom of one.
+None of this existed until Fineract asked for it — block arms were drawn as `UNMODELLED`, there was
+no fork, and no fixture used `switch` as an expression at all, so the whole shape was unasserted.
+`everyArmOfASwitchExpressionReachesItsResult`, `anArmThatThrowsIsNotAValueTheSwitchCanProduce` and
+`oneArmOfASwitchExpressionDoesNotSeeWhatAnotherWrote` are the three assertions.
 
 One edge is deliberately still open, and it is a *missing* possibility rather than an invented one:
 a phi whose back edge has not been drawn yet cannot contribute objects, so one created inside a loop
@@ -411,6 +453,14 @@ friends subclasses of its expression type, so `is ExpressionTree` says yes to th
 `(int) x` and it arrives at the gate looking like a value; drawn as one it is a node on the diagram
 that nothing in the program corresponds to. Types produce no value and are skipped.
 
+`receiverOf` asks it too, and has to: a receiver that names a type is `Receiver.TypeName`, and the
+check for that asks javac what the tree resolved to — but a *primitive* type name has no `Element` to
+answer with, so `boolean.class` fell past it and was evaluated as a value, and a type produces none,
+so the run died. `enum JavaType { BOOLEAN(boolean.class), … }` is where it was found, and a table
+mapping primitives to their wrappers is ordinary code. The kind is the only thing that can answer
+there, which makes it the companion check to the one in `scan`. `classLiteral` is the fixture, and it
+holds `String.class` beside `boolean.class` because the two have to come out the same.
+
 So, to add a construct: write the visitor in `Lowering`, emit an instruction, then add its
 `Tree.Kind` to `MODELLED_EXPRESSIONS`. Never widen that set without a visitor behind it. A new
 *instruction* needs a branch in `Frame.draw`, which is a `when` over the sealed `Insn` — so
@@ -464,7 +514,7 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
 
 `AppTest.kt` has three kinds of assertion, and the mix is deliberate:
 
-- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 57 of them. They certify
+- **Golden files** (`app/src/test/resources/<fixture>/truth.md`) — 63 of them. They certify
   *unchanged*, not *correct*. `ternary/truth.md` was once written from a buggy run and passed
   happily while encoding a graph with a branch missing. Treat a green golden file as evidence of
   nothing.
@@ -480,6 +530,11 @@ overwrite its own expectation. When a change does move snapshots, verify them *s
 than reading diffs: normalise old (`git show HEAD:<path>`) and new to sorted multisets of
 `label:TYPE` nodes and `label:TYPE -> label:TYPE` edges with ids stripped, and diff those. Anything
 left over is a real change and needs explaining.
+
+`app/build.gradle` sets `maxHeapSize = '2g'` on the test task because two suites sweep every fixture
+directory, so a javac task per fixture is live at once and Gradle's 512m default ran out. It failed as
+the *worker* dying after every test had already reported passing, which reads as infrastructure rather
+than as anything about the suite — worth knowing before chasing it again after adding fixtures.
 
 Three suites sit alongside `AppTest` and assert on something a rendered document cannot show:
 

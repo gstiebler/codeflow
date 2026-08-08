@@ -73,9 +73,22 @@ class AstReader(private val basePath: Path) {
         val compUnitTrees = task.parse()
         // Attribution. Without it there is no symbol table, and every name has to be resolved by
         // matching text - which cannot tell two same-named methods apart, cannot pick an overload,
-        // and cannot say whether a variable holds a value or a reference. It does not throw on
-        // sources that do not compile: what it cannot resolve it marks, and Symbols only believes
-        // a symbol of the kind the caller asked for.
+        // and cannot say whether a variable holds a value or a reference. Ordinarily it does not
+        // throw on sources that do not compile: what it cannot resolve it marks, and Symbols only
+        // believes a symbol of the kind the caller asked for.
+        //
+        // Ordinarily. javac *itself* can die here: on 21 it did, on Fineract's largest module -
+        // attributing a `yield` whose type it never worked out trips an internal assertion in
+        // `Attr`, and every root in that module produced nothing at all. Which is why the build
+        // runs on 25 (see the comment on the `test` task in app/build.gradle); the compiler is an
+        // input to the output, so its version is part of the configuration and not an accident of
+        // whichever JDK the shell had.
+        //
+        // Nothing here catches it, deliberately. Catching it would not help - `Symbols` forces
+        // attribution again through `Trees.getElement`, one tree at a time, and the same assertion
+        // fires there. So tolerating a javac crash means tolerating it per *tree*, at the lookup,
+        // where "javac cannot tell me what this is" is already an answer Symbols has. That is a
+        // decision about what a partly attributed corpus may be drawn as, and is not taken yet.
         task.analyze()
         val symbols = Symbols.collect(trees, task.elements, compUnitTrees)
         System.err.println(

@@ -5,8 +5,9 @@ import { resolve } from 'node:path';
 /**
  * Builds a real page from a real fixture before the browser tests run.
  *
- * Going through `gradlew run` rather than the installed CLI means the JDK 21 toolchain is Gradle's
- * problem, not ours - the installed script uses whatever `java` is on PATH and dies on an older one.
+ * Going through `gradlew run` rather than the installed CLI means the JDK is Gradle's problem, not
+ * ours - the `run` task pins its launcher to the same version the test task uses, while the installed
+ * script takes whatever `java` is on PATH and dies on an older one.
  *
  * The fixture path is absolute because the `run` task's working directory is `app/`, not the repo
  * root, so a repo-relative path silently resolves to `app/app/...` and Files.walk throws.

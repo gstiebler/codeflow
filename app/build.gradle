@@ -23,10 +23,18 @@ repositories {
     mavenCentral()
 }
 
+// The JDK codeflow *runs* on, which is the one whose javac decides the graph - see the comment on
+// jvmToolchain below for why that is not the same number as the one it compiles against.
+def runtimeJdk = 25
+
 kotlin {
     // codeflow reads the running JDK's javac trees through ToolProvider.getSystemJavaCompiler(),
     // so the JDK is an input to the graph, not just to the build. Left unpinned, whichever JDK
     // Gradle happened to start on decided the output, and CI and a local clone disagreed.
+    //
+    // This is the *compile* target and stays at 21 because Kotlin 1.9 cannot target 25 - it fails
+    // with "Inconsistent JVM-target compatibility". Bytecode 21 runs on 25 unchanged, so the two
+    // numbers are free to differ, and what matters for the output is only the one below.
     jvmToolchain(21)
 }
 
@@ -52,6 +60,19 @@ testing {
 }
 
 test {
+    // On javac 21 this suite passes and real input does not: attributing a `yield` whose type javac
+    // never worked out trips an internal assertion in `Attr`, and every root in Fineract's largest
+    // module produced nothing at all. javac 25 does not have that bug. What the tests assert has to
+    // be what a reader gets, so the suite runs on the same javac the tool is pointed at - every golden
+    // is byte-identical across the two, which is what says this is a fix and not a rewrite.
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(runtimeJdk) }
+
+    // Gradle's default test heap is 512m, and `LoweringTest` and `InvariantsTest` each sweep every
+    // fixture directory - a javac task per fixture, all live at once. Adding five fixtures was enough
+    // to exhaust it, and the failure arrives as the *worker* dying after every test has passed, which
+    // reads as infrastructure rather than as anything about the suite.
+    maxHeapSize = '2g'
+
     testLogging {
         showStandardStreams = true
     }
@@ -61,4 +82,11 @@ test {
 application {
     // Define the main class for the application.
     mainClass = 'codeflow.AppKt'
+}
+
+// `gradlew run` has to use the same javac as the tests, for the reason given on the test task. The
+// installed CLI cannot be pinned from here - its start script takes whatever JAVA_HOME names - so
+// that requirement lives in CLAUDE.md instead.
+run {
+    javaLauncher = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(runtimeJdk) }
 }

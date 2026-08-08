@@ -28,12 +28,25 @@ The JS suites need `npm install` once. `npm test` globs the files itself
 (`app/src/test/js/unit/*.test.mjs`) because `node --test <dir>` tries to import the directory and
 dies before running anything.
 
-The toolchain is pinned to **JDK 21** (`app/build.gradle`). The installed CLI
-(`./gradlew installDist`, then `./app/build/install/app/bin/app <dir>`) therefore needs a 21
-runtime — if the shell's `java` is older it fails with `UnsupportedClassVersionError`, so set
-`JAVA_HOME=$(/usr/libexec/java_home -v 21)`. The pin matters because codeflow parses with the
-*running* JDK's javac (`ToolProvider.getSystemJavaCompiler()`), which makes the JDK an input to the
-output, not just to the build.
+**Two JDK numbers, and they are not interchangeable.** codeflow parses with the *running* JDK's
+javac (`ToolProvider.getSystemJavaCompiler()`), so the JDK is an input to the output and not just to
+the build. `app/build.gradle` therefore compiles to bytecode **21** — `jvmToolchain(21)`, because
+Kotlin 1.9 cannot target 25 and fails with "Inconsistent JVM-target compatibility" — and runs
+`test` and `run` on **25** through a `javaLauncher` override (`def runtimeJdk = 25`). Bytecode 21
+runs on 25 unchanged, so the two are free to differ.
+
+Runtime 25 is not a preference. On javac 21 the whole test suite passes and real input does not:
+attributing a `yield` whose type javac never worked out trips an internal assertion in `Attr`
+(`Attr$1.visitYield`), and every root in Fineract's largest module produced zero bytes. javac 25
+does not have that bug, and every golden is byte-identical across the two — which is what says
+this is a fix and not a rewrite. What the tests assert has to be what a reader gets, so the suite
+runs on the javac the tool is pointed at.
+
+The installed CLI (`./gradlew installDist`, then `./app/build/install/app/bin/app <dir>`) cannot be
+pinned from the build — its start script takes whatever `JAVA_HOME` names — so set a 25 yourself:
+`JAVA_HOME=$HOME/.sdkman/candidates/java/25.0.4-tem` (or `$(/usr/libexec/java_home -v 25)`). Older
+than 21 fails outright with `UnsupportedClassVersionError`; 21 through 24 run but carry the javac
+bug above, which is the worse failure because it is silent about being one.
 
 ## Architecture
 

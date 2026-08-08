@@ -12,6 +12,7 @@ flowchart TD
     n4[total]:::VARIABLE --> n5[before]:::VARIABLE
     n4[total]:::VARIABLE --> n10[+]:::BIN_OP
     n6[3]:::LITERAL --> n9[by]:::FUNC_PARAM
+    n11[total]:::VARIABLE --> n12[after]:::VARIABLE
     subgraph b7["bump"]
       n8[bump]:::RETURN
       n9[by]:::FUNC_PARAM
@@ -19,7 +20,6 @@ flowchart TD
       n11[total]:::VARIABLE
       n9[by]:::FUNC_PARAM --> n10[+]:::BIN_OP
       n10[+]:::BIN_OP --> n11[total]:::VARIABLE
-      n11[total]:::VARIABLE --> n12[after]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

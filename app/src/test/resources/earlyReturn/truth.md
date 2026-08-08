@@ -6,6 +6,7 @@ flowchart TD
     n3[70]:::LITERAL
     n20[result]:::VARIABLE
     n3[70]:::LITERAL --> n6[score]:::FUNC_PARAM
+    n5[classify]:::RETURN --> n20[result]:::VARIABLE
     subgraph b4["classify"]
       n5[classify]:::RETURN
       n6[score]:::FUNC_PARAM
@@ -22,7 +23,6 @@ flowchart TD
       n17[*]:::BIN_OP
       n18[if]:::BIN_OP
       n19[if]:::BIN_OP
-      n5[classify]:::RETURN --> n20[result]:::VARIABLE
       n6[score]:::FUNC_PARAM --> n8[>]:::BIN_OP
       n6[score]:::FUNC_PARAM --> n11[>]:::BIN_OP
       n7[90]:::LITERAL --> n8[>]:::BIN_OP

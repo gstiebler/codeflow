@@ -8,6 +8,7 @@ flowchart TD
     n16[out]:::VARIABLE
     n3[5]:::LITERAL --> n4[seed]:::VARIABLE
     n4[seed]:::VARIABLE --> n7[n]:::FUNC_PARAM
+    n6[fact]:::RETURN --> n16[out]:::VARIABLE
     subgraph b5["fact"]
       n6[fact]:::RETURN
       n7[n]:::FUNC_PARAM
@@ -19,7 +20,6 @@ flowchart TD
       n13[fact]:::EXTERNAL
       n14[*]:::BIN_OP
       n15[if]:::BIN_OP
-      n6[fact]:::RETURN --> n16[out]:::VARIABLE
       n7[n]:::FUNC_PARAM --> n9[==]:::BIN_OP
       n7[n]:::FUNC_PARAM --> n12[-]:::BIN_OP
       n7[n]:::FUNC_PARAM --> n14[*]:::BIN_OP

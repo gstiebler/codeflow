@@ -14,13 +14,14 @@ flowchart TD
     n4[x]:::VARIABLE --> n8[a]:::FUNC_PARAM
     n5[8]:::LITERAL --> n9[b]:::FUNC_PARAM
     n13[App]:::EXTERNAL --> n14[app]:::OBJ_VARIABLE
+    n7[methodA]:::RETURN --> n12[y]:::VARIABLE
+    n16[methodB]:::RETURN --> n41[e]:::VARIABLE
     subgraph b6["methodA"]
       n7[methodA]:::RETURN
       n8[a]:::FUNC_PARAM
       n9[b]:::FUNC_PARAM
       n10[+]:::BIN_OP
       n11[c]:::VARIABLE
-      n7[methodA]:::RETURN --> n12[y]:::VARIABLE
       n8[a]:::FUNC_PARAM --> n10[+]:::BIN_OP
       n9[b]:::FUNC_PARAM --> n10[+]:::BIN_OP
       n10[+]:::BIN_OP --> n11[c]:::VARIABLE
@@ -32,10 +33,11 @@ flowchart TD
       n28[d]:::VARIABLE
       n29[13]:::LITERAL
       n40[f]:::VARIABLE
-      n16[methodB]:::RETURN --> n41[e]:::VARIABLE
       n17[11]:::LITERAL --> n20[paramH]:::FUNC_PARAM
       n28[d]:::VARIABLE --> n16[methodB]:::RETURN
       n29[13]:::LITERAL --> n32[paramH]:::FUNC_PARAM
+      n19[methodC]:::RETURN --> n28[d]:::VARIABLE
+      n31[methodC]:::RETURN --> n40[f]:::VARIABLE
       subgraph b18["methodC"]
         n19[methodC]:::RETURN
         n20[paramH]:::FUNC_PARAM
@@ -46,7 +48,6 @@ flowchart TD
         n25[X1]:::OBJ_VARIABLE
         n26[memberX]:::VARIABLE
         n27[X2]:::OBJ_VARIABLE
-        n19[methodC]:::RETURN --> n28[d]:::VARIABLE
         n20[paramH]:::FUNC_PARAM --> n22[div]:::BIN_OP
         n21[6]:::LITERAL --> n22[div]:::BIN_OP
         n22[div]:::BIN_OP --> n23[g]:::VARIABLE
@@ -65,7 +66,6 @@ flowchart TD
         n37[X1]:::OBJ_VARIABLE
         n38[memberX]:::VARIABLE
         n39[X2]:::OBJ_VARIABLE
-        n31[methodC]:::RETURN --> n40[f]:::VARIABLE
         n32[paramH]:::FUNC_PARAM --> n34[div]:::BIN_OP
         n33[6]:::LITERAL --> n34[div]:::BIN_OP
         n34[div]:::BIN_OP --> n35[g]:::VARIABLE

@@ -10,6 +10,7 @@ flowchart TD
     n13[taken]:::VARIABLE
     n3[Gauge]:::EXTERNAL --> n4[gauge]:::OBJ_VARIABLE
     n5[17]:::LITERAL --> n6[reading]:::VARIABLE
+    n12[reading]:::VARIABLE --> n13[taken]:::VARIABLE
     subgraph b7["sample"]
       n8[sample]:::RETURN
       subgraph b9["record"]
@@ -17,7 +18,6 @@ flowchart TD
         n11[18]:::LITERAL
         n12[reading]:::VARIABLE
         n11[18]:::LITERAL --> n12[reading]:::VARIABLE
-        n12[reading]:::VARIABLE --> n13[taken]:::VARIABLE
       end
     end
   end

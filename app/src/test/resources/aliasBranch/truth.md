@@ -23,21 +23,21 @@ flowchart TD
     n17[chosen]:::OBJ_VARIABLE -->|false| n18[if]:::BIN_OP
     n18[if]:::BIN_OP --> n19[chosen]:::OBJ_VARIABLE
     n20[amount]:::VARIABLE --> n21[total]:::VARIABLE
+    n8[<init>]:::RETURN --> n11[chosen]:::OBJ_VARIABLE
+    n10[amount]:::VARIABLE --> n20[amount]:::VARIABLE
+    n14[<init>]:::RETURN --> n17[chosen]:::OBJ_VARIABLE
+    n16[amount]:::VARIABLE --> n20[amount]:::VARIABLE
     subgraph b7["Holder.constructor"]
       n8[<init>]:::RETURN
       n9[amount]:::FUNC_PARAM
       n10[amount]:::VARIABLE
-      n8[<init>]:::RETURN --> n11[chosen]:::OBJ_VARIABLE
       n9[amount]:::FUNC_PARAM --> n10[amount]:::VARIABLE
-      n10[amount]:::VARIABLE --> n20[amount]:::VARIABLE
     end
     subgraph b13["Holder.constructor"]
       n14[<init>]:::RETURN
       n15[amount]:::FUNC_PARAM
       n16[amount]:::VARIABLE
-      n14[<init>]:::RETURN --> n17[chosen]:::OBJ_VARIABLE
       n15[amount]:::FUNC_PARAM --> n16[amount]:::VARIABLE
-      n16[amount]:::VARIABLE --> n20[amount]:::VARIABLE
     end
   end
   linkStyle 2 stroke:#6a6a6a,color:#6a6a6a

@@ -17,24 +17,24 @@ flowchart TD
     n5[5]:::LITERAL --> n8[v]:::FUNC_PARAM
     n14[13]:::LITERAL --> n18[initialValue]:::FUNC_PARAM
     n15["test"]:::LITERAL --> n19[name]:::FUNC_PARAM
+    n7[<init>]:::RETURN --> n12[x]:::OBJ_VARIABLE
+    n11[memberX]:::VARIABLE --> n13[b]:::VARIABLE
+    n17[<init>]:::RETURN --> n21[x2]:::OBJ_VARIABLE
+    n20[memberX]:::VARIABLE --> n22[c]:::VARIABLE
     subgraph b6["ClassX.constructor"]
       n7[<init>]:::RETURN
       n8[v]:::FUNC_PARAM
       n9[cp]:::FUNC_PARAM
       n10[7]:::LITERAL
       n11[memberX]:::VARIABLE
-      n7[<init>]:::RETURN --> n12[x]:::OBJ_VARIABLE
       n10[7]:::LITERAL --> n11[memberX]:::VARIABLE
-      n11[memberX]:::VARIABLE --> n13[b]:::VARIABLE
     end
     subgraph b16["ClassX.constructor"]
       n17[<init>]:::RETURN
       n18[initialValue]:::FUNC_PARAM
       n19[name]:::FUNC_PARAM
       n20[memberX]:::VARIABLE
-      n17[<init>]:::RETURN --> n21[x2]:::OBJ_VARIABLE
       n18[initialValue]:::FUNC_PARAM --> n20[memberX]:::VARIABLE
-      n20[memberX]:::VARIABLE --> n22[c]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

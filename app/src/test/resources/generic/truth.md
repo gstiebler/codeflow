@@ -11,17 +11,17 @@ flowchart TD
     n3["payload"]:::LITERAL --> n6[initial]:::FUNC_PARAM
     n11[taken]:::OBJ_VARIABLE --> n12[length]:::EXTERNAL
     n12[length]:::EXTERNAL --> n13[size]:::VARIABLE
+    n5[<init>]:::RETURN --> n8[holder]:::OBJ_VARIABLE
+    n7[held]:::OBJ_VARIABLE --> n10[get]:::RETURN
+    n10[get]:::RETURN --> n11[taken]:::OBJ_VARIABLE
     subgraph b4["Holder.constructor"]
       n5[<init>]:::RETURN
       n6[initial]:::FUNC_PARAM
       n7[held]:::OBJ_VARIABLE
-      n5[<init>]:::RETURN --> n8[holder]:::OBJ_VARIABLE
       n6[initial]:::FUNC_PARAM --> n7[held]:::OBJ_VARIABLE
-      n7[held]:::OBJ_VARIABLE --> n10[get]:::RETURN
     end
     subgraph b9["get"]
       n10[get]:::RETURN
-      n10[get]:::RETURN --> n11[taken]:::OBJ_VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

@@ -10,13 +10,13 @@ flowchart TD
     n3[5L]:::LITERAL --> n4[id]:::OBJ_VARIABLE
     n4[id]:::OBJ_VARIABLE --> n9[id]:::FUNC_PARAM
     n5[LOGGED]:::EXTERNAL --> n8[reason]:::FUNC_PARAM
+    n7[<init>]:::RETURN --> n12[report]:::OBJ_VARIABLE
     subgraph b6["Report.constructor"]
       n7[<init>]:::RETURN
       n8[reason]:::FUNC_PARAM
       n9[id]:::FUNC_PARAM
       n10[code]:::EXTERNAL
       n11[super]:::EXTERNAL
-      n7[<init>]:::RETURN --> n12[report]:::OBJ_VARIABLE
       n8[reason]:::FUNC_PARAM --> n10[code]:::EXTERNAL
       n9[id]:::FUNC_PARAM --> n11[super]:::EXTERNAL
       n10[code]:::EXTERNAL --> n11[super]:::EXTERNAL

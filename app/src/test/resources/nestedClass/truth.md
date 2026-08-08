@@ -11,11 +11,11 @@ flowchart TD
     n3[Helper]:::EXTERNAL --> n4[helper]:::OBJ_VARIABLE
     n5[21]:::LITERAL --> n6[seed]:::VARIABLE
     n6[seed]:::VARIABLE --> n9[v]:::FUNC_PARAM
+    n8[twice]:::RETURN --> n11[doubled]:::VARIABLE
     subgraph b7["twice"]
       n8[twice]:::RETURN
       n9[v]:::FUNC_PARAM
       n10[+]:::BIN_OP
-      n8[twice]:::RETURN --> n11[doubled]:::VARIABLE
       n9[v]:::FUNC_PARAM --> n10[+]:::BIN_OP
       n9[v]:::FUNC_PARAM --> n10[+]:::BIN_OP
       n10[+]:::BIN_OP --> n8[twice]:::RETURN

@@ -104,6 +104,28 @@ root**, since GraphML requires an edge to sit in a graph enclosing both endpoint
 always qualifies. Plain GraphML carries no coordinates, so yEd opens it as a pile at the origin
 until you run Layout → Hierarchical — that is the format, not a bug.
 
+**Mermaid needs the same rule, and for a reason that is easy to miss.** Which subgraph a node
+belongs to is not decided by where it is declared: Mermaid works it out from every statement naming
+the node, and the *deeper* claim wins. So an edge written inside a callee's subgraph pulls its target
+in, and `MermaidExporter` used to write each edge in the block of its **source** — which for a
+callee's RETURN feeding the caller's variable is the callee. `int b = classify(a, 10)` drew `b`
+*inside the classify box*, and `funcCall`'s `y` inside `methodA`. Every arrow was correct and the
+value sat in the wrong method, with nothing on the page to suggest it: a box here means a method, so
+that is a diagram confidently and readably wrong about where a value lives.
+
+`MermaidExporter.placeEdges` writes each edge in the innermost block enclosing **both** endpoints.
+Naming a node from an *enclosing* block is harmless and is left alone — that is where an argument
+edge is written, and the declaration below still wins — so only the edges pointing outwards move,
+and only as far as they must. `assertNoNodeIsMentionedBelowItsOwnBlock` is the guard, swept over
+every fixture.
+
+Moving an edge moves its **link index**, which is the trap next door: `linkStyle` numbers links
+globally across the whole flowchart in declaration order, so anything that changes where an edge is
+written renumbers every edge after it. A stale index is silent — it paints a condition's grey onto
+an unrelated arrow and leaves the real one black, and the document still renders.
+`assertLinkStylesAddressTheEdgesTheyMean` derives the mapping from the finished document rather than
+from `Links.count`, so it fails if the counter and the writing ever disagree.
+
 ### The interactive viewer
 
 `HtmlExporter` substitutes the vendored libraries, `viewer.mjs`, and the JSON payload into
@@ -548,8 +570,10 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
   pairs and ignores ids. These are the assertions that can fail on a graph that has never been
   correct. **New behaviour needs one of these**, not just a regenerated snapshot.
 - **Suite-wide invariants** run on every fixture: `assertNoSelfEdges`, `assertNoUnknownOperators`,
-  `assertNoDuplicateNodeIds`. These read the rendered Mermaid; the three in `InvariantsTest.kt`
-  below read the graph against the IR.
+  `assertNoDuplicateNodeIds`, `assertNoNodeIsMentionedBelowItsOwnBlock`,
+  `assertLinkStylesAddressTheEdgesTheyMean`. These read the rendered Mermaid — the last two check
+  what Mermaid will *make* of it, which is not the same as what the graph says; the three in
+  `InvariantsTest.kt` below read the graph against the IR.
 
 Snapshots are only written when missing or under `UPDATE_SNAPSHOTS=1`, so a regression cannot
 overwrite its own expectation. When a change does move snapshots, verify them *structurally* rather

@@ -15,11 +15,12 @@ flowchart TD
     n5[3]:::LITERAL --> n8[seed]:::FUNC_PARAM
     n11[Doubling]:::EXTERNAL --> n12[direct]:::OBJ_VARIABLE
     n13[4]:::LITERAL --> n16[seed]:::FUNC_PARAM
+    n7[read]:::RETURN --> n10[viaInterface]:::VARIABLE
+    n15[read]:::RETURN --> n18[viaClass]:::VARIABLE
     subgraph b6["read"]
       n7[read]:::RETURN
       n8[seed]:::FUNC_PARAM
       n9[+]:::BIN_OP
-      n7[read]:::RETURN --> n10[viaInterface]:::VARIABLE
       n8[seed]:::FUNC_PARAM --> n9[+]:::BIN_OP
       n8[seed]:::FUNC_PARAM --> n9[+]:::BIN_OP
       n9[+]:::BIN_OP --> n7[read]:::RETURN
@@ -28,7 +29,6 @@ flowchart TD
       n15[read]:::RETURN
       n16[seed]:::FUNC_PARAM
       n17[+]:::BIN_OP
-      n15[read]:::RETURN --> n18[viaClass]:::VARIABLE
       n16[seed]:::FUNC_PARAM --> n17[+]:::BIN_OP
       n16[seed]:::FUNC_PARAM --> n17[+]:::BIN_OP
       n17[+]:::BIN_OP --> n15[read]:::RETURN

@@ -14,6 +14,8 @@ flowchart TD
     n4[a]:::VARIABLE --> n35[v]:::FUNC_PARAM
     n5[10]:::LITERAL --> n9[limit]:::FUNC_PARAM
     n31[b]:::VARIABLE --> n32[c]:::VARIABLE
+    n7[classify]:::RETURN --> n31[b]:::VARIABLE
+    n34[either]:::RETURN --> n41[d]:::VARIABLE
     subgraph b6["classify"]
       n7[classify]:::RETURN
       n8[v]:::FUNC_PARAM
@@ -39,7 +41,6 @@ flowchart TD
       n28[r]:::VARIABLE
       n29[s]:::VARIABLE
       n30[if]:::BIN_OP
-      n7[classify]:::RETURN --> n31[b]:::VARIABLE
       n8[v]:::FUNC_PARAM --> n12[>]:::BIN_OP
       n8[v]:::FUNC_PARAM --> n16[>]:::BIN_OP
       n8[v]:::FUNC_PARAM --> n20[<]:::BIN_OP
@@ -73,7 +74,6 @@ flowchart TD
       n38[6]:::LITERAL
       n39[7]:::LITERAL
       n40[if]:::BIN_OP
-      n34[either]:::RETURN --> n41[d]:::VARIABLE
       n35[v]:::FUNC_PARAM --> n37[>]:::BIN_OP
       n36[0]:::LITERAL --> n37[>]:::BIN_OP
       n37[>]:::BIN_OP -->|if| n40[if]:::BIN_OP
@@ -82,15 +82,15 @@ flowchart TD
       n40[if]:::BIN_OP --> n34[either]:::RETURN
     end
   end
-  linkStyle 11 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 13 stroke:#2e7d32,color:#2e7d32
-  linkStyle 15 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 17 stroke:#2e7d32,color:#2e7d32
-  linkStyle 19 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 21 stroke:#2e7d32,color:#2e7d32
-  linkStyle 23 stroke:#c62828,color:#c62828
-  linkStyle 25 stroke:#c62828,color:#c62828
-  linkStyle 28 stroke:#c62828,color:#c62828
+  linkStyle 12 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 14 stroke:#2e7d32,color:#2e7d32
+  linkStyle 16 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 18 stroke:#2e7d32,color:#2e7d32
+  linkStyle 20 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 22 stroke:#2e7d32,color:#2e7d32
+  linkStyle 24 stroke:#c62828,color:#c62828
+  linkStyle 26 stroke:#c62828,color:#c62828
+  linkStyle 29 stroke:#c62828,color:#c62828
   linkStyle 33 stroke:#6a6a6a,color:#6a6a6a
   linkStyle 34 stroke:#2e7d32,color:#2e7d32
   linkStyle 35 stroke:#c62828,color:#c62828

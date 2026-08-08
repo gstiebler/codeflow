@@ -7,22 +7,22 @@ flowchart TD
     n10[counter]:::OBJ_VARIABLE
     n14[result]:::VARIABLE
     n3[10]:::LITERAL --> n6[initial]:::FUNC_PARAM
+    n5[<init>]:::RETURN --> n10[counter]:::OBJ_VARIABLE
+    n7[value]:::VARIABLE --> n13[+]:::BIN_OP
+    n9[step]:::VARIABLE --> n13[+]:::BIN_OP
+    n12[advance]:::RETURN --> n14[result]:::VARIABLE
     subgraph b4["Counter.constructor"]
       n5[<init>]:::RETURN
       n6[initial]:::FUNC_PARAM
       n7[value]:::VARIABLE
       n8[3]:::LITERAL
       n9[step]:::VARIABLE
-      n5[<init>]:::RETURN --> n10[counter]:::OBJ_VARIABLE
       n6[initial]:::FUNC_PARAM --> n7[value]:::VARIABLE
-      n7[value]:::VARIABLE --> n13[+]:::BIN_OP
       n8[3]:::LITERAL --> n9[step]:::VARIABLE
-      n9[step]:::VARIABLE --> n13[+]:::BIN_OP
     end
     subgraph b11["advance"]
       n12[advance]:::RETURN
       n13[+]:::BIN_OP
-      n12[advance]:::RETURN --> n14[result]:::VARIABLE
       n13[+]:::BIN_OP --> n12[advance]:::RETURN
     end
   end

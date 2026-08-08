@@ -7,23 +7,23 @@ flowchart TD
     n11[amount]:::OBJ_VARIABLE
     n14[out]:::VARIABLE
     n3[3]:::LITERAL --> n6[seed]:::FUNC_PARAM
+    n5[of]:::RETURN --> n11[amount]:::OBJ_VARIABLE
+    n10[held]:::VARIABLE --> n13[read]:::RETURN
+    n13[read]:::RETURN --> n14[out]:::VARIABLE
     subgraph b4["of"]
       n5[of]:::RETURN
       n6[seed]:::FUNC_PARAM
-      n5[of]:::RETURN --> n11[amount]:::OBJ_VARIABLE
       n6[seed]:::FUNC_PARAM --> n9[seed]:::FUNC_PARAM
+      n8[<init>]:::RETURN --> n5[of]:::RETURN
       subgraph b7["Amount.constructor"]
         n8[<init>]:::RETURN
         n9[seed]:::FUNC_PARAM
         n10[held]:::VARIABLE
-        n8[<init>]:::RETURN --> n5[of]:::RETURN
         n9[seed]:::FUNC_PARAM --> n10[held]:::VARIABLE
-        n10[held]:::VARIABLE --> n13[read]:::RETURN
       end
     end
     subgraph b12["read"]
       n13[read]:::RETURN
-      n13[read]:::RETURN --> n14[out]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

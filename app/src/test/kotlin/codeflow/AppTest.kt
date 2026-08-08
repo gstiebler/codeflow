@@ -189,6 +189,102 @@ class AppTest {
         assertNoSelfEdges(testDir, result)
         assertNoUnknownOperators(testDir, result)
         assertNoDuplicateNodeIds(testDir, result)
+        assertNoNodeIsMentionedBelowItsOwnBlock(testDir, result)
+        assertLinkStylesAddressTheEdgesTheyMean(testDir, result)
+    }
+
+    /**
+     * Every `linkStyle` colours the edge whose kind asked for it, and no other.
+     *
+     * `linkStyle` indexes links globally across the whole flowchart in declaration order, so the
+     * index of an edge is only settled once every nested block has been walked - and it is settled
+     * again, differently, by anything that changes where an edge is written. Placing an edge in the
+     * block enclosing both its endpoints did exactly that. A stale index is silent: it paints a
+     * condition's grey onto some unrelated arrow and leaves the real one black, and the diagram
+     * still renders.
+     *
+     * Derived from the document rather than from the exporter's counter, so it fails if the counter
+     * and the writing ever disagree - which is the only way this can go wrong.
+     */
+    private fun assertLinkStylesAddressTheEdgesTheyMean(testDir: String, graph: List<String>) {
+        val strokes = mapOf("true" to "#2e7d32", "false" to "#c62828", "if" to "#6a6a6a")
+        val edge = Regex("""n\d+\[[^]]*]:::\w+ -->(?:\|(\w+)\|)? n\d+\[""")
+        val style = Regex("""^\s*linkStyle (\d+) stroke:(#\w+)""")
+        val wanted = HashMap<Int, String>()
+        val found = HashMap<Int, String>()
+        var index = 0
+        for (line in graph) {
+            edge.find(line)?.let { match ->
+                strokes[match.groupValues[1]]?.let { wanted[index] = it }
+                index++
+                return@let
+            }
+            style.find(line)?.let { found[it.groupValues[1].toInt()] = it.groupValues[2] }
+        }
+        assertEquals(
+            wanted, found,
+            "Graph for '$testDir' styles links by an index that does not address the edge that asked " +
+                    "for it, so a marked edge is drawn plain and a plain one is coloured."
+        )
+    }
+
+    /**
+     * A node is never named inside a subgraph deeper than the one it is declared in.
+     *
+     * Mermaid works out which subgraph a node belongs to from the statements naming it, and the
+     * deeper claim wins: a node declared in `main` and then named by an edge written inside a
+     * callee's subgraph is *drawn inside the callee*. `int b = classify(a, 10)` had exactly that -
+     * `b` is main's local, and the edge from the callee's RETURN was written in the callee, so the
+     * variable holding the call's result was drawn as though it lived inside the method it called.
+     *
+     * A box on this diagram is a method, and a value drawn in the wrong one is the graph being
+     * confidently, readably wrong about where a value lives - with the arrows all still correct, so
+     * nothing looks amiss. Naming a node from an *ancestor* is safe and stays allowed: that is where
+     * an argument edge is written, and the declaration below still wins.
+     */
+    private fun assertNoNodeIsMentionedBelowItsOwnBlock(testDir: String, graph: List<String>) {
+        val open = Regex("""^\s*subgraph (b\d+)\[""")
+        val declaration = Regex("""^\s*(n\d+)\[[^]]*]:::\w+$""")
+        val mention = Regex("""(n\d+)\[""")
+        val parent = HashMap<String, String?>()
+        val declaredIn = HashMap<String, String>()
+        val mentions = ArrayList<Triple<String, String, String>>()
+        val stack = ArrayDeque<String>()
+        for (line in graph) {
+            open.find(line)?.let {
+                val block = it.groupValues[1]
+                parent[block] = stack.lastOrNull()
+                stack.addLast(block)
+                return@let
+            }
+            if (line.trim() == "end") {
+                stack.removeLastOrNull()
+                continue
+            }
+            val here = stack.lastOrNull() ?: continue
+            declaration.find(line)?.let { declaredIn[it.groupValues[1]] = here; return@let }
+            if (declaration.containsMatchIn(line)) continue
+            mention.findAll(line).forEach { mentions.add(Triple(it.groupValues[1], here, line.trim())) }
+        }
+
+        fun enclosesOrIs(outer: String, inner: String): Boolean {
+            var block: String? = inner
+            while (block != null) {
+                if (block == outer) return true
+                block = parent[block]
+            }
+            return false
+        }
+
+        val escaped = mentions.filter { (id, where, _) ->
+            val declared = declaredIn[id] ?: return@filter false
+            !enclosesOrIs(where, declared)
+        }
+        assertTrue(
+            escaped.isEmpty(),
+            "Graph for '$testDir' names a node inside a block below the one declaring it, which " +
+                    "draws it in the wrong method: ${escaped.map { "${it.first} in ${it.second}: ${it.third}" }}"
+        )
     }
 
     /**

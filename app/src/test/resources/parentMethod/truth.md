@@ -9,6 +9,7 @@ flowchart TD
     n22[out]:::VARIABLE
     n3[Child]:::EXTERNAL --> n4[child]:::OBJ_VARIABLE
     n5[30]:::LITERAL --> n8[input]:::FUNC_PARAM
+    n7[adjust]:::RETURN --> n22[out]:::VARIABLE
     subgraph b6["adjust"]
       n7[adjust]:::RETURN
       n8[input]:::FUNC_PARAM
@@ -16,17 +17,17 @@ flowchart TD
       n10[offset]:::VARIABLE
       n15[shifted]:::VARIABLE
       n21[scaled]:::VARIABLE
-      n7[adjust]:::RETURN --> n22[out]:::VARIABLE
       n8[input]:::FUNC_PARAM --> n13[amount]:::FUNC_PARAM
       n9[5]:::LITERAL --> n10[offset]:::VARIABLE
       n10[offset]:::VARIABLE --> n14[+]:::BIN_OP
       n15[shifted]:::VARIABLE --> n18[factor]:::FUNC_PARAM
       n21[scaled]:::VARIABLE --> n7[adjust]:::RETURN
+      n12[shift]:::RETURN --> n15[shifted]:::VARIABLE
+      n17[scale]:::RETURN --> n21[scaled]:::VARIABLE
       subgraph b11["shift"]
         n12[shift]:::RETURN
         n13[amount]:::FUNC_PARAM
         n14[+]:::BIN_OP
-        n12[shift]:::RETURN --> n15[shifted]:::VARIABLE
         n13[amount]:::FUNC_PARAM --> n14[+]:::BIN_OP
         n14[+]:::BIN_OP --> n12[shift]:::RETURN
       end
@@ -35,7 +36,6 @@ flowchart TD
         n18[factor]:::FUNC_PARAM
         n19[3]:::LITERAL
         n20[*]:::BIN_OP
-        n17[scale]:::RETURN --> n21[scaled]:::VARIABLE
         n18[factor]:::FUNC_PARAM --> n20[*]:::BIN_OP
         n19[3]:::LITERAL --> n20[*]:::BIN_OP
         n20[*]:::BIN_OP --> n17[scale]:::RETURN

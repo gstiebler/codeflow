@@ -11,13 +11,13 @@ flowchart TD
     n3[Report]:::EXTERNAL --> n4[first]:::OBJ_VARIABLE
     n5[Report]:::EXTERNAL --> n6[second]:::OBJ_VARIABLE
     n6[second]:::OBJ_VARIABLE --> n9[other]:::FUNC_PARAM
+    n8[describe]:::RETURN --> n13[description]:::OBJ_VARIABLE
     subgraph b7["describe"]
       n8[describe]:::RETURN
       n9[other]:::FUNC_PARAM
       n10[code]:::EXTERNAL
       n11[code]:::EXTERNAL
       n12[+]:::BIN_OP
-      n8[describe]:::RETURN --> n13[description]:::OBJ_VARIABLE
       n9[other]:::FUNC_PARAM --> n11[code]:::EXTERNAL
       n10[code]:::EXTERNAL --> n12[+]:::BIN_OP
       n11[code]:::EXTERNAL --> n12[+]:::BIN_OP

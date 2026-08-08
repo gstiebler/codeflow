@@ -37,9 +37,9 @@ flowchart TD
       n18[memberX]:::VARIABLE --> n21[getMemberX]:::RETURN
       n18[memberX]:::VARIABLE --> n24[d]:::VARIABLE
       n22[c]:::VARIABLE --> n25[j]:::VARIABLE
+      n21[getMemberX]:::RETURN --> n22[c]:::VARIABLE
       subgraph b20["getMemberX"]
         n21[getMemberX]:::RETURN
-        n21[getMemberX]:::RETURN --> n22[c]:::VARIABLE
       end
     end
   end

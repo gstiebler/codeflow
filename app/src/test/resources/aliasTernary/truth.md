@@ -21,26 +21,26 @@ flowchart TD
     n12[22]:::LITERAL --> n15[amount]:::FUNC_PARAM
     n17[ternary]:::BIN_OP --> n18[chosen]:::OBJ_VARIABLE
     n19[amount]:::VARIABLE --> n20[total]:::VARIABLE
+    n9[<init>]:::RETURN -->|true| n17[ternary]:::BIN_OP
+    n11[amount]:::VARIABLE --> n19[amount]:::VARIABLE
+    n14[<init>]:::RETURN -->|false| n17[ternary]:::BIN_OP
+    n16[amount]:::VARIABLE --> n19[amount]:::VARIABLE
     subgraph b8["Holder.constructor"]
       n9[<init>]:::RETURN
       n10[amount]:::FUNC_PARAM
       n11[amount]:::VARIABLE
-      n9[<init>]:::RETURN -->|true| n17[ternary]:::BIN_OP
       n10[amount]:::FUNC_PARAM --> n11[amount]:::VARIABLE
-      n11[amount]:::VARIABLE --> n19[amount]:::VARIABLE
     end
     subgraph b13["Holder.constructor"]
       n14[<init>]:::RETURN
       n15[amount]:::FUNC_PARAM
       n16[amount]:::VARIABLE
-      n14[<init>]:::RETURN -->|false| n17[ternary]:::BIN_OP
       n15[amount]:::FUNC_PARAM --> n16[amount]:::VARIABLE
-      n16[amount]:::VARIABLE --> n19[amount]:::VARIABLE
     end
   end
   linkStyle 3 stroke:#6a6a6a,color:#6a6a6a
   linkStyle 8 stroke:#2e7d32,color:#2e7d32
-  linkStyle 11 stroke:#c62828,color:#c62828
+  linkStyle 10 stroke:#c62828,color:#c62828
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

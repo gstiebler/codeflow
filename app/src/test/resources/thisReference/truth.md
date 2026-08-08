@@ -7,26 +7,26 @@ flowchart TD
     n8[source]:::OBJ_VARIABLE
     n17[out]:::VARIABLE
     n3[7]:::LITERAL --> n6[seed]:::FUNC_PARAM
+    n5[<init>]:::RETURN --> n8[source]:::OBJ_VARIABLE
+    n7[value]:::VARIABLE --> n15[held]:::VARIABLE
+    n10[wrapAndRead]:::RETURN --> n17[out]:::VARIABLE
     subgraph b4["Source.constructor"]
       n5[<init>]:::RETURN
       n6[seed]:::FUNC_PARAM
       n7[value]:::VARIABLE
-      n5[<init>]:::RETURN --> n8[source]:::OBJ_VARIABLE
       n6[seed]:::FUNC_PARAM --> n7[value]:::VARIABLE
-      n7[value]:::VARIABLE --> n15[held]:::VARIABLE
     end
     subgraph b9["wrapAndRead"]
       n10[wrapAndRead]:::RETURN
       n11[this]:::OBJ_VARIABLE
       n16[wrapper]:::OBJ_VARIABLE
-      n10[wrapAndRead]:::RETURN --> n17[out]:::VARIABLE
       n11[this]:::OBJ_VARIABLE --> n14[origin]:::FUNC_PARAM
+      n13[<init>]:::RETURN --> n16[wrapper]:::OBJ_VARIABLE
+      n15[held]:::VARIABLE --> n10[wrapAndRead]:::RETURN
       subgraph b12["Wrapper.constructor"]
         n13[<init>]:::RETURN
         n14[origin]:::FUNC_PARAM
         n15[held]:::VARIABLE
-        n13[<init>]:::RETURN --> n16[wrapper]:::OBJ_VARIABLE
-        n15[held]:::VARIABLE --> n10[wrapAndRead]:::RETURN
       end
     end
   end

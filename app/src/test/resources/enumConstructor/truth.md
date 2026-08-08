@@ -14,27 +14,27 @@ flowchart TD
     n11[9]:::LITERAL --> n14[units]:::FUNC_PARAM
     n18[large]:::VARIABLE --> n19[+]:::BIN_OP
     n19[+]:::BIN_OP --> n20[out]:::VARIABLE
+    n7[units]:::VARIABLE --> n9[units]:::RETURN
+    n9[units]:::RETURN --> n10[small]:::VARIABLE
+    n15[units]:::VARIABLE --> n17[units]:::RETURN
+    n17[units]:::RETURN --> n18[large]:::VARIABLE
     subgraph b4["Size.constructor"]
       n5[<init>]:::RETURN
       n6[units]:::FUNC_PARAM
       n7[units]:::VARIABLE
       n6[units]:::FUNC_PARAM --> n7[units]:::VARIABLE
-      n7[units]:::VARIABLE --> n9[units]:::RETURN
     end
     subgraph b8["units"]
       n9[units]:::RETURN
-      n9[units]:::RETURN --> n10[small]:::VARIABLE
     end
     subgraph b12["Size.constructor"]
       n13[<init>]:::RETURN
       n14[units]:::FUNC_PARAM
       n15[units]:::VARIABLE
       n14[units]:::FUNC_PARAM --> n15[units]:::VARIABLE
-      n15[units]:::VARIABLE --> n17[units]:::RETURN
     end
     subgraph b16["units"]
       n17[units]:::RETURN
-      n17[units]:::RETURN --> n18[large]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

@@ -10,6 +10,7 @@ flowchart TD
     n3[1]:::LITERAL --> n8[base]:::FUNC_PARAM
     n4[2]:::LITERAL --> n9[rest]:::FUNC_PARAM
     n5[3]:::LITERAL --> n9[rest]:::FUNC_PARAM
+    n7[total]:::RETURN --> n15[out]:::VARIABLE
     subgraph b6["total"]
       n7[total]:::RETURN
       n8[base]:::FUNC_PARAM
@@ -19,7 +20,6 @@ flowchart TD
       n12[part]:::VARIABLE
       n13[+]:::BIN_OP
       n14[sum]:::VARIABLE
-      n7[total]:::RETURN --> n15[out]:::VARIABLE
       n8[base]:::FUNC_PARAM --> n10[sum]:::VARIABLE
       n9[rest]:::FUNC_PARAM --> n12[part]:::VARIABLE
       n10[sum]:::VARIABLE --> n11[sum]:::VARIABLE

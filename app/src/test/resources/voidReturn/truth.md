@@ -9,6 +9,7 @@ flowchart TD
     n12[out]:::VARIABLE
     n3[Sink]:::EXTERNAL --> n4[sink]:::OBJ_VARIABLE
     n5[5]:::LITERAL --> n8[seed]:::FUNC_PARAM
+    n11[held]:::VARIABLE --> n12[out]:::VARIABLE
     subgraph b6["store"]
       n7[store]:::RETURN
       n8[seed]:::FUNC_PARAM
@@ -18,7 +19,6 @@ flowchart TD
       n8[seed]:::FUNC_PARAM --> n10[<]:::BIN_OP
       n8[seed]:::FUNC_PARAM --> n11[held]:::VARIABLE
       n9[0]:::LITERAL --> n10[<]:::BIN_OP
-      n11[held]:::VARIABLE --> n12[out]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

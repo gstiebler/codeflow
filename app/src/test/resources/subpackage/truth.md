@@ -11,12 +11,12 @@ flowchart TD
     n3[Adder]:::EXTERNAL --> n4[adder]:::OBJ_VARIABLE
     n5[3]:::LITERAL --> n9[left]:::FUNC_PARAM
     n6[5]:::LITERAL --> n10[right]:::FUNC_PARAM
+    n8[add]:::RETURN --> n12[sum]:::VARIABLE
     subgraph b7["add"]
       n8[add]:::RETURN
       n9[left]:::FUNC_PARAM
       n10[right]:::FUNC_PARAM
       n11[+]:::BIN_OP
-      n8[add]:::RETURN --> n12[sum]:::VARIABLE
       n9[left]:::FUNC_PARAM --> n11[+]:::BIN_OP
       n10[right]:::FUNC_PARAM --> n11[+]:::BIN_OP
       n11[+]:::BIN_OP --> n8[add]:::RETURN

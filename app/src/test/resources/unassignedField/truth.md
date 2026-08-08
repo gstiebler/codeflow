@@ -10,14 +10,16 @@ flowchart TD
     n18[out]:::VARIABLE
     n3[Builder]:::EXTERNAL --> n4[builder]:::OBJ_VARIABLE
     n5[4]:::LITERAL --> n8[seed]:::FUNC_PARAM
+    n7[fill]:::RETURN --> n13[builder]:::FUNC_PARAM
+    n9[filled]:::VARIABLE --> n14[fromFilled]:::VARIABLE
+    n12[<init>]:::RETURN --> n17[built]:::OBJ_VARIABLE
+    n14[fromFilled]:::VARIABLE --> n18[out]:::VARIABLE
     subgraph b6["fill"]
       n7[fill]:::RETURN
       n8[seed]:::FUNC_PARAM
       n9[filled]:::VARIABLE
       n10[this]:::OBJ_VARIABLE
-      n7[fill]:::RETURN --> n13[builder]:::FUNC_PARAM
       n8[seed]:::FUNC_PARAM --> n9[filled]:::VARIABLE
-      n9[filled]:::VARIABLE --> n14[fromFilled]:::VARIABLE
       n10[this]:::OBJ_VARIABLE --> n7[fill]:::RETURN
     end
     subgraph b11["Built.constructor"]
@@ -26,8 +28,6 @@ flowchart TD
       n14[fromFilled]:::VARIABLE
       n15[neverSet]:::VARIABLE
       n16[fromNeverSet]:::VARIABLE
-      n12[<init>]:::RETURN --> n17[built]:::OBJ_VARIABLE
-      n14[fromFilled]:::VARIABLE --> n18[out]:::VARIABLE
       n15[neverSet]:::VARIABLE --> n16[fromNeverSet]:::VARIABLE
     end
   end

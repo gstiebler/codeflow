@@ -8,13 +8,13 @@ flowchart TD
     n11[chosen]:::OBJ_VARIABLE
     n3[true]:::LITERAL --> n4[big]:::VARIABLE
     n4[big]:::VARIABLE --> n7[big]:::FUNC_PARAM
+    n6[fromFlag]:::RETURN --> n11[chosen]:::OBJ_VARIABLE
     subgraph b5["fromFlag"]
       n6[fromFlag]:::RETURN
       n7[big]:::FUNC_PARAM
       n8[LARGE]:::EXTERNAL
       n9[SMALL]:::EXTERNAL
       n10[ternary]:::BIN_OP
-      n6[fromFlag]:::RETURN --> n11[chosen]:::OBJ_VARIABLE
       n7[big]:::FUNC_PARAM -->|if| n10[ternary]:::BIN_OP
       n8[LARGE]:::EXTERNAL -->|true| n10[ternary]:::BIN_OP
       n9[SMALL]:::EXTERNAL -->|false| n10[ternary]:::BIN_OP

@@ -14,13 +14,13 @@ flowchart TD
     n4[seed]:::VARIABLE --> n7[v]:::FUNC_PARAM
     n10["text"]:::LITERAL --> n11[StringBuilder]:::EXTERNAL
     n11[StringBuilder]:::EXTERNAL --> n12[sb]:::OBJ_VARIABLE
+    n6[<init>]:::RETURN --> n9[box]:::OBJ_VARIABLE
+    n8[held]:::VARIABLE --> n13[read]:::VARIABLE
     subgraph b5["Box.constructor"]
       n6[<init>]:::RETURN
       n7[v]:::FUNC_PARAM
       n8[held]:::VARIABLE
-      n6[<init>]:::RETURN --> n9[box]:::OBJ_VARIABLE
       n7[v]:::FUNC_PARAM --> n8[held]:::VARIABLE
-      n8[held]:::VARIABLE --> n13[read]:::VARIABLE
     end
   end
   classDef LITERAL fill:#00FF0030

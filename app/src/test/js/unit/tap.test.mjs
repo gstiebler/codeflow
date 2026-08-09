@@ -78,3 +78,23 @@ test('clicking a method name again is harmless', () => {
 test('clicking an ordinary leaf still walks its neighbourhood', () => {
   assert.deepEqual(after(['mR', 'x', 'a', 'fR'], 'x'), ['a', 'fR', 'mR', 'x', 'y']);
 });
+
+// Its own payload, because the shared one gives `fR` no edges - which is the whole point. A name is
+// a door and a leaf at once, so opening the box must not cost the walk, and with an edgeless name
+// there is nothing for the walk to add and returning early from the branch above looks identical.
+// That is the defect this rule was rewritten to avoid, so it gets the one payload that can see it.
+const walked = {
+  nodes: [
+    { id: 'm', type: 'METHOD', label: 'main' },
+    { id: 'mR', type: 'RETURN', label: 'main', parent: 'm' },
+    { id: 'x', type: 'VARIABLE', label: 'x', parent: 'm' },
+    { id: 'f', type: 'METHOD', label: 'f', parent: 'm' },
+    { id: 'fR', type: 'RETURN', label: 'f', parent: 'f' },
+    { id: 'a', type: 'VARIABLE', label: 'a', parent: 'f' },
+  ],
+  edges: [{ source: 'fR', target: 'x', kind: 'FLOW' }],
+};
+
+test('opening a method also walks the edges of the name that opened it', () => {
+  assert.deepEqual([...tap(walked, new Set(['mR']), 'fR')].sort(), ['a', 'fR', 'mR', 'x']);
+});

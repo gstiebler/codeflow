@@ -18,6 +18,9 @@ app/src/test/resources/*/ir.txt
 # in truth.md. Nothing asserts on it either - see AppTest.writePage - and each one inlines its own
 # copy of the vendored libraries, so they are megabytes apiece and are not committed.
 app/src/test/resources/*/graph.html
+# The same payload as a file the viewer's Node tests can read, written beside graph.html on every
+# run. `npm test` sweeps these for reachability - see app/src/test/js/unit/reachability.test.mjs.
+app/src/test/resources/*/graph.json
 # The viewer's browser libraries are vendored into app/src/main/resources/viewer and committed;
 # node_modules only exists to pin where they came from and to run the JS tests.
 node_modules

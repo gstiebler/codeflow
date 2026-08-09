@@ -176,7 +176,7 @@ class AppTest {
     }
 
     /**
-     * The same graph as one interactive page, written next to the source it was drawn from.
+     * The same graph as one interactive page and a JSON payload, written next to the source it was drawn from.
      *
      * Not an assertion and not a golden file - `graph.html` is gitignored and nothing reads it back,
      * for the same reason [codeflow.ir.LoweringTest.write] writes `ir.txt`: it is there to be looked
@@ -194,6 +194,13 @@ class AppTest {
         val page = StringBuilder()
         HtmlExporter().processMainMethod(mainMethod) { page.append(it).append("\n") }
         Files.writeString(testDirPath.resolve("graph.html"), page)
+
+        // The same payload the page inlines, on its own, because the viewer's Node tests need it:
+        // model.mjs decides what is on screen and a sweep over the real corpus is the only thing
+        // that can say a fixture is reachable at all. Gitignored and rewritten like the page.
+        val payload = StringBuilder()
+        JsonExporter().processMainMethod(mainMethod) { payload.append(it).append("\n") }
+        Files.writeString(testDirPath.resolve("graph.json"), payload)
     }
 
     private fun codeflow(testDir: String, testFiles: List<String>) {

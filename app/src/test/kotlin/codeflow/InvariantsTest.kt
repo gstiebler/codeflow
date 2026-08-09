@@ -56,8 +56,8 @@ import kotlin.test.assertTrue
  */
 class InvariantsTest {
 
-    private val testResourcesPath = Path.of(System.getProperty("user.dir"))
-        .resolve("src").resolve("test").resolve("resources")
+    private val testResourcesPath = System.getenv("CODEFLOW_CORPUS")?.let { Path.of(it) }
+        ?: Path.of(System.getProperty("user.dir")).resolve("src").resolve("test").resolve("resources")
 
     /**
      * One fixture drawn, with the instruction lists it was drawn from still in hand.
@@ -320,7 +320,9 @@ class InvariantsTest {
      * command line does.
      */
     private fun entry(analysis: Analysis, fixture: String) =
-        ENTRY_POINTS[fixture]?.let { analysis.method(it) } ?: analysis.globalCtx.mainMethods().first()
+        System.getenv("CODEFLOW_ENTRY")?.let { analysis.method(it) }
+            ?: ENTRY_POINTS[fixture]?.let { analysis.method(it) }
+            ?: analysis.globalCtx.mainMethods().first()
 
     private companion object {
         val ENTRY_POINTS = mapOf("noMain" to "Report#total")

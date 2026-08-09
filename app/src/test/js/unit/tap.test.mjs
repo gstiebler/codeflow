@@ -53,3 +53,28 @@ test('tap does not mutate the set it was given', () => {
 test('tapping an id that is not in the payload changes nothing', () => {
   assert.deepEqual(after(['mR', 'x'], 'nope'), ['mR', 'x']);
 });
+
+// The bug this whole change exists to fix. `fR` is on screen because f is closed and its caller is
+// open, it carries f's name, it is the obvious thing to press - and a RETURN node that no value
+// flows through has no neighbours, so the walk returned it to itself and nothing happened.
+test('clicking a method name opens that method', () => {
+  assert.deepEqual(after(['mR', 'x'], 'fR'), ['a', 'fR', 'gR', 'mR', 'x']);
+});
+
+// One level per click. `gR` is g's name and nothing of g's body comes with it: if a click opened the
+// boxes below it too, one press would unfold the call tree - the wall the viewer exists to avoid.
+test('opening a method offers the names of what it calls and nothing inside them', () => {
+  assert.equal(after(['mR', 'x'], 'fR').includes('b'), false);
+});
+
+// The same gesture means the same thing whether the box is shut or already open, which is what
+// makes every leaf reachable: a RETURN nothing flows through is otherwise unreachable once its box
+// has been opened by following dataflow instead.
+test('clicking a method name again is harmless', () => {
+  assert.deepEqual(after(['a', 'fR', 'gR', 'mR', 'x'], 'fR'), ['a', 'fR', 'gR', 'mR', 'x']);
+});
+
+// A leaf that is not a method's name is untouched by any of this and still walks its edges.
+test('clicking an ordinary leaf still walks its neighbourhood', () => {
+  assert.deepEqual(after(['mR', 'x', 'a', 'fR'], 'x'), ['a', 'fR', 'mR', 'x', 'y']);
+});

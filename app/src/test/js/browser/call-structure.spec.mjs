@@ -23,6 +23,9 @@ const boxLabels = (page) => page.evaluate(() => window.cy.nodes('[type = "METHOD
 const tapBox = (page, label) => page.evaluate((l) => window.cy.nodes('[type = "METHOD"]')
   .filter((n) => n.data('label') === l).emit('tap'), label);
 
+const tapLeaf = (page, label) => page.evaluate((l) => window.cy.nodes()
+  .filter((n) => n.data('type') !== 'METHOD' && n.data('label') === l).emit('tap'), label);
+
 /**
  * The fixture where following dataflow finds nothing.
  *
@@ -74,6 +77,17 @@ test.describe('member: a callee no edge reaches', () => {
     // The handle survives the fold. Without this the box would vanish and the only way back would be
     // a reload, which is the dead end this whole mechanism exists to remove.
     expect(await boxLabels(page)).toEqual(['func1', 'main']);
+  });
+
+  // The end-to-end half of the unit test: the node the reader can see is the node that opens the
+  // method. `func1` matches exactly one leaf - the box of the same name is filtered out by type -
+  // and the count before is what makes this fail if the click does nothing.
+  test('clicking the name of a closed method opens its body', async ({ page }) => {
+    expect(await leafLabels(page)).toEqual(['App', 'app', 'args', 'func1', 'main']);
+    await tapLeaf(page, 'func1');
+    const opened = await leafLabels(page);
+    expect(opened).toHaveLength(23);
+    expect(opened).toContain('memberX');
   });
 });
 

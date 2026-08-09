@@ -1,28 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadCorpus } from './corpus.mjs';
-import { opening, tap, screen, descendantLeaves, withStubs, stubOf } from '../../../main/resources/viewer/model.mjs';
+import { opening, tap, screen, descendantLeaves, withStubs, openBoxes } from '../../../main/resources/viewer/model.mjs';
 
 const corpus = loadCorpus();
-
-/**
- * Which boxes are open, by the definition [withStubs] itself uses: a box is open when something
- * inside it is showing that is not the box's own stub.
- *
- * That exception is the whole of it. A closed method is drawn *as* its own RETURN node, so a box
- * whose only showing leaf is that node is not open - it is the shut door, and asking what is behind
- * it is what the reader has not done yet. Restating "open" as "has any showing descendant" reads
- * every shut door as an opened one.
- */
-function openBoxes(payload, showing) {
-  const stubs = stubOf(payload.nodes);
-  return new Set(
-    payload.nodes.filter((n) => n.type === 'METHOD')
-      .filter((box) => [...descendantLeaves(payload.nodes, box.id)]
-        .some((leaf) => showing.has(leaf) && stubs.get(box.id) !== leaf))
-      .map((box) => box.id),
-  );
-}
 
 /**
  * Two states per fixture: what the reader sees first, and what they see after clicking everything
@@ -41,7 +22,7 @@ test('every box whose parent is open has something showing inside it', () => {
   for (const { name, payload } of corpus) {
     for (const revealed of states(payload)) {
       const { showing } = screen(payload, revealed);
-      const open = openBoxes(payload, showing);
+      const open = openBoxes(payload.nodes, revealed);
       for (const box of payload.nodes.filter((n) => n.type === 'METHOD' && open.has(n.parent))) {
         const inside = [...descendantLeaves(payload.nodes, box.id)].filter((leaf) => showing.has(leaf));
         assert.ok(inside.length > 0, `${name}: box ${box.label} is inside an open box with nothing showing in it`);

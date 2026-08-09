@@ -148,6 +148,39 @@ export function descendantLeaves(nodes, boxId) {
 }
 
 /**
+ * Which boxes are open: every ancestor of every revealed leaf, minus the one exception below.
+ *
+ * A closed method is drawn *as* its own RETURN node, so a box whose only revealed leaf is that node
+ * is not open - it is the shut door, and what is behind it is what the reader has not asked for
+ * yet. Without that exception, offering one callee's name would make that callee open, which would
+ * offer its callees' names, and one pass would unfold the entire call tree.
+ *
+ * One definition, because three things ask the question - [withStubs] deciding what to offer,
+ * [screen] deciding which of those are names rather than bodies, and the invariants sweep. Three
+ * spellings of "open" is three chances for the viewer to disagree with itself about what the reader
+ * is looking at.
+ */
+export function openBoxes(nodes, revealed) {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const stubs = stubOf(nodes);
+  const parentOf = (id) => byId.get(id)?.parent;
+
+  const open = new Set();
+  for (const id of revealed) {
+    const node = byId.get(id);
+    if (!node || isBoxNode(node)) continue;
+    let box = node.parent;
+    // Its own RETURN is how a closed method is drawn, so seeing one is not seeing the body: it
+    // leaves that box shut, and only opens the boxes further up that it sits inside.
+    if (stubs.get(box) === id) box = parentOf(box);
+    // Every ancestor, not just the immediate one: a box holding only boxes is open on the strength
+    // of a grandchild, the same case the "never hide a METHOD node" rule exists for.
+    for (; box; box = parentOf(box)) open.add(box);
+  }
+  return open;
+}
+
+/**
  * What is on screen: everything revealed, plus one stub per callee of an open method.
  *
  * Reveal follows dataflow edges, and a dataflow graph is a forest - every fixture in the suite is
@@ -173,22 +206,8 @@ export function descendantLeaves(nodes, boxId) {
  * enough: no stub can ever produce another.
  */
 export function withStubs(nodes, revealed) {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
   const stubs = stubOf(nodes);
-  const parentOf = (id) => byId.get(id)?.parent;
-
-  const open = new Set();
-  for (const id of revealed) {
-    const node = byId.get(id);
-    if (!node || isBoxNode(node)) continue;
-    let box = node.parent;
-    // Its own RETURN is how a closed method is drawn, so seeing one is not seeing the body: it
-    // leaves that box shut, and only opens the boxes further up that it sits inside.
-    if (stubs.get(box) === id) box = parentOf(box);
-    // Every ancestor, not just the immediate one: a box holding only boxes is open on the strength
-    // of a grandchild, the same case the "never hide a METHOD node" rule exists for.
-    for (; box; box = parentOf(box)) open.add(box);
-  }
+  const open = openBoxes(nodes, revealed);
 
   const showing = new Set(revealed);
   for (const box of nodes) {
@@ -237,6 +256,28 @@ export function tap(payload, revealed, id) {
     return next;
   }
 
+  // A method's RETURN node is its name, and clicking a name means "show me this method". Following
+  // its edges alone is what left `member` unopenable: a RETURN carrying no value back to its caller
+  // has no edges at all, so the walk returned it to itself.
+  //
+  // The names of what it calls come too, because a box is drawn by its contents - a callee with
+  // nothing showing inside it cannot be drawn at all, so without them a method that only calls
+  // other methods opens onto nothing. It is still one level: a name is all that arrives, and
+  // opening what it stands for takes a press of its own.
+  //
+  // This is not the rule [openBoxes] enforces, and the two must not be merged. That one governs the
+  // derivation, where a name counting as its box being open would cascade through the whole call
+  // tree in a single pass. This governs a gesture, which cannot cascade because it happens once.
+  const stubs = stubOf(payload.nodes);
+  if (stubs.get(node.parent) === id) {
+    for (const leaf of ownLeaves(payload.nodes, node.parent)) next.add(leaf);
+    for (const inside of payload.nodes) {
+      if (isBoxNode(inside) && inside.parent === node.parent && stubs.has(inside.id)) {
+        next.add(stubs.get(inside.id));
+      }
+    }
+  }
+
   for (const reached of neighbourhood(payload.edges, id, REVEAL_DEPTH)) next.add(reached);
   return next;
 }
@@ -257,9 +298,12 @@ export function screen(payload, revealed) {
   const showing = withStubs(payload.nodes, revealed);
   const hidden = hiddenDegree(payload.edges, showing);
 
+  // Not `showing` minus `revealed`: a click on a name puts it in `revealed` while leaving the box
+  // it stands for shut, and it is still a name. What makes it a body is the box being open.
+  const open = openBoxes(payload.nodes, revealed);
   const stubs = new Set();
-  for (const id of stubOf(payload.nodes).values()) {
-    if (showing.has(id) && !revealed.has(id)) stubs.add(id);
+  for (const [box, id] of stubOf(payload.nodes)) {
+    if (showing.has(id) && !open.has(box)) stubs.add(id);
   }
 
   const nodes = payload.nodes.map((node) => ({

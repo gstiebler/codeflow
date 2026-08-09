@@ -28,6 +28,15 @@ The JS suites need `npm install` once. `npm test` globs the files itself
 (`app/src/test/js/unit/*.test.mjs`) because `node --test <dir>` tries to import the directory and
 dies before running anything.
 
+`scripts/delombok.sh <src> [out]` is the one preprocessing step, for a Lombok-annotated corpus.
+codeflow parses with `-proc:none` and no classpath, so a `@Getter` accessor, a
+`@RequiredArgsConstructor` constructor and `@Slf4j`'s `log` field do not exist in the attributed tree
+and every use of one is drawn opaque; `delombok` writes them out as ordinary source, which is
+codeflow's input contract with nothing added. Running Lombok *inside* codeflow instead would need a
+jar on the processor path, `--add-opens` on the analysing JVM, and would let a processor found in the
+analysed corpus execute during what the reader thinks is a read. The trade is that every `file:line`
+codeflow prints afterwards names the delomboked copy. `docs/externals.md` measures both halves.
+
 **Two JDK numbers, and they are not interchangeable.** codeflow parses with the *running* JDK's
 javac (`ToolProvider.getSystemJavaCompiler()`), so the JDK is an input to the output and not just to
 the build. `app/build.gradle` therefore compiles to bytecode **21** — `jvmToolchain(21)`, because

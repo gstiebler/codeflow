@@ -1,0 +1,67 @@
+/**
+ * The payload's shape and the view's, in one place.
+ *
+ * JsonExporter writes the payload and is the authority on it; nothing here may add a field. The
+ * view is what a renderer is handed, and there are two of them now - if they disagree about this
+ * type they draw two different pages from one graph, which is the failure this repo cares most
+ * about.
+ */
+
+export type Id = string;
+
+/**
+ * Every type JsonExporter emits: `codeflow.graph.NodeType`, plus METHOD for a block.
+ *
+ * METHOD is a box and everything else is a leaf. That distinction is the one the whole viewer turns
+ * on, so it is spelled out here rather than left to a string comparison in each renderer.
+ */
+export type NodeType =
+  | 'METHOD'
+  | 'BASE' | 'LITERAL' | 'VARIABLE' | 'OBJ_VARIABLE' | 'BIN_OP' | 'FUNC_PARAM'
+  | 'RETURN' | 'MEM_SPACE' | 'EXTERNAL' | 'UNMODELLED';
+
+export type EdgeKind = 'FLOW' | 'TRUE' | 'FALSE' | 'CONDITION';
+
+export type PayloadNode = {
+  id: Id;
+  label: string;
+  type: NodeType;
+  /** `file:line:col`. Present on every node, boxes included - see JsonExporter.entry. */
+  source: string;
+  /** The enclosing box. Absent on the entry method, which is the one node with no parent. */
+  parent?: Id;
+};
+
+export type PayloadEdge = { source: Id; target: Id; kind: EdgeKind };
+
+export type Payload = { nodes: PayloadNode[]; edges: PayloadEdge[] };
+
+/** How many edges at a node lead somewhere off screen, per direction. */
+export type HiddenDegree = { in: number; out: number };
+
+export type ViewNode = PayloadNode & {
+  /** The label plus what is missing around it - `total ↑2 ↓3`. Never replaces `label`. */
+  badge: string;
+  /**
+   * On screen. For a box: some descendant leaf is showing.
+   *
+   * Descendants, because a box holds boxes and one whose only showing node is a grandchild is still
+   * on screen. Cytoscape derives exactly this and must not be told it; React Flow derives nothing
+   * and must be.
+   */
+  visible: boolean;
+};
+
+export type ViewEdge = PayloadEdge & { visible: boolean };
+
+export type View = {
+  /** Leaves on screen: everything revealed, plus one stub per offered callee. */
+  showing: Set<Id>;
+  /** Which of `showing` are stubs rather than genuinely revealed. */
+  stubs: Set<Id>;
+  hidden: Map<Id, HiddenDegree>;
+  /** Every payload node, visible or not, in payload order. */
+  nodes: ViewNode[];
+  /** Every payload edge, visible or not, in payload order. */
+  edges: ViewEdge[];
+};

@@ -49,6 +49,7 @@ derives.
 - Create: `app/src/main/resources/viewer/types.ts`
 - Create: `scripts/build-viewer.mjs`
 - Create: `app/src/test/js/unit/bundle.test.ts`
+- Create: `tsconfig.json`, `app/src/main/resources/viewer/css.d.ts`
 - Delete: `app/src/main/resources/viewer/model.mjs`, `viewer.mjs`, `cytoscape.min.js`,
   `elk.bundled.js`, `cytoscape-elk.js`
 - Modify: `app/src/main/resources/viewer/template.html`
@@ -408,6 +409,55 @@ test('the committed bundles are what the sources build', async () => {
     assert.equal(fresh, committed, `${name} is stale - run \`npm run build:viewer\``);
   }
 });
+```
+
+- [ ] **Step 12b: Make the types mean something**
+
+Neither Node nor esbuild checks a type — Node strips them and esbuild deletes them — so without this
+step every annotation in the plan is a comment that looks like a check. Confirmed rather than
+assumed: `reactflow.tsx` as written in Task 4 had a real type error (`.then((result: never) => …)`,
+which nothing can call), and `tsc` found it before the file had ever run.
+
+Create `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "es2020",
+    "lib": ["es2020", "dom"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": ["app/src/main/resources/viewer/**/*.ts", "app/src/main/resources/viewer/**/*.tsx",
+              "app/src/test/js/**/*.ts"]
+}
+```
+
+`allowImportingTsExtensions`, because every import here names `./model.ts` — which is what Node's
+type stripping requires and what esbuild resolves.
+
+Create `app/src/main/resources/viewer/css.d.ts`:
+
+```ts
+/** React Flow's stylesheet arrives as text, via esbuild's `--loader:.css=text`. */
+declare module '*.css' {
+  const text: string;
+  export default text;
+}
+```
+
+Add to `package.json`, and put it in front of the tests, since a type error makes every downstream
+failure harder to read:
+
+```json
+    "typecheck": "tsc",
+    "test": "npm run typecheck && npm run check:bundle && node --test app/src/test/js/unit/*.test.ts"
 ```
 
 - [ ] **Step 13: Build, and run everything**
@@ -1000,7 +1050,10 @@ function Graph({ payload }: { payload: Payload }) {
 
   useEffect(() => {
     let current = true;
-    new ELK().layout(elkGraph(view) as never).then((result: never) => {
+    // No cast either way: layout.ts's ElkNode is assignable to the library's, and what comes back is
+    // assignable to positions(). Keeping the two types structurally compatible is what lets layout.ts
+    // stay importable by `node --test`, which cannot load elkjs.
+    new ELK().layout(elkGraph(view)).then((result) => {
       if (current) setLaid(positions(result));
     });
     return () => { current = false; };

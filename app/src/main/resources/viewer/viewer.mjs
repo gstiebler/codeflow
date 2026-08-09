@@ -81,25 +81,18 @@ export function init(payload) {
     // in the constructor as well only costs a run nobody sees.
   });
 
-  const isBox = (node) => node.data('type') === 'METHOD';
-
   let revealed = opening(payload);
 
   const apply = () => {
-    // What is on screen is the reveal set plus one stub per offered callee - derived every time
-    // rather than stored, so folding a box cannot strand a stub that was added when it opened.
-    const showing = withStubs(payload.nodes, revealed);
-    const hidden = hiddenDegree(payload.edges, showing);
+    // Everything about what is on screen was decided in model.mjs. This writes it, and the rule it
+    // must not break is expressed as data: a display of null is a box, which Cytoscape works out
+    // from its descendants and we must never touch.
+    const view = screen(payload, revealed);
+    const state = new Map(view.nodes.map((node) => [node.id, node]));
     for (const node of cy.nodes()) {
-      // A separate field from `label`, which stays the plain name: the annotation is a property of
-      // the current view rather than of the value, and anything looking a node up by what it is
-      // called has to go on finding it. No edge names a box, so a box gets its name back unchanged.
-      node.data('badge', badgeLabel(node.data('label'), hidden.get(node.id())));
-      // Never a box. Cytoscape works a box's visibility out from its descendants, transitively -
-      // display:none here would hide a box whose only visible node is a grandchild, and that
-      // grandchild would have nowhere to live.
-      if (isBox(node)) continue;
-      node.style('display', showing.has(node.id()) ? 'element' : 'none');
+      const drawn = state.get(node.id());
+      node.data('badge', drawn.badge);
+      if (drawn.display !== null) node.style('display', drawn.display);
     }
     cy.layout(LAYOUT).run();
   };

@@ -240,3 +240,43 @@ export function tap(payload, revealed, id) {
   for (const reached of neighbourhood(payload.edges, id, REVEAL_DEPTH)) next.add(reached);
   return next;
 }
+
+/**
+ * The whole view, as data.
+ *
+ * Every node and every edge in the payload is described, visible or not: nothing is ever removed
+ * from the graph, so a node that just left the screen needs 'none' written onto it as much as an
+ * arrival needs 'element'. Both arrays keep payload order, so a test can compare them directly.
+ *
+ * `display` is null for a METHOD node, never a string. Cytoscape derives a box's visibility from
+ * its descendants, transitively, and a display of our own would hide a box whose only visible node
+ * is a grandchild - leaving that grandchild nowhere to live. Saying so in the data makes it an
+ * assertion a unit test can read, rather than a rule living in the middle of the render loop.
+ */
+export function screen(payload, revealed) {
+  const showing = withStubs(payload.nodes, revealed);
+  const hidden = hiddenDegree(payload.edges, showing);
+
+  const stubs = new Set();
+  for (const id of stubOf(payload.nodes).values()) {
+    if (showing.has(id) && !revealed.has(id)) stubs.add(id);
+  }
+
+  const nodes = payload.nodes.map((node) => ({
+    id: node.id,
+    label: node.label,
+    type: node.type,
+    parent: node.parent,
+    badge: badgeLabel(node.label, hidden.get(node.id)),
+    display: isBoxNode(node) ? null : (showing.has(node.id) ? 'element' : 'none'),
+  }));
+
+  const edges = payload.edges.map((edge) => ({
+    source: edge.source,
+    target: edge.target,
+    kind: edge.kind,
+    visible: showing.has(edge.source) && showing.has(edge.target),
+  }));
+
+  return { showing, stubs, hidden, nodes, edges };
+}

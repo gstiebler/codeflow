@@ -105,23 +105,7 @@ export function init(payload) {
   };
 
   cy.on('tap', 'node', (event) => {
-    const node = event.target;
-    if (isBox(node)) {
-      // A box click is one toggle over the other axis of the graph. Dataflow is a forest - every
-      // fixture in the suite is disconnected - so a callee reached by a call that passes no value
-      // has no edge into it from anywhere, and clicking values could never arrive there.
-      const inside = node.descendants().filter((n) => !isBox(n) && revealed.has(n.id()));
-      if (inside.length === 0) {
-        for (const id of ownLeaves(payload.nodes, node.id())) revealed.add(id);
-      } else {
-        // descendants(), not children(): a box holds boxes, and folding one has to take the lot.
-        for (const gone of node.descendants()) {
-          if (!isBox(gone)) revealed.delete(gone.id());
-        }
-      }
-    } else {
-      for (const id of neighbourhood(payload.edges, node.id(), REVEAL_DEPTH)) revealed.add(id);
-    }
+    revealed = tap(payload, revealed, event.target.id());
     apply();
   });
 

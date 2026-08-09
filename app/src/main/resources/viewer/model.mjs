@@ -214,3 +214,29 @@ export function opening(payload) {
   const root = payload.nodes.find((node) => isBoxNode(node) && !node.parent);
   return root ? ownLeaves(payload.nodes, root.id) : new Set();
 }
+
+/**
+ * What one click does, as a set of revealed ids.
+ *
+ * One function, so that "what does clicking this do" has one answer to test. Returns a new Set and
+ * never mutates its argument, so a caller can compare before against after.
+ *
+ * Clicks union and never subtract. Folding a box is the only thing that takes anything away, which
+ * is why the box branch is the only one that deletes.
+ */
+export function tap(payload, revealed, id) {
+  const node = payload.nodes.find((candidate) => candidate.id === id);
+  if (!node) return new Set(revealed);
+
+  const next = new Set(revealed);
+  if (isBoxNode(node)) {
+    const inside = descendantLeaves(payload.nodes, id);
+    const open = [...inside].some((leaf) => next.has(leaf));
+    if (open) for (const leaf of inside) next.delete(leaf);
+    else for (const leaf of ownLeaves(payload.nodes, id)) next.add(leaf);
+    return next;
+  }
+
+  for (const reached of neighbourhood(payload.edges, id, REVEAL_DEPTH)) next.add(reached);
+  return next;
+}

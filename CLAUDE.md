@@ -162,6 +162,29 @@ clicking `X1` in the `funcCall` fixture reveals nodes inside the nested `methodC
 
 Nothing is ever removed from the graph, so `cy.nodes().length` is always the payload's node count.
 
+**A hidden neighbour is announced, or the reveal lies by omission.** Cytoscape drops an edge when
+either endpoint goes, so a node with six hidden neighbours renders *identically* to a genuine source
+or sink — a value arriving from somewhere invisible drawn as a value arriving from nowhere, which is
+the silently-incomplete diagram arriving through the one door progressive reveal opens. So
+`hiddenDegree(edges, revealed)` counts, per revealed node, the edges whose other end is off screen,
+split by direction, and `badgeLabel` renders them into the node's caption: `total ↑2 ↓3`, `amount
+↓3`, and nothing at all when the node is fully surrounded. An edge counts at a node only when
+exactly one of its endpoints is revealed — both on screen is nothing missing, both off belongs to
+neither — so the two cases are one test.
+
+Counting *reachable* nodes instead is the tempting alternative and does not work: the graph is close
+to connected and the walk is undirected, so every node would report approximately the payload's
+size, adjacent nodes would count the same hundreds twice, and it is a walk per node per `apply()`.
+`docs/superpowers/specs/2026-08-08-hidden-neighbour-counts-design.md` has that argument and the one
+against ranking by the click's own harvest.
+
+The badge lives in `data('badge')` and **`data('label')` stays the plain name**, because the
+annotation is a property of the current view rather than of the value — every existing browser
+assertion looks a node up by label, and so will the next one. The browser test reads
+`n.style('label')` rather than the data for the matching reason: the badge being right in the data
+while the stylesheet still points at `label` is a page that draws none of this, and reading the data
+would call that green.
+
 `neighbourhood(edges, startId, depth)` is the click behaviour: an undirected ball of radius
 `REVEAL_DEPTH`. It is breadth-first on purpose — the walk is bounded, so a node first reached by a
 long path would be recorded at the wrong distance and pruned early. Undirected on purpose too: for

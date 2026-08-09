@@ -115,6 +115,30 @@ test('folding a method box hides its contents, nested boxes and all', async ({ p
   expect(await leafLabels(page)).toEqual(OPENING);
 });
 
+// The computed label rather than data('badge'): the badge being right in the data and the
+// stylesheet still pointing at the plain name is a page that draws none of this, and reading the
+// data alone would call it green.
+const drawnLabel = (page, label) => page.evaluate((l) => window.cy.nodes()
+  .filter((n) => n.data('label') === l).map((n) => n.style('label')), label);
+
+// Without this a value whose story continues off screen is drawn exactly like one that ends here.
+// `x` is passed to methodA, whose body is closed at open, so it has one hidden edge out; `5` flows
+// only into `x`, which is on screen, so it has nothing to declare - and that pairing is what fails
+// if every node is annotated regardless.
+test('a node with hidden neighbours says how many, and one without says nothing', async ({ page }) => {
+  expect(await drawnLabel(page, 'x')).toEqual(['x ↓1']);
+  expect(await drawnLabel(page, '5')).toEqual(['5']);
+});
+
+// The half that fails if the badge is computed once at load and never recomputed. Clicking `x`
+// reveals everything within three hops, so nothing adjacent to it is missing any more and the
+// annotation has to go away on its own.
+test('revealing what a node reaches clears its badge', async ({ page }) => {
+  expect(await drawnLabel(page, 'x')).toEqual(['x ↓1']);
+  await tapLeaf(page, 'x');
+  expect(await drawnLabel(page, 'x')).toEqual(['x']);
+});
+
 test('R returns to the opening set', async ({ page }) => {
   await tapLeaf(page, 'x');
   await tapLeaf(page, 'e');

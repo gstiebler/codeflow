@@ -82,13 +82,8 @@ export function init(payload) {
   });
 
   const isBox = (node) => node.data('type') === 'METHOD';
-  const entryBox = cy.nodes('[type = "METHOD"]').filter((n) => n.isOrphan());
-  // The entry method's own values, and nothing from anything it calls.
-  const opening = () => new Set(
-    entryBox.children().filter((n) => !isBox(n)).map((n) => n.id()),
-  );
 
-  let revealed = opening();
+  let revealed = opening(payload);
 
   const apply = () => {
     // What is on screen is the reveal set plus one stub per offered callee - derived every time
@@ -134,7 +129,7 @@ export function init(payload) {
   // the only way back is a reload, which re-runs the whole layout.
   document.addEventListener('keydown', (event) => {
     if (event.key === 'r' || event.key === 'R') {
-      revealed = opening();
+      revealed = opening(payload);
       apply();
     }
   });

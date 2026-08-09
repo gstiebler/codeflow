@@ -202,3 +202,15 @@ export function withStubs(nodes, revealed) {
   }
   return showing;
 }
+
+/**
+ * What the page opens on: the entry method's own leaves, and nothing from anything it calls.
+ *
+ * The entry method is the box with no parent - there is exactly one, since the payload is the root
+ * block and everything it reached. Taking the first METHOD in the list instead would open a
+ * callee's body whenever the exporter happened to emit one first.
+ */
+export function opening(payload) {
+  const root = payload.nodes.find((node) => isBoxNode(node) && !node.parent);
+  return root ? ownLeaves(payload.nodes, root.id) : new Set();
+}

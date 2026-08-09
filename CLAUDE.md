@@ -146,10 +146,11 @@ Cytoscape.js **compound nodes** are the method boundaries: a node's `parent` is 
 what `subgraph` was doing in Mermaid. Layout is ELK `layered` with `elk.hierarchyHandling:
 INCLUDE_CHILDREN` — without that it lays each container out independently and the boxes overlap.
 
-The page opens with the entry method's own leaf children revealed and nothing else — every callee
-box is in the graph, drawn as nothing because none of its contents are showing. This is not
-cosmetic: a callee's body is inlined at *every* call site, so node count grows with call sites
-rather than source size, and showing everything at once is the wall the viewer exists to avoid.
+The page opens with the entry method's own leaf children revealed, plus the *name* of each method it
+calls and nothing else. This is not cosmetic: a callee's body is inlined at *every* call site, so
+node count grows with call sites rather than source size, and showing everything at once is the wall
+the viewer exists to avoid. What the name of a closed method is drawn as, and why it has to be drawn
+at all, is "A closed method is drawn as its own result" below.
 
 Visibility is derived, and that is the one rule to respect: **never set `display` on a `METHOD`
 node.** A `Set` of revealed *leaf* ids is the only state. Cytoscape works out the rest — an edge
@@ -191,8 +192,45 @@ long path would be recorded at the wrong distance and pruned early. Undirected o
 `c = a + b`, clicking `a` shows `b`, because an operator drawn with one operand missing is worse
 than one more node.
 
-Clicks union into the revealed set and never subtract. Only a box click (which removes its leaf
-*descendants* — a box holds boxes) or `R` takes anything away.
+Clicks union into the revealed set and never subtract. Only a box click on an *open* box (which
+removes its leaf *descendants* — a box holds boxes) or `R` takes anything away.
+
+#### A closed method is drawn as its own result
+
+**Dataflow is a forest, so following edges is not enough to navigate by.** Every fixture in the
+suite is disconnected, and a call that passes no value connects nothing at all: `member`'s `main`
+does `app.func1()` — no argument, no result — so not one edge crosses from `main` into `func1`. That
+page opened on four nodes, clicking every one of them changed nothing, and 19 of the fixture's 23
+leaves could not be put on screen by any sequence of clicks. Swept over all 63 fixtures, **none**
+could be fully reached from any single starting node; the median best case was 71%. The opening view
+worked only because it is built from *containment*, and containment was the relation nothing else
+used. Choosing a different root would not have helped: the missing relation was the call structure,
+not the starting point.
+
+`withStubs(nodes, revealed)` makes it navigable. A box whose parent is open is offered as its
+**RETURN node**, which every box has exactly one of — the method's name, or `<init>` for a
+constructor. That node is the method's result, so a method you have not opened is drawn as the one
+value it produces, and clicking it opens the body (`ownLeaves`, direct children only, one level per
+click). Folding puts the stub back rather than removing the box, so there is a way in again.
+
+It has to be a real leaf. **Cytoscape will not draw a compound node with no visible children**,
+whatever `display` that parent is given — a spike confirmed `visible: false` and `0×0` on a box
+forced to `element` — so an empty box cannot be a click target and the stub is the only thing that
+puts a closed method on the page. This is the same fact the "never set `display` on a `METHOD` node"
+rule comes from, used the other way round.
+
+Two rules hold the recursion down, and each is one line with a test behind it. A stub **does not
+open the box it stands for**: if it did, offering one callee's stub would make that callee open,
+which would offer its callees' stubs, and one pass would unfold the whole call tree — which is also
+why one pass suffices, since no stub can produce another. And only a **closed** box gets a stub: an
+open one already has its RETURN among the leaves the click revealed, and a box opened by following
+dataflow instead should show what the walk reached and nothing more. That second rule is what keeps
+the off-by-one guard in *clicking a node reveals its neighbourhood three hops out* meaningful —
+`methodA`'s RETURN is exactly four hops from `x`, and stubbing open boxes would have put that label
+on screen for an unrelated reason and made the assertion untestable.
+
+`showing` is derived on every `apply()` and never stored, so folding a box cannot strand a stub that
+was added when it opened.
 
 ### Attributed, and asked rather than guessed
 
@@ -670,10 +708,14 @@ Split by what they can actually catch:
 - `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `viewer.mjs`.
   `neighbourhood` is tested here: the depth bound, that a node reachable both ways is recorded at
   the *short* distance so nodes past it stay in range, and that it terminates on a cycle.
-- `app/src/test/js/browser/` (`npm run test:browser`) — Playwright against a page built from a real
-  fixture. `global-setup.mjs` runs `gradlew run --args="<fixture> --html"` first, with an
-  **absolute** fixture path: the `run` task's working directory is `app/`, so a repo-relative one
-  resolves to `app/app/...` and `Files.walk` throws.
+- `app/src/test/js/browser/` (`npm run test:browser`) — Playwright against pages built from real
+  fixtures. `global-setup.mjs` runs `gradlew run --args="<fixture> --html"` per fixture, with an
+  **absolute** path: the `run` task's working directory is `app/`, so a repo-relative one resolves
+  to `app/app/...` and `Files.walk` throws. Two are built, and which question each can answer
+  matters — `member` is the fixture where following dataflow finds nothing, and `funcCall` is the
+  only one nested deeply enough to tell a stub from an open box, since `member`'s `getMemberX` has
+  nothing in it *but* its RETURN node and the two look identical there. A depth test written against
+  that box passed against an implementation that opened one level too far.
 
 Two traps, both of which produced a green run on a broken page:
 

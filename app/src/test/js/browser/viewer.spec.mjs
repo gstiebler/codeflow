@@ -37,7 +37,10 @@ const tapBox = (page, label) => page.evaluate((l) => window.cy.nodes('[type = "M
 // `App` is the opaque node for `new App()`: the class writes no constructor, so there is no body
 // to inline and the object is a value from outside. It is a leaf child of `main`, so it opens with
 // the rest of the entry method's own nodes.
-const OPENING = ['5', '8', 'App', 'app', 'args', 'e', 'main', 'x', 'y'];
+//
+// `methodA` and `methodB` are not bodies: each is the one RETURN node a closed callee is drawn as,
+// which is what makes the box exist on the page and therefore clickable.
+const OPENING = ['5', '8', 'App', 'app', 'args', 'e', 'main', 'methodA', 'methodB', 'x', 'y'];
 
 // Hiding, not removing. Under the old folding this read 11 - which is exactly the trap that made
 // a node count comparable to the payload only after expanding everything first.
@@ -52,10 +55,11 @@ test('holds the whole payload however little is displayed', async ({ page }) => 
   expect(edges).toBe(29);
 });
 
-test('opens showing the entry method body and nothing from a callee', async ({ page }) => {
+test('opens showing the entry method body and each callee as a closed box', async ({ page }) => {
   expect(await leafLabels(page)).toEqual(OPENING);
-  // No callee has a visible node, so no callee box is drawn.
-  expect(await boxLabels(page)).toEqual(['main']);
+  // The two methods main calls, and no deeper: methodB's own callees stay out until it is opened.
+  expect(await boxLabels(page)).toEqual(['main', 'methodA', 'methodB']);
+  expect(await boxLabels(page)).not.toContain('methodC');
 });
 
 test('clicking a node reveals its neighbourhood three hops out', async ({ page }) => {
@@ -67,10 +71,13 @@ test('clicking a node reveals its neighbourhood three hops out', async ({ page }
   expect(leaves).toContain('b');
   expect(leaves).toContain('c');
   // methodA's return node is exactly 4 hops out. This is what fails if the bound is off by one,
-  // and it only means anything next to the four assertions above.
+  // and it only means anything next to the four assertions above. It still bites now that a closed
+  // callee is drawn as that same node: the walk has opened methodA, so its stub is gone, and the
+  // label can only come back by the RETURN itself being revealed.
   expect(leaves).not.toContain('methodA');
-  // The box appears because it now contains something, never because we showed it.
-  expect(await boxLabels(page)).toEqual(['main', 'methodA']);
+  // methodA's box was already there, drawn as its stub; what the click changed is that it now holds
+  // a body. methodB is still shut.
+  expect(await boxLabels(page)).toEqual(['main', 'methodA', 'methodB']);
 });
 
 test('reveals accumulate across clicks', async ({ page }) => {
@@ -94,24 +101,27 @@ test('draws a box whose only revealed nodes are grandchildren', async ({ page })
   await tapLeaf(page, 'X1');
 
   // Both methodC call sites: the label appears twice, so the tap fans out to both.
-  expect(await boxLabels(page)).toEqual(['main', 'methodB', 'methodC', 'methodC']);
+  expect(await boxLabels(page)).toEqual(['main', 'methodA', 'methodB', 'methodC', 'methodC']);
 
   const leaves = await leafLabels(page);
   expect(leaves).toContain('X1');
   expect(leaves).toContain('X2');
   // Every one of methodB's own children is still hidden - without these the assertion above would
-  // hold on a page that reveals far more than it was asked to.
+  // hold on a page that reveals far more than it was asked to. `methodB` is in that list twice
+  // over: it is the box's RETURN node, and it is also the stub the box would be drawn as were it
+  // shut, which a box open through grandchildren alone must not have.
   for (const own of ['methodB', 'd', '11', 'f', '13']) expect(leaves).not.toContain(own);
 });
 
 test('folding a method box hides its contents, nested boxes and all', async ({ page }) => {
   await tapLeaf(page, 'e');
-  // methodC's return node sits two levels down, inside methodB's methodC box.
-  expect(await boxLabels(page)).toEqual(['main', 'methodB', 'methodC']);
+  // methodB is open, so both of the methodC call sites it holds are offered in turn.
+  expect(await boxLabels(page)).toEqual(['main', 'methodA', 'methodB', 'methodC', 'methodC']);
 
   await tapBox(page, 'methodB');
-  // Both go. If the fold used children() instead of descendants(), methodC would survive.
-  expect(await boxLabels(page)).toEqual(['main']);
+  // Both methodC boxes go. If the fold used children() instead of descendants(), whichever one `e`
+  // reached would keep its revealed node and survive.
+  expect(await boxLabels(page)).toEqual(['main', 'methodA', 'methodB']);
   expect(await leafLabels(page)).toEqual(OPENING);
 });
 

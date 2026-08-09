@@ -91,6 +91,72 @@ export function badgeLabel(name, hidden) {
   return parts.length === 0 ? name : `${name} ${parts.join(' ')}`;
 }
 
+const isBoxNode = (node) => node.type === 'METHOD';
+
+/** The leaves directly inside a box - what clicking that box opens, one level and no deeper. */
+export function ownLeaves(nodes, boxId) {
+  return new Set(nodes.filter((n) => n.parent === boxId && !isBoxNode(n)).map((n) => n.id));
+}
+
+/**
+ * What is on screen: everything revealed, plus one stub per callee of an open method.
+ *
+ * Reveal follows dataflow edges, and a dataflow graph is a forest - every fixture in the suite is
+ * disconnected, and the largest component of `member` is 6 of its 23 leaves. So no amount of
+ * clicking from any starting node reaches a callee whose call passes no value: `app.func1()` takes
+ * no argument and returns none, so not one edge crosses from `main` into `func1`, and 19 of that
+ * fixture's 23 leaves could not be reached at all.
+ *
+ * Containment is the relation that crosses components - it is already what the opening view is
+ * built from - and this is what makes it navigable. A box whose parent is open is offered as its
+ * RETURN node, which every box has exactly one of: the method's name, or `<init>` for a
+ * constructor. That node is the method's result, so a method you have not opened is drawn as the
+ * one value it produces.
+ *
+ * It has to be a real leaf. Cytoscape derives a compound node's visibility from its children and
+ * will not draw a parent with none visible, whatever `display` that parent is given - so an empty
+ * box cannot be a click target, and the stub is the only thing that puts a closed method on the
+ * page.
+ *
+ * A stub does **not** open the box it stands for. If it did, offering one callee's stub would make
+ * that callee open, which would offer its callees' stubs, and one pass would unfold the entire call
+ * tree at open - the wall this viewer exists to avoid. Because it does not, one pass is also
+ * enough: no stub can ever produce another.
+ */
+export function withStubs(nodes, revealed) {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const stubOf = new Map();
+  for (const node of nodes) {
+    if (node.type === 'RETURN' && node.parent && !stubOf.has(node.parent)) stubOf.set(node.parent, node.id);
+  }
+  const parentOf = (id) => byId.get(id)?.parent;
+
+  const open = new Set();
+  for (const id of revealed) {
+    const node = byId.get(id);
+    if (!node || isBoxNode(node)) continue;
+    let box = node.parent;
+    // Its own RETURN is how a closed method is drawn, so seeing one is not seeing the body: it
+    // leaves that box shut, and only opens the boxes further up that it sits inside.
+    if (stubOf.get(box) === id) box = parentOf(box);
+    // Every ancestor, not just the immediate one: a box holding only boxes is open on the strength
+    // of a grandchild, the same case the "never hide a METHOD node" rule exists for.
+    for (; box; box = parentOf(box)) open.add(box);
+  }
+
+  const showing = new Set(revealed);
+  for (const box of nodes) {
+    if (!isBoxNode(box)) continue;
+    // Closed, and offered by an open caller. An open box needs no stub: its own RETURN is among the
+    // leaves a box click reveals, and a box opened by following dataflow instead should show what
+    // the walk actually reached and nothing more. Stopping at the caller is what keeps one click
+    // from unfolding the whole call tree.
+    if (open.has(box.id) || !box.parent || !open.has(box.parent)) continue;
+    if (stubOf.has(box.id)) showing.add(stubOf.get(box.id));
+  }
+  return showing;
+}
+
 const PALETTE = {
   // The Mermaid classDef colours, as rgba. OBJ_VARIABLE and MEM_SPACE have no classDef today and
   // render unstyled there; they get explicit colours here rather than silently sharing one.
@@ -173,7 +239,10 @@ export function init(payload) {
   let revealed = opening();
 
   const apply = () => {
-    const hidden = hiddenDegree(payload.edges, revealed);
+    // What is on screen is the reveal set plus one stub per offered callee - derived every time
+    // rather than stored, so folding a box cannot strand a stub that was added when it opened.
+    const showing = withStubs(payload.nodes, revealed);
+    const hidden = hiddenDegree(payload.edges, showing);
     for (const node of cy.nodes()) {
       // A separate field from `label`, which stays the plain name: the annotation is a property of
       // the current view rather than of the value, and anything looking a node up by what it is
@@ -183,7 +252,7 @@ export function init(payload) {
       // display:none here would hide a box whose only visible node is a grandchild, and that
       // grandchild would have nowhere to live.
       if (isBox(node)) continue;
-      node.style('display', revealed.has(node.id()) ? 'element' : 'none');
+      node.style('display', showing.has(node.id()) ? 'element' : 'none');
     }
     cy.layout(LAYOUT).run();
   };
@@ -191,9 +260,17 @@ export function init(payload) {
   cy.on('tap', 'node', (event) => {
     const node = event.target;
     if (isBox(node)) {
-      // descendants(), not children(): a box holds boxes, and folding one has to take the lot.
-      for (const inside of node.descendants()) {
-        if (!isBox(inside)) revealed.delete(inside.id());
+      // A box click is one toggle over the other axis of the graph. Dataflow is a forest - every
+      // fixture in the suite is disconnected - so a callee reached by a call that passes no value
+      // has no edge into it from anywhere, and clicking values could never arrive there.
+      const inside = node.descendants().filter((n) => !isBox(n) && revealed.has(n.id()));
+      if (inside.length === 0) {
+        for (const id of ownLeaves(payload.nodes, node.id())) revealed.add(id);
+      } else {
+        // descendants(), not children(): a box holds boxes, and folding one has to take the lot.
+        for (const gone of node.descendants()) {
+          if (!isBox(gone)) revealed.delete(gone.id());
+        }
       }
     } else {
       for (const id of neighbourhood(payload.edges, node.id(), REVEAL_DEPTH)) revealed.add(id);

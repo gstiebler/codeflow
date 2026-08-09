@@ -12,14 +12,22 @@ import { resolve } from 'node:path';
  * The fixture path is absolute because the `run` task's working directory is `app/`, not the repo
  * root, so a repo-relative path silently resolves to `app/app/...` and Files.walk throws.
  */
+/**
+ * `member` earns its place beside `funcCall`: `app.func1()` passes no argument and returns nothing,
+ * so not one edge crosses from `main` into `func1`, and the callee is reachable only through call
+ * structure. It is the fixture where following dataflow finds nothing at all.
+ */
+const FIXTURES = ['funcCall', 'member'];
+
 export default function globalSetup() {
-  const fixture = resolve('app/src/test/resources/funcCall');
   mkdirSync('build/viewer-test', { recursive: true });
-  const html = execSync(
-    `./gradlew -q run --args="${fixture} --html"`,
-    // stderr is ignored, not inherited: codeflow logs at debug level there and it buries the test
-    // report. A build failure still surfaces, as execSync throws on a non-zero exit.
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] },
-  );
-  writeFileSync('build/viewer-test/funcCall.html', html);
+  for (const name of FIXTURES) {
+    const html = execSync(
+      `./gradlew -q run --args="${resolve(`app/src/test/resources/${name}`)} --html"`,
+      // stderr is ignored, not inherited: codeflow logs at debug level there and it buries the test
+      // report. A build failure still surfaces, as execSync throws on a non-zero exit.
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    writeFileSync(`build/viewer-test/${name}.html`, html);
+  }
 }

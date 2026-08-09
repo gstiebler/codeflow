@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { withStubs, ownLeaves } from '../../../main/resources/viewer/viewer.mjs';
+import { withStubs, ownLeaves } from '../../../main/resources/viewer/model.mjs';
 
 // main { main, x, f { f, a, g { g, b } } } - two levels of nesting, so "one level of lookahead"
 // is a claim the fixture can actually falsify.

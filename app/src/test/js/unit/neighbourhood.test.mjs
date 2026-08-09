@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { neighbourhood } from '../../../main/resources/viewer/viewer.mjs';
+import { neighbourhood } from '../../../main/resources/viewer/model.mjs';
 
 const ids = (set) => [...set].sort();
 const chain = [

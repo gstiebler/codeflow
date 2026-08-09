@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hiddenDegree, badgeLabel } from '../../../main/resources/viewer/viewer.mjs';
+import { hiddenDegree, badgeLabel } from '../../../main/resources/viewer/model.mjs';
 
 const degree = (edges, revealed) => hiddenDegree(edges, new Set(revealed));
 

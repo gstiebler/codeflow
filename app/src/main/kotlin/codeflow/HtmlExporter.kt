@@ -29,6 +29,7 @@ class HtmlExporter {
             .replace("/*__CYTOSCAPE__*/", asset("cytoscape.min.js"))
             .replace("/*__ELK__*/", asset("elk.bundled.js"))
             .replace("/*__CYTOSCAPE_ELK__*/", asset("cytoscape-elk.js"))
+            .replace("/*__MODEL__*/", asset("model.mjs"))
             .replace("/*__VIEWER__*/", asset("viewer.mjs"))
             .replace("/*__PAYLOAD__*/", payload.toString())
 

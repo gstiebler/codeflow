@@ -178,7 +178,8 @@ class AppTest {
     /**
      * The same graph as one interactive page and a JSON payload, written next to the source it was drawn from.
      *
-     * Not an assertion and not a golden file - `graph.html` is gitignored and nothing reads it back,
+     * Not an assertion and not a golden file - `graph.html` and `graph.json` are both gitignored and
+     * neither is read back,
      * for the same reason [codeflow.ir.LoweringTest.write] writes `ir.txt`: it is there to be looked
      * at. `truth.md` is the diagram as text, which is what a snapshot can compare, but it is not the
      * rendering a reader of a real corpus gets - a fixture's Mermaid is small enough to read as

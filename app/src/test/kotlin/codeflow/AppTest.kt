@@ -3,6 +3,7 @@
  */
 package codeflow
 
+import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphException
 import codeflow.java.AstReader
 import com.google.gson.JsonObject
@@ -29,16 +30,20 @@ class AppTest {
         .resolve("test")
         .resolve("resources")
 
-    private fun buildGraph(testDir: String, testFiles: List<String>, from: String? = null): List<String> {
+    private fun mainMethodOf(testDir: String, testFiles: List<String>, from: String? = null): GraphBuilderBlock {
         val testDirPath = testResourcesPath.resolve(testDir)
-        val testFilePaths = testFiles.map { testDirPath.resolve(it) }
-        val mainMethod = AstReader(testResourcesPath).process(testFilePaths, from)
+        return AstReader(testResourcesPath).process(testFiles.map { testDirPath.resolve(it) }, from)
+    }
 
+    private fun mermaid(mainMethod: GraphBuilderBlock): List<String> {
         val result = ArrayList<String>()
         MermaidExporter()
             .processMainMethod(mainMethod) { result.add(it) }
         return result
     }
+
+    private fun buildGraph(testDir: String, testFiles: List<String>, from: String? = null): List<String> =
+        mermaid(mainMethodOf(testDir, testFiles, from))
 
     /**
      * The GraphML rendering, parsed.
@@ -170,9 +175,32 @@ class AppTest {
         return false
     }
 
+    /**
+     * The same graph as one interactive page, written next to the source it was drawn from.
+     *
+     * Not an assertion and not a golden file - `graph.html` is gitignored and nothing reads it back,
+     * for the same reason [codeflow.ir.LoweringTest.write] writes `ir.txt`: it is there to be looked
+     * at. `truth.md` is the diagram as text, which is what a snapshot can compare, but it is not the
+     * rendering a reader of a real corpus gets - a fixture's Mermaid is small enough to read as
+     * source only because the fixture is small, and the viewer is what the tool is actually pointed
+     * at. Having both next to `App.java` and `ir.txt` means a surprise can be traced from source to
+     * meaning to document to what is on screen without running anything.
+     *
+     * Written on every run rather than only when missing, because a stale one would be worse than
+     * none. It is a self-contained page, so each is about two megabytes of vendored library - the
+     * price of the file opening from disk with no server, and the reason these are not committed.
+     */
+    private fun writePage(testDirPath: Path, mainMethod: GraphBuilderBlock) {
+        val page = StringBuilder()
+        HtmlExporter().processMainMethod(mainMethod) { page.append(it).append("\n") }
+        Files.writeString(testDirPath.resolve("graph.html"), page)
+    }
+
     private fun codeflow(testDir: String, testFiles: List<String>) {
         val testDirPath = testResourcesPath.resolve(testDir)
-        val result = buildGraph(testDir, testFiles)
+        val mainMethod = mainMethodOf(testDir, testFiles)
+        val result = mermaid(mainMethod)
+        writePage(testDirPath, mainMethod)
 
         // The snapshot is only written when it does not exist yet, or when explicitly asked for.
         // Rewriting it on every mismatch would let a regression overwrite the expectation and pass

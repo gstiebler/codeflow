@@ -584,6 +584,13 @@ and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just look
   what Mermaid will *make* of it, which is not the same as what the graph says; the three in
   `InvariantsTest.kt` below read the graph against the IR.
 
+The golden test also writes each fixture's graph as the interactive page, to
+`app/src/test/resources/<fixture>/graph.html`, gitignored and rewritten on every run — `truth.md` is
+the diagram as *text*, which is what a snapshot can compare, and the viewer is what the tool is
+actually pointed at. Nothing asserts on it (`AppTest.writePage`), same as `ir.txt` below: it is there
+to be opened. Each page inlines its own copy of the vendored libraries, so it is about two megabytes,
+which is why they are not committed.
+
 Snapshots are only written when missing or under `UPDATE_SNAPSHOTS=1`, so a regression cannot
 overwrite its own expectation. When a change does move snapshots, verify them *structurally* rather
 than reading diffs: normalise old (`git show HEAD:<path>`) and new to sorted multisets of

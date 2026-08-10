@@ -19,15 +19,27 @@ import { resolve } from 'node:path';
  */
 const FIXTURES = ['funcCall', 'member'];
 
+/**
+ * Both pages, from one payload.
+ *
+ * The suite asks each fixture's questions of both renderers, so both have to exist. `--html` is the
+ * React Flow page and `--html-cytoscape` the older one; the two are built from the same sources in
+ * the same run, so a disagreement between them is a fact about model.ts rather than about which
+ * build produced which file.
+ */
+const PAGES = [{ flag: '--html', suffix: '' }, { flag: '--html-cytoscape', suffix: '-cytoscape' }];
+
 export default function globalSetup() {
   mkdirSync('build/viewer-test', { recursive: true });
   for (const name of FIXTURES) {
-    const html = execSync(
-      `./gradlew -q run --args="${resolve(`app/src/test/resources/${name}`)} --html"`,
-      // stderr is ignored, not inherited: codeflow logs at debug level there and it buries the test
-      // report. A build failure still surfaces, as execSync throws on a non-zero exit.
-      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] },
-    );
-    writeFileSync(`build/viewer-test/${name}.html`, html);
+    for (const { flag, suffix } of PAGES) {
+      const html = execSync(
+        `./gradlew -q run --args="${resolve(`app/src/test/resources/${name}`)} ${flag}"`,
+        // stderr is ignored, not inherited: codeflow logs at debug level there and it buries the test
+        // report. A build failure still surfaces, as execSync throws on a non-zero exit.
+        { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] },
+      );
+      writeFileSync(`build/viewer-test/${name}${suffix}.html`, html);
+    }
   }
 }

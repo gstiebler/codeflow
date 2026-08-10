@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Background, Handle, MarkerType, Position, ReactFlow,
-  type Edge, type Node, type NodeProps,
+  type Edge, type Node, type NodeProps, type ReactFlowInstance,
 } from '@xyflow/react';
 import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
@@ -111,6 +111,7 @@ function nodesOf(view: View, laid: Positioned[]): Node[] {
 function Graph({ payload }: { payload: Payload }) {
   const [revealed, setRevealed] = useState<Set<Id>>(() => opening(payload));
   const [laid, setLaid] = useState<Positioned[]>([]);
+  const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
   const view = useMemo(() => screen(payload, revealed), [payload, revealed]);
 
   useEffect(() => {
@@ -123,6 +124,22 @@ function Graph({ payload }: { payload: Payload }) {
     });
     return () => { current = false; };
   }, [view]);
+
+  // Refit after every layout, which is what the Cytoscape page has always done - its layout fits by
+  // default. `fitView` on the component alone fits the first drawing only, and opening a box makes
+  // the graph several times bigger, so without this a click puts what it revealed off the edge of
+  // the screen. A reveal the reader cannot see is the one thing progressive reveal cannot afford.
+  //
+  // The counter is for the browser tests, which have no other way to know a click has finished:
+  // the view changes at once and the drawing a layout later. It counts *layouts* and not renders
+  // on purpose - a probe that waited for the page to agree with its own `view` would be asking the
+  // renderer whether the renderer is right, and a page drawing every node would hang rather than
+  // fail. Nothing in the page reads it.
+  useEffect(() => {
+    flow?.fitView();
+    const w = window as unknown as { drawn?: number };
+    w.drawn = (w.drawn ?? 0) + 1;
+  }, [flow, laid]);
 
   // Folding needs a box, so a sprawl inside the entry method has nothing to fold. Without this the
   // only way back is a reload, which re-runs the whole layout.
@@ -148,7 +165,7 @@ function Graph({ payload }: { payload: Payload }) {
 
   return (
     <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} onNodeClick={onNodeClick}
-               fitView minZoom={0.05} proOptions={{ hideAttribution: true }}>
+               onInit={setFlow} fitView minZoom={0.05} proOptions={{ hideAttribution: true }}>
       <Background />
     </ReactFlow>
   );

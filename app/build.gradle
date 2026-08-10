@@ -74,7 +74,12 @@ test {
     maxHeapSize = '2g'
 
     testLogging {
-        showStandardStreams = true
+        // codeflow logs at debug and logback puts it on stderr, so a local run is the tool's own
+        // diagnostics interleaved with the test that provoked them, which is most of how a failing
+        // fixture gets read. On CI nobody is reading a passing run: it is 20k lines per job, 8.5k of
+        // them DEBUG, and the failure you came for is somewhere inside. GitHub Actions sets CI, and
+        // the reports are uploaded as an artifact either way.
+        showStandardStreams = !System.getenv('CI')
     }
 }
 

@@ -2,9 +2,9 @@
  * The renderer: everything that needs a browser.
  *
  * Never loaded on its own. HtmlExporter substitutes model.mjs into the same module script directly
- * above this one, so `withStubs`, `hiddenDegree` and the rest are free identifiers here rather than
- * imports - an inlined module served from file:// has nothing to resolve an import against, and
- * HtmlExporter is substitution only, so it cannot strip one either.
+ * above this one, so `opening`, `tap` and `screen` are free identifiers here rather than imports -
+ * an inlined module served from file:// has nothing to resolve an import against, and HtmlExporter
+ * is substitution only, so it cannot strip one either.
  *
  * Nothing here decides what is on screen. That is model.mjs, where the tests are.
  */
@@ -118,8 +118,9 @@ export function init(payload) {
   return cy;
 }
 
-// Node imports this file to test the pure functions; only a browser has a document to draw into.
-// A module's exports are not global, so the template's bare init(...) call needs this.
+// A module's exports are not global, so the template's bare init(...) call needs this. Guarded
+// because model.mjs's identifiers are only in scope inside the page - loading this file anywhere
+// else is a mistake, and it should not half-work when someone does.
 if (typeof window !== 'undefined') {
   window.init = init;
 }

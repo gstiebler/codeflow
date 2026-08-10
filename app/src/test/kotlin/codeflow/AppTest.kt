@@ -178,10 +178,11 @@ class AppTest {
     /**
      * The same graph as one interactive page and a JSON payload, written next to the source it was drawn from.
      *
-     * Not an assertion and not a golden file - `graph.html` and `graph.json` are both gitignored and
-     * neither is read back,
-     * for the same reason [codeflow.ir.LoweringTest.write] writes `ir.txt`: it is there to be looked
-     * at. `truth.md` is the diagram as text, which is what a snapshot can compare, but it is not the
+     * Neither is a golden file: both are gitignored and rewritten on every run, for the same reason
+     * [codeflow.ir.LoweringTest.write] writes `ir.txt`. `graph.html` is there to be looked at and
+     * nothing reads it; `graph.json` is what the viewer's Node sweeps read, which is why this suite
+     * has to have run before `npm test` means anything - `corpus.mjs` says so when it has not.
+     * `truth.md` is the diagram as text, which is what a snapshot can compare, but it is not the
      * rendering a reader of a real corpus gets - a fixture's Mermaid is small enough to read as
      * source only because the fixture is small, and the viewer is what the tool is actually pointed
      * at. Having both next to `App.java` and `ir.txt` means a surprise can be traced from source to

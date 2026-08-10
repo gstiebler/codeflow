@@ -21,8 +21,18 @@ const payload = {
 
 const after = (revealed, id) => [...tap(payload, new Set(revealed), id)].sort();
 
-test('clicking a closed box reveals its own leaves and not a nested box leaves', () => {
-  assert.deepEqual(after(['mR', 'x'], 'f'), ['a', 'fR', 'mR', 'x']);
+// A box and the name standing in for it are two ways to press the same door, so they reveal the
+// same thing: f's own leaves and the name of what f calls. `b` is what stays behind - one level.
+test('clicking a closed box reveals its own leaves and the names of what it calls', () => {
+  assert.deepEqual(after(['mR', 'x'], 'f'), ['a', 'fR', 'gR', 'mR', 'x']);
+});
+
+// The regression the split found. `gR` is g's name, revealed by opening f, so it is a revealed leaf
+// inside a box that is still shut - and reading "any revealed leaf inside" as open made this click
+// fold g instead, deleting a name that `withStubs` offers straight back. Byte-identical before and
+// after: the door the reader pressed was the one that would not open.
+test('clicking a box whose only revealed leaf is its own name opens it', () => {
+  assert.deepEqual(after(['mR', 'x', 'a', 'fR', 'gR'], 'g'), ['a', 'b', 'fR', 'gR', 'mR', 'x']);
 });
 
 // descendants, not children: folding a box that left a nested method's nodes on screen would draw

@@ -270,12 +270,27 @@ load-bearing rather than an optimisation: a box is drawn by its contents, so a m
 leaves are just its own name — one that only calls other methods — would otherwise open onto
 nothing it could be drawn from. `deepField` is that shape. The sweep is what found it.
 
-`openBoxes` is one exported function and not three spellings, because `withStubs` deciding what to
-offer, `screen` deciding which of those are names rather than bodies, and the invariants sweep all
-ask the same question. Three answers to "is this box open" is three chances for the viewer to
-disagree with itself about what the reader is looking at — and `screen` in particular cannot use
-"showing but not revealed", since a click on a name puts it in `revealed` while leaving the box it
-stands for shut, and it is still a name.
+`openBoxes` is one exported function and not four spellings, because `withStubs` deciding what to
+offer, `screen` deciding which of those are names rather than bodies, `tap` deciding whether a box
+click opens or folds, and the invariants sweep all ask the same question. Four answers to "is this
+box open" is four chances for the viewer to disagree with itself about what the reader is looking at
+— and `screen` in particular cannot use "showing but not revealed", since a click on a name puts it
+in `revealed` while leaving the box it stands for shut, and it is still a name.
+
+`tap`'s box branch is the one that escaped, and the failure it produced is exactly the one this
+change exists to remove. Once a name click writes callee names into `revealed`, a shut box has a
+revealed leaf inside it, so the branch's own test — *any revealed leaf under here* — read it as open
+and **folded** it, deleting the name that `withStubs` then offered straight back. `screen`'s output
+was byte-identical before and after: five fixtures had a box the reader could press forever.
+`clicking a box whose only revealed leaf is its own name opens it` is what pins it, and nothing else
+in the suite can — the corpus sweep passes either way, because containment reaches those leaves down
+some other path.
+
+A box and the name standing in for it are two ways to press the same door, so `oneLevel` is what
+both reveal: the box's own leaves, plus one name per method it calls. Two definitions would make how
+much of a fixture a reader can reach depend on which of the two they happened to hit. What is left
+inert is a method whose whole body *is* its own RETURN — `member`'s `getMemberX`, `generic`'s `get`
+— where the name on screen is already the entire method and there is nothing behind the door.
 
 `showing` is derived inside `screen()` on every call and never stored, so folding a box cannot
 strand a stub that was added when it opened.
@@ -765,6 +780,11 @@ Split by what they can actually catch:
   screen to a fixpoint reaches every leaf of every fixture. That property was swept by hand once,
   when stubs were added, and was false again by the time anything re-checked it — eight fixtures
   short, `member` worst at 5 of 23.
+
+  What it covers is reveal by *containment*, and only that: deleting the `neighbourhood` call from
+  `tap` entirely leaves it green at 63 of 63, because opening every box one level eventually reaches
+  every leaf anyway. The dataflow half of a click is covered by `tap.test.mjs` alone, and by the one
+  case in it whose payload gives the clicked name an edge. A corpus sweep is a floor, not a spec.
 
   `corpus.mjs` fails when it finds fewer than 60 payloads rather than sweeping an empty list — a
   checkout that has not run `./gradlew test` has none, and a sweep over nothing passes every

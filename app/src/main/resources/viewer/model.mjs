@@ -123,6 +123,27 @@ export function stubOf(nodes) {
 }
 
 /**
+ * Opening one box, one level: its own leaves, plus the name of each method it calls.
+ *
+ * The names come too because a box is drawn by its contents - a method whose own leaves are only its
+ * own name, one that just calls other methods, would otherwise open onto nothing that can be drawn.
+ * It is still one level: a name is all that arrives, and opening what it stands for takes a press of
+ * its own.
+ *
+ * One definition, because a box and the name standing in for it are two ways to press the same door,
+ * and the two revealing different things would make a fixture's reach depend on which one the reader
+ * happened to hit.
+ */
+function oneLevel(nodes, boxId) {
+  const stubs = stubOf(nodes);
+  const revealed = ownLeaves(nodes, boxId);
+  for (const node of nodes) {
+    if (isBoxNode(node) && node.parent === boxId && stubs.has(node.id)) revealed.add(stubs.get(node.id));
+  }
+  return revealed;
+}
+
+/**
  * Every non-box node under `boxId`, however deep - what folding a box has to take.
  *
  * descendants, not children: a box holds boxes, and folding one that leaves a nested method's nodes
@@ -249,10 +270,15 @@ export function tap(payload, revealed, id) {
 
   const next = new Set(revealed);
   if (isBoxNode(node)) {
-    const inside = descendantLeaves(payload.nodes, id);
-    const open = [...inside].some((leaf) => next.has(leaf));
-    if (open) for (const leaf of inside) next.delete(leaf);
-    else for (const leaf of ownLeaves(payload.nodes, id)) next.add(leaf);
+    // [openBoxes] and not "any revealed leaf inside", because a name revealed by a click on the
+    // caller is a revealed leaf inside a box that is still shut. Reading it as open folds the box
+    // by deleting that name - which [withStubs] immediately offers back, so the click does nothing
+    // at all and the door the reader pressed is the one that will not open.
+    if (openBoxes(payload.nodes, next).has(id)) {
+      for (const leaf of descendantLeaves(payload.nodes, id)) next.delete(leaf);
+    } else {
+      for (const leaf of oneLevel(payload.nodes, id)) next.add(leaf);
+    }
     return next;
   }
 
@@ -260,22 +286,15 @@ export function tap(payload, revealed, id) {
   // its edges alone is what left `member` unopenable: a RETURN carrying no value back to its caller
   // has no edges at all, so the walk returned it to itself.
   //
-  // The names of what it calls come too, because a box is drawn by its contents - a callee with
-  // nothing showing inside it cannot be drawn at all, so without them a method that only calls
-  // other methods opens onto nothing. It is still one level: a name is all that arrives, and
-  // opening what it stands for takes a press of its own.
+  // It opens the box exactly as pressing the box would ([oneLevel]), and then falls through to the
+  // walk below: a name is a door and a leaf at once, and skipping the walk would cost the reader
+  // every edge that name carries.
   //
   // This is not the rule [openBoxes] enforces, and the two must not be merged. That one governs the
   // derivation, where a name counting as its box being open would cascade through the whole call
   // tree in a single pass. This governs a gesture, which cannot cascade because it happens once.
-  const stubs = stubOf(payload.nodes);
-  if (stubs.get(node.parent) === id) {
-    for (const leaf of ownLeaves(payload.nodes, node.parent)) next.add(leaf);
-    for (const inside of payload.nodes) {
-      if (isBoxNode(inside) && inside.parent === node.parent && stubs.has(inside.id)) {
-        next.add(stubs.get(inside.id));
-      }
-    }
+  if (stubOf(payload.nodes).get(node.parent) === id) {
+    for (const leaf of oneLevel(payload.nodes, node.parent)) next.add(leaf);
   }
 
   for (const reached of neighbourhood(payload.edges, id, REVEAL_DEPTH)) next.add(reached);

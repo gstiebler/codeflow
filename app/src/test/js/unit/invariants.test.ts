@@ -17,8 +17,8 @@ function states(payload: Payload) {
   return [open, clicked];
 }
 
-// P2. Cytoscape will not draw a compound node with no visible children, whatever display it is
-// given, so a box offered to the reader with nothing showing inside it is a box that is not there.
+// P2. A box with nothing showing inside it is a rectangle with a caption: nothing to read, and no
+// leaf to click. The reader is offered a door that opens onto nothing.
 test('every box whose parent is open has something showing inside it', () => {
   for (const { name, payload } of corpus) {
     for (const revealed of states(payload)) {
@@ -33,8 +33,7 @@ test('every box whose parent is open has something showing inside it', () => {
   }
 });
 
-// P3. The rule Cytoscape applies internally, swept over the corpus so that the renderer which
-// derives nothing is told the same thing the one which derives everything works out.
+// P3. The rule the renderer is told rather than left to work out, swept over the corpus.
 //
 // The corpus cannot tell descendants from own children, and that is a fact about the gestures rather
 // than a gap here: a box is entered through its stub, a stub is the box's own RETURN, and a fold

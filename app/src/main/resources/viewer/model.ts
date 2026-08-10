@@ -1,14 +1,14 @@
 /**
  * What the viewer puts on screen, decided without a browser.
  *
- * No imports beyond types, no DOM, no renderer: `node --test` reads this file directly, and each
- * renderer's bundle imports it. Both of them - which is the point. A rule stated here is a rule both
- * pages obey, and one they draw differently is a fact about this file.
+ * No imports beyond types, no DOM, no renderer: `node --test` reads this file directly, and the
+ * renderer's bundle imports it. The renderer decides nothing; it calls `tap` on a click and draws
+ * what `screen` returns, so a page that is wrong about what a reader sees is this file being wrong.
  *
  * Everything here is a pure function of (payload, revealed). That is the point: the three decisions
- * that used to live inside Cytoscape traversals - the opening view, what a click does, and which
- * nodes get a display - are the ones a reader most needs to be right, and were the only ones no
- * test could reach.
+ * that used to live inside the renderer's own graph traversals - the opening view, what a click
+ * does, and which nodes are on screen - are the ones a reader most needs to be right, and were the
+ * only ones no test could reach.
  */
 import type { HiddenDegree, Id, Link, Payload, PayloadNode, View, ViewNode } from './types.ts';
 
@@ -55,9 +55,9 @@ export function neighbourhood(edges: Link[], startId: Id, depth: number): Set<Id
 /**
  * How many edges at each revealed node lead somewhere the reader cannot see, per direction.
  *
- * A hidden node is drawn with `display:none`, and Cytoscape drops an edge when either endpoint
- * goes - so without this a node with six hidden neighbours renders identically to a genuine source
- * or sink, and a value arriving from somewhere invisible reads as a value arriving from nowhere.
+ * An edge goes when either endpoint does - so without this a node with six hidden neighbours renders
+ * identically to a genuine source or sink, and a value arriving from somewhere invisible reads as a
+ * value arriving from nowhere.
  *
  * An edge is missing *at* a node only when the node is on screen and the other end is not. Both
  * ends revealed is nothing missing; both ends hidden belongs to neither, and counting it at both
@@ -218,10 +218,13 @@ export function openBoxes(nodes: PayloadNode[], revealed: Set<Id>): Set<Id> {
  * constructor. That node is the method's result, so a method you have not opened is drawn as the
  * one value it produces.
  *
- * It has to be a real leaf. Cytoscape derives a compound node's visibility from its children and
- * will not draw a parent with none visible, whatever `display` that parent is given - so an empty
- * box cannot be a click target, and the stub is the only thing that puts a closed method on the
- * page.
+ * It has to be a real leaf, and that was once forced: the Cytoscape page would not draw a compound
+ * node with no visible children whatever display it was given, so an empty box could not be a click
+ * target at all. React Flow draws one happily, so the reason is now ours rather than the library's -
+ * an empty box is a rectangle with a caption and no value in it, where the stub says what the method
+ * produces. It is also the only thing that gives a closed method a node in the dataflow graph: a
+ * click walks the stub's own edges like any other leaf, and a box with nothing inside it could not
+ * be reached by following a value at all.
  *
  * A stub does **not** open the box it stands for. If it did, offering one callee's stub would make
  * that callee open, which would offer its callees' stubs, and one pass would unfold the entire call
@@ -307,15 +310,14 @@ export function tap(payload: Payload, revealed: Set<Id>, id: Id): Set<Id> {
 /**
  * The whole view, as data.
  *
- * Every node and every edge in the payload is described, visible or not: nothing is ever removed
- * from the graph, so a node that just left the screen needs 'none' written onto it as much as an
- * arrival needs 'element'. Both arrays keep payload order, so a test can compare them directly.
+ * Every node and every edge in the payload is described, visible or not, in payload order - so a
+ * test can compare the arrays directly, and a renderer that keeps its own graph between frames has
+ * a `false` to write onto a node that just left the screen rather than having to notice it is gone.
  *
  * `visible` is stated for a box as well as a leaf, and for a box it means "some descendant leaf is
  * showing" - descendants, because a box holds boxes and one whose only showing node is a grandchild
- * is still on screen. That is exactly what Cytoscape derives internally, which is why the Cytoscape
- * adapter ignores the field; React Flow derives nothing and needs it. Saying it here is what keeps
- * the two pages drawing one picture.
+ * is still on screen. A graph library will often derive that itself; stating it here is what lets a
+ * unit test read the rule, and what makes the rule the same rule whoever draws it.
  */
 export function screen(payload: Payload, revealed: Set<Id>): View {
   const showing = withStubs(payload.nodes, revealed);
@@ -329,10 +331,9 @@ export function screen(payload: Payload, revealed: Set<Id>): View {
     if (showing.has(id) && !open.has(box)) stubs.add(id);
   }
 
-  // A box is on screen because something inside it is. Cytoscape works this out itself and must not
-  // be told - see the `apply` in cytoscape.ts - but React Flow derives nothing, so the model is where
-  // the rule now lives, and it is one line a unit test can read instead of an `if` in the middle of
-  // a render loop.
+  // A box is on screen because something inside it is. One line a unit test can read, rather than an
+  // `if` in the middle of a render loop - which is where this used to live, and why the case it
+  // guards was reachable by clicking and by nothing else.
   const nodes: ViewNode[] = payload.nodes.map((node) => ({
     ...node,
     badge: badgeLabel(node.label, hidden.get(node.id)),

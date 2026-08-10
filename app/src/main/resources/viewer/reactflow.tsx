@@ -1,9 +1,9 @@
 /**
- * The React Flow renderer, and what --html emits.
+ * The renderer, and what --html emits.
  *
- * It derives nothing. Cytoscape drops an edge when either endpoint hides and hides a box when its
- * last descendant does; here every one of those is a field on the view, which is why screen() states
- * them. Anything this page draws differently from the Cytoscape one is a fact about model.ts.
+ * It derives nothing. Whether an edge is drawn, whether a box is drawn, which leaves are showing and
+ * what each one is captioned are all fields on the view, and this file writes them out. That is the
+ * whole boundary: a decision made here is a decision no test can reach without a browser.
  *
  * Nothing here decides what is on screen. That is model.ts, where the tests are.
  */
@@ -69,7 +69,7 @@ function edgesOf(view: View): Edge[] {
       source: edge.source,
       target: edge.target,
       // CONDITION reads `if` rather than `condition`, and is dashed, exactly as the Mermaid document
-      // and the Cytoscape page draw it. FLOW is unlabelled: it is nearly every edge.
+      // draws it. FLOW is unlabelled: it is nearly every edge.
       label: edge.kind === 'CONDITION' ? 'if' : (edge.kind === 'FLOW' ? undefined : edge.kind.toLowerCase()),
       style: { stroke: colour, strokeWidth: 1.5, ...(edge.kind === 'CONDITION' ? { strokeDasharray: '4 3' } : {}) },
       markerEnd: { type: MarkerType.ArrowClosed, color: colour },
@@ -125,10 +125,10 @@ function Graph({ payload }: { payload: Payload }) {
     return () => { current = false; };
   }, [view]);
 
-  // Refit after every layout, which is what the Cytoscape page has always done - its layout fits by
-  // default. `fitView` on the component alone fits the first drawing only, and opening a box makes
-  // the graph several times bigger, so without this a click puts what it revealed off the edge of
-  // the screen. A reveal the reader cannot see is the one thing progressive reveal cannot afford.
+  // Refit after every layout. `fitView` on the component alone fits the first drawing only, and
+  // opening a box makes the graph several times bigger, so without this a click puts what it
+  // revealed off the edge of the screen. A reveal the reader cannot see is the one thing progressive
+  // reveal cannot afford.
   //
   // The counter is for the browser tests, which have no other way to know a click has finished:
   // the view changes at once and the drawing a layout later. It counts *layouts* and not renders
@@ -159,8 +159,8 @@ function Graph({ payload }: { payload: Payload }) {
   const nodes = useMemo(() => nodesOf(view, laid), [view, laid]);
   const edges = useMemo(() => edgesOf(view), [view]);
 
-  // The browser tests read the graph off the DOM, not off this. It is here for the same reason
-  // window.cy is: something to inspect when a page looks wrong.
+  // Something to inspect from the console when a page looks wrong. The browser tests deliberately do
+  // not read it: a page whose view is right and whose drawing is not is exactly what they are for.
   (window as unknown as { view: View }).view = view;
 
   return (

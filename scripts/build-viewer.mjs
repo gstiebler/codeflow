@@ -1,9 +1,12 @@
 /**
- * Bundles each renderer into one IIFE that HtmlExporter inlines.
+ * Bundles the renderer into one IIFE that HtmlExporter inlines.
  *
  * Committed output, so that `./gradlew build` never needs npm - the same contract the hand-vendored
  * libraries had. `npm test` rebuilds into a temp directory and compares, because a stale bundle is a
  * page rendering yesterday's model while every test passes on today's source.
+ *
+ * A list of one, because the shape is the point: a bundle is an entry point plus an output name, and
+ * a second page is a line here rather than a rewrite.
  *
  * Pass a directory to write elsewhere; that is what the freshness check does.
  */
@@ -13,7 +16,6 @@ import { join } from 'node:path';
 const VIEWER = 'app/src/main/resources/viewer';
 
 export const BUNDLES = [
-  { entry: `${VIEWER}/cytoscape.entry.ts`, out: 'cytoscape.bundle.js' },
   { entry: `${VIEWER}/reactflow.entry.tsx`, out: 'reactflow.bundle.js' },
 ];
 

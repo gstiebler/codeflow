@@ -4,12 +4,13 @@ import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
 
 /**
- * The graph as JSON, in the shape Cytoscape.js consumes directly.
+ * The graph as JSON: the viewer's payload, and what the tests assert on.
  *
  * A block becomes a node like any other, distinguished only by carrying type METHOD, and every
- * node inside it names it as `parent`. That is Cytoscape's compound-node model, and it is what a
- * viewer draws as a foldable box - so `parent` is the method boundary, and a payload that drops it
- * is a correct graph with every boundary silently gone.
+ * node inside it names it as `parent`. Nesting rather than a separate list of groups, because that
+ * is how a graph library models a container - React Flow's `parentId` is this field - and it is
+ * what the viewer draws as a foldable box. So `parent` is the method boundary, and a payload that
+ * drops it is a correct graph with every boundary silently gone.
  */
 class JsonExporter {
     // The same `n` and `b` prefixes the other exporters use, so a node found in one document can be

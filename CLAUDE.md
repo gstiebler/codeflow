@@ -104,6 +104,11 @@ and `IrGraphBuilder` model it, not once an exporter mentions it:
 | `--json` | `JsonExporter` | the viewer's payload, and what the tests assert on |
 | `--html` | `HtmlExporter` | one self-contained interactive page |
 
+The chain that picks between them ends in Mermaid, so `Args` **refuses a flag it does not know**
+rather than letting it fall through. An unrecognised `--…` used to produce a complete, plausible
+document that is not the one asked for, with nothing anywhere saying so — a mistyped `--html`, or
+`--html-cytoscape` after the second renderer was removed. `Args.FORMATS` is the list.
+
 Every exporter writes to **stdout**, so nothing else may. `logback.xml` pins its appender to
 `System.err` for exactly this reason: a `ConsoleAppender` with no `<target>` defaults to stdout, and
 debug lines interleaved into the document make it unparseable with no hint as to why.
@@ -142,12 +147,13 @@ substitution only — all of the behaviour lives in the bundle. `HtmlExporter(bu
 argument on purpose: a default would name a file, and a name that is not in the jar fails at the one
 moment nobody is watching, so every call site says which page it wants.
 
-**There are two renderers and one view model.** `--html` emits the React Flow page and
-`--html-cytoscape` the Cytoscape one. React Flow is the default because it draws HTML, so a test can
-read what a reader sees; Cytoscape is kept because it is the *second opinion*. It derives an edge's
+**One renderer, and a view model that does not know about it.** `--html` emits the React Flow page.
+There were two for a while — a Cytoscape page kept as a second opinion, since it *derived* an edge's
 visibility from its endpoints and a box's from its descendants where React Flow is told both, so a
-page the two draw differently is a fact about `model.ts` that neither could have produced alone. New
-work goes in the React Flow page; the Cytoscape one is held still.
+page the two drew differently was a fact about `model.ts` neither could have produced alone. It was
+removed once every property it could disagree about had a unit test on `screen` standing behind it,
+which is where the argument goes if a second renderer is ever wanted again: the value was the
+independent derivation, and a test that states the rule is a cheaper way to hold it.
 
 The viewer is TypeScript, under `app/src/main/resources/viewer/`, and the boundary between deciding
 and drawing is the point:
@@ -155,52 +161,54 @@ and drawing is the point:
 | File | What it is |
 |---|---|
 | `model.ts` | every decision about what is on screen — `opening`, `tap`, `screen` — as pure functions of `(payload, revealed)`, no DOM and no library |
-| `layout.ts` | the layout posed as a value: `elkGraph(view)` and `positions(laidOut)`, plus `ELK_OPTIONS` shared by both pages |
-| `types.ts`, `theme.ts` | the payload and view types, and the colours both renderers paint with |
-| `reactflow.tsx` | the React Flow renderer, and what `--html` emits |
-| `cytoscape.ts` | the Cytoscape renderer, and what `--html-cytoscape` emits |
+| `layout.ts` | the layout posed as a value: `elkGraph(view)` and `positions(laidOut)` |
+| `types.ts`, `theme.ts` | the payload and view types, and the colours the page paints with |
+| `reactflow.tsx` | the renderer, and what `--html` emits |
 
-Neither renderer decides anything: each calls `tap` on a click and writes what `screen` returns.
-Before the split, three decisions lived only inside a browser — the opening set, read out of
-`cy.nodes('[type = "METHOD"]').isOrphan()`; the click, decided by `node.descendants()`; and the
-render loop — so the half of the viewer that chooses what a reader sees was covered only by whatever
-a Playwright test happened to click.
+The renderer decides nothing: it calls `tap` on a click and writes what `screen` returns. Before the
+split, three decisions lived only inside a browser — the opening set, read out of a graph query for
+orphan `METHOD` nodes; the click, decided by the library's own `descendants()`; and the render loop
+— so the half of the viewer that chooses what a reader sees was covered only by whatever a Playwright
+test happened to click.
 
-`scripts/build-viewer.mjs` runs esbuild over `cytoscape.entry.ts` and `reactflow.entry.tsx` and
-writes `*.bundle.js` beside them, **committed**, so Gradle never runs npm and a checkout with no
-`node_modules` still builds a page. `npm run check:bundle` rebuilds into a temp directory and
-byte-compares, which is the only thing standing between a source change and a page still carrying
-the previous one. `npm run typecheck` is what makes the annotations mean anything: `node --test`
-reads `.ts` by stripping the types, so nothing else would ever look at them.
+`scripts/build-viewer.mjs` runs esbuild over `reactflow.entry.tsx` and writes `reactflow.bundle.js`
+beside it, **committed**, so Gradle never runs npm and a checkout with no `node_modules` still builds
+a page. `npm run check:bundle` rebuilds into a temp directory and byte-compares, which is the only
+thing standing between a source change and a page still carrying the previous one. `npm run
+typecheck` is what makes the annotations mean anything: `node --test` reads `.ts` by stripping the
+types, so nothing else would ever look at them.
 
 `package.json` deliberately has **no `"type"` key**, and the `"//type"` entry beside it says why:
 setting `"module"` silences node's reparse warning and also flips esbuild's CJS interop, turning
-`__toESM(require_cytoscape_elk())` into `__toESM(…, 1)` — which makes `default` the whole
-`module.exports` rather than the extension function inside it, so `cytoscape.use` is handed an
-object, on a page no unit test loads. A warning is cheaper than that.
+every `__toESM(cjs())` into `__toESM(…, 1)` — which overwrites a module's own `default` with the
+whole `module.exports`. That is what broke `cytoscape.use(elk)`, and setting it today still changes
+the bundle: `elkjs` and `react-dom/client` both take the flag and neither is harmed by it, one
+because its `default` *is* itself and the other because it declares none. The page is safe by luck of
+two dependencies rather than by anything under our control, and what it would buy is a warning.
 
 `screen(payload, revealed)` returns the whole view as data: which leaves are showing, which of those
-are names standing in for closed methods, the hidden-neighbour counts, and every node and edge of
-the payload with a `display` and a `visible`. Every node, not only the visible ones — Cytoscape
-removes nothing from its graph, so a node that just left the screen needs `'none'` written onto it as
-much as an arrival needs `'element'`. React Flow reads `visible` and builds its node list from
-scratch each time; `display` is Cytoscape's half and `visible` is the one both pages use.
+are names standing in for closed methods, the hidden-neighbour counts, and every node and edge of the
+payload with a `visible`. Every node, not only the visible ones — the view is the payload with a
+verdict on each node rather than the subset that survived, so a renderer holding its own graph
+between frames has a `false` to write onto a node that just left rather than having to notice it is
+missing.
 
-`display` is `null` for every `METHOD` node rather than a string. That is the "never set `display`
-on a `METHOD` node" rule expressed as data: as an `if` in the middle of the render loop it was a
-rule no test could reach, and the failure it guards — a box whose only visible node is a grandchild
-being hidden, leaving that grandchild nowhere to live — is reachable by clicking.
+`visible` on a `METHOD` node means *some descendant leaf is showing*, transitively, because a box
+holds boxes. Stating it in the model rather than leaving it to the renderer is what makes it
+readable by a unit test: as an `if` in the middle of a render loop it was a rule nothing could reach,
+and the failure it guards — a box whose only visible node is a grandchild being hidden, leaving that
+grandchild nowhere to live — is reachable by clicking. *a box whose only showing node is a grandchild
+is visible* in `screen.test.ts` is what holds it now.
 
-**Method boundaries are nesting, in both pages**: a Cytoscape *compound node*'s `parent`, a React
-Flow node's `parentId`, which is what `subgraph` was doing in Mermaid. Layout is ELK `layered` with
+**Method boundaries are nesting**: a React Flow node's `parentId`, which is what `subgraph` was doing
+in Mermaid and what `parent` is in the JSON payload. Layout is ELK `layered` with
 `elk.hierarchyHandling: INCLUDE_CHILDREN` — without that it lays each container out independently
 and the boxes overlap — plus `elk.padding` with a taller `top`, since ELK pads evenly and the first
-row of nodes would otherwise sit on the box's caption. `ELK_OPTIONS` is one copy so direction,
-spacing and padding cannot drift between the pages; the positions still differ, because
-`cytoscape-elk` builds its own ELK graph from the Cytoscape one where `elkGraph` builds it from the
-view. Those options are **strings**, which is not a style choice: `cytoscape-elk` converts numbers on
-the way through and the ELK API does not, so a number is dropped silently and reads as ELK having
-ignored the request.
+row of nodes would otherwise sit on the box's caption. `ELK_OPTIONS` is applied to the root and to
+every box, so a box cannot be laid out by different rules than its parent. Those options are
+**strings**, which is not a style choice: the ELK API drops a number silently, so it reads as ELK
+having ignored the request rather than as a type error. An adapter that coerced numbers on the way
+through is what hid this for as long as there was one.
 
 The React Flow page runs ELK itself and draws nothing until it answers, so a click changes the view
 synchronously and the page catches up a layout later. Two consequences worth knowing: a parent must
@@ -214,22 +222,9 @@ node count grows with call sites rather than source size, and showing everything
 the viewer exists to avoid. What the name of a closed method is drawn as, and why it has to be drawn
 at all, is "A closed method is drawn as its own result" below.
 
-A `Set` of revealed *leaf* ids is the only state, in both pages. On the Cytoscape page visibility is
-*derived* from it, and that is the one rule to respect there: **never set `display` on a `METHOD`
-node.** Cytoscape works the rest out — an edge hides when either endpoint does, and a box hides when
-every descendant does, transitively. Setting `display:none` on a box breaks the transitive case: a
-box whose only visible node is a grandchild would be hidden, and the grandchild would have nowhere
-to live. That case is reachable by clicking and is guarded by the Cytoscape-only browser test *draws
-a box whose only revealed nodes are grandchildren* — clicking `X1` in the `funcCall` fixture reveals
-nodes inside the nested `methodC` boxes and none of `methodB`'s own, so `methodB` is on screen
-through grandchildren alone. It is Cytoscape-only twice over: React Flow is *told* each box's
-`visible`, so the derivation cannot fail there and the unit test *a box whose only showing node is a
-grandchild is visible* is what covers it; and `X1` is off screen when it is tapped, which only an
-emitted event can reach.
-
-Cytoscape removes nothing from its graph, so `cy.nodes().length` is always the payload's node count
-— which is also Cytoscape-only, since React Flow leaves a hidden node out of the DOM entirely and
-has no count of its own to compare.
+A `Set` of revealed *leaf* ids is the only state. Everything else is derived from it by `screen` on
+every call, so nothing has to be kept in step and nothing can go stale — `showing` in particular is
+never stored, so folding a box cannot strand a stub that was added when it opened.
 
 **A hidden neighbour is announced, or the reveal lies by omission.** An edge goes when either
 endpoint does, so a node with six hidden neighbours renders *identically* to a genuine source
@@ -249,11 +244,10 @@ against ranking by the click's own harvest.
 
 The badge lives in `badge` and **`label` stays the plain name**, because the annotation is a
 property of the current view rather than of the value — every existing browser assertion looks a
-node up by label, and so will the next one. Both probes read what is *drawn* for the matching
+node up by label, and so will the next one. The browser probe reads what is *drawn* for the matching
 reason: the badge being right in the data while the page still paints the plain name is a page that
-draws none of this, and reading the data would call that green. So the Cytoscape probe reads
-`n.style('label')` rather than `data('badge')`, and the React Flow one reads the DOM rather than the
-`view` object the page publishes.
+draws none of this, and reading the data would call that green. So it goes through the DOM and not
+through the `view` object the page publishes.
 
 `neighbourhood(edges, startId, depth)` is the click behaviour: an undirected ball of radius
 `REVEAL_DEPTH`. It is breadth-first on purpose — the walk is bounded, so a node first reached by a
@@ -283,11 +277,13 @@ value it produces. Clicking that name reveals the method's own leaves and the na
 it calls, and still walks the name's own edges like any other leaf. Folding puts the stub back
 rather than removing the box, so there is a way in again.
 
-It has to be a real leaf. **Cytoscape will not draw a compound node with no visible children**,
-whatever `display` that parent is given — a spike confirmed `visible: false` and `0×0` on a box
-forced to `element` — so an empty box cannot be a click target and the stub is the only thing that
-puts a closed method on the page. This is the same fact the "never set `display` on a `METHOD` node"
-rule comes from, used the other way round.
+It has to be a real leaf, and that was once forced by the library: Cytoscape would not draw a
+compound node with no visible children whatever display the parent was given — a spike confirmed
+`visible: false` and `0×0` on a box forced to `element` — so an empty box could not be a click target
+at all. React Flow draws one happily, so the reason is now ours: an empty box is a rectangle with a
+caption and no value in it, and it is the stub, not the box, that gives a closed method a node in the
+**dataflow** graph. A click walks the stub's own edges like any other leaf; a box with nothing inside
+it could not be reached by following a value.
 
 Two rules hold the recursion down, and each is one line with a test behind it. `openBoxes` decides
 which boxes are open, and a box whose only revealed leaf is its own name **does not count as open**:
@@ -602,7 +598,7 @@ expression also has two alternatives and a condition, and calling those true and
 label the source never wrote.
 
 All four exporters render the kind, and the colours (`#2e7d32`, `#c62828`, `#6a6a6a`) are repeated
-in `MermaidExporter` and `viewer.mjs` so one graph does not change meaning between the two
+in `MermaidExporter` and the viewer's `theme.ts` so one graph does not change meaning between the two
 renderings. The Mermaid side has a trap: `linkStyle` indexes links **globally across the whole
 flowchart** in declaration order, so the index of an edge is only settled once every nested block
 has been walked — hence `Links`, which counts during the recursion and emits the styles after it.
@@ -811,23 +807,29 @@ format.
 
 Split by what they can actually catch:
 
-- `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `model.mjs`.
+- `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `model.ts`.
   `neighbourhood` is tested here: the depth bound, that a node reachable both ways is recorded at
   the *short* distance so nodes past it stay in range, and that it terminates on a cycle.
 
   The corpus sweeps live here too, over the `graph.json` the golden suite writes beside each
-  fixture (gitignored, rewritten every run, like `ir.txt`). `invariants.test.mjs` asserts that a box
-  offered to the reader has something showing inside it, that no `METHOD` node is given a display,
-  and that the badges' hidden counts add up to the edges actually crossing the screen edge.
-  `reachability.test.mjs` asserts the one that matters: from the opening view, clicking what is on
-  screen to a fixpoint reaches every leaf of every fixture. That property was swept by hand once,
-  when stubs were added, and was false again by the time anything re-checked it — eight fixtures
-  short, `member` worst at 5 of 23.
+  fixture (gitignored, rewritten every run, like `ir.txt`). `invariants.test.ts` asserts that a box
+  offered to the reader has something showing inside it, that a box is visible exactly when some
+  descendant leaf is showing, and that the badges' hidden counts add up to the edges actually
+  crossing the screen edge. `reachability.test.ts` asserts the one that matters: from the opening
+  view, clicking what is on screen to a fixpoint reaches every leaf of every fixture. That property
+  was swept by hand once, when stubs were added, and was false again by the time anything re-checked
+  it — eight fixtures short, `member` worst at 5 of 23.
 
   What it covers is reveal by *containment*, and only that: deleting the `neighbourhood` call from
   `tap` entirely leaves it green at 63 of 63, because opening every box one level eventually reaches
-  every leaf anyway. The dataflow half of a click is covered by `tap.test.mjs` alone, and by the one
+  every leaf anyway. The dataflow half of a click is covered by `tap.test.ts` alone, and by the one
   case in it whose payload gives the clicked name an edge. A corpus sweep is a floor, not a spec.
+
+  This layer carries more weight than it used to. Two properties were held end to end by the
+  Cytoscape page, because that page *derived* them — a box drawn on the strength of a grandchild, and
+  the graph keeping every payload node however few are displayed. `a box whose only showing node is a
+  grandchild is visible` and `every payload node is described, visible or not` in `screen.test.ts`
+  are now the only statement of each.
 
   `corpus.mjs` fails when it finds fewer than 60 payloads rather than sweeping an empty list — a
   checkout that has not run `./gradlew test` has none, and a sweep over nothing passes every
@@ -835,18 +837,28 @@ Split by what they can actually catch:
 - `app/src/test/js/browser/` (`npm run test:browser`) — Playwright against pages built from real
   fixtures. `global-setup.mjs` runs `gradlew run --args="<fixture> --html"` per fixture, with an
   **absolute** path: the `run` task's working directory is `app/`, so a repo-relative one resolves
-  to `app/app/...` and `Files.walk` throws. Two are built, and which question each can answer
-  matters — `member` is the fixture where following dataflow finds nothing, and `funcCall` is the
-  only one nested deeply enough to tell a stub from an open box, since `member`'s `getMemberX` has
-  nothing in it *but* its RETURN node and the two look identical there. A depth test written against
-  that box passed against an implementation that opened one level too far.
+  to `app/app/...` and `Files.walk` throws. Two fixtures are built, and which question each can
+  answer matters — `member` is the fixture where following dataflow finds nothing, and `funcCall` is
+  the only one nested deeply enough to tell a stub from an open box, since `member`'s `getMemberX`
+  has nothing in it *but* its RETURN node and the two look identical there. A depth test written
+  against that box passed against an implementation that opened one level too far.
 
-Two traps, both of which produced a green run on a broken page:
+  `page.ts` is how the suite talks to the page, and everything in it goes through the **DOM** rather
+  than through the `view` the page publishes: a page whose data is right and whose rendering is not
+  is the whole of what a browser test adds over a unit test on `screen`.
 
-- The browser publishes a global for every element `id`. The container is `#graph`, **not** `#cy`,
-  because with `id="cy"` a check for `window.cy` finds the div and passes before the graph exists.
-  The guard is `typeof window.cy?.nodes === 'function'` for the same reason.
+Three traps, each of which produced a green — or hanging — run on a broken page:
+
+- **The page draws a layout behind the view.** A click changes the view synchronously and the screen
+  once ELK answers, so an assertion run in that gap reads the screen from *before* the gesture. The
+  first run of this suite lost that race exactly twice out of fifteen, which is the worst way for a
+  test to be wrong. Every gesture in `page.ts` therefore waits on `window.drawn`, a count of layouts
+  the page has drawn.
+- **That signal must not be "the DOM matches the page's own `view`".** That asks the renderer whether
+  the renderer is right, and a page drawing nodes it should have hidden hangs instead of failing.
+  That is not hypothetical — it is what happened when the mutation was tried.
 - A negative assertion (`not.toContain`, `count === 0`) passes trivially when the feature does
   nothing at all. Each one is paired with a positive assertion that fails in that case. Confirm a
   new test fails against a *wrong* implementation, not just an absent one — revealing every node is
-  the mutation to try.
+  the mutation to try. Removing **both** `visible` filters (`elkGraph` and `nodesOf`; either alone is
+  redundant) fails 11 of the 14, which is the check that this suite bites.

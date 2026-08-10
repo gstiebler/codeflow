@@ -1,9 +1,11 @@
 /**
- * One definition of what a colour means, because there are two renderers.
+ * One definition of what a colour means, because a graph that changes colour between two renderings
+ * is two claims about one program - the failure this repo cares most about.
  *
- * A graph that changes colour between the Cytoscape page and the React Flow page is two claims
- * about one program, which is the failure this repo cares most about. MermaidExporter keeps its own
- * copy - it is Kotlin, and the duplication there is already documented in CLAUDE.md.
+ * Separate from the renderer that paints with it so that it stays one definition: the page and the
+ * Mermaid document are already two renderings of one graph, and MermaidExporter keeps its own copy
+ * because it is Kotlin. That duplication is documented in CLAUDE.md; a third copy inside the page
+ * would not be.
  */
 import type { NodeType, EdgeKind } from './types.ts';
 

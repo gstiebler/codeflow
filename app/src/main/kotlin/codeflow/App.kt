@@ -33,11 +33,22 @@ private class Args(argv: Array<String>) {
                     i++
                 }
                 arg.startsWith("--from=") -> from = arg.removePrefix("--from=")
-                arg.startsWith("--") -> flags.add(arg)
+                // An unknown flag is refused rather than ignored. The exporter chain ends in Mermaid,
+                // so a flag nobody recognises used to produce a complete, plausible document that is
+                // not the one asked for - a mistyped `--html`, or `--html-cytoscape` after the second
+                // renderer was removed, and nothing on stdout or stderr saying so.
+                arg.startsWith("--") -> {
+                    require(arg in FORMATS) { "unknown flag $arg; expected one of ${FORMATS.sorted()}" }
+                    flags.add(arg)
+                }
                 directory == null -> directory = arg
             }
             i++
         }
+    }
+
+    companion object {
+        val FORMATS = setOf("--html", "--json", "--graphml")
     }
 }
 
@@ -57,11 +68,6 @@ fun main(argv: Array<String>) {
     // stderr, so redirecting stdout to a file gives something a viewer can open directly.
     if (args.flags.contains("--html")) {
         HtmlExporter("reactflow.bundle.js").processMainMethod(mainMethod) { result.add(it) }
-    } else if (args.flags.contains("--html-cytoscape")) {
-        // Kept because it is the second opinion: Cytoscape derives an edge's visibility from its
-        // endpoints and a box's from its descendants, so a page it draws differently from the React
-        // Flow one is a fact about the view model that no single renderer could have told us.
-        HtmlExporter("cytoscape.bundle.js").processMainMethod(mainMethod) { result.add(it) }
     } else if (args.flags.contains("--json")) {
         JsonExporter().processMainMethod(mainMethod) { result.add(it) }
     } else if (args.flags.contains("--graphml")) {

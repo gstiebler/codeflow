@@ -24,10 +24,10 @@ const payload = {
 // that follows says so as clearly as anything written here would.
 const nodeNamed = (view: View, id: Id) => view.nodes.find((n) => n.id === id)!;
 
-// The rule Cytoscape applies internally, stated so that a renderer which derives nothing can be
-// told it. A box is on screen because something inside it is - transitively, since a box holds
-// boxes, and the case that has always been the trap is a box whose only visible node is a
-// grandchild.
+// A box is on screen because something inside it is - transitively, since a box holds boxes, and
+// the case that has always been the trap is a box whose only visible node is a grandchild. This and
+// the grandchild test below are now the only statement of that rule: the page it used to be checked
+// against end to end derived it for itself, and that page is gone.
 test('a box is visible exactly when some descendant leaf is showing', () => {
   const view = screen(payload, new Set(['mR', 'x', 'y']));
   assert.equal(nodeNamed(view, 'm').visible, true);
@@ -65,8 +65,9 @@ test('a box whose only showing node is a grandchild is visible', () => {
   assert.equal(nodeNamed(view, 'g').visible, true);
 });
 
-// Nothing is ever removed from the graph, so a node that just left the screen still needs 'none'
-// written onto it. A filtered list would leave it lit from the pass before.
+// The view is the whole payload with a verdict on each node, not the subset that survived. A
+// filtered list would make "gone from the view" and "off screen" the same thing, and a renderer that
+// keeps its own graph between frames could not tell a node that just left from one it never had.
 test('every payload node is described, visible or not', () => {
   const view = screen(payload, new Set(['mR']));
   assert.equal(view.nodes.length, payload.nodes.length);

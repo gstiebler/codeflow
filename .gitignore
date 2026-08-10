@@ -18,9 +18,6 @@ app/src/test/resources/*/ir.txt
 # in truth.md. Nothing asserts on it either - see AppTest.writePage - and each one inlines its own
 # copy of the bundled libraries, so they are megabytes apiece and are not committed.
 app/src/test/resources/*/graph.html
-# The same fixture through the other renderer, written on every test run beside graph.html. Two
-# pages from one payload is how a disagreement between the renderers becomes visible.
-app/src/test/resources/*/graph-cytoscape.html
 # The same payload as a file the viewer's Node tests can read, written beside graph.html on every
 # run. `npm test` sweeps these for reachability - see app/src/test/js/unit/reachability.test.ts.
 app/src/test/resources/*/graph.json

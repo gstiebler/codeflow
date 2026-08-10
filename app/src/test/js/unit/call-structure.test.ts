@@ -25,8 +25,8 @@ test('a box inside an open box is offered as its RETURN node', () => {
   assert.deepEqual(showing(['mR', 'x']), ['fR', 'mR', 'x']);
 });
 
-// Cytoscape will not draw a compound parent with no visible children whatever its own display says,
-// so the stub is the only thing that makes a closed box exist on the page at all.
+// The stub is what a closed method is drawn as. An empty box would be a rectangle with a caption
+// and no value in it, and nothing for a dataflow click to walk from.
 test('the stub is a real leaf, so the box it stands for has something to draw', () => {
   assert.equal(withStubs(nodes, new Set(['mR', 'x'])).has('fR'), true);
 });
@@ -48,9 +48,10 @@ test('opening a box offers the boxes inside it', () => {
   assert.deepEqual(showing(['mR', 'x', 'a']), ['a', 'gR', 'mR', 'x']);
 });
 
-// The same case the "never hide a METHOD node" rule exists for: f has none of its own leaves
-// revealed and is still open, on the strength of a grandchild. Read `fR` being absent as the
-// assertion - treating f as closed would offer its stub, since its caller is open.
+// The same case `a box whose only showing node is a grandchild is visible` covers on the other side
+// of the model: f has none of its own leaves revealed and is still open, on the strength of a
+// grandchild. Read `fR` being absent as the assertion - treating f as closed would offer its stub,
+// since its caller is open.
 test('a box open only through a grandchild counts as open', () => {
   assert.deepEqual(showing(['mR', 'x', 'b']), ['b', 'mR', 'x']);
 });

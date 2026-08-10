@@ -188,27 +188,17 @@ class AppTest {
      * at. Having both next to `App.java` and `ir.txt` means a surprise can be traced from source to
      * meaning to document to what is on screen without running anything.
      *
-     * Both renderers, because the fixture is where a disagreement between them would show:
-     * `graph.html` is the React Flow page `--html` emits and `graph-cytoscape.html` is the same
-     * payload through Cytoscape, which derives the visibilities React Flow is handed.
-     *
      * Written on every run rather than only when missing, because a stale one would be worse than
-     * none. Each is a self-contained page of about two megabytes of bundled library - the price of
-     * the file opening from disk with no server, and the reason these are not committed.
+     * none. The page is self-contained and about two megabytes of bundled library - the price of the
+     * file opening from disk with no server, and the reason it is not committed.
      */
     private fun writePage(testDirPath: Path, mainMethod: GraphBuilderBlock) {
         val page = StringBuilder()
         HtmlExporter("reactflow.bundle.js").processMainMethod(mainMethod) { page.append(it).append("\n") }
         Files.writeString(testDirPath.resolve("graph.html"), page)
 
-        // The same fixture through the other renderer. Cytoscape derives what React Flow is told, so
-        // two pages from one payload is the cheapest way to see which of them is wrong.
-        val cytoscape = StringBuilder()
-        HtmlExporter("cytoscape.bundle.js").processMainMethod(mainMethod) { cytoscape.append(it).append("\n") }
-        Files.writeString(testDirPath.resolve("graph-cytoscape.html"), cytoscape)
-
         // The same payload the page inlines, on its own, because the viewer's Node tests need it:
-        // model.mjs decides what is on screen and a sweep over the real corpus is the only thing
+        // model.ts decides what is on screen and a sweep over the real corpus is the only thing
         // that can say a fixture is reachable at all. Gitignored and rewritten like the page.
         val payload = StringBuilder()
         JsonExporter().processMainMethod(mainMethod) { payload.append(it).append("\n") }
@@ -1933,17 +1923,20 @@ class AppTest {
         val page = StringBuilder()
         val testDirPath = testResourcesPath.resolve("funcCall")
         val mainMethod = AstReader(testResourcesPath).process(listOf(testDirPath.resolve("App.java")))
-        HtmlExporter("cytoscape.bundle.js").processMainMethod(mainMethod) { page.append(it).append("\n") }
+        HtmlExporter("reactflow.bundle.js").processMainMethod(mainMethod) { page.append(it).append("\n") }
         val html = page.toString()
 
         // Strings from inside the bundle, and string *literals* specifically: the bundle is minified,
         // so an identifier is renamed and a comment is gone, and the licence header and REVEAL_DEPTH
-        // this used to look for now say nothing about whether anything was inlined. "cytoscape" and
-        // "ELK" are no use either - both occur in our own code, so asserting on them passed with not
-        // one library present.
-        assertTrue("A Cytoscape container" in html, "the renderer was not inlined")
+        // this used to look for now say nothing about whether anything was inlined. A library's own
+        // name is no use either - it occurs in our code too, so asserting on it passed with not one
+        // library present. Each of these three is written by exactly one of the three things that
+        // have to be here: `react-flow__pane` by React Flow's own stylesheet, "Minified React error"
+        // by the production React build, and `cf-box` by reactflow.tsx.
+        assertTrue("react-flow__pane" in html, "the renderer was not inlined")
+        assertTrue("Minified React error" in html, "React itself was not inlined")
         assertTrue("org.eclipse.elk" in html, "the layout engine was not inlined")
-        assertTrue("data(badge)" in html, "our own viewer code was not inlined")
+        assertTrue("cf-box" in html, "our own viewer code was not inlined")
         assertTrue("\"label\": \"methodC\"" in html, "the graph payload was not inlined")
         assertTrue("<script" in html && "</html>" in html, "the page is not a complete document")
     }

@@ -2,9 +2,9 @@
  * The payload's shape and the view's, in one place.
  *
  * JsonExporter writes the payload and is the authority on it; nothing here may add a field. The
- * view is what a renderer is handed, and there are two of them now - if they disagree about this
- * type they draw two different pages from one graph, which is the failure this repo cares most
- * about.
+ * view is what the renderer is handed, and every field on it is a decision model.ts has already
+ * made - so a renderer reaching past this type for something it could work out itself is the
+ * boundary going soft.
  */
 
 export type Id = string;
@@ -60,8 +60,7 @@ export type ViewNode = PayloadNode & {
    * On screen. For a box: some descendant leaf is showing.
    *
    * Descendants, because a box holds boxes and one whose only showing node is a grandchild is still
-   * on screen. Cytoscape derives exactly this and must not be told it; React Flow derives nothing
-   * and must be.
+   * on screen. Stated rather than derived by the renderer, so that a unit test can read it.
    */
   visible: boolean;
 };

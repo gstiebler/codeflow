@@ -1,10 +1,10 @@
 /**
  * Where each node goes, posed as an ELK problem rather than computed as pixels.
  *
- * Cytoscape reaches ELK through cytoscape-elk and never says what came back. React Flow positions
- * nothing at all, so the layout has to be driven directly - which is the good half of that bargain:
- * the *input* becomes a value, and a value can be checked without a browser. Only running ELK and
- * writing the answer into React Flow's state needs one.
+ * React Flow positions nothing on its own, so ELK is driven directly rather than through an adapter
+ * that hides both ends of it. That is the good half of the bargain: the layout's *input* becomes a
+ * value, and a value can be checked without a browser. Only running ELK and writing the answer into
+ * React Flow's state needs one.
  *
  * No imports beyond types, no DOM, no library: `node --test` reads this file directly.
  */
@@ -27,16 +27,15 @@ export type ElkNode = {
 };
 
 /**
- * How the graph is laid out, for both renderers - the Cytoscape page hands this to cytoscape-elk and
- * the React Flow page to ELK itself. One copy, so that direction, spacing and padding cannot drift
- * between the two pages; the positions themselves still differ, since cytoscape-elk builds its own
- * ELK graph from the Cytoscape one where [elkGraph] builds it from the view.
+ * How the graph is laid out. One copy, applied to the root and to every box, since a box laid out
+ * by different rules than its parent is a diagram that changes direction halfway down.
  *
- * As strings, which is not a style choice: cytoscape-elk converts numbers on the way through and
- * the ELK API does not, so a number here is dropped silently - the layout still runs, just without
- * the spacing, which reads as ELK having ignored the request rather than as a type error.
+ * As strings, which is not a style choice: the ELK API takes strings and drops a number silently -
+ * the layout still runs, just without the spacing, which reads as ELK having ignored the request
+ * rather than as a type error. An adapter that coerces numbers on the way through is what hid this
+ * for as long as there was one.
  */
-export const ELK_OPTIONS: Record<string, string> = {
+const ELK_OPTIONS: Record<string, string> = {
   algorithm: 'layered',
   'elk.direction': 'DOWN',
   'elk.layered.spacing.nodeNodeBetweenLayers': '40',
@@ -52,9 +51,10 @@ export const ELK_OPTIONS: Record<string, string> = {
 /**
  * A leaf's size, guessed from its caption.
  *
- * Cytoscape measures the rendered label and sizes the node to it; ELK has to be told a size before
- * anything exists to measure. Being a few pixels out shows up as looser or tighter spacing and never
- * as a wrong graph, which is why this is a formula and not a render-measure-relayout pass.
+ * ELK has to be told a size before anything exists to measure, and the page draws nothing until ELK
+ * has answered - so there is no rendered label to measure at the point the number is needed. Being a
+ * few pixels out shows up as looser or tighter spacing and never as a wrong graph, which is why this
+ * is a formula and not a render-measure-relayout pass.
  */
 const CHAR_WIDTH = 6.5;
 const PADDING = 16;

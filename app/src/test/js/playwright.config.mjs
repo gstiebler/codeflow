@@ -4,10 +4,9 @@ export default defineConfig({
   testDir: './browser',
   globalSetup: './global-setup.mjs',
   use: { headless: true },
-  // A click runs a whole ELK layout, and cytoscape-elk builds a fresh ELK for each one - about ten
-  // seconds a click on these fixtures, so a two-click test sits just under the 30s default and fails
-  // whenever a second worker is competing for the CPU. The libraries are byte-identical to the ones
-  // this page used to load as script tags, so this is the suite's own cost and not the bundle's.
-  timeout: 120_000,
+  // No timeout override. This used to be 120s because cytoscape-elk built a fresh ELK for every
+  // layout - about ten seconds a click, so a two-click test sat just under the 30s default and
+  // failed whenever a second worker was competing for the CPU. The page now runs ELK itself and a
+  // click costs a few hundred milliseconds, so the default is several times the slowest test.
   reporter: 'list',
 });

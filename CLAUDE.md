@@ -142,6 +142,32 @@ from `Links.count`, so it fails if the counter and the writing ever disagree.
 where changes go. The libraries are committed under `app/src/main/resources/viewer/`; `npm` only
 records where they came from.
 
+The viewer is two files and the boundary is the point. `model.mjs` is every decision about what is
+on screen — `opening`, `tap`, `screen`, and the functions they rest on — as pure functions of
+`(payload, revealed)`, with no DOM and no Cytoscape, so `node --test` imports it directly.
+`viewer.mjs` is the renderer: it builds the graph, and on every click calls `tap` and writes what
+`screen` returns. It decides nothing. Before the split, three decisions lived only inside a browser
+— the opening set, read out of `cy.nodes('[type = "METHOD"]').isOrphan()`; the click, decided by
+`node.descendants()`; and the render loop — so the half of the viewer that chooses what a reader
+sees was covered only by whatever a Playwright test happened to click.
+
+They are not linked by an import. The page is one self-contained file opened from `file://`, where
+an inlined `<script type="module">` has nothing to resolve `./model.mjs` against, and `HtmlExporter`
+is substitution only so it cannot strip an import either. So `model.mjs` is substituted into the
+same module script directly above `viewer.mjs` and its exports are free identifiers there — which
+is why `viewer.mjs` must never be loaded on its own.
+
+`screen(payload, revealed)` returns the whole view as data: which leaves are showing, which of those
+are names standing in for closed methods, the hidden-neighbour counts, and every node and edge of
+the payload with a `display` and a `visible`. Every node, not only the visible ones — nothing is
+ever removed from the graph, so a node that just left the screen needs `'none'` written onto it as
+much as an arrival needs `'element'`.
+
+`display` is `null` for every `METHOD` node rather than a string. That is the "never set `display`
+on a `METHOD` node" rule expressed as data: as an `if` in the middle of the render loop it was a
+rule no test could reach, and the failure it guards — a box whose only visible node is a grandchild
+being hidden, leaving that grandchild nowhere to live — is reachable by clicking.
+
 Cytoscape.js **compound nodes** are the method boundaries: a node's `parent` is its block, which is
 what `subgraph` was doing in Mermaid. Layout is ELK `layered` with `elk.hierarchyHandling:
 INCLUDE_CHILDREN` — without that it lays each container out independently and the boxes overlap.
@@ -210,8 +236,9 @@ not the starting point.
 `withStubs(nodes, revealed)` makes it navigable. A box whose parent is open is offered as its
 **RETURN node**, which every box has exactly one of — the method's name, or `<init>` for a
 constructor. That node is the method's result, so a method you have not opened is drawn as the one
-value it produces, and clicking it opens the body (`ownLeaves`, direct children only, one level per
-click). Folding puts the stub back rather than removing the box, so there is a way in again.
+value it produces. Clicking that name reveals the method's own leaves and the names of the methods
+it calls, and still walks the name's own edges like any other leaf. Folding puts the stub back
+rather than removing the box, so there is a way in again.
 
 It has to be a real leaf. **Cytoscape will not draw a compound node with no visible children**,
 whatever `display` that parent is given — a spike confirmed `visible: false` and `0×0` on a box
@@ -219,18 +246,39 @@ forced to `element` — so an empty box cannot be a click target and the stub is
 puts a closed method on the page. This is the same fact the "never set `display` on a `METHOD` node"
 rule comes from, used the other way round.
 
-Two rules hold the recursion down, and each is one line with a test behind it. A stub **does not
-open the box it stands for**: if it did, offering one callee's stub would make that callee open,
-which would offer its callees' stubs, and one pass would unfold the whole call tree — which is also
-why one pass suffices, since no stub can produce another. And only a **closed** box gets a stub: an
-open one already has its RETURN among the leaves the click revealed, and a box opened by following
-dataflow instead should show what the walk reached and nothing more. That second rule is what keeps
-the off-by-one guard in *clicking a node reveals its neighbourhood three hops out* meaningful —
-`methodA`'s RETURN is exactly four hops from `x`, and stubbing open boxes would have put that label
-on screen for an unrelated reason and made the assertion untestable.
+Two rules hold the recursion down, and each is one line with a test behind it. `openBoxes` decides
+which boxes are open, and a box whose only revealed leaf is its own name **does not count as open**:
+if it did, offering one callee's name would open that callee, which would offer its callees' names,
+and one pass would unfold the whole call tree — which is also why one pass suffices, since no name
+can produce another. And only a **closed** box is offered a name: an open one already has its RETURN
+among the leaves the click revealed, and a box opened by following dataflow instead should show what
+the walk reached and nothing more. That second rule is what keeps the off-by-one guard in *clicking
+a node reveals its neighbourhood three hops out* meaningful — `methodA`'s RETURN is exactly four hops
+from `x`, and offering names for open boxes would have put that label on screen for an unrelated
+reason and made the assertion untestable.
 
-`showing` is derived on every `apply()` and never stored, so folding a box cannot strand a stub that
-was added when it opened.
+**That first rule governs the derivation, and a click is not a derivation.** The two read alike and
+were one sentence, and merging them is what left `member` unopenable. Its callee's name is a
+`RETURN` node for a method that passes and returns nothing, so it has no edges at all, and the
+neighbourhood walk returned it to itself: the page opened on 5 of 23 leaves with all five inert, and
+the only way in was the thin box border around a node that looked like the obvious thing to press.
+Clicking a name now opens its method, and cannot cascade, because a click happens once — the
+newly-open method offers only the names directly inside it, each needing a press of its own.
+
+The callees' names arrive with the click rather than being left to the next derivation, and that is
+load-bearing rather than an optimisation: a box is drawn by its contents, so a method whose own
+leaves are just its own name — one that only calls other methods — would otherwise open onto
+nothing it could be drawn from. `deepField` is that shape. The sweep is what found it.
+
+`openBoxes` is one exported function and not three spellings, because `withStubs` deciding what to
+offer, `screen` deciding which of those are names rather than bodies, and the invariants sweep all
+ask the same question. Three answers to "is this box open" is three chances for the viewer to
+disagree with itself about what the reader is looking at — and `screen` in particular cannot use
+"showing but not revealed", since a click on a name puts it in `revealed` while leaving the box it
+stands for shut, and it is still a name.
+
+`showing` is derived inside `screen()` on every call and never stored, so folding a box cannot
+strand a stub that was added when it opened.
 
 ### Attributed, and asked rather than guessed
 
@@ -705,9 +753,22 @@ format.
 
 Split by what they can actually catch:
 
-- `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `viewer.mjs`.
+- `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `model.mjs`.
   `neighbourhood` is tested here: the depth bound, that a node reachable both ways is recorded at
   the *short* distance so nodes past it stay in range, and that it terminates on a cycle.
+
+  The corpus sweeps live here too, over the `graph.json` the golden suite writes beside each
+  fixture (gitignored, rewritten every run, like `ir.txt`). `invariants.test.mjs` asserts that a box
+  offered to the reader has something showing inside it, that no `METHOD` node is given a display,
+  and that the badges' hidden counts add up to the edges actually crossing the screen edge.
+  `reachability.test.mjs` asserts the one that matters: from the opening view, clicking what is on
+  screen to a fixpoint reaches every leaf of every fixture. That property was swept by hand once,
+  when stubs were added, and was false again by the time anything re-checked it — eight fixtures
+  short, `member` worst at 5 of 23.
+
+  `corpus.mjs` fails when it finds fewer than 60 payloads rather than sweeping an empty list — a
+  checkout that has not run `./gradlew test` has none, and a sweep over nothing passes every
+  property it is given. Same trap as a negative browser assertion, one layer up.
 - `app/src/test/js/browser/` (`npm run test:browser`) — Playwright against pages built from real
   fixtures. `global-setup.mjs` runs `gradlew run --args="<fixture> --html"` per fixture, with an
   **absolute** path: the `run` task's working directory is `app/`, so a repo-relative one resolves

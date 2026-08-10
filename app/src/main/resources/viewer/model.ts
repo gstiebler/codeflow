@@ -1,16 +1,16 @@
 /**
  * What the viewer puts on screen, decided without a browser.
  *
- * No imports, no DOM, no Cytoscape: `node --test` imports this file directly, and the exported page
- * gets it by concatenation - HtmlExporter substitutes it into the same module script as viewer.mjs,
- * because an inlined `<script type="module">` served from file:// has nothing to resolve an import
- * against. `export` inside an inline module is legal and simply unused.
+ * No imports beyond types, no DOM, no renderer: `node --test` reads this file directly, and each
+ * renderer's bundle imports it. Both of them - which is the point. A rule stated here is a rule both
+ * pages obey, and one they draw differently is a fact about this file.
  *
  * Everything here is a pure function of (payload, revealed). That is the point: the three decisions
  * that used to live inside Cytoscape traversals - the opening view, what a click does, and which
  * nodes get a display - are the ones a reader most needs to be right, and were the only ones no
  * test could reach.
  */
+import type { HiddenDegree, Id, Link, Payload, PayloadNode, View, ViewNode } from './types.ts';
 
 /** How far a click reaches. Three hops is enough to cross a call and land in the callee's body. */
 export const REVEAL_DEPTH = 3;
@@ -25,26 +25,26 @@ export const REVEAL_DEPTH = 3;
  * `distance` is also what makes this terminate, since the graph has cycles wherever a loop feeds
  * a variable back into itself.
  */
-export function neighbourhood(edges, startId, depth) {
-  const adjacent = new Map();
-  const link = (from, to) => {
+export function neighbourhood(edges: Link[], startId: Id, depth: number): Set<Id> {
+  const adjacent = new Map<Id, Id[]>();
+  const link = (from: Id, to: Id) => {
     if (!adjacent.has(from)) adjacent.set(from, []);
-    adjacent.get(from).push(to);
+    adjacent.get(from)!.push(to);
   };
   for (const edge of edges) {
     link(edge.source, edge.target);
     link(edge.target, edge.source);
   }
 
-  const distance = new Map([[startId, 0]]);
-  const queue = [startId];
+  const distance = new Map<Id, number>([[startId, 0]]);
+  const queue: Id[] = [startId];
   // Index rather than shift(): same order, without re-indexing the array on every step.
   for (let head = 0; head < queue.length; head += 1) {
     const id = queue[head];
     if (distance.get(id) === depth) continue;
     for (const next of adjacent.get(id) ?? []) {
       if (!distance.has(next)) {
-        distance.set(next, distance.get(id) + 1);
+        distance.set(next, distance.get(id)! + 1);
         queue.push(next);
       }
     }
@@ -67,11 +67,11 @@ export function neighbourhood(edges, startId, depth) {
  * One pass over every edge for the whole graph, rather than a walk per node - which is what rules
  * out counting reachable nodes instead. See the design note for the rest of that argument.
  */
-export function hiddenDegree(edges, revealed) {
-  const hidden = new Map();
-  const count = (id, direction) => {
+export function hiddenDegree(edges: Link[], revealed: Set<Id>): Map<Id, HiddenDegree> {
+  const hidden = new Map<Id, HiddenDegree>();
+  const count = (id: Id, direction: keyof HiddenDegree) => {
     if (!hidden.has(id)) hidden.set(id, { in: 0, out: 0 });
-    hidden.get(id)[direction] += 1;
+    hidden.get(id)![direction] += 1;
   };
 
   for (const edge of edges) {
@@ -91,17 +91,19 @@ export function hiddenDegree(edges, revealed) {
  * with two zeroes does. A zero is never rendered - `amount ↑0 ↓3` reads as though something were
  * being denied, where `amount ↓3` says only what is true.
  */
-export function badgeLabel(name, hidden) {
-  const parts = [];
-  if (hidden?.in > 0) parts.push(`↑${hidden.in}`);
-  if (hidden?.out > 0) parts.push(`↓${hidden.out}`);
+export function badgeLabel(name: string, hidden?: HiddenDegree): string {
+  const parts: string[] = [];
+  // `?? 0` rather than `hidden?.in > 0`, which strict TypeScript rejects for comparing a possible
+  // undefined against a number. Both read false for a missing count and for a zero, as above.
+  if ((hidden?.in ?? 0) > 0) parts.push(`↑${hidden!.in}`);
+  if ((hidden?.out ?? 0) > 0) parts.push(`↓${hidden!.out}`);
   return parts.length === 0 ? name : `${name} ${parts.join(' ')}`;
 }
 
-const isBoxNode = (node) => node.type === 'METHOD';
+const isBoxNode = (node: PayloadNode) => node.type === 'METHOD';
 
 /** The leaves directly inside a box - what clicking that box opens, one level and no deeper. */
-export function ownLeaves(nodes, boxId) {
+export function ownLeaves(nodes: PayloadNode[], boxId: Id): Set<Id> {
   return new Set(nodes.filter((n) => n.parent === boxId && !isBoxNode(n)).map((n) => n.id));
 }
 
@@ -112,8 +114,8 @@ export function ownLeaves(nodes, boxId) {
  * one and [tap] decides what clicking one does, and the two disagreeing would put a node on screen
  * that does nothing when pressed - which is the bug this whole change exists to fix.
  */
-export function stubOf(nodes) {
-  const stubs = new Map();
+export function stubOf(nodes: PayloadNode[]): Map<Id, Id> {
+  const stubs = new Map<Id, Id>();
   for (const node of nodes) {
     if (node.type === 'RETURN' && node.parent && !stubs.has(node.parent)) {
       stubs.set(node.parent, node.id);
@@ -134,11 +136,11 @@ export function stubOf(nodes) {
  * and the two revealing different things would make a fixture's reach depend on which one the reader
  * happened to hit.
  */
-function oneLevel(nodes, boxId) {
+function oneLevel(nodes: PayloadNode[], boxId: Id): Set<Id> {
   const stubs = stubOf(nodes);
   const revealed = ownLeaves(nodes, boxId);
   for (const node of nodes) {
-    if (isBoxNode(node) && node.parent === boxId && stubs.has(node.id)) revealed.add(stubs.get(node.id));
+    if (isBoxNode(node) && node.parent === boxId && stubs.has(node.id)) revealed.add(stubs.get(node.id)!);
   }
   return revealed;
 }
@@ -149,18 +151,18 @@ function oneLevel(nodes, boxId) {
  * descendants, not children: a box holds boxes, and folding one that leaves a nested method's nodes
  * on screen would draw a callee floating with no caller around it.
  */
-export function descendantLeaves(nodes, boxId) {
-  const childrenOf = new Map();
+export function descendantLeaves(nodes: PayloadNode[], boxId: Id): Set<Id> {
+  const childrenOf = new Map<Id, PayloadNode[]>();
   for (const node of nodes) {
     if (!node.parent) continue;
     if (!childrenOf.has(node.parent)) childrenOf.set(node.parent, []);
-    childrenOf.get(node.parent).push(node);
+    childrenOf.get(node.parent)!.push(node);
   }
 
-  const leaves = new Set();
+  const leaves = new Set<Id>();
   const boxes = [boxId];
   while (boxes.length > 0) {
-    for (const child of childrenOf.get(boxes.pop()) ?? []) {
+    for (const child of childrenOf.get(boxes.pop()!) ?? []) {
       if (isBoxNode(child)) boxes.push(child.id);
       else leaves.add(child.id);
     }
@@ -181,19 +183,19 @@ export function descendantLeaves(nodes, boxId) {
  * spellings of "open" is three chances for the viewer to disagree with itself about what the reader
  * is looking at.
  */
-export function openBoxes(nodes, revealed) {
+export function openBoxes(nodes: PayloadNode[], revealed: Set<Id>): Set<Id> {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const stubs = stubOf(nodes);
-  const parentOf = (id) => byId.get(id)?.parent;
+  const parentOf = (id: Id) => byId.get(id)?.parent;
 
-  const open = new Set();
+  const open = new Set<Id>();
   for (const id of revealed) {
     const node = byId.get(id);
     if (!node || isBoxNode(node)) continue;
     let box = node.parent;
     // Its own RETURN is how a closed method is drawn, so seeing one is not seeing the body: it
     // leaves that box shut, and only opens the boxes further up that it sits inside.
-    if (stubs.get(box) === id) box = parentOf(box);
+    if (box && stubs.get(box) === id) box = parentOf(box);
     // Every ancestor, not just the immediate one: a box holding only boxes is open on the strength
     // of a grandchild, the same case the "never hide a METHOD node" rule exists for.
     for (; box; box = parentOf(box)) open.add(box);
@@ -226,7 +228,7 @@ export function openBoxes(nodes, revealed) {
  * tree at open - the wall this viewer exists to avoid. Because it does not, one pass is also
  * enough: no stub can ever produce another.
  */
-export function withStubs(nodes, revealed) {
+export function withStubs(nodes: PayloadNode[], revealed: Set<Id>): Set<Id> {
   const stubs = stubOf(nodes);
   const open = openBoxes(nodes, revealed);
 
@@ -238,7 +240,7 @@ export function withStubs(nodes, revealed) {
     // the walk actually reached and nothing more. Stopping at the caller is what keeps one click
     // from unfolding the whole call tree.
     if (open.has(box.id) || !box.parent || !open.has(box.parent)) continue;
-    if (stubs.has(box.id)) showing.add(stubs.get(box.id));
+    if (stubs.has(box.id)) showing.add(stubs.get(box.id)!);
   }
   return showing;
 }
@@ -250,9 +252,9 @@ export function withStubs(nodes, revealed) {
  * block and everything it reached. Taking the first METHOD in the list instead would open a
  * callee's body whenever the exporter happened to emit one first.
  */
-export function opening(payload) {
+export function opening(payload: Payload): Set<Id> {
   const root = payload.nodes.find((node) => isBoxNode(node) && !node.parent);
-  return root ? ownLeaves(payload.nodes, root.id) : new Set();
+  return root ? ownLeaves(payload.nodes, root.id) : new Set<Id>();
 }
 
 /**
@@ -264,7 +266,7 @@ export function opening(payload) {
  * Clicks union and never subtract. Folding a box is the only thing that takes anything away, which
  * is why the box branch is the only one that deletes.
  */
-export function tap(payload, revealed, id) {
+export function tap(payload: Payload, revealed: Set<Id>, id: Id): Set<Id> {
   const node = payload.nodes.find((candidate) => candidate.id === id);
   if (!node) return new Set(revealed);
 
@@ -293,8 +295,9 @@ export function tap(payload, revealed, id) {
   // This is not the rule [openBoxes] enforces, and the two must not be merged. That one governs the
   // derivation, where a name counting as its box being open would cascade through the whole call
   // tree in a single pass. This governs a gesture, which cannot cascade because it happens once.
-  if (stubOf(payload.nodes).get(node.parent) === id) {
-    for (const leaf of oneLevel(payload.nodes, node.parent)) next.add(leaf);
+  const box = node.parent;
+  if (box && stubOf(payload.nodes).get(box) === id) {
+    for (const leaf of oneLevel(payload.nodes, box)) next.add(leaf);
   }
 
   for (const reached of neighbourhood(payload.edges, id, REVEAL_DEPTH)) next.add(reached);
@@ -314,23 +317,23 @@ export function tap(payload, revealed, id) {
  * adapter ignores the field; React Flow derives nothing and needs it. Saying it here is what keeps
  * the two pages drawing one picture.
  */
-export function screen(payload, revealed) {
+export function screen(payload: Payload, revealed: Set<Id>): View {
   const showing = withStubs(payload.nodes, revealed);
   const hidden = hiddenDegree(payload.edges, showing);
 
   // Not `showing` minus `revealed`: a click on a name puts it in `revealed` while leaving the box
   // it stands for shut, and it is still a name. What makes it a body is the box being open.
   const open = openBoxes(payload.nodes, revealed);
-  const stubs = new Set();
+  const stubs = new Set<Id>();
   for (const [box, id] of stubOf(payload.nodes)) {
     if (showing.has(id) && !open.has(box)) stubs.add(id);
   }
 
   // A box is on screen because something inside it is. Cytoscape works this out itself and must not
-  // be told - see the `apply` in viewer.mjs - but React Flow derives nothing, so the model is where
+  // be told - see the `apply` in cytoscape.ts - but React Flow derives nothing, so the model is where
   // the rule now lives, and it is one line a unit test can read instead of an `if` in the middle of
   // a render loop.
-  const nodes = payload.nodes.map((node) => ({
+  const nodes: ViewNode[] = payload.nodes.map((node) => ({
     ...node,
     badge: badgeLabel(node.label, hidden.get(node.id)),
     visible: isBoxNode(node)

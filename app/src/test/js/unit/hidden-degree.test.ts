@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hiddenDegree, badgeLabel } from '../../../main/resources/viewer/model.mjs';
+import { hiddenDegree, badgeLabel } from '../../../main/resources/viewer/model.ts';
+import type { Id, Link } from '../../../main/resources/viewer/types.ts';
 
-const degree = (edges, revealed) => hiddenDegree(edges, new Set(revealed));
+const degree = (edges: Link[], revealed: Id[]) => hiddenDegree(edges, new Set(revealed));
 
 // `a -> b -> c`, so `b` has one edge in each direction and each end can be hidden independently.
 const chain = [

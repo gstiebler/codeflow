@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { screen } from '../../../main/resources/viewer/model.mjs';
+import { screen } from '../../../main/resources/viewer/model.ts';
+import type { Id, Payload, View } from '../../../main/resources/viewer/types.ts';
 
 // main { main, x, y, f { f, a } }, x -> y inside main and y -> a crossing into f.
 const payload = {
@@ -17,9 +18,11 @@ const payload = {
     { source: 'x', target: 'y', kind: 'FLOW' },
     { source: 'y', target: 'a', kind: 'FLOW' },
   ],
-};
+} satisfies Payload;
 
-const nodeNamed = (view, id) => view.nodes.find((n) => n.id === id);
+// `!` rather than a guard: an id these tests do not have is a broken test, and the property read
+// that follows says so as clearly as anything written here would.
+const nodeNamed = (view: View, id: Id) => view.nodes.find((n) => n.id === id)!;
 
 // The rule Cytoscape applies internally, stated so that a renderer which derives nothing can be
 // told it. A box is on screen because something inside it is - transitively, since a box holds
@@ -54,7 +57,7 @@ const nested = {
     { id: 'b', type: 'VARIABLE', label: 'b', parent: 'g' },
   ],
   edges: [],
-};
+} satisfies Payload;
 
 test('a box whose only showing node is a grandchild is visible', () => {
   const view = screen(nested, new Set(['b']));
@@ -72,8 +75,8 @@ test('every payload node is described, visible or not', () => {
 
 test('an edge is visible only when both of its endpoints are showing', () => {
   const view = screen(payload, new Set(['mR', 'x', 'y']));
-  assert.equal(view.edges.find((e) => e.source === 'x').visible, true);
-  assert.equal(view.edges.find((e) => e.source === 'y').visible, false);
+  assert.equal(view.edges.find((e) => e.source === 'x')!.visible, true);
+  assert.equal(view.edges.find((e) => e.source === 'y')!.visible, false);
 });
 
 test('the badge carries the hidden counts and the label stays the plain name', () => {

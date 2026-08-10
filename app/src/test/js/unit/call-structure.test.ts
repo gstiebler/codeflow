@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { withStubs, ownLeaves } from '../../../main/resources/viewer/model.mjs';
+import { withStubs, ownLeaves } from '../../../main/resources/viewer/model.ts';
+import type { Id, PayloadNode } from '../../../main/resources/viewer/types.ts';
 
 // main { main, x, f { f, a, g { g, b } } } - two levels of nesting, so "one level of lookahead"
 // is a claim the fixture can actually falsify.
@@ -14,9 +15,9 @@ const nodes = [
   { id: 'g', type: 'METHOD', label: 'g', parent: 'f' },
   { id: 'gR', type: 'RETURN', label: 'g', parent: 'g' },
   { id: 'b', type: 'VARIABLE', label: 'b', parent: 'g' },
-];
+] satisfies PayloadNode[];
 
-const showing = (revealed) => [...withStubs(nodes, new Set(revealed))].sort();
+const showing = (revealed: Id[]) => [...withStubs(nodes, new Set(revealed))].sort();
 
 // The whole point: a callee is drawn because its caller is open, not because a value flowed into
 // it. `member` has no edge at all from main into func1, so nothing else would ever draw it.

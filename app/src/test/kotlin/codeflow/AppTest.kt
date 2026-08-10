@@ -194,7 +194,7 @@ class AppTest {
      */
     private fun writePage(testDirPath: Path, mainMethod: GraphBuilderBlock) {
         val page = StringBuilder()
-        HtmlExporter().processMainMethod(mainMethod) { page.append(it).append("\n") }
+        HtmlExporter("cytoscape.bundle.js").processMainMethod(mainMethod) { page.append(it).append("\n") }
         Files.writeString(testDirPath.resolve("graph.html"), page)
 
         // The same payload the page inlines, on its own, because the viewer's Node tests need it:
@@ -1923,14 +1923,17 @@ class AppTest {
         val page = StringBuilder()
         val testDirPath = testResourcesPath.resolve("funcCall")
         val mainMethod = AstReader(testResourcesPath).process(listOf(testDirPath.resolve("App.java")))
-        HtmlExporter().processMainMethod(mainMethod) { page.append(it).append("\n") }
+        HtmlExporter("cytoscape.bundle.js").processMainMethod(mainMethod) { page.append(it).append("\n") }
         val html = page.toString()
 
-        // Strings from inside the bundles themselves. "cytoscape" and "ELK" both occur in our own
-        // viewer.mjs, so asserting on those passed with not one library present.
-        assertTrue("The Cytoscape Consortium" in html, "the renderer was not inlined")
+        // Strings from inside the bundle, and string *literals* specifically: the bundle is minified,
+        // so an identifier is renamed and a comment is gone, and the licence header and REVEAL_DEPTH
+        // this used to look for now say nothing about whether anything was inlined. "cytoscape" and
+        // "ELK" are no use either - both occur in our own code, so asserting on them passed with not
+        // one library present.
+        assertTrue("A Cytoscape container" in html, "the renderer was not inlined")
         assertTrue("org.eclipse.elk" in html, "the layout engine was not inlined")
-        assertTrue("REVEAL_DEPTH" in html, "our own viewer code was not inlined")
+        assertTrue("data(badge)" in html, "our own viewer code was not inlined")
         assertTrue("\"label\": \"methodC\"" in html, "the graph payload was not inlined")
         assertTrue("<script" in html && "</html>" in html, "the page is not a complete document")
     }

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { opening } from '../../../main/resources/viewer/model.mjs';
+import { opening } from '../../../main/resources/viewer/model.ts';
+import type { Payload } from '../../../main/resources/viewer/types.ts';
 
 // main { main, x, f { f, a } } - the entry method's own values, and nothing from what it calls.
 const payload = {
@@ -13,7 +14,7 @@ const payload = {
     { id: 'a', type: 'VARIABLE', label: 'a', parent: 'f' },
   ],
   edges: [],
-};
+} satisfies Payload;
 
 test('the opening view is the entry method own leaves', () => {
   assert.deepEqual([...opening(payload)].sort(), ['mR', 'x']);

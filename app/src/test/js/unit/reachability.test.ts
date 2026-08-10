@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadCorpus } from './corpus.mjs';
-import { opening, tap, screen } from '../../../main/resources/viewer/model.mjs';
+import { loadCorpus } from './corpus.ts';
+import { opening, tap, screen } from '../../../main/resources/viewer/model.ts';
+import type { Payload } from '../../../main/resources/viewer/types.ts';
 
 const corpus = loadCorpus();
 
@@ -13,7 +14,7 @@ const corpus = loadCorpus();
  * would let the walk oscillate, and the claim being made is that the reader can get everywhere by
  * clicking what they can see.
  */
-function fixpoint(payload) {
+function fixpoint(payload: Payload) {
   let revealed = opening(payload);
   for (;;) {
     const before = screen(payload, revealed).showing;

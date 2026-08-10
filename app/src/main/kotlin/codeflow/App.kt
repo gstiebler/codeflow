@@ -56,7 +56,7 @@ fun main(argv: Array<String>) {
     // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on
     // stderr, so redirecting stdout to a file gives something a viewer can open directly.
     if (args.flags.contains("--html")) {
-        HtmlExporter().processMainMethod(mainMethod) { result.add(it) }
+        HtmlExporter("cytoscape.bundle.js").processMainMethod(mainMethod) { result.add(it) }
     } else if (args.flags.contains("--json")) {
         JsonExporter().processMainMethod(mainMethod) { result.add(it) }
     } else if (args.flags.contains("--graphml")) {

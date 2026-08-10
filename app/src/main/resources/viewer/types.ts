@@ -26,13 +26,27 @@ export type PayloadNode = {
   id: Id;
   label: string;
   type: NodeType;
-  /** `file:line:col`. Present on every node, boxes included - see JsonExporter.entry. */
-  source: string;
+  /**
+   * `file:line:col`. JsonExporter writes one on every node, boxes included - see JsonExporter.entry.
+   *
+   * Optional here because nothing on screen reads it yet, and the hand-written payloads in the unit
+   * tests leave it out: a field every test literal has to carry and no assertion looks at is noise
+   * that makes the interesting fields harder to see.
+   */
+  source?: string;
   /** The enclosing box. Absent on the entry method, which is the one node with no parent. */
   parent?: Id;
 };
 
 export type PayloadEdge = { source: Id; target: Id; kind: EdgeKind };
+
+/**
+ * An edge with only its endpoints, which is all a walk needs.
+ *
+ * `neighbourhood` and `hiddenDegree` take this rather than PayloadEdge, and the narrower type is the
+ * documentation: neither the direction's meaning nor the edge's kind changes what they answer.
+ */
+export type Link = { source: Id; target: Id };
 
 export type Payload = { nodes: PayloadNode[]; edges: PayloadEdge[] };
 

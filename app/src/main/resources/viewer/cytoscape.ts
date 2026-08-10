@@ -1,37 +1,19 @@
 /**
- * The renderer: everything that needs a browser.
+ * The Cytoscape renderer.
  *
- * Never loaded on its own. HtmlExporter substitutes model.mjs into the same module script directly
- * above this one, so `opening`, `tap` and `screen` are free identifiers here rather than imports -
- * an inlined module served from file:// has nothing to resolve an import against, and HtmlExporter
- * is substitution only, so it cannot strip one either.
+ * Kept because it is the second opinion: it derives an edge's visibility from its endpoints and a
+ * box's from its descendants, so a page it draws differently from the React Flow one is a fact
+ * about model.ts that no single renderer could have told us. --html-cytoscape is what emits it.
  *
- * Nothing here decides what is on screen. That is model.mjs, where the tests are.
+ * Nothing here decides what is on screen. That is model.ts, where the tests are.
  */
+import cytoscape from 'cytoscape';
+import elk from 'cytoscape-elk';
+import { opening, screen, tap } from './model.ts';
+import { PALETTE, NODE_DEFAULT, EDGE_COLOURS } from './theme.ts';
+import type { Id, NodeType, Payload } from './types.ts';
 
-const PALETTE = {
-  // The Mermaid classDef colours, as rgba. OBJ_VARIABLE and MEM_SPACE have no classDef today and
-  // render unstyled there; they get explicit colours here rather than silently sharing one.
-  LITERAL:      'rgba(0, 255, 0, 0.19)',
-  VARIABLE:     'rgba(128, 128, 128, 0.19)',
-  OBJ_VARIABLE: 'rgba(128, 200, 128, 0.25)',
-  BIN_OP:       'rgba(128, 128, 128, 0.50)',
-  FUNC_PARAM:   'rgba(128, 128, 255, 0.19)',
-  RETURN:       'rgba(255, 128, 128, 0.50)',
-  EXTERNAL:     'rgba(255, 165, 0, 0.25)',
-  MEM_SPACE:    'rgba(200, 200, 128, 0.25)',
-  // Where codeflow stopped rather than something the code does - see GraphNode.Unmodelled.
-  UNMODELLED:   'rgba(255, 0, 0, 0.19)',
-  METHOD:       'rgba(240, 240, 240, 0.60)',
-};
-
-// The same strokes MermaidExporter uses, so one graph does not change colour between the two
-// renderings. FLOW is absent on purpose - it keeps the default grey, and it is nearly every edge.
-const EDGE_COLOURS = {
-  TRUE:      '#2e7d32',
-  FALSE:     '#c62828',
-  CONDITION: '#6a6a6a',
-};
+cytoscape.use(elk);
 
 export const LAYOUT = {
   name: 'elk',
@@ -45,7 +27,7 @@ export const LAYOUT = {
   },
 };
 
-export function init(payload) {
+export function init(payload: Payload) {
   const cy = cytoscape({
     // Not id="cy": the browser publishes a global for every element id, so a container called `cy`
     // would make window.cy the div and any check for the graph being ready pass before it existed.
@@ -55,10 +37,13 @@ export function init(payload) {
       nodes: payload.nodes.map((n) => ({ data: { ...n, badge: n.label } })),
       edges: payload.edges.map((e) => ({ data: e })),
     },
-    style: [
+    // `as` because cytoscape's own typings say `padding` is a string, where the runtime has always
+    // taken a number - and 6 is what this page draws. A cast is the smaller wrong: the alternative
+    // is changing a rendered value to satisfy a declaration file.
+    style: ([
       { selector: 'node', style: {
         label: 'data(badge)', 'text-valign': 'center', 'font-size': 11,
-        shape: 'round-rectangle', 'background-color': (n) => PALETTE[n.data('type')] ?? '#ddd',
+        shape: 'round-rectangle', 'background-color': (n: cytoscape.NodeSingular) => PALETTE[n.data('type') as NodeType] ?? NODE_DEFAULT,
         'border-width': 1, 'border-color': '#999', width: 'label', padding: 6,
       } },
       { selector: ':parent', style: {
@@ -76,19 +61,19 @@ export function init(payload) {
         style: { 'line-color': colour, 'target-arrow-color': colour, label: kind.toLowerCase() },
       })),
       { selector: 'edge[kind = "CONDITION"]', style: { 'line-style': 'dashed', label: 'if' } },
-    ],
+    ] as cytoscape.StylesheetStyle[]),
     // No layout here: apply() runs one at the end of init, and a second on every click. Laying out
     // in the constructor as well only costs a run nobody sees.
   });
 
-  let revealed = opening(payload);
+  let revealed: Set<Id> = opening(payload);
 
   const apply = () => {
-    // Everything about what is on screen was decided in model.mjs. This writes it.
+    // Everything about what is on screen was decided in model.ts. This writes it.
     const view = screen(payload, revealed);
     const state = new Map(view.nodes.map((node) => [node.id, node]));
     for (const node of cy.nodes()) {
-      const drawn = state.get(node.id());
+      const drawn = state.get(node.id())!;
       node.data('badge', drawn.badge);
       // Never a box. Cytoscape derives a box's visibility from its descendants, transitively, and a
       // display of ours would hide one whose only visible node is a grandchild, leaving that
@@ -117,13 +102,6 @@ export function init(payload) {
   apply();
 
   // The browser tests read the graph off this. Nothing in the page uses it.
-  window.cy = cy;
+  (window as unknown as { cy: cytoscape.Core }).cy = cy;
   return cy;
-}
-
-// A module's exports are not global, so the template's bare init(...) call needs this. Guarded
-// because model.mjs's identifiers are only in scope inside the page - loading this file anywhere
-// else is a mistake, and it should not half-work when someone does.
-if (typeof window !== 'undefined') {
-  window.init = init;
 }

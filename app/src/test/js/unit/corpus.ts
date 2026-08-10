@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import type { Payload } from '../../../main/resources/viewer/types.ts';
 
 const RESOURCES = fileURLToPath(new URL('../../resources', import.meta.url));
 
@@ -16,7 +17,10 @@ export const EXPECTED_AT_LEAST = 60;
  * instruction, not an empty loop.
  */
 export function loadCorpus() {
-  const corpus = [];
+  // Annotated rather than inferred: `JSON.parse` returns `any`, so without this every sweep over the
+  // corpus typechecks against nothing at all - the checks would compile and mean no more than the
+  // untyped ones did.
+  const corpus: { name: string; payload: Payload }[] = [];
   for (const name of readdirSync(RESOURCES, { withFileTypes: true })) {
     if (!name.isDirectory()) continue;
     const path = join(RESOURCES, name.name, 'graph.json');

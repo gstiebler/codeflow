@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadCorpus } from './corpus.mjs';
-import { opening, tap, screen, descendantLeaves, withStubs, openBoxes } from '../../../main/resources/viewer/model.mjs';
+import { loadCorpus } from './corpus.ts';
+import { opening, tap, screen, descendantLeaves, withStubs, openBoxes } from '../../../main/resources/viewer/model.ts';
+import type { Payload } from '../../../main/resources/viewer/types.ts';
 
 const corpus = loadCorpus();
 
@@ -9,7 +10,7 @@ const corpus = loadCorpus();
  * Two states per fixture: what the reader sees first, and what they see after clicking everything
  * on screen once. One state would let a property hold at open and break on the first click.
  */
-function states(payload) {
+function states(payload: Payload) {
   const open = opening(payload);
   let clicked = new Set(open);
   for (const id of withStubs(payload.nodes, open)) clicked = tap(payload, clicked, id);
@@ -23,7 +24,8 @@ test('every box whose parent is open has something showing inside it', () => {
     for (const revealed of states(payload)) {
       const { showing } = screen(payload, revealed);
       const open = openBoxes(payload.nodes, revealed);
-      for (const box of payload.nodes.filter((n) => n.type === 'METHOD' && open.has(n.parent))) {
+      // `n.parent &&` is the root box: it is inside nothing, so no open box owes it anything.
+      for (const box of payload.nodes.filter((n) => n.type === 'METHOD' && n.parent && open.has(n.parent))) {
         const inside = [...descendantLeaves(payload.nodes, box.id)].filter((leaf) => showing.has(leaf));
         assert.ok(inside.length > 0, `${name}: box ${box.label} is inside an open box with nothing showing in it`);
       }
@@ -38,7 +40,7 @@ test('every box whose parent is open has something showing inside it', () => {
 // than a gap here: a box is entered through its stub, a stub is the box's own RETURN, and a fold
 // takes every descendant at once - so in both swept states a visible box has an own leaf showing,
 // and the wrong implementation agrees with this one on all 64 fixtures. What separates them is the
-// hand-written `nested` payload in screen.test.mjs, where a box holds no leaf of its own at all.
+// hand-written `nested` payload in screen.test.ts, where a box holds no leaf of its own at all.
 // This sweep still catches a box drawn visible with nothing inside it, which is the other half.
 test('a box is visible exactly when some descendant leaf is showing', () => {
   for (const { name, payload } of corpus) {

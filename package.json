@@ -1,19 +1,27 @@
 {
   "name": "codeflow-viewer",
   "private": true,
+  "//type": "Deliberately absent. It would silence node's reparse warning for the .ts tests, and it also flips esbuild to node-ESM interop: `__toESM(require_cytoscape_elk())` becomes `__toESM(..., 1)`, which makes `default` the whole module.exports rather than the extension function inside it. `cytoscape.use` would then be handed an object, on a page no unit test loads. A warning is cheaper than that.",
   "description": "Tooling for the interactive viewer: vendored browser libraries and the JS tests. The Kotlin build does not depend on any of this.",
   "scripts": {
-    "test": "node --test app/src/test/js/unit/*.test.mjs",
+    "build:viewer": "node scripts/build-viewer.mjs",
+    "typecheck": "tsc",
+    "check:bundle": "node --test app/src/test/js/unit/bundle.test.ts",
+    "test": "npm run typecheck && npm run check:bundle && node --test app/src/test/js/unit/*.test.ts",
     "test:browser": "playwright test --config=app/src/test/js/playwright.config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
+    "@types/node": "^26.2.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "@xyflow/react": "^12.11.2",
     "cytoscape": "^3.30.2",
     "cytoscape-elk": "^2.2.0",
     "elkjs": "^0.9.3",
     "esbuild": "^0.28.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "typescript": "^7.0.2"
   }
 }

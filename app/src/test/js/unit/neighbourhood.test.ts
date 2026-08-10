@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { neighbourhood } from '../../../main/resources/viewer/model.mjs';
+import { neighbourhood } from '../../../main/resources/viewer/model.ts';
+import type { Id } from '../../../main/resources/viewer/types.ts';
 
-const ids = (set) => [...set].sort();
+const ids = (set: Set<Id>) => [...set].sort();
 const chain = [
   { source: 'a', target: 'b' },
   { source: 'b', target: 'c' },

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tap } from '../../../main/resources/viewer/model.mjs';
+import { tap } from '../../../main/resources/viewer/model.ts';
+import type { Id, Payload } from '../../../main/resources/viewer/types.ts';
 
 // main { main, x, y, f { f, a, g { g, b } } }, with x -> y so one leaf click has somewhere to go.
 const payload = {
@@ -17,9 +18,9 @@ const payload = {
     { id: 'b', type: 'VARIABLE', label: 'b', parent: 'g' },
   ],
   edges: [{ source: 'x', target: 'y', kind: 'FLOW' }],
-};
+} satisfies Payload;
 
-const after = (revealed, id) => [...tap(payload, new Set(revealed), id)].sort();
+const after = (revealed: Id[], id: Id) => [...tap(payload, new Set(revealed), id)].sort();
 
 // A box and the name standing in for it are two ways to press the same door, so they reveal the
 // same thing: f's own leaves and the name of what f calls. `b` is what stays behind - one level.
@@ -103,7 +104,7 @@ const walked = {
     { id: 'a', type: 'VARIABLE', label: 'a', parent: 'f' },
   ],
   edges: [{ source: 'fR', target: 'x', kind: 'FLOW' }],
-};
+} satisfies Payload;
 
 test('opening a method also walks the edges of the name that opened it', () => {
   assert.deepEqual([...tap(walked, new Set(['mR']), 'fR')].sort(), ['a', 'fR', 'mR', 'x']);

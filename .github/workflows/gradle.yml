@@ -45,3 +45,42 @@ jobs:
       with:
         name: test-report
         path: app/build/reports
+
+  # The viewer's half. Gradle never runs npm - the bundles are committed so a checkout with no
+  # node_modules still builds a page - which means nothing above this job reads model.ts, the type
+  # annotations, or whether the committed bundles still match their sources.
+  viewer:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    # Same two JDKs and the same reason as the build job: this one runs `test` too.
+    - name: Set up JDK 25 and 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: |
+          25
+          21
+        distribution: 'temurin'
+        cache: 'gradle'
+    # 26, matching what the viewer is developed on: `node --test` reads the .ts sources by stripping
+    # the types, and which versions do that unflagged is a property of the runtime.
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '26'
+        cache: 'npm'
+    # Before npm, and not for ordering's sake: the corpus sweeps read the graph.json the golden suite
+    # writes beside each fixture, which is gitignored and rewritten on every run. Without this step
+    # corpus.mjs finds no payloads and fails - loudly, by design, since a sweep over an empty list
+    # passes every property it is given.
+    - name: Write the fixture payloads
+      run: ./gradlew test
+    - name: Install the viewer's tooling
+      run: npm ci
+    # typecheck, then the bundle freshness check, then the unit tests. The middle one is the reason
+    # this job exists: a committed bundle can drift from its source and every other test in the repo
+    # stays green while the page renders yesterday's model.
+    - name: Test the viewer
+      run: npm test

@@ -21,20 +21,45 @@ const payload = {
 
 const nodeNamed = (view, id) => view.nodes.find((n) => n.id === id);
 
-// The rule Cytoscape derives a box's visibility from its descendants, transitively. A display of
-// our own on a box hides one whose only visible node is a grandchild, and that grandchild then has
-// nowhere to live. As data it is one assertion instead of an `if` in the middle of a loop.
-test('no METHOD node carries a display', () => {
+// The rule Cytoscape applies internally, stated so that a renderer which derives nothing can be
+// told it. A box is on screen because something inside it is - transitively, since a box holds
+// boxes, and the case that has always been the trap is a box whose only visible node is a
+// grandchild.
+test('a box is visible exactly when some descendant leaf is showing', () => {
   const view = screen(payload, new Set(['mR', 'x', 'y']));
-  const boxes = view.nodes.filter((n) => n.type === 'METHOD');
-  assert.equal(boxes.length, 2);
-  assert.deepEqual(boxes.map((n) => n.display), [null, null]);
+  assert.equal(nodeNamed(view, 'm').visible, true);
+  // f is visible too - closed, but its caller is open, so its stub is offered inside it.
+  assert.equal(nodeNamed(view, 'f').visible, true);
+
+  const empty = screen(payload, new Set([]));
+  assert.equal(nodeNamed(empty, 'f').visible, false);
 });
 
-test('a revealed leaf is element and an unrevealed one is none', () => {
+test('a revealed leaf is visible and an unrevealed one is not', () => {
   const view = screen(payload, new Set(['mR', 'x', 'y']));
-  assert.equal(nodeNamed(view, 'x').display, 'element');
-  assert.equal(nodeNamed(view, 'a').display, 'none');
+  assert.equal(nodeNamed(view, 'x').visible, true);
+  assert.equal(nodeNamed(view, 'a').visible, false);
+});
+
+// main { main, x, f { g { g, b } } }: f holds no leaf of its own, so its visibility can only come
+// from b, two levels down. Deriving it from own children instead - the obvious wrong
+// implementation - hides f and leaves b nowhere to live.
+const nested = {
+  nodes: [
+    { id: 'm', type: 'METHOD', label: 'main' },
+    { id: 'mR', type: 'RETURN', label: 'main', parent: 'm' },
+    { id: 'f', type: 'METHOD', label: 'f', parent: 'm' },
+    { id: 'g', type: 'METHOD', label: 'g', parent: 'f' },
+    { id: 'gR', type: 'RETURN', label: 'g', parent: 'g' },
+    { id: 'b', type: 'VARIABLE', label: 'b', parent: 'g' },
+  ],
+  edges: [],
+};
+
+test('a box whose only showing node is a grandchild is visible', () => {
+  const view = screen(nested, new Set(['b']));
+  assert.equal(nodeNamed(view, 'f').visible, true);
+  assert.equal(nodeNamed(view, 'g').visible, true);
 });
 
 // Nothing is ever removed from the graph, so a node that just left the screen still needs 'none'

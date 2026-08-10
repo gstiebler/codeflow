@@ -84,15 +84,18 @@ export function init(payload) {
   let revealed = opening(payload);
 
   const apply = () => {
-    // Everything about what is on screen was decided in model.mjs. This writes it, and the rule it
-    // must not break is expressed as data: a display of null is a box, which Cytoscape works out
-    // from its descendants and we must never touch.
+    // Everything about what is on screen was decided in model.mjs. This writes it.
     const view = screen(payload, revealed);
     const state = new Map(view.nodes.map((node) => [node.id, node]));
     for (const node of cy.nodes()) {
       const drawn = state.get(node.id());
       node.data('badge', drawn.badge);
-      if (drawn.display !== null) node.style('display', drawn.display);
+      // Never a box. Cytoscape derives a box's visibility from its descendants, transitively, and a
+      // display of ours would hide one whose only visible node is a grandchild, leaving that
+      // grandchild nowhere to live. `drawn.visible` says the same thing for boxes - this renderer
+      // just has no use for it.
+      if (drawn.type === 'METHOD') continue;
+      node.style('display', drawn.visible ? 'element' : 'none');
     }
     cy.layout(LAYOUT).run();
   };

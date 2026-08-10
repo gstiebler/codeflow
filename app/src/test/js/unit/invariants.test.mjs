@@ -31,15 +31,23 @@ test('every box whose parent is open has something showing inside it', () => {
   }
 });
 
-// P3. The rule that keeps a box whose only visible node is a grandchild from being hidden, and that
-// grandchild from having nowhere to live.
-test('no METHOD node is ever given a display', () => {
+// P3. The rule Cytoscape applies internally, swept over the corpus so that the renderer which
+// derives nothing is told the same thing the one which derives everything works out.
+//
+// The corpus cannot tell descendants from own children, and that is a fact about the gestures rather
+// than a gap here: a box is entered through its stub, a stub is the box's own RETURN, and a fold
+// takes every descendant at once - so in both swept states a visible box has an own leaf showing,
+// and the wrong implementation agrees with this one on all 64 fixtures. What separates them is the
+// hand-written `nested` payload in screen.test.mjs, where a box holds no leaf of its own at all.
+// This sweep still catches a box drawn visible with nothing inside it, which is the other half.
+test('a box is visible exactly when some descendant leaf is showing', () => {
   for (const { name, payload } of corpus) {
     for (const revealed of states(payload)) {
-      for (const node of screen(payload, revealed).nodes) {
-        if (node.type === 'METHOD') {
-          assert.equal(node.display, null, `${name}: box ${node.label} was given display ${node.display}`);
-        }
+      const view = screen(payload, revealed);
+      for (const node of view.nodes) {
+        if (node.type !== 'METHOD') continue;
+        const inside = [...descendantLeaves(payload.nodes, node.id)].some((leaf) => view.showing.has(leaf));
+        assert.equal(node.visible, inside, `${name}: box ${node.label} is drawn ${node.visible} with ${inside} inside it`);
       }
     }
   }

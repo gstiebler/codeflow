@@ -308,10 +308,11 @@ export function tap(payload, revealed, id) {
  * from the graph, so a node that just left the screen needs 'none' written onto it as much as an
  * arrival needs 'element'. Both arrays keep payload order, so a test can compare them directly.
  *
- * `display` is null for a METHOD node, never a string. Cytoscape derives a box's visibility from
- * its descendants, transitively, and a display of our own would hide a box whose only visible node
- * is a grandchild - leaving that grandchild nowhere to live. Saying so in the data makes it an
- * assertion a unit test can read, rather than a rule living in the middle of the render loop.
+ * `visible` is stated for a box as well as a leaf, and for a box it means "some descendant leaf is
+ * showing" - descendants, because a box holds boxes and one whose only showing node is a grandchild
+ * is still on screen. That is exactly what Cytoscape derives internally, which is why the Cytoscape
+ * adapter ignores the field; React Flow derives nothing and needs it. Saying it here is what keeps
+ * the two pages drawing one picture.
  */
 export function screen(payload, revealed) {
   const showing = withStubs(payload.nodes, revealed);
@@ -325,13 +326,16 @@ export function screen(payload, revealed) {
     if (showing.has(id) && !open.has(box)) stubs.add(id);
   }
 
+  // A box is on screen because something inside it is. Cytoscape works this out itself and must not
+  // be told - see the `apply` in viewer.mjs - but React Flow derives nothing, so the model is where
+  // the rule now lives, and it is one line a unit test can read instead of an `if` in the middle of
+  // a render loop.
   const nodes = payload.nodes.map((node) => ({
-    id: node.id,
-    label: node.label,
-    type: node.type,
-    parent: node.parent,
+    ...node,
     badge: badgeLabel(node.label, hidden.get(node.id)),
-    display: isBoxNode(node) ? null : (showing.has(node.id) ? 'element' : 'none'),
+    visible: isBoxNode(node)
+      ? [...descendantLeaves(payload.nodes, node.id)].some((leaf) => showing.has(leaf))
+      : showing.has(node.id),
   }));
 
   const edges = payload.edges.map((edge) => ({

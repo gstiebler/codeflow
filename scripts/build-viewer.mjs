@@ -14,7 +14,7 @@ const VIEWER = 'app/src/main/resources/viewer';
 
 export const BUNDLES = [
   { entry: `${VIEWER}/cytoscape.entry.ts`, out: 'cytoscape.bundle.js' },
-  // { entry: `${VIEWER}/reactflow.entry.tsx`, out: 'reactflow.bundle.js' },
+  { entry: `${VIEWER}/reactflow.entry.tsx`, out: 'reactflow.bundle.js' },
 ];
 
 export async function buildViewer(outdir = VIEWER) {

@@ -188,14 +188,24 @@ class AppTest {
      * at. Having both next to `App.java` and `ir.txt` means a surprise can be traced from source to
      * meaning to document to what is on screen without running anything.
      *
+     * Both renderers, because the fixture is where a disagreement between them would show:
+     * `graph.html` is the React Flow page `--html` emits and `graph-cytoscape.html` is the same
+     * payload through Cytoscape, which derives the visibilities React Flow is handed.
+     *
      * Written on every run rather than only when missing, because a stale one would be worse than
-     * none. It is a self-contained page, so each is about two megabytes of vendored library - the
-     * price of the file opening from disk with no server, and the reason these are not committed.
+     * none. Each is a self-contained page of about two megabytes of bundled library - the price of
+     * the file opening from disk with no server, and the reason these are not committed.
      */
     private fun writePage(testDirPath: Path, mainMethod: GraphBuilderBlock) {
         val page = StringBuilder()
-        HtmlExporter("cytoscape.bundle.js").processMainMethod(mainMethod) { page.append(it).append("\n") }
+        HtmlExporter("reactflow.bundle.js").processMainMethod(mainMethod) { page.append(it).append("\n") }
         Files.writeString(testDirPath.resolve("graph.html"), page)
+
+        // The same fixture through the other renderer. Cytoscape derives what React Flow is told, so
+        // two pages from one payload is the cheapest way to see which of them is wrong.
+        val cytoscape = StringBuilder()
+        HtmlExporter("cytoscape.bundle.js").processMainMethod(mainMethod) { cytoscape.append(it).append("\n") }
+        Files.writeString(testDirPath.resolve("graph-cytoscape.html"), cytoscape)
 
         // The same payload the page inlines, on its own, because the viewer's Node tests need it:
         // model.mjs decides what is on screen and a sweep over the real corpus is the only thing

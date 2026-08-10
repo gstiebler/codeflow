@@ -10,22 +10,16 @@
 import cytoscape from 'cytoscape';
 import elk from 'cytoscape-elk';
 import { opening, screen, tap } from './model.ts';
+import { ELK_OPTIONS } from './layout.ts';
 import { PALETTE, NODE_DEFAULT, EDGE_COLOURS } from './theme.ts';
 import type { Id, NodeType, Payload } from './types.ts';
 
 cytoscape.use(elk);
 
-export const LAYOUT = {
-  name: 'elk',
-  elk: {
-    algorithm: 'layered',
-    'elk.direction': 'DOWN',
-    'elk.layered.spacing.nodeNodeBetweenLayers': 40,
-    'elk.spacing.nodeNode': 25,
-    // Without this ELK lays out each container independently and the boxes overlap.
-    'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-  },
-};
+// The same options the React Flow page hands to ELK directly - one copy, so that spacing or
+// direction cannot drift between the two pages. The positions still differ: cytoscape-elk builds its
+// own ELK graph from the Cytoscape one, where layout.ts builds it from the view.
+export const LAYOUT = { name: 'elk', elk: ELK_OPTIONS };
 
 export function init(payload: Payload) {
   const cy = cytoscape({

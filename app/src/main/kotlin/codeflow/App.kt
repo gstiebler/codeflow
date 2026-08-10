@@ -56,6 +56,11 @@ fun main(argv: Array<String>) {
     // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on
     // stderr, so redirecting stdout to a file gives something a viewer can open directly.
     if (args.flags.contains("--html")) {
+        HtmlExporter("reactflow.bundle.js").processMainMethod(mainMethod) { result.add(it) }
+    } else if (args.flags.contains("--html-cytoscape")) {
+        // Kept because it is the second opinion: Cytoscape derives an edge's visibility from its
+        // endpoints and a box's from its descendants, so a page it draws differently from the React
+        // Flow one is a fact about the view model that no single renderer could have told us.
         HtmlExporter("cytoscape.bundle.js").processMainMethod(mainMethod) { result.add(it) }
     } else if (args.flags.contains("--json")) {
         JsonExporter().processMainMethod(mainMethod) { result.add(it) }

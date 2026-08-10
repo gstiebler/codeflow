@@ -10,6 +10,9 @@
  */
 import type { Id, View } from './types.ts';
 
+/** How much of a box's top belongs to its caption rather than to what is inside it. */
+export const TITLE_HEIGHT = 22;
+
 export type ElkEdge = { id: string; sources: string[]; targets: string[] };
 
 export type ElkNode = {
@@ -24,7 +27,10 @@ export type ElkNode = {
 };
 
 /**
- * The options the Cytoscape page already uses.
+ * How the graph is laid out, for both renderers - the Cytoscape page hands this to cytoscape-elk and
+ * the React Flow page to ELK itself. One copy, so that direction, spacing and padding cannot drift
+ * between the two pages; the positions themselves still differ, since cytoscape-elk builds its own
+ * ELK graph from the Cytoscape one where [elkGraph] builds it from the view.
  *
  * As strings, which is not a style choice: cytoscape-elk converts numbers on the way through and
  * the ELK API does not, so a number here is dropped silently - the layout still runs, just without
@@ -37,6 +43,10 @@ export const ELK_OPTIONS: Record<string, string> = {
   'elk.spacing.nodeNode': '25',
   // Without this ELK lays each container out independently and the boxes overlap.
   'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+  // Room at the top for the box's caption. A box means a method, so its name is the one label on the
+  // page that says which method a value lives in - and ELK's default padding is even on all four
+  // sides, which puts the first row of nodes straight over it.
+  'elk.padding': `[top=${TITLE_HEIGHT},left=12,bottom=12,right=12]`,
 };
 
 /**

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { elkGraph, positions, type ElkNode } from '../../../main/resources/viewer/layout.ts';
+import { elkGraph, positions, TITLE_HEIGHT, type ElkNode } from '../../../main/resources/viewer/layout.ts';
 import type { View } from '../../../main/resources/viewer/types.ts';
 
 // main { main, x, f { f, a } }. `a` is off screen and so is the edge reaching it.
@@ -78,6 +78,14 @@ test('every box carries the hierarchical layout options', () => {
   for (const box of [root, main, child(main, 'f')]) {
     assert.equal(box.layoutOptions?.['elk.hierarchyHandling'], 'INCLUDE_CHILDREN');
   }
+});
+
+// A box means a method, so its name is the one label saying which method a value lives in. ELK's
+// default padding is even on all four sides, which lays the first row of nodes straight over it.
+test('a box reserves more room at the top than at the bottom, for its caption', () => {
+  const padding = elkGraph(view).layoutOptions!['elk.padding'];
+  assert.equal(padding, `[top=${TITLE_HEIGHT},left=12,bottom=12,right=12]`);
+  assert.ok(TITLE_HEIGHT > 12, 'the caption needs more room than the other three sides');
 });
 
 test('positions flattens the laid-out tree, keeping each parent', () => {

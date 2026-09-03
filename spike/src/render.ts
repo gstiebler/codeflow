@@ -121,10 +121,21 @@ export function tree(hits: Hit[], m: Model, c: Condensation): string {
  * found nothing because it looked at nothing.
  */
 export function diffReport(rows: DiffRow[]): string {
-  const out: string[] = [];
+  // Grouped by what changed, not by what reaches it. One new validation in Fineract 745ae67de is 42
+  // rows flat - the same two new failures once per input that can trigger them - and a reader has to
+  // read all 42 to find out there are two. Which inputs reach them is the second question, and it
+  // stays on the page, indented, because that is the part a reviewer checks against the ticket.
+  const groups = new Map<string, string[]>();
   for (const row of rows) {
     if (row.status !== 'NEW' && row.status !== 'GONE') continue;
-    out.push(`${row.status.padEnd(4)} ${row.source} -> ${row.sink}`);
+    const head = `${row.status.padEnd(4)} ${row.sink}`;
+    if (!groups.has(head)) groups.set(head, []);
+    groups.get(head)!.push(row.source);
+  }
+  const out: string[] = [];
+  for (const [head, sources] of [...groups].sort((a, b) => a[0].localeCompare(b[0]))) {
+    out.push(head);
+    for (const source of sources) out.push(`       from ${source}`);
   }
   const count = (s: DiffRow['status']) => rows.filter((r) => r.status === s).length;
   out.push(`${out.length ? '\n' : ''}${rows.length} pairs: ${count('NEW')} new, ${count('GONE')} gone, ${count('PATH')} same endpoints by different code, ${count('SAME')} unchanged`);

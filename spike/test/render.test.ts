@@ -54,7 +54,8 @@ test('a diff report leads with what changed and counts what did not', () => {
     { status: 'PATH', source: 'c', sink: 'd' },
     { status: 'NEW', source: 'POST /loans', sink: 'throws NoSuchElementException in pick' },
   ]);
-  assert.match(out.split('\n')[0]!, /^NEW\s+POST \/loans -> throws NoSuchElementException in pick$/);
+  assert.match(out.split('\n')[0]!, /^NEW\s+throws NoSuchElementException in pick$/);
+  assert.match(out.split('\n')[1]!, /^\s+from POST \/loans$/);
   assert.match(out, /3 pairs: 1 new, 0 gone, 1 same endpoints by different code, 1 unchanged/);
 });
 
@@ -62,5 +63,15 @@ test('a diff report leads with what changed and counts what did not', () => {
 // the witness moves for reasons that have nothing to do with the commit.
 test('a report does not list the rows whose endpoints are unchanged', () => {
   const out = diffReport([{ status: 'PATH', source: 'c', sink: 'd' }]);
-  assert.ok(!out.includes('c -> d'), out);
+  assert.ok(!out.includes('from c'), out);
+});
+
+// Fineract 745ae67de adds one validation and 42 pairs reach it. Two of those, one per exception.
+test('one new failure reached from many inputs is one heading, not many rows', () => {
+  const out = diffReport([
+    { status: 'NEW', source: 'GET /a', sink: 'throws Zero in validate' },
+    { status: 'NEW', source: 'GET /b', sink: 'throws Zero in validate' },
+  ]).split('\n');
+  assert.equal(out.filter((l) => l.startsWith('NEW')).length, 1, out.join('\n'));
+  assert.equal(out.filter((l) => l.includes('from ')).length, 2, out.join('\n'));
 });

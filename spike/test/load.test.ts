@@ -25,10 +25,31 @@ test('a value crossing a field produces an edge naming the field', () => {
 
 test('a resolved call links its arguments to the callee parameters and the return back', () => {
   const into = edge(KEY.apply, KEY.applyDecl).filter((e) => e.kind === 'arg');
-  assert.deepEqual(into.map((e) => e.carrier).sort(), ['arg 1 loan', 'arg 2 amount']);
+  // Argument 0 is the receiver, and it reaches the callee's `this` - Joern numbers it as parameter 0
+  // and the whole dense-array convention exists so those two agree.
+  assert.deepEqual(into.map((e) => e.carrier).sort(), ['arg 0 this', 'arg 1 loan', 'arg 2 amount']);
 
   const back = edge(KEY.applyReturn, KEY.apply).filter((e) => e.kind === 'ret');
   assert.equal(back.length, 1);
+});
+
+// Measured on the tiny fixture: Joern wires the inside of an expression in both directions, so
+// `this.repo.save(loan)` yields `this.repo -> loan` and `loan -> this.repo`, and every assignment
+// yields `t -> (t = ...)` on top of the composition edge going the other way. Kept, those made a
+// two-node cycle out of eleven ordinary lines.
+test('def-use edges inside one expression are dropped, because composition already has them', () => {
+  const g = hand();
+  g.edges.push(
+    { kind: 'rd', from: 'a22-repo', to: 'a22-idarg' }, // two arguments of one call
+    { kind: 'rd', from: 'a22-idarg', to: 'a22-repo' }, // and the same pair backwards
+    { kind: 'rd', from: 'a23-t', to: 'a23-assign' }, // an assignment target, back into its assignment
+    { kind: 'rd', from: 'a23-assign', to: 'a23-t' }, // and its container, forwards
+  );
+  const noisy = buildModel(g);
+  const added = noisy.edges.filter(
+    (e) => !m.edges.some((was) => was.from === e.from && was.to === e.to && was.kind === e.kind),
+  );
+  assert.deepEqual(added, []);
 });
 
 test('an unresolved call gets no argument edges, because there is no callee to reach', () => {
@@ -50,5 +71,5 @@ test('no edge is a self-loop and no edge starts at a method declaration node', (
 test('the model indexes methods and types by the names the rules look them up with', () => {
   assert.ok(m.typeByName.get('Svc'));
   assert.equal(m.typeByName.get('Svc')?.members[0]?.name, 'total');
-  assert.equal(m.methodByFullName.size, 4);
+  assert.equal(m.methodByFullName.size, 6);
 });

@@ -18,9 +18,13 @@ test('every node and parameter belongs to a declared method', () => {
   assert.deepEqual(orphans, []);
 });
 
+// An empty slot is not a broken reference: `args` is dense on Joern's argument index, and slot 0 is
+// the receiver, which an operator does not have.
 test('every call argument names a node that exists', () => {
   const ids = new Set(g.nodes.map((x) => x.id));
-  const bad = g.nodes.flatMap((x) => (x.args ?? []).filter((a) => !ids.has(a)).map((a) => `${x.id} -> ${a}`));
+  const bad = g.nodes.flatMap((x) =>
+    (x.args ?? []).filter((a) => a !== '' && !ids.has(a)).map((a) => `${x.id} -> ${a}`),
+  );
   assert.deepEqual(bad, []);
 });
 

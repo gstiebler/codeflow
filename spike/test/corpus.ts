@@ -49,11 +49,12 @@ const rd = (from: string, to: string): EdgeFact => ({ kind: 'rd', from, to });
 export function hand(): Graph {
   const nodes: NodeFact[] = [
     // --- Api.addCharge -------------------------------------------------------------------------
+    n('a-this', 'METHOD_PARAMETER_IN', 'this', API_FILE, 20, ADD_CHARGE),
     n('a-id', 'METHOD_PARAMETER_IN', 'Long id', API_FILE, 20, ADD_CHARGE),
     n('a-amt', 'METHOD_PARAMETER_IN', 'BigDecimal amount', API_FILE, 20, ADD_CHARGE),
 
     n('a22-assign', 'CALL', 'Loan loan = repo.findById(id)', API_FILE, 22, ADD_CHARGE, {
-      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['a22-loan', 'a22-find'],
+      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['', 'a22-loan', 'a22-find'],
     }),
     n('a22-loan', 'IDENTIFIER', 'loan', API_FILE, 22, ADD_CHARGE),
     n('a22-find', 'CALL', 'repo.findById(id)', API_FILE, 22, ADD_CHARGE, {
@@ -68,7 +69,7 @@ export function hand(): Graph {
     n('a22-idarg', 'IDENTIFIER', 'id', API_FILE, 22, ADD_CHARGE),
 
     n('a23-assign', 'CALL', 'BigDecimal t = svc.apply(loan, amount)', API_FILE, 23, ADD_CHARGE, {
-      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['a23-t', 'a23-apply'],
+      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['', 'a23-t', 'a23-apply'],
     }),
     n('a23-t', 'IDENTIFIER', 't', API_FILE, 23, ADD_CHARGE),
     n('a23-apply', 'CALL', 'svc.apply(loan, amount)', API_FILE, 23, ADD_CHARGE, {
@@ -102,11 +103,12 @@ export function hand(): Graph {
     n('a25-t', 'IDENTIFIER', 't', API_FILE, 25, ADD_CHARGE),
 
     // --- Svc.apply -----------------------------------------------------------------------------
+    n('s-this', 'METHOD_PARAMETER_IN', 'this', SVC_FILE, 10, APPLY),
     n('s-loan', 'METHOD_PARAMETER_IN', 'Loan loan', SVC_FILE, 10, APPLY),
     n('s-amt', 'METHOD_PARAMETER_IN', 'BigDecimal amount', SVC_FILE, 10, APPLY),
 
     n('s11-assign', 'CALL', 'this.total = amount', SVC_FILE, 11, APPLY, {
-      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['s11-total', 's11-amt'],
+      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['', 's11-total', 's11-amt'],
     }),
     n('s11-total', 'CALL', 'this.total', SVC_FILE, 11, APPLY, {
       name: '<operator>.fieldAccess', methodFullName: '<operator>.fieldAccess', member: 'Svc.total',
@@ -114,7 +116,7 @@ export function hand(): Graph {
     n('s11-amt', 'IDENTIFIER', 'amount', SVC_FILE, 11, APPLY),
 
     n('s12-assign', 'CALL', 'BigDecimal t = this.total', SVC_FILE, 12, APPLY, {
-      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['s12-t', 's12-total'],
+      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['', 's12-t', 's12-total'],
     }),
     n('s12-t', 'IDENTIFIER', 't', SVC_FILE, 12, APPLY),
     n('s12-total', 'CALL', 'this.total', SVC_FILE, 12, APPLY, {
@@ -153,21 +155,21 @@ export function hand(): Graph {
 
     // --- Svc.spin: the cycle ---------------------------------------------------------------------
     n('x41-assign', 'CALL', 'a = b + 1', SVC_FILE, 41, SPIN, {
-      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['x41-a', 'x41-add'],
+      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['', 'x41-a', 'x41-add'],
     }),
     n('x41-a', 'IDENTIFIER', 'a', SVC_FILE, 41, SPIN),
     n('x41-add', 'CALL', 'b + 1', SVC_FILE, 41, SPIN, {
-      name: '<operator>.addition', methodFullName: '<operator>.addition', args: ['x41-b', 'x41-one'],
+      name: '<operator>.addition', methodFullName: '<operator>.addition', args: ['', 'x41-b', 'x41-one'],
     }),
     n('x41-b', 'IDENTIFIER', 'b', SVC_FILE, 41, SPIN),
     n('x41-one', 'LITERAL', '1', SVC_FILE, 41, SPIN),
 
     n('x42-assign', 'CALL', 'b = a + 1', SVC_FILE, 42, SPIN, {
-      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['x42-b', 'x42-add'],
+      name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['', 'x42-b', 'x42-add'],
     }),
     n('x42-b', 'IDENTIFIER', 'b', SVC_FILE, 42, SPIN),
     n('x42-add', 'CALL', 'a + 1', SVC_FILE, 42, SPIN, {
-      name: '<operator>.addition', methodFullName: '<operator>.addition', args: ['x42-a', 'x42-one'],
+      name: '<operator>.addition', methodFullName: '<operator>.addition', args: ['', 'x42-a', 'x42-one'],
     }),
     n('x42-a', 'IDENTIFIER', 'a', SVC_FILE, 42, SPIN),
     n('x42-one', 'LITERAL', '1', SVC_FILE, 42, SPIN),
@@ -220,6 +222,7 @@ export function hand(): Graph {
         file: API_FILE, line: 20,
         annotations: [{ name: 'POST' }, { name: 'Path', value: '"{id}/charge"' }],
         params: [
+          { id: 'a-this', name: 'this', index: 0, line: 20, type: API },
           { id: 'a-id', name: 'id', index: 1, line: 20, type: 'java.lang.Long' },
           { id: 'a-amt', name: 'amount', index: 2, line: 20, type: 'java.math.BigDecimal' },
         ],
@@ -229,6 +232,7 @@ export function hand(): Graph {
         fullName: APPLY, name: 'apply', typeName: 'Svc', typeFullName: SVC,
         file: SVC_FILE, line: 10, annotations: [],
         params: [
+          { id: 's-this', name: 'this', index: 0, line: 10, type: SVC },
           { id: 's-loan', name: 'loan', index: 1, line: 10, type: 'app.domain.Loan' },
           { id: 's-amt', name: 'amount', index: 2, line: 10, type: 'java.math.BigDecimal' },
         ],
@@ -237,8 +241,33 @@ export function hand(): Graph {
       {
         fullName: PICK, name: 'pick', typeName: 'Svc', typeFullName: SVC,
         file: SVC_FILE, line: 30, annotations: [],
-        params: [{ id: 'p-rules', name: 'rules', index: 1, line: 30, type: 'java.util.List' }],
+        params: [
+          { id: 'p-this', name: 'this', index: 0, line: 30, type: SVC },
+          { id: 'p-rules', name: 'rules', index: 1, line: 30, type: 'java.util.List' },
+        ],
         returns: ['p31-return'],
+      },
+      // The repository interface is in the corpus and its methods resolve, but they have no body -
+      // the implementation is a runtime proxy. Joern reports the callee and nothing to walk.
+      {
+        fullName: 'app.repo.LoanRepository.findById:app.domain.Loan(java.lang.Long)',
+        name: 'findById', typeName: 'LoanRepository', typeFullName: 'app.repo.LoanRepository',
+        file: 'app/repo/LoanRepository.java', line: 5, annotations: [],
+        params: [
+          { id: 'r-find-this', name: 'this', index: 0, line: 5, type: 'app.repo.LoanRepository' },
+          { id: 'r-find-id', name: 'id', index: 1, line: 5, type: 'java.lang.Long' },
+        ],
+        returns: [],
+      },
+      {
+        fullName: 'app.repo.LoanRepository.save:app.domain.Loan(app.domain.Loan)',
+        name: 'save', typeName: 'LoanRepository', typeFullName: 'app.repo.LoanRepository',
+        file: 'app/repo/LoanRepository.java', line: 7, annotations: [],
+        params: [
+          { id: 'r-save-this', name: 'this', index: 0, line: 7, type: 'app.repo.LoanRepository' },
+          { id: 'r-save-loan', name: 'loan', index: 1, line: 7, type: 'app.domain.Loan' },
+        ],
+        returns: [],
       },
       {
         fullName: SPIN, name: 'spin', typeName: 'Svc', typeFullName: SVC,

@@ -73,10 +73,17 @@ export function buildModel(g: Graph): Model {
   }
   // A signature line otherwise shows one parameter's declaration text, whichever happened to be
   // longest. The signature itself is what a reader expects at the top of a tree.
+  //
+  // It is found through the parameters rather than through `method.line`, because Joern reports a
+  // method as starting at its first annotation: `@POST` on line 15, `@Path` on 16, and the signature
+  // a reader would point at on 17.
   for (const m of g.methods) {
-    const stmt = stmts.get(stmtKey(m.file, m.line));
+    // Parameter 0 is `this`, which Joern places on the method's line, i.e. back at the annotation.
+    const lines = m.params.filter((p) => p.index > 0).map((p) => p.line).filter((l) => l > 0);
+    const stmt = stmts.get(stmtKey(m.file, lines.length ? Math.min(...lines) : m.line));
     if (stmt && stmt.method === m.fullName) {
-      stmt.code = oneLine(`${m.typeName}.${m.name}(${m.params.map((p) => p.name).join(', ')})`);
+      const named = m.params.filter((p) => p.index > 0).map((p) => p.name);
+      stmt.code = oneLine(`${m.typeName}.${m.name}(${named.join(', ')})`);
     }
   }
 
@@ -90,13 +97,32 @@ export function buildModel(g: Graph): Model {
     edges.push({ from, to, carrier, kind });
   };
 
-  // 1. Def-use. Joern hangs the first use of every parameter and local off the METHOD node itself;
-  //    those edges say only "this method has a body" and are dropped.
+  // Who contains whom. Needed to tell def-use between statements from Joern's wiring inside one.
+  const parentOf = new Map<string, string>();
+  for (const node of g.nodes) for (const child of node.args ?? []) if (child) parentOf.set(child, node.id);
+
+  // 1. Def-use. Two classes of REACHING_DEF edge are dropped, and both were measured rather than
+  //    guessed:
+  //
+  //    - Edges out of the METHOD node. Joern hangs the first use of every parameter and local off
+  //      the method itself; they say only "this method has a body".
+  //    - Edges inside a single expression - child to its own container, container back to its child,
+  //      or between two arguments of one call. Joern wires all of those, in both directions:
+  //      `this.repo.save(loan)` yields `this.repo -> loan` *and* `loan -> this.repo`. Composition
+  //      already says how a value moves inside an expression, and it says so in one direction, so
+  //      keeping Joern's version buys nothing and costs a two-node cycle on almost every line. In
+  //      the tiny fixture it produced eleven of them, one per assignment and one per call.
   for (const e of g.edges) {
     const from = byId.get(e.from);
     if (!from || from.label === 'METHOD') continue;
-    if (e.kind === 'cdg') add(e.from, e.to, `guard ${oneLine(from.code)}`, 'guard');
-    else add(e.from, e.to, carrierOf(from), 'local');
+    if (e.kind === 'cdg') {
+      add(e.from, e.to, `guard ${oneLine(from.code)}`, 'guard');
+      continue;
+    }
+    const above = parentOf.get(e.from);
+    const below = parentOf.get(e.to);
+    if (above === e.to || below === e.from || (above !== undefined && above === below)) continue;
+    add(e.from, e.to, carrierOf(from), 'local');
   }
 
   // 2. Composition, and the call exception.
@@ -111,17 +137,26 @@ export function buildModel(g: Graph): Model {
         if (arg) add(arg, p.id, `arg ${p.index} ${p.name}`, 'arg');
       }
       for (const r of callee.returns) add(r, node.id, `return of ${callee.name}()`, 'ret');
-      continue;
+      // A callee with no RETURN node has no body to walk: an interface method, an abstract one, a
+      // Spring Data repository whose implementation is a runtime proxy. Resolving the name is not
+      // the same as being able to see through it, so it is composed like any call into a jar. Without
+      // this, `Loan loan = repo.findById(id)` swallows the request and nothing downstream of a
+      // repository read is reachable at all - measured on the tiny fixture, where it removed every
+      // pair but one.
+      if (callee.returns.length) continue;
     }
 
     // An assignment runs the other way round: the right-hand side reaches the statement, and the
-    // statement defines the left-hand side.
-    if (node.name === '<operator>.assignment' && args.length >= 2) {
-      for (const rhs of args.slice(1)) {
+    // statement defines the left-hand side. Joern numbers an operator's operands from 1 - slot 0 is
+    // the receiver, and an operator has none - so the target is `args[1]`, never `args[0]`. Reading
+    // it as `args[0]` silently produces a graph with no assignments in it at all, and therefore no
+    // field writes and no field edges: the exact hop the tool exists to show.
+    if (node.name === '<operator>.assignment' && args.length >= 3) {
+      for (const rhs of args.slice(2)) {
         const from = byId.get(rhs);
         if (from) add(rhs, node.id, carrierOf(from), 'local');
       }
-      add(node.id, args[0]!, '=', 'local');
+      add(node.id, args[1]!, '=', 'local');
       continue;
     }
 
@@ -139,7 +174,7 @@ export function buildModel(g: Graph): Model {
   const writes = new Map<string, Set<string>>();
   for (const node of g.nodes) {
     if (node.name !== '<operator>.assignment' || !node.args?.length) continue;
-    const lhs = byId.get(node.args[0]!);
+    const lhs = byId.get(node.args[1]!);
     if (!lhs?.member) continue;
     if (!writes.has(lhs.member)) writes.set(lhs.member, new Set());
     writes.get(lhs.member)!.add(lhs.id);

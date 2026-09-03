@@ -93,8 +93,9 @@ export function boundaries(m: Model): Boundary[] {
     const label = endpointLabel(method, classPathOf.get(method.typeFullName));
     if (!label) continue;
     // On the parameters rather than the signature: the request's values enter one per parameter, and
-    // at node granularity the signature itself carries nothing.
-    for (const p of method.params) add(p.id, 'in', 'net', label);
+    // at node granularity the signature itself carries nothing. Parameter 0 is `this`, which is the
+    // resource bean, not anything the caller sent.
+    for (const p of method.params) if (p.index > 0) add(p.id, 'in', 'net', label);
     for (const r of method.returns) add(r, 'out', 'net', `${label} returns`);
   }
   void stmtKey;

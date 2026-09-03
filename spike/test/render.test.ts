@@ -59,11 +59,15 @@ test('a diff report leads with what changed and counts what did not', () => {
   assert.match(out, /3 pairs: 1 new, 0 gone, 1 same endpoints by different code, 1 unchanged/);
 });
 
-// A PATH is counted, never listed: it is one witness per pair, and the measurement in render.ts says
-// the witness moves for reasons that have nothing to do with the commit.
-test('a report does not list the rows whose endpoints are unchanged', () => {
-  const out = diffReport([{ status: 'PATH', source: 'c', sink: 'd' }]);
-  assert.ok(!out.includes('from c'), out);
+// A PATH is listed like any other change - the same input reaching the same output through code that
+// moved is a finding - and only SAME is left off, because there is nothing to say about it.
+test('a report lists a re-routed pair and leaves the unchanged ones off', () => {
+  const out = diffReport([
+    { status: 'PATH', source: 'c', sink: 'd' },
+    { status: 'SAME', source: 'e', sink: 'f' },
+  ]);
+  assert.ok(out.includes('PATH d') && out.includes('from c'), out);
+  assert.ok(!out.includes('from e'), out);
 });
 
 // Fineract 745ae67de adds one validation and 42 pairs reach it. Two of those, one per exception.

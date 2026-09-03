@@ -73,3 +73,31 @@ export function fingerprint(m: Model, key: string): string {
 export function nodeFingerprinter(m: Model): (node: string) => string {
   return (node) => fingerprint(m, m.stmtOfNode.get(node) ?? node);
 }
+
+/**
+ * An order-independent name for a *set* of statements.
+ *
+ * The diff needs to ask whether two builds cross the same code between one boundary and another, and
+ * the sets involved run to thousands of statements per pair and tens of thousands of pairs. Sorting
+ * and joining them is too much string to build, so the name is folded instead: a count, the xor, and
+ * the sum of a hash per statement, which agree exactly when the sets do and do not depend on the
+ * order they arrive in. The caller passes distinct fingerprints - a repeat would break the xor.
+ */
+export function setName(fingerprints: Iterable<string>): string {
+  let xor = 0;
+  let sum = 0;
+  let count = 0;
+  for (const f of fingerprints) {
+    // FNV-1a. Nothing here is adversarial; it needs to be fast and to spread.
+    let h = 0x811c9dc5;
+    for (let i = 0; i < f.length; i++) {
+      h ^= f.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    h >>>= 0;
+    xor ^= h;
+    sum = (sum + h) >>> 0;
+    count++;
+  }
+  return `${count}.${xor >>> 0}.${sum}`;
+}

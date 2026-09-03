@@ -38,19 +38,22 @@ A large corpus needs `node --max-old-space-size=24576`: the graph JSON is 186 MB
 NEW  throws NoSuchElementException in getDefaultAllocationRule
        from WorkingCapitalLoanBalanceRepository.findByWcLoan_Id
        from WorkingCapitalLoanRepository.findById
+PATH throws IndexOutOfBoundsException in allocateToCharges
+       from WorkingCapitalLoanBalanceRepository.findByWcLoan_Id
 
-754 pairs: 7 new, 0 gone, 43 same endpoints by different code, 704 unchanged
+754 pairs: 7 new, 0 gone, 11 same endpoints by different code, 736 unchanged
 ```
 
-`NEW` is a flow the change created, `GONE` one it removed. Both are trustworthy: across the three
-commits in FINDINGS.md, all 55 of them crossed a file the commit actually changed. The third
-verdict, "same endpoints by different code", is counted and not listed - it did not survive
-measurement, and FINDINGS.md says what it would take to make it real.
+`NEW` is a flow the change created, `GONE` one it removed, `PATH` one whose two ends are unchanged
+but whose middle is not. All three are trustworthy: across the three commits in FINDINGS.md every
+`NEW` and `GONE` row, and every `PATH` row, ran through a file the commit actually changed. `PATH`'s
+weakness is volume rather than truth - a change to code that most requests run through reports most
+pairs - and FINDINGS.md says what would fix that. EXAMPLES.md has the full output of all four verbs.
 
 ## Tests
 
 ```bash
-npm run test:spike           # 57 tests, ~200 ms, never invokes Joern
+npm run test:spike           # 58 tests, ~200 ms, never invokes Joern
 ./spike/test/extract.sh      # builds a CPG from spike/fixtures/tiny and checks it against the fixture
 ```
 
@@ -73,6 +76,7 @@ the fixture is lying about Joern.
 | `src/slice.ts` | walking the graph, forwards and backwards, to boundaries. |
 | `src/fingerprint.ts` | naming a statement so it survives being moved. |
 | `src/diff.ts` | the four verdicts. |
+| `precision.ts` | grading the verdicts against what each commit actually edited. |
 | `src/render.ts` | the tree and the report. |
 | `src/cli.ts` | four verbs, no options. |
 

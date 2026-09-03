@@ -1,5 +1,6 @@
 import type { Boundary, Model, ValueEdge } from './types.ts';
 import type { Condensation } from './scc.ts';
+import { nodeFingerprinter, setName } from './fingerprint.ts';
 
 /**
  * The two questions the panel answers, and the third the diff is built on.
@@ -26,7 +27,14 @@ import type { Condensation } from './scc.ts';
 
 export type Step = { node: string; via: ValueEdge | undefined };
 export type Hit = { boundary: Boundary; path: Step[] };
-export type Pair = { source: Boundary; sink: Boundary; path: Step[] };
+export type Pair = {
+  source: Boundary;
+  sink: Boundary;
+  /** One shortest witness, to show. */
+  path: Step[];
+  /** A name for every statement any witness could cross. See `interiorOf`. */
+  interior: string;
+};
 
 type Index = {
   /** Boundaries at a component, by direction. */
@@ -111,11 +119,22 @@ export function backward(c: Condensation, index: Index, node: string | string[])
 }
 
 /**
- * Every input-to-output pair in the corpus.
+ * Every input-to-output pair in the corpus, and the code each one runs through.
  *
  * This is the expensive call - one breadth-first walk per input boundary - and it is the one a PR
  * diff needs, because the thing a reviewer wants to know is not what the graph looks like but which
  * of these pairs the change added, removed, or re-routed.
+ *
+ * The re-routed ones are why a pair carries an interior as well as a witness. A witness is one path
+ * out of many, chosen by the walk; comparing two versions' witnesses compares two arbitrary choices,
+ * and measured on Fineract d602928ae that is what most of the `PATH` verdicts turned out to be. The
+ * interior is a property of the pair itself: every statement that lies on *some* route from this
+ * input to this output. Two builds whose interiors agree run the same code between the same two
+ * boundaries, whichever route a reader traces.
+ *
+ * Done in two passes so only one backward set is alive at a time. On the 254k-node corpus the
+ * backward sets average thirteen thousand components each and there are fifteen hundred of them;
+ * holding them all would cost more memory than the CPG.
  */
 export function allPairs(m: Model, c: Condensation, bs: Boundary[]): Pair[] {
   const index = indexBoundaries(c, bs);
@@ -128,12 +147,53 @@ export function allPairs(m: Model, c: Condensation, bs: Boundary[]): Pair[] {
     byLabel.get(b.key)!.push(b);
   }
 
-  const pairs: Pair[] = [];
+  // Every statement a component stands for. A cycle collapses up to fifty of them into one node and
+  // all fifty are interior, so the fold is over members, not over components.
+  const fp = nodeFingerprinter(m);
+  const inside = new Map<string, string[]>();
+  for (const [id, members] of c.members) inside.set(id, [...new Set(members.map(fp))]);
+
+  const found: { source: Boundary; sink: Boundary; path: Step[]; at: string; ahead: Set<string> }[] = [];
   for (const group of byLabel.values()) {
-    for (const hit of forward(c, index, group.map((b) => b.node))) {
-      pairs.push({ source: group[0]!, sink: hit.boundary, path: hit.path });
+    const { parent, order } = walk(c, startsOf(c, group.map((b) => b.node)), 'out');
+    const ahead = new Set(order);
+    for (const at of order) {
+      for (const sink of index.outAt.get(at) ?? []) {
+        found.push({ source: group[0]!, sink, path: pathTo(parent, at), ahead, at });
+      }
     }
   }
-  void m;
+
+  const bySink = new Map<string, typeof found>();
+  for (const f of found) {
+    if (!bySink.has(f.at)) bySink.set(f.at, []);
+    bySink.get(f.at)!.push(f);
+  }
+
+  const pairs: Pair[] = [];
+  for (const [at, group] of bySink) {
+    const behind = new Set(walk(c, [at], 'in').order);
+    for (const f of group) {
+      pairs.push({ source: f.source, sink: f.sink, path: f.path, interior: interiorOf(f.ahead, behind, inside) });
+    }
+  }
   return pairs;
+}
+
+/**
+ * A name for the statements between a source and a sink.
+ *
+ * A component lies on some route from the source to the sink exactly when it is reachable forwards
+ * from the one and backwards from the other, so the intersection of the two walks is the answer -
+ * exact, and two walks rather than an enumeration of paths, of which there are usually infinitely
+ * many.
+ */
+function interiorOf(ahead: Set<string>, behind: Set<string>, inside: Map<string, string[]>): string {
+  const [small, large] = ahead.size <= behind.size ? [ahead, behind] : [behind, ahead];
+  const crossed = new Set<string>();
+  for (const component of small) {
+    if (!large.has(component)) continue;
+    for (const f of inside.get(component) ?? []) crossed.add(f);
+  }
+  return setName(crossed);
 }

@@ -15,7 +15,9 @@ import type { Pair } from './slice.ts';
  * - `GONE` - a flow the change removed. This is the one that catches a value quietly stopping short
  *   of the write it used to reach.
  * - `PATH` - the same input still reaches the same output, but through different code. Invisible to
- *   any "which flows exist" comparison, and often exactly what the PR is about.
+ *   any "which flows exist" comparison, and often exactly what the PR is about. Decided on the pair's
+ *   interior - every statement on any route between the two boundaries - and not on the one witness
+ *   path the walk happened to report; see `allPairs`.
  * - `SAME` - unchanged, listed so the report can say what it checked rather than only what it found.
  *
  * A pair is keyed by its source and sink *labels*, never by position, because the endpoint and the
@@ -55,11 +57,11 @@ const keyOf = (p: Pair) => `${p.source.label} ${p.sink.label}`;
 /**
  * One pair per key, preferring the shortest witness - the clearest one to show.
  *
- * Ties are broken on the witness text, and that tiebreak is not cosmetic. A `validateForCreate` that
- * calls six validators offers six witnesses of equal length, and if each side keeps whichever it
- * happened to walk first, the two sides disagree about which one to show and every such pair reads
- * as `PATH`. Measured on d602928ae that was most of the PATH rows: the report was describing its own
- * arbitrary choice, not the commit.
+ * Ties break on the witness text so that two builds of the same code show the same one. A
+ * `validateForCreate` that calls six validators offers six witnesses of equal length, and a reader
+ * comparing the two reports should not have to wonder whether the difference is the commit's or the
+ * walk's. The verdict no longer turns on this - that is what the interior is for - but the line a
+ * reviewer reads still does.
  */
 function index(pairs: Pair[], fp: Print): Map<string, Pair> {
   const out = new Map<string, Pair>();
@@ -93,7 +95,7 @@ export function diffPairs(before: Pair[], after: Pair[], fpBefore: Print, fpAfte
       rows.push({ status: 'GONE', source: pair.source.label, sink: pair.sink.label, before: pair });
       continue;
     }
-    const moved = pathPrint(pair, fpBefore).join(' | ') !== pathPrint(match, fpAfter).join(' | ');
+    const moved = pair.interior !== match.interior;
     rows.push({
       status: moved ? 'PATH' : 'SAME',
       source: pair.source.label,

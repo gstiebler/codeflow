@@ -31,4 +31,6 @@ test-results
 spike/out
 spike/worktrees
 spike/workspace
+# `joern --script` opens its project store in the working directory, not next to the CPG.
+workspace
 *.cpg

@@ -1,6 +1,6 @@
 # Boundary-Diff Dataflow Spike Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a throwaway `spike/` tree that turns two Fineract commits into a boundary-pair diff - the input-to-output value paths a change added, removed, or re-routed, printed as an expandable text tree - and decide from three real commits whether the view in the spec is worth building for real.
 
@@ -94,10 +94,10 @@ touch real Fineract.
 
 **Interfaces:** produces the `npm run test:spike` entry point every later task uses.
 
-- [ ] Add the four gitignore lines, the npm script, and the tsconfig include.
-- [ ] Write `spike/README.md`: what the spike is for, the three commands, and the time box.
-- [ ] Run `npx tsc` and confirm it still passes with nothing new to compile.
-- [ ] Commit.
+- [x] Add the four gitignore lines, the npm script, and the tsconfig include.
+- [x] Write `spike/README.md`: what the spike is for, the three commands, and the time box.
+- [x] Run `npx tsc` and confirm it still passes with nothing new to compile.
+- [x] Commit.
 
 ### Task 2: The graph contract and the hand fixture
 
@@ -110,10 +110,10 @@ reads a repository, calls a service, saves, and returns; a service that writes a
 back; a two-statement cycle; and an `Optional.get`. It is the contract `export.sc` must satisfy, and
 it is deliberately hand-written so no unit test depends on Joern's behaviour.
 
-- [ ] Write `types.ts`.
-- [ ] Write `corpus.ts` building that graph.
-- [ ] Write `corpus.test.ts` asserting the fixture's shape (node count, that every edge endpoint exists, that every node's method is a declared method). Run it - it must fail before the fixture exists.
-- [ ] Run `npm run test:spike`. Commit.
+- [x] Write `types.ts`.
+- [x] Write `corpus.ts` building that graph.
+- [x] Write `corpus.test.ts` asserting the fixture's shape (node count, that every edge endpoint exists, that every node's method is a declared method). Run it - it must fail before the fixture exists.
+- [x] Run `npm run test:spike`. Commit.
 
 ### Task 3: Statements and value edges
 
@@ -128,10 +128,10 @@ sources and self-edges, carrier read off the source node); `arg` from each resol
 *i* to the callee's parameter *i*; `ret` from each callee return to the call site; `field` from every
 statement writing a member to every statement reading it; `guard` from CDG.
 
-- [ ] Test: the fixture's field write at `Svc.java:11` reaches the read at `Svc.java:12` by a `field` edge carrying `Svc.total`. Fails first.
-- [ ] Test: the call at `Api.java:23` produces `arg` edges into `Svc.apply`'s parameters and a `ret` edge back.
-- [ ] Test: no edge has a METHOD-labelled source and no edge is a self-loop.
-- [ ] Implement, run, commit.
+- [x] Test: the fixture's field write at `Svc.java:11` reaches the read at `Svc.java:12` by a `field` edge carrying `Svc.total`. Fails first.
+- [x] Test: the call at `Api.java:23` produces `arg` edges into `Svc.apply`'s parameters and a `ret` edge back.
+- [x] Test: no edge has a METHOD-labelled source and no edge is a self-loop.
+- [x] Implement, run, commit.
 
 ### Task 4: Boundary rules
 
@@ -147,7 +147,7 @@ by regex on the code); implicit throw (a table keyed on `methodFullName` - `Opti
 receiver's simple type or the receiving call's name, which is what catches `findFirst().get()`);
 and `JsonCommand` parameter reads.
 
-- [ ] One failing test per rule, then the implementation, then the run. Commit.
+- [x] One failing test per rule, then the implementation, then the run. Commit.
 
 ### Task 5: Cycles
 
@@ -158,7 +158,7 @@ and `JsonCommand` parameter reads.
 
 Tarjan, written iteratively - Fineract methods nest deep enough to blow a recursive one.
 
-- [ ] Test: the fixture's two-statement cycle becomes one component with two members; every other statement is its own singleton. Fails first. Implement, run, commit.
+- [x] Test: the fixture's two-statement cycle becomes one component with two members; every other statement is its own singleton. Fails first. Implement, run, commit.
 
 ### Task 6: Slicing
 
@@ -169,10 +169,10 @@ Tarjan, written iteratively - Fineract methods nest deep enough to blow a recurs
 `Pair = { source, sink, path }`. Breadth-first over the condensation, one shortest path per
 boundary reached, expansion stopping at an out-boundary.
 
-- [ ] Test: forward from the endpoint reaches the `db:out` save and the `net:out` return, and the path passes through the service.
-- [ ] Test: backward from the `db:out` reaches the endpoint's `net:in`.
-- [ ] Test: `allPairs` on the fixture returns exactly the expected source-sink pairs.
-- [ ] Implement, run, commit.
+- [x] Test: forward from the endpoint reaches the `db:out` save and the `net:out` return, and the path passes through the service.
+- [x] Test: backward from the `db:out` reaches the endpoint's `net:in`.
+- [x] Test: `allPairs` on the fixture returns exactly the expected source-sink pairs.
+- [x] Implement, run, commit.
 
 ### Task 7: Statement identity across versions
 
@@ -183,9 +183,9 @@ the latter being the enclosing method's *simple* name, the normalised code, and 
 identical statements in that method. Line numbers and enclosing class are deliberately absent: that
 is what makes a fingerprint survive the 130-line method move in Fineract `d602928ae`.
 
-- [ ] Test: the same statement at a different line in a different class, same method name, fingerprints identically. Fails first.
-- [ ] Test: two textually identical statements in one method get different fingerprints.
-- [ ] Implement, run, commit.
+- [x] Test: the same statement at a different line in a different class, same method name, fingerprints identically. Fails first.
+- [x] Test: two textually identical statements in one method get different fingerprints.
+- [x] Implement, run, commit.
 
 ### Task 8: The diff
 
@@ -195,10 +195,10 @@ is what makes a fingerprint survive the 130-line method move in Fineract `d60292
 with `status: 'NEW' | 'GONE' | 'PATH' | 'SAME'`. A pair is keyed by its source and sink labels; a
 pair present on both sides whose fingerprint sequence differs is `PATH`.
 
-- [ ] Test: dropping a sink from the after set yields exactly one `GONE`.
-- [ ] Test: a pair whose middle statement changed yields `PATH`, not `SAME`.
-- [ ] Test: renumbering every line without changing code yields all `SAME`.
-- [ ] Implement, run, commit.
+- [x] Test: dropping a sink from the after set yields exactly one `GONE`.
+- [x] Test: a pair whose middle statement changed yields `PATH`, not `SAME`.
+- [x] Test: renumbering every line without changing code yields all `SAME`.
+- [x] Implement, run, commit.
 
 ### Task 9: Rendering and the CLI
 
@@ -209,9 +209,9 @@ the `[via <carrier>]` suffix, the boundary and cycle decorations from the spec) 
 `diffReport(rows): string`. `cli.ts` takes `forward <graph.json> <File.java:123>`,
 `backward <graph.json> <label>`, `boundary-diff <before.json> <after.json>`.
 
-- [ ] Test: two hits sharing a prefix render as one shared branch, not two.
-- [ ] Test: a cycle component renders as a single line naming its size.
-- [ ] Implement, run, commit.
+- [x] Test: two hits sharing a prefix render as one shared branch, not two.
+- [x] Test: a cycle component renders as a single line naming its size.
+- [x] Implement, run, commit.
 
 ### Task 10: Extraction, and the three-commit verdict
 
@@ -222,10 +222,10 @@ the `[via <carrier>]` suffix, the boundary and cycle decorations from the spec) 
 edges, and prints the JSON the fixture describes. It contains no filtering and no analysis; if a
 rule feels tempting to add here, it belongs in `boundaries.ts`.
 
-- [ ] Write the tiny Java fixture, with its own annotation declarations so it needs no external jars.
-- [ ] Write `build-cpg.sh` and `dump.sh` and run them on the tiny fixture. Assert the JSON parses as a `Graph` and that the shapes match `corpus.ts`.
-- [ ] Build before-and-after CPGs for Fineract `542da12e6`, corpus `fineract-working-capital-loan/src/main/java`. Run `boundary-diff`. Expected: the `DUE_PRINCIPAL` fallback path is `GONE`, and a `NEW` `throws NoSuchElementException` appears at `WorkingCapitalLoanAllocationRequestFactory.getDefaultAllocationRule`.
-- [ ] Build before-and-after for `d602928ae`, same corpus. Expected: the boundary pair set is identical either side, because the change is a method move.
-- [ ] Build before-and-after for `745ae67de`, corpus `fineract-loan`, `fineract-savings`, and the `client`, `shareaccounts` and `savings` packages of `fineract-provider`. Expected: rows group by module, with a `NEW` throw for `amount.rounded.to.zero`.
-- [ ] Write `FINDINGS.md`: what each of the three produced, what was hand-edited, and the go/no-go. Two of three clean is a pass.
-- [ ] Commit.
+- [x] Write the tiny Java fixture, with its own annotation declarations so it needs no external jars.
+- [x] Write `build-cpg.sh` and `dump.sh` and run them on the tiny fixture. Assert the JSON parses as a `Graph` and that the shapes match `corpus.ts`.
+- [x] Build before-and-after CPGs for Fineract `542da12e6`, corpus `fineract-working-capital-loan/src/main/java`. Run `boundary-diff`. Expected: the `DUE_PRINCIPAL` fallback path is `GONE`, and a `NEW` `throws NoSuchElementException` appears at `WorkingCapitalLoanAllocationRequestFactory.getDefaultAllocationRule`.
+- [x] Build before-and-after for `d602928ae`, same corpus. Expected: the boundary pair set is identical either side, because the change is a method move.
+- [x] Build before-and-after for `745ae67de`, corpus `fineract-loan`, `fineract-savings`, and the `client`, `shareaccounts` and `savings` packages of `fineract-provider`. Expected: rows group by module, with a `NEW` throw for `amount.rounded.to.zero`.
+- [x] Write `FINDINGS.md`: what each of the three produced, what was hand-edited, and the go/no-go. Two of three clean is a pass.
+- [x] Commit.

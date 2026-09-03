@@ -35,7 +35,7 @@ has('in net POST /loans/{id}/charge');
 has('out net POST /loans/{id}/charge returns');
 has('in db LoanRepository.findById');
 has('out db LoanRepository.save');
-has('out throw throws NoSuchElementException');
+has('out throw throws NoSuchElementException in pick');
 
 // The field hop: `this.total = amount` writes and `BigDecimal t = this.total` reads, with no call
 // between them. Joern's own dataflow finds nothing here, which is why load.ts adds the edge.

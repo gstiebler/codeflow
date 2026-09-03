@@ -56,8 +56,8 @@ test('an input that does not reach an output is not paired with it', () => {
 });
 
 test('an output nothing reaches is still a boundary, just an unpaired one', () => {
-  assert.ok(bs.some((b) => b.label === 'throws NoSuchElementException'));
-  assert.ok(!allPairs(m, c, bs).some((p) => p.sink.label === 'throws NoSuchElementException'));
+  assert.ok(bs.some((b) => b.label.startsWith('throws NoSuchElementException')));
+  assert.ok(!allPairs(m, c, bs).some((p) => p.sink.label.startsWith('throws NoSuchElementException')));
 });
 
 test('a value the callee drops does not reach what the callee returns', () => {

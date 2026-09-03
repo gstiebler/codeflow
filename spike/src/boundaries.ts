@@ -27,17 +27,27 @@ const JDBC_WRITE = /^(update|execute|batchUpdate)/;
 /**
  * Calls that throw with no `throw` in the source.
  *
- * Keyed by the callee's simple name and the receiver's simple type, because the CPG is built
- * no-delombok and so a great many receivers arrive as `<unresolvedNamespace>.Optional`. Short on
- * purpose: every entry is a way Fineract code actually fails, and the first was found by reading the
- * commit this spike has to score on.
+ * Keyed by the callee's simple name and the receiver's simple type. Short on purpose: every entry is
+ * a way Fineract code actually fails, and the first was found by reading the commit this spike has
+ * to score on.
  */
 const IMPLICIT_THROWS: { receiver: RegExp; name: RegExp; throws: string }[] = [
-  { receiver: /(^|\.)Optional$/, name: /^(get|orElseThrow)$/, throws: 'NoSuchElementException' },
+  { receiver: /(^|\.)Optional$/, name: /^get$/, throws: 'NoSuchElementException' },
   { receiver: /(^|\.)Iterator$/, name: /^next$/, throws: 'NoSuchElementException' },
   { receiver: /(^|\.)(List|ArrayList|LinkedList)$/, name: /^get$/, throws: 'IndexOutOfBoundsException' },
   { receiver: /(^|\.)Objects$/, name: /^requireNonNull$/, throws: 'NullPointerException' },
 ];
+
+/**
+ * Methods whose result is an `Optional`, used only when Joern could not type the receiver.
+ *
+ * It could not, often. The CPG is built no-delombok, so a Lombok `@Getter` has no source and arrives
+ * as `<unresolvedSignature>(0)`; everything chained off it - `loan.getPaymentAllocationRules()
+ * .stream().filter(..).findFirst().get()` - is then typed `<unresolvedNamespace>`, and a rule keyed
+ * on the receiver's type fires on none of it. In this corpus that silence covered 44 of the 44
+ * `findById(..).orElseThrow(..)` sites, which is the commonest way Fineract fails at all.
+ */
+const RETURNS_OPTIONAL = /^(findFirst|findAny|findById|findOne|reduce|min|max|ofNullable)$/;
 
 /**
  * The simple name at the end of a dotted or generic type, e.g. `a.b.Optional<X>` to `Optional`.
@@ -65,6 +75,19 @@ function endpointLabel(m: MethodFact, classPath: string | undefined): string | u
 function thrownType(code: string): string {
   const constructed = /throw\s+new\s+([\w.]+)/.exec(code);
   return constructed ? `throws ${simpleName(constructed[1]!)}` : 'rethrows';
+}
+
+/** What an `orElseThrow` throws: whatever its supplier builds, or the JDK default. Read from the
+  * text after the call's own name, so a `new` in the receiver expression is not mistaken for it. */
+function suppliedType(code: string): string {
+  const built = /new\s+([\w.]+)/.exec(code.slice(code.lastIndexOf('orElseThrow')));
+  return `throws ${built ? simpleName(built[1]!) : 'NoSuchElementException'}`;
+}
+
+/** The type of a call's receiver, guessed from the call that produced it when Joern lost it. */
+function fromReceiverCall(m: Model, node: NodeFact): string {
+  const receiver = m.byId.get(node.args?.[0] ?? '');
+  return receiver?.name && RETURNS_OPTIONAL.test(receiver.name) ? 'Optional' : '';
 }
 
 /** The first string literal among a call's arguments - the JSON key of a `*ValueOfParameterNamed`. */
@@ -120,11 +143,25 @@ export function boundaries(m: Model): Boundary[] {
     }
 
     // 6. Exceptions are outputs. Explicit first, then the JDK calls that throw on their own.
+    //
+    //    Every throw label carries the method it escapes from, because the exception type on its own
+    //    is not an identity. `NoSuchElementException` names a hundred places in this corpus, so when
+    //    a change adds a brand new way for a method to fail, a type-only label finds the same pair
+    //    already there and reports nothing - which is exactly what it did on the first run of the
+    //    acceptance case. The *simple* method name and nothing else, for the reason fingerprint.ts
+    //    gives: a method that moves file or class is still the same method.
+    const inMethod = m.methodByFullName.get(node.method)?.name;
+    const escapes = (label: string) => add(at, 'out', 'throw', inMethod ? `${label} in ${inMethod}` : label);
+
     if (node.name === '<operator>.throw') {
-      add(at, 'out', 'throw', thrownType(node.code));
+      escapes(thrownType(node.code));
+    } else if (node.name === 'orElseThrow') {
+      // No other common type has this method, so the receiver is an Optional whatever Joern says it
+      // is. What it throws is whatever the supplier builds, or the JDK's own when there is none.
+      escapes(suppliedType(node.code));
     } else {
-      const implicit = IMPLICIT_THROWS.find((r) => r.receiver.test(receiver) && r.name.test(node.name!));
-      if (implicit) add(at, 'out', 'throw', `throws ${implicit.throws}`);
+      const implicit = IMPLICIT_THROWS.find((r) => r.receiver.test(receiver || fromReceiverCall(m, node)) && r.name.test(node.name!));
+      if (implicit) escapes(`throws ${implicit.throws}`);
     }
 
     // 7. Fineract reads its request bodies through JsonCommand, one string-keyed getter per field.

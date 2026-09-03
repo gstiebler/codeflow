@@ -5,7 +5,9 @@ import { buildModel } from '../src/load.ts';
 
 const m = buildModel(hand());
 
-const edge = (from: string, to: string) => m.edges.filter((e) => e.from === from && e.to === to);
+/** Edges between two source lines. The graph is at node granularity; the tests read in lines. */
+const edge = (from: string, to: string) =>
+  m.edges.filter((e) => m.stmtOfNode.get(e.from) === from && m.stmtOfNode.get(e.to) === to);
 
 test('a statement is a source line, and carries the widest code Joern attributed to it', () => {
   assert.equal(m.stmts.get(KEY.fieldWrite)?.code, 'this.total = amount');
@@ -22,25 +24,21 @@ test('a value crossing a field produces an edge naming the field', () => {
 });
 
 test('a resolved call links its arguments to the callee parameters and the return back', () => {
-  const into = edge(KEY.apply, KEY.applyDecl);
+  const into = edge(KEY.apply, KEY.applyDecl).filter((e) => e.kind === 'arg');
   assert.deepEqual(into.map((e) => e.carrier).sort(), ['arg 1 loan', 'arg 2 amount']);
-  assert.ok(into.every((e) => e.kind === 'arg'));
 
-  const back = edge(KEY.applyReturn, KEY.apply);
+  const back = edge(KEY.applyReturn, KEY.apply).filter((e) => e.kind === 'ret');
   assert.equal(back.length, 1);
-  assert.equal(back[0]!.kind, 'ret');
 });
 
 test('an unresolved call gets no argument edges, because there is no callee to reach', () => {
-  assert.deepEqual(edge(KEY.setAmount, KEY.optionalGet), []);
-  assert.ok(!m.edges.some((e) => e.kind === 'arg' && e.from === KEY.setAmount));
+  const fromSetAmount = m.edges.filter((e) => e.kind === 'arg' && m.stmtOfNode.get(e.from) === KEY.setAmount);
+  assert.deepEqual(fromSetAmount, []);
 });
 
 test('local def-use edges carry the variable name and skip Joern noise', () => {
-  const e = edge(KEY.endpoint, KEY.findById);
-  assert.equal(e.length, 1);
-  assert.equal(e[0]!.kind, 'local');
-  assert.equal(e[0]!.carrier, 'id');
+  const e = edge(KEY.endpoint, KEY.findById).filter((x) => x.kind === 'local');
+  assert.deepEqual(e.map((x) => x.carrier), ['id']);
 });
 
 test('no edge is a self-loop and no edge starts at a method declaration node', () => {

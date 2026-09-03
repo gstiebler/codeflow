@@ -91,7 +91,10 @@ export function hand(): Graph {
     }),
     n('a24-loan', 'IDENTIFIER', 'loan', API_FILE, 24, ADD_CHARGE),
 
-    n('a25-return', 'RETURN', 'return Response.ok(t)', API_FILE, 25, ADD_CHARGE),
+    // A RETURN holds the expression it returns as its child, the same as any other container. The
+    // Joern exporter has to dump `args` for RETURN nodes and not only for calls, or every method in
+    // the corpus ends at its last statement and no endpoint ever produces an output.
+    n('a25-return', 'RETURN', 'return Response.ok(t)', API_FILE, 25, ADD_CHARGE, { args: ['a25-ok'] }),
     n('a25-ok', 'CALL', 'Response.ok(t)', API_FILE, 25, ADD_CHARGE, {
       name: 'ok', methodFullName: '<unresolvedNamespace>.Response.ok:<unresolvedSignature>(1)',
       receiverType: '<unresolvedNamespace>.Response', args: ['a25-t'],
@@ -127,11 +130,11 @@ export function hand(): Graph {
     n('s13-loan', 'IDENTIFIER', 'loan', SVC_FILE, 13, APPLY),
     n('s13-t', 'IDENTIFIER', 't', SVC_FILE, 13, APPLY),
 
-    n('s14-return', 'RETURN', 'return t', SVC_FILE, 14, APPLY),
+    n('s14-return', 'RETURN', 'return t', SVC_FILE, 14, APPLY, { args: ['s14-t'] }),
     n('s14-t', 'IDENTIFIER', 't', SVC_FILE, 14, APPLY),
 
     // --- Svc.pick: an exception the JDK throws, with no `throw` in the source --------------------
-    n('p31-return', 'RETURN', 'return rules.stream().findFirst().get()', SVC_FILE, 31, PICK),
+    n('p31-return', 'RETURN', 'return rules.stream().findFirst().get()', SVC_FILE, 31, PICK, { args: ['p31-get'] }),
     n('p31-get', 'CALL', 'rules.stream().findFirst().get()', SVC_FILE, 31, PICK, {
       name: 'get',
       methodFullName: '<unresolvedNamespace>.Optional.get:<unresolvedSignature>(0)',

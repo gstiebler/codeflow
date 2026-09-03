@@ -67,7 +67,11 @@ export type NodeFact = {
   methodFullName?: string;
   /** CALL only: the static type of argument 0, i.e. what the call is made on. */
   receiverType?: string;
-  /** CALL only: node ids of the arguments, argument 0 first. */
+  /**
+   * The node ids this expression is composed of. For a CALL that is its arguments, argument 0 (the
+   * receiver) first; for a RETURN it is the expression being returned. Anything with children needs
+   * them here - a container with no children is where a walk stops.
+   */
   args?: string[];
   /** Field accesses only: `SimpleTypeName.memberName`, when Joern resolved the member. */
   member?: string;
@@ -103,6 +107,7 @@ export type Stmt = {
 
 export type EdgeKind = 'local' | 'field' | 'arg' | 'ret' | 'guard';
 
+/** Endpoints are node ids, not statement keys - see the header of `load.ts` for why. */
 export type ValueEdge = {
   from: string;
   to: string;
@@ -129,6 +134,9 @@ export type BoundaryKind = 'net' | 'db' | 'throw' | 'json';
 export type Boundary = {
   /** Stable across versions: the label plus the direction. Never contains a line number. */
   key: string;
+  /** The graph node the boundary sits on. */
+  node: string;
+  /** The line it displays as. */
   stmt: string;
   dir: 'in' | 'out';
   kind: BoundaryKind;

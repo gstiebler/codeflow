@@ -1,25 +1,34 @@
 import type { Graph, Model, NodeFact, Stmt, ValueEdge } from './types.ts';
 
 /**
- * Joern's AST, collapsed into the graph the spec's tree actually walks.
+ * Joern's CPG, turned into the value graph everything downstream walks.
  *
- * Two decisions carry the file. The first is the grain: **a statement is a source line**. Joern hands
- * back a node per sub-expression, which is the right shape for a query engine and the wrong shape for
- * a panel someone reads - `getEmi().minus(getCalculatedDueInterest())` is one thing a reader thinks
- * about, not five. Fineract is formatted one statement per line, so the line is a free and accurate
- * statement boundary; a codebase that chained differently would need the enclosing-expression walk
- * instead, and that is a known limit of the spike, not an oversight.
+ * **The graph is at node granularity; statements are for display only.** That was learned the
+ * expensive way. The first version made a statement the unit, because a statement is what the panel
+ * shows - and a Java statement is a line that routinely touches several independent values at once.
+ * `Loan t = svc.apply(loan, amount)` both consumes `loan` and produces `t`; a signature holds every
+ * parameter; a call holds every argument. Merge any of those and the values merge with them, so
+ * after a few hops every input in the corpus "reaches" every output, the pair list says nothing, and
+ * a diff of it says less. Three separate patches went in for three separate merges before it was
+ * clear they were one bug. Keeping Joern's nodes and folding down to lines at render time has no such
+ * cases.
  *
- * The second is that four of the five edge kinds are built here rather than read off the CPG. Joern's
- * REACHING_DEF edges are intraprocedural only, and its interprocedural dataflow lives in the query
- * engine, not in the graph. Measured against a Fineract module, Joern's own reachability returns zero
- * flows for a setter-then-getter pair - the exact shape the rate-factor bug had. So the argument,
- * return and field edges are ours.
+ * Four edge kinds, and four is the whole model:
+ *
+ * 1. **def-use**, straight from the CPG's REACHING_DEF edges.
+ * 2. **composition**, every expression flowing into the expression that contains it - except across a
+ *    call whose callee is in the corpus, where the arguments go to the callee's parameters and the
+ *    callee's returns come back to the call. That exception is what makes an argument the callee
+ *    ignores stop at the callee.
+ * 3. **fields**, every write of a member reaching every read of it. Joern's own dataflow does not do
+ *    this: measured on a Fineract module, a setter-then-getter pair returns zero flows, which is
+ *    exactly the shape the rate-factor bug had.
+ * 4. **guards**, from the CPG's control-dependence edges.
  */
 
 const MAX_CODE = 160;
 
-/** `file:line`. The id every later stage passes around; never a node id. */
+/** `file:line`. What a node is *shown* as; never what it is identified by. */
 export function stmtKey(nodeOrFile: NodeFact | string, line?: number): string {
   if (typeof nodeOrFile === 'string') return `${nodeOrFile}:${line}`;
   return `${nodeOrFile.file}:${nodeOrFile.line}`;
@@ -47,24 +56,12 @@ function carrierOf(node: NodeFact): string {
   return oneLine(node.code);
 }
 
-/** Which statements write which member, found by looking at the left of every assignment. */
-function writtenMembers(g: Graph, byId: Map<string, NodeFact>): Map<string, Set<string>> {
-  const writes = new Map<string, Set<string>>();
-  for (const node of g.nodes) {
-    if (node.name !== '<operator>.assignment' || !node.args?.length) continue;
-    const lhs = byId.get(node.args[0]!);
-    if (!lhs?.member) continue;
-    if (!writes.has(lhs.member)) writes.set(lhs.member, new Set());
-    writes.get(lhs.member)!.add(stmtKey(node));
-  }
-  return writes;
-}
-
 export function buildModel(g: Graph): Model {
   const byId = new Map(g.nodes.map((x) => [x.id, x]));
+  const methodByFullName = new Map(g.methods.map((m) => [m.fullName, m]));
+
   const stmts = new Map<string, Stmt>();
   const stmtOfNode = new Map<string, string>();
-
   for (const node of g.nodes) {
     if (node.line <= 0) continue;
     const key = stmtKey(node);
@@ -74,11 +71,10 @@ export function buildModel(g: Graph): Model {
     if (!existing) stmts.set(key, { key, file: node.file, line: node.line, code, method: node.method });
     else if (code.length > existing.code.length) existing.code = code;
   }
-  // A method declaration line often holds nothing but its parameters, whose code is one parameter's
-  // declaration text. Prefer the signature there, so the endpoint row of a tree reads as a signature.
+  // A signature line otherwise shows one parameter's declaration text, whichever happened to be
+  // longest. The signature itself is what a reader expects at the top of a tree.
   for (const m of g.methods) {
-    const key = stmtKey(m.file, m.line);
-    const stmt = stmts.get(key);
+    const stmt = stmts.get(stmtKey(m.file, m.line));
     if (stmt && stmt.method === m.fullName) {
       stmt.code = oneLine(`${m.typeName}.${m.name}(${m.params.map((p) => p.name).join(', ')})`);
     }
@@ -87,57 +83,71 @@ export function buildModel(g: Graph): Model {
   const edges: ValueEdge[] = [];
   const seen = new Set<string>();
   const add = (from: string, to: string, carrier: string, kind: ValueEdge['kind']) => {
-    if (!from || !to || from === to) return;
-    const id = `${kind} ${from} ${to} ${carrier}`;
+    if (!from || !to || from === to || !byId.has(from) || !byId.has(to)) return;
+    const id = `${kind} ${from} ${to}`;
     if (seen.has(id)) return;
     seen.add(id);
     edges.push({ from, to, carrier, kind });
   };
 
-  // 1. Local def-use, straight from the CPG. Joern hangs the first use of every parameter and local
-  //    off the METHOD node itself; those edges say only "this method has a body" and are dropped.
+  // 1. Def-use. Joern hangs the first use of every parameter and local off the METHOD node itself;
+  //    those edges say only "this method has a body" and are dropped.
   for (const e of g.edges) {
     const from = byId.get(e.from);
-    const to = byId.get(e.to);
-    if (!from || !to || from.label === 'METHOD') continue;
-    const a = stmtOfNode.get(e.from);
-    const b = stmtOfNode.get(e.to);
-    if (!a || !b) continue;
-    if (e.kind === 'cdg') add(a, b, `guard ${oneLine(from.code)}`, 'guard');
-    else add(a, b, carrierOf(from), 'local');
+    if (!from || from.label === 'METHOD') continue;
+    if (e.kind === 'cdg') add(e.from, e.to, `guard ${oneLine(from.code)}`, 'guard');
+    else add(e.from, e.to, carrierOf(from), 'local');
   }
 
-  // 2. Arguments into parameters, and returns back to the call site. Only for calls resolved to a
-  //    method that is in the corpus - a call into a jar has no body here to walk into.
-  const methodByFullName = new Map(g.methods.map((m) => [m.fullName, m]));
+  // 2. Composition, and the call exception.
   for (const node of g.nodes) {
-    if (node.label !== 'CALL' || !node.methodFullName) continue;
-    const callee = methodByFullName.get(node.methodFullName);
-    if (!callee) continue;
-    const at = stmtOfNode.get(node.id);
-    if (!at) continue;
     const args = node.args ?? [];
-    for (const p of callee.params) {
-      const arg = byId.get(args[p.index] ?? '');
-      const argAt = arg && stmtOfNode.get(arg.id);
-      if (argAt) add(argAt, stmtKey(callee.file, callee.line), `arg ${p.index} ${p.name}`, 'arg');
+    if (!args.length) continue;
+    const callee = node.methodFullName ? methodByFullName.get(node.methodFullName) : undefined;
+
+    if (callee) {
+      for (const p of callee.params) {
+        const arg = args[p.index];
+        if (arg) add(arg, p.id, `arg ${p.index} ${p.name}`, 'arg');
+      }
+      for (const r of callee.returns) add(r, node.id, `return of ${callee.name}()`, 'ret');
+      continue;
     }
-    for (const r of callee.returns) {
-      const retAt = stmtOfNode.get(r);
-      if (retAt) add(retAt, at, `return of ${callee.name}()`, 'ret');
+
+    // An assignment runs the other way round: the right-hand side reaches the statement, and the
+    // statement defines the left-hand side.
+    if (node.name === '<operator>.assignment' && args.length >= 2) {
+      for (const rhs of args.slice(1)) {
+        const from = byId.get(rhs);
+        if (from) add(rhs, node.id, carrierOf(from), 'local');
+      }
+      add(node.id, args[0]!, '=', 'local');
+      continue;
+    }
+
+    // Everything else composes: each sub-expression flows into the expression holding it. For a call
+    // into a jar that includes the receiver and every argument, because with no body to walk there is
+    // no evidence the result is independent of them, and a false edge is cheaper than a missing one.
+    for (const child of args) {
+      const from = byId.get(child);
+      if (from) add(child, node.id, carrierOf(from), 'local');
     }
   }
 
-  // 3. Fields. Every statement writing a member reaches every statement reading it. Deliberately
-  //    flow-insensitive: without this edge the tool misses the shape it exists to show, and with it
-  //    the worst case is an edge a reader can see is wrong. A read on the writing statement itself is
-  //    skipped by the self-edge guard, so `total = total.add(x)` does not link to itself.
-  const writes = writtenMembers(g, byId);
+  // 3. Fields. Deliberately flow-insensitive: without this edge the tool misses the shape it exists
+  //    to show, and with it the worst case is an edge a reader can see is wrong.
+  const writes = new Map<string, Set<string>>();
   for (const node of g.nodes) {
-    if (!node.member) continue;
-    const readAt = stmtOfNode.get(node.id);
-    if (!readAt) continue;
-    for (const writeAt of writes.get(node.member) ?? []) add(writeAt, readAt, `field ${node.member}`, 'field');
+    if (node.name !== '<operator>.assignment' || !node.args?.length) continue;
+    const lhs = byId.get(node.args[0]!);
+    if (!lhs?.member) continue;
+    if (!writes.has(lhs.member)) writes.set(lhs.member, new Set());
+    writes.get(lhs.member)!.add(lhs.id);
+  }
+  const written = new Set([...writes.values()].flatMap((s) => [...s]));
+  for (const node of g.nodes) {
+    if (!node.member || written.has(node.id)) continue;
+    for (const writeAt of writes.get(node.member) ?? []) add(writeAt, node.id, `field ${node.member}`, 'field');
   }
 
   return {

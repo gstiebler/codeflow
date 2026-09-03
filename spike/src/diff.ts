@@ -52,12 +52,30 @@ export function pathPrint(pair: Pair, fp: Print): string[] {
 /** Keyed on what a reader recognises. */
 const keyOf = (p: Pair) => `${p.source.label} ${p.sink.label}`;
 
-/** One pair per key, preferring the shortest witness - the clearest one to show. */
-function index(pairs: Pair[]): Map<string, Pair> {
+/**
+ * One pair per key, preferring the shortest witness - the clearest one to show.
+ *
+ * Ties are broken on the witness text, and that tiebreak is not cosmetic. A `validateForCreate` that
+ * calls six validators offers six witnesses of equal length, and if each side keeps whichever it
+ * happened to walk first, the two sides disagree about which one to show and every such pair reads
+ * as `PATH`. Measured on d602928ae that was most of the PATH rows: the report was describing its own
+ * arbitrary choice, not the commit.
+ */
+function index(pairs: Pair[], fp: Print): Map<string, Pair> {
   const out = new Map<string, Pair>();
+  const text = new Map<Pair, string>();
+  const print = (p: Pair) => {
+    let t = text.get(p);
+    if (t === undefined) text.set(p, (t = pathPrint(p, fp).join(' | ')));
+    return t;
+  };
   for (const p of pairs) {
     const seen = out.get(keyOf(p));
-    if (!seen || p.path.length < seen.path.length) out.set(keyOf(p), p);
+    if (!seen) {
+      out.set(keyOf(p), p);
+    } else if (p.path.length < seen.path.length || (p.path.length === seen.path.length && print(p) < print(seen))) {
+      out.set(keyOf(p), p);
+    }
   }
   return out;
 }
@@ -65,8 +83,8 @@ function index(pairs: Pair[]): Map<string, Pair> {
 const RANK: Record<DiffStatus, number> = { NEW: 0, GONE: 1, PATH: 2, SAME: 3 };
 
 export function diffPairs(before: Pair[], after: Pair[], fpBefore: Print, fpAfter: Print): DiffRow[] {
-  const was = index(before);
-  const now = index(after);
+  const was = index(before, fpBefore);
+  const now = index(after, fpAfter);
 
   const rows: DiffRow[] = [];
   for (const [key, pair] of was) {

@@ -108,18 +108,25 @@ export function tree(hits: Hit[], m: Model, c: Condensation): string {
 /**
  * The PR view: what the change did to the flows, loudest first.
  *
- * The unchanged rows are counted rather than listed. A reviewer needs to know the check ran over
- * everything - a report that only prints findings is indistinguishable from a report that found
- * nothing because it looked at nothing - but a page of SAME buries the three lines that matter.
+ * Only `NEW` and `GONE` are listed. That is a measurement, not a preference. Run over two Fineract
+ * commits, every one of the 13 `NEW` and `GONE` rows crossed a file the commit actually changed, and
+ * on the single-file commit all 43 `PATH` rows crossed none of it: a `PATH` compares one witness per
+ * pair, and which witness that is depends on ties broken far from the diff. The verdict is real -
+ * "the same input still reaches the same output, by different code" is the thing a which-flows-exist
+ * comparison cannot say - but a single shortest path is not enough evidence to say it with, so the
+ * count is reported and the rows are not. See FINDINGS.md.
+ *
+ * The unchanged rows are counted for the same reason: a reviewer needs to know the check ran over
+ * everything, because a report that only prints findings is indistinguishable from a report that
+ * found nothing because it looked at nothing.
  */
 export function diffReport(rows: DiffRow[]): string {
   const out: string[] = [];
   for (const row of rows) {
-    if (row.status === 'SAME') continue;
-    const note = row.status === 'PATH' ? '   (interior changed, endpoints the same)' : '';
-    out.push(`${row.status.padEnd(5)} ${row.source} -> ${row.sink}${note}`);
+    if (row.status !== 'NEW' && row.status !== 'GONE') continue;
+    out.push(`${row.status.padEnd(4)} ${row.source} -> ${row.sink}`);
   }
-  const same = rows.filter((r) => r.status === 'SAME').length;
-  out.push(`${out.length ? '\n' : ''}${same} unchanged, ${rows.length - same} changed`);
+  const count = (s: DiffRow['status']) => rows.filter((r) => r.status === s).length;
+  out.push(`${out.length ? '\n' : ''}${rows.length} pairs: ${count('NEW')} new, ${count('GONE')} gone, ${count('PATH')} same endpoints by different code, ${count('SAME')} unchanged`);
   return out.join('\n');
 }

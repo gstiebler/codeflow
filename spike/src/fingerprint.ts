@@ -44,12 +44,17 @@ function build(m: Model): Map<string, string> {
   const out = new Map<string, string>();
   for (const [method, keys] of byMethod) {
     const seen = new Map<string, number>();
+    const name = simpleMethodName(m, method);
     // In source order, so the ordinal means "the second one of these in the method".
     for (const key of keys.sort((a, b) => m.stmts.get(a)!.line - m.stmts.get(b)!.line)) {
-      const code = normalise(m.stmts.get(key)!.code);
+      // A signature row is synthesized by load.ts as `Class.method(a, b)`, so the tree reads like a
+      // call hierarchy - and the class is the one thing this name must not depend on. Without the
+      // strip, d602928ae, which moves two methods to a new class without touching a line of either
+      // body, reports every flow through them as having changed its path.
+      const code = normalise(m.stmts.get(key)!.code).replace(new RegExp(`^[\\w.$]+\\.(?=${name}\\()`), '');
       const ordinal = seen.get(code) ?? 0;
       seen.set(code, ordinal + 1);
-      out.set(key, `${simpleMethodName(m, method)}|${code}#${ordinal}`);
+      out.set(key, `${name}|${code}#${ordinal}`);
     }
   }
   return out;

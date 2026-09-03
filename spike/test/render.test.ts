@@ -51,8 +51,16 @@ test('a cycle is one row naming how many statements it holds', () => {
 test('a diff report leads with what changed and counts what did not', () => {
   const out = diffReport([
     { status: 'SAME', source: 'a', sink: 'b' },
-    { status: 'NEW', source: 'POST /loans', sink: 'throws NoSuchElementException' },
+    { status: 'PATH', source: 'c', sink: 'd' },
+    { status: 'NEW', source: 'POST /loans', sink: 'throws NoSuchElementException in pick' },
   ]);
-  assert.match(out.split('\n')[0]!, /^NEW\s+POST \/loans -> throws NoSuchElementException$/);
-  assert.match(out, /1 unchanged/);
+  assert.match(out.split('\n')[0]!, /^NEW\s+POST \/loans -> throws NoSuchElementException in pick$/);
+  assert.match(out, /3 pairs: 1 new, 0 gone, 1 same endpoints by different code, 1 unchanged/);
+});
+
+// A PATH is counted, never listed: it is one witness per pair, and the measurement in render.ts says
+// the witness moves for reasons that have nothing to do with the commit.
+test('a report does not list the rows whose endpoints are unchanged', () => {
+  const out = diffReport([{ status: 'PATH', source: 'c', sink: 'd' }]);
+  assert.ok(!out.includes('c -> d'), out);
 });

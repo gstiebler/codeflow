@@ -37,6 +37,15 @@ test('a statement that moved file, class and line still fingerprints the same', 
   );
 });
 
+// Not just the body: load.ts synthesizes the signature row as `Svc.apply(loan, amount)` so the tree
+// reads like a call hierarchy, and that text carries the class the move is changing.
+test('every statement of a moved method fingerprints the same, signature row included', () => {
+  const after = buildModel(moved());
+  const of = (model: ReturnType<typeof buildModel>, method: RegExp) =>
+    [...model.stmts.values()].filter((s) => method.test(s.method)).map((s) => fingerprint(model, s.key)).sort();
+  assert.deepEqual(of(after, /Rewritten\.apply/), of(m, /Svc\.apply/));
+});
+
 test('two identical statements in one method are told apart by their order', () => {
   const g = hand();
   const method = 'app.svc.Svc.spin:void()';

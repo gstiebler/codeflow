@@ -63,3 +63,8 @@ export function fingerprint(m: Model, key: string): string {
   }
   return table.get(key) ?? `?|${key}#0`;
 }
+
+/** The same thing for a graph node, which is what a slice path is made of. */
+export function nodeFingerprinter(m: Model): (node: string) => string {
+  return (node) => fingerprint(m, m.stmtOfNode.get(node) ?? node);
+}

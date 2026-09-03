@@ -25,3 +25,10 @@ app/src/test/resources/*/graph.json
 # node_modules only exists to build them and to run the JS tests.
 node_modules
 test-results
+# The spike (docs/superpowers/plans/2026-09-02-boundary-diff-joern-spike.md) builds Joern CPGs and
+# git worktrees of another repository under its own directory. All of it is regenerable from a
+# commit hash in seconds; none of it belongs in git.
+spike/out
+spike/worktrees
+spike/workspace
+*.cpg

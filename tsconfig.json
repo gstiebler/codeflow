@@ -15,6 +15,7 @@
   "include": [
     "app/src/main/resources/viewer/**/*.ts",
     "app/src/main/resources/viewer/**/*.tsx",
-    "app/src/test/js/**/*.ts"
+    "app/src/test/js/**/*.ts",
+    "spike/**/*.ts"
   ]
 }

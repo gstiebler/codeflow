@@ -8,6 +8,7 @@
     "typecheck": "tsc",
     "check:bundle": "node --test app/src/test/js/unit/bundle.test.ts",
     "test": "npm run typecheck && npm run check:bundle && node --test app/src/test/js/unit/*.test.ts",
+    "test:spike": "node --test spike/test/*.test.ts",
     "test:browser": "playwright test --config=app/src/test/js/playwright.config.mjs"
   },
   "devDependencies": {

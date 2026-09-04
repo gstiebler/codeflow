@@ -7,6 +7,7 @@ import { allPairs, backward, forward, indexBoundaries } from './slice.ts';
 import { nodeFingerprinter } from './fingerprint.ts';
 import { diffPairs } from './diff.ts';
 import { diffReport, tree } from './render.ts';
+import { dot } from './dot.ts';
 
 /**
  * The spike's front door.
@@ -22,7 +23,9 @@ const USAGE = `usage:
   cli.ts forward <graph.json> <File.java:123>   what the values on this line reach
   cli.ts backward <graph.json> <label>          where the values reaching this boundary came from
   cli.ts boundaries <graph.json>                every boundary the rules found
-  cli.ts boundary-diff <before.json> <after.json>`;
+  cli.ts boundary-diff <before.json> <after.json>
+  cli.ts dot forward|backward <graph.json> <File.java:123 | label>
+                                                the same slice as a Graphviz graph, on stdout`;
 
 function analyse(path: string) {
   const g: Graph = JSON.parse(readFileSync(path, 'utf8'));
@@ -50,6 +53,23 @@ if (verb === 'forward') {
   const hits = backward(c, index, targets.map((b) => b.node));
   // Rooted at what was asked about, so the tree reads outwards from the output towards its sources.
   console.log(tree(hits.map((h) => ({ ...h, path: [...h.path].reverse() })), m, c));
+} else if (verb === 'dot') {
+  // The same two questions as `forward` and `backward`, drawn instead of printed. Piped, not written:
+  // `... | dot -Tsvg > slice.svg` is one step, and which format to render is not this tool's business.
+  const [direction, file, target] = rest;
+  if (!file || !target || (direction !== 'forward' && direction !== 'backward')) throw new Error(USAGE);
+  const { m, c, bs, index } = analyse(file);
+  if (direction === 'forward') {
+    const starts = [...m.stmtOfNode].filter(([, at]) => at === target).map(([id]) => id);
+    if (!starts.length) throw new Error(`no statement ${target} in ${file}`);
+    console.log(dot(forward(c, index, starts), m, c, `forward from ${target}`, starts));
+  } else {
+    const targets = bs.filter((b) => b.label.includes(target));
+    if (!targets.length) throw new Error(`no boundary matching ${target} in ${file}`);
+    const hits = backward(c, index, targets.map((b) => b.node));
+    const drawn = hits.map((h) => ({ ...h, path: [...h.path].reverse() }));
+    console.log(dot(drawn, m, c, `backward from ${target}`, targets.map((b) => b.node)));
+  }
 } else if (verb === 'boundaries') {
   const [file] = rest;
   if (!file) throw new Error(USAGE);

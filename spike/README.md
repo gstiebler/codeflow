@@ -26,6 +26,9 @@ node spike/src/cli.ts boundaries    spike/out/before.json
 node spike/src/cli.ts forward       spike/out/before.json path/To/File.java:123
 node spike/src/cli.ts backward      spike/out/before.json 'LoanRepository.save'
 node spike/src/cli.ts boundary-diff spike/out/before.json spike/out/after.json
+
+# Or draw the same slice instead of printing it. Graphviz, on stdout.
+node spike/src/cli.ts dot forward spike/out/before.json path/To/File.java:123 | dot -Tsvg > slice.svg
 ```
 
 A large corpus needs `node --max-old-space-size=24576`: the graph JSON is 186 MB for 254k nodes.
@@ -48,12 +51,12 @@ PATH throws IndexOutOfBoundsException in allocateToCharges
 but whose middle is not. All three are trustworthy: across the three commits in FINDINGS.md every
 `NEW` and `GONE` row, and every `PATH` row, ran through a file the commit actually changed. `PATH`'s
 weakness is volume rather than truth - a change to code that most requests run through reports most
-pairs - and FINDINGS.md says what would fix that. EXAMPLES.md has the full output of all four verbs.
+pairs - and FINDINGS.md says what would fix that. EXAMPLES.md has the full output of every verb.
 
 ## Tests
 
 ```bash
-npm run test:spike           # 58 tests, ~200 ms, never invokes Joern
+npm run test:spike           # 65 tests, ~200 ms, never invokes Joern
 ./spike/test/extract.sh      # builds a CPG from spike/fixtures/tiny and checks it against the fixture
 ```
 
@@ -78,7 +81,8 @@ the fixture is lying about Joern.
 | `src/diff.ts` | the four verdicts. |
 | `precision.ts` | grading the verdicts against what each commit actually edited. |
 | `src/render.ts` | the tree and the report. |
-| `src/cli.ts` | four verbs, no options. |
+| `src/dot.ts` | the same slice as a picture: one box per source line, boundaries filled. |
+| `src/cli.ts` | five verbs, no options. |
 
 Two of those carry a lesson that cost real time and is written at the top of the file:
 `load.ts` on why the graph is over Joern node ids and not over source lines, and `boundaries.ts` on

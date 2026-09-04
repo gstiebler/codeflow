@@ -1,7 +1,7 @@
 # What the tool prints
 
 Every block below is real output, copied unedited from a run over Fineract. The corpus for the
-first three is `fineract-working-capital-loan/src/main/java` (316 files, 46k graph nodes) at
+first four is `fineract-working-capital-loan/src/main/java` (316 files, 46k graph nodes) at
 `542da12e6`; the diffs at the end are the three acceptance commits from FINDINGS.md.
 
 Reproduce any of them with `spike/build-cpg.sh` and `spike/dump.sh` (see README.md), then the
@@ -98,6 +98,63 @@ field of a service two classes away. That is the answer the design document want
 call hierarchy cannot give: `getDefaultAllocationRule` is called from exactly one place.
 
 ---
+
+## `dot` - the same slice, drawn
+
+`forward` and `backward` answer their question as a tree, which is a lie of convenience: the slice
+is a graph, and a tree has to repeat a node that two routes reach. `dot` prints the graph itself,
+in Graphviz, on stdout - `| dot -Tsvg > slice.svg` is the whole workflow, and which format to
+render is not this tool's business.
+
+```bash
+node spike/src/cli.ts dot forward spike/out/542/after.json \
+  org/apache/fineract/portfolio/workingcapitalloan/service/WorkingCapitalLoanAllocationRequestFactory.java:52 \
+  | dot -Tsvg > forward.svg
+```
+
+27 boxes and 36 edges for the slice whose tree is above. One box per **source line**, not per graph
+node: `getAllocationRule(loan, transactionType).getAllocationTypes()` is four nodes and one line,
+and drawing it four times fills a column with identical rectangles. A cycle is one box saying how
+many statements it stands for. Boundaries are filled by kind - blue `net`, green `db`, amber
+`json`, pink `throw` - and the line you asked about is outlined in blue.
+
+```
+  "…/WorkingCapitalLoanAllocationRequestFactory.java:52" [label="WorkingCapitalLoanAllocationRequestFactory.java:52\ngetAllocationRule(loan, transactionType).getAllocationTypes()", color="#1d4ed8", penwidth=2.4];
+  "…/WorkingCapitalLoanAllocationRequestFactory.java:65" [label="WorkingCapitalLoanAllocationRequestFactory.java:65\nreturn loan.getPaymentAllocationRules().stream().filter(rule -> rule.ge…\nthrows NoSuchElementException in getDefaultAllocationRule", fillcolor="#fee2e2", color="#334155", penwidth=1.6];
+  "30064782061" [label="⟳ cycle, 45 stmts\nfor (int i = 0; i < charges.size(); i++)", peripheries=2];
+```
+
+Edges carry the carrier, as in the tree; a field write-then-read is dashed and a guard is dotted.
+Unlike the tree, every edge between two kept boxes is drawn, not just the ones on a witness route -
+the picture is the reason to prefer it.
+
+`backward` works the same way and takes the boundary label:
+
+```bash
+node spike/src/cli.ts dot backward spike/out/542/after.json getDefaultAllocationRule | dot -Tsvg > backward.svg
+```
+
+29 boxes, 36 edges: five green repository reads converging on one pink throw.
+
+### Why not `joern-export`
+
+Joern ships an exporter, and it does not work on this corpus. On `spike/out/542/after.cpg` every
+`--repr` (`ddg`, `cdg`, `pdg`, `cpg14`, `all`) wrote zero files and died:
+
+```
+CPG does not have dataflow overlay. Calculating.
+ERROR ReachingDefPass Pass io.joern.dataflowengineoss.passes.reachingdef.ReachingDefPass failed
+flatgraph.SchemaViolationException: OUT edge with label REF to an adjacent METHOD is mandatory,
+  but not defined for this METHOD_REF node with id=120259084455
+```
+
+It recomputes the dataflow overlay rather than reading the 80,960 `REACHING_DEF` edges already in
+the file, and the recomputation trips over an unresolved `Foo::bar` method reference, of which
+Fineract has many. On the six-file `tiny.cpg` it does run, and the DDG comes out empty: 3 edges for
+`addCharge` where our own dump reads 34.
+
+Even working, it would be the wrong picture. `joern-export` draws one method at a time; the flows
+this tool exists to show cross methods, classes and fields.
 
 ## `boundary-diff` - what a commit did to the flows
 

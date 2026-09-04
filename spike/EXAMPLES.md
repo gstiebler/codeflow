@@ -136,6 +136,38 @@ node spike/src/cli.ts dot backward spike/out/542/after.json getDefaultAllocation
 
 29 boxes, 36 edges: five green repository reads converging on one pink throw.
 
+### The sample application, whole
+
+`spike/fixtures/tiny` is six Java files, and the graph of it fits on a page - 10 boxes, 11 edges,
+which is the entire application:
+
+```bash
+./spike/build-cpg.sh spike/fixtures/tiny spike/out/tiny.cpg && ./spike/dump.sh spike/out/tiny.cpg spike/out/tiny.json tiny
+node spike/src/cli.ts dot forward spike/out/tiny.json app/api/Api.java:17 | dot -Tsvg > tiny.svg
+```
+
+```
+  "app/api/Api.java:17" [label="Api.java:17\nApi.addCharge(id, amount)\nPOST /loans/{id}/charge", fillcolor="#dbeafe", color="#1d4ed8", penwidth=2.4];
+  "app/api/Api.java:18" [label="Api.java:18\nLoan loan = repo.findById(id)\nLoanRepository.findById", fillcolor="#dcfce7", color="#334155", penwidth=1.6];
+  "app/svc/Svc.java:14" [label="Svc.java:14\nthis.total = amount"];
+  "app/api/Api.java:17" -> "app/api/Api.java:18" [label="id"];
+  "app/api/Api.java:19" -> "app/svc/Svc.java:13" [label="arg 2 amount"];
+  "app/svc/Svc.java:14" -> "app/svc/Svc.java:15" [label="field Svc.total", style=dashed];
+  "app/svc/Svc.java:17" -> "app/api/Api.java:19" [label="return of apply()"];
+```
+
+Four of the five edge kinds are visible in seven lines: `amount` walks in as an HTTP parameter,
+crosses into `Svc.apply` as `arg 2`, is stored in a field and read back out of it by the dashed
+`field Svc.total` hop that no call connects, and comes home as `return of apply()`. It reaches
+three boundaries - the DB write, the DB read that feeds it, and the response - and the picture says
+which each is.
+
+Two things in the fixture do *not* appear, and should not: `Svc.pick()` (the throw) and
+`Svc.spin()` (the cycle) are called by nobody, so no boundary-to-boundary slice runs through them.
+`cli.ts dot backward spike/out/tiny.json NoSuchElementException` draws an empty graph for the same
+reason, which is the honest answer to "where do the values reaching this throw come from": nowhere
+outside its own method.
+
 ### Why not `joern-export`
 
 Joern ships an exporter, and it does not work on this corpus. On `spike/out/542/after.cpg` every

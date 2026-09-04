@@ -12,7 +12,7 @@ const c = condense(m);
 const bs = boundaries(m);
 const index = indexBoundaries(c, bs);
 const starts = bs.filter((b) => b.label === 'POST /loans/{id}/charge').map((b) => b.node);
-const out = dot(forward(c, index, starts), m, c, 'forward from the endpoint', starts);
+const out = dot(forward(c, index, starts), m, c, bs, 'forward from the endpoint', starts);
 
 const boxes = out.split('\n').filter((l) => /^ {2}"[^"]+" \[/.test(l));
 const edges = out.split('\n').filter((l) => l.includes('->'));
@@ -56,6 +56,12 @@ test('quotes in source do not break the file', () => {
   const m2 = buildModel(g);
   const c2 = condense(m2);
   const bs2 = boundaries(m2);
-  const out2 = dot(forward(c2, indexBoundaries(c2, bs2), starts), m2, c2, 'q');
+  const out2 = dot(forward(c2, indexBoundaries(c2, bs2), starts), m2, c2, bs2, 'q');
   assert.ok(out2.includes('\\"1\\"'), out2);
+});
+
+test('the boundary the walk starts from says what it is, not only the ones it ends on', () => {
+  const entry = boxes.find((l) => l.includes('penwidth=2.4'))!;
+  assert.ok(entry.includes('POST /loans/{id}/charge'), entry);
+  assert.ok(entry.includes(`fillcolor="#dbeafe"`), entry);
 });

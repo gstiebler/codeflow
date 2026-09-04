@@ -63,21 +63,34 @@ function nodeLabel(m: Model, c: Condensation, node: string): string {
   return `${head}\n${clip(code)}`;
 }
 
-export function dot(hits: Hit[], m: Model, c: Condensation, title: string, focus: string[] = []): string {
-  // What the walk kept, folded to boxes, and which of those a boundary sits on.
+export function dot(
+  hits: Hit[],
+  m: Model,
+  c: Condensation,
+  bs: Boundary[],
+  title: string,
+  focus: string[] = [],
+): string {
+  // What the walk kept, folded to boxes.
   const kept = new Set<string>();
   const box = new Map<string, string>();
-  const ends = new Map<string, Boundary[]>();
   const at = (node: string) => {
     let id = box.get(node);
     if (id === undefined) box.set(node, (id = boxOf(m, c, node)));
     return id;
   };
-  for (const hit of hits) {
-    for (const step of hit.path) kept.add(at(step.node));
-    const last = at(hit.path[hit.path.length - 1]!.node);
-    if (!ends.has(last)) ends.set(last, []);
-    if (!ends.get(last)!.some((b) => b.key === hit.boundary.key)) ends.get(last)!.push(hit.boundary);
+  for (const hit of hits) for (const step of hit.path) kept.add(at(step.node));
+
+  // Which of those boxes a boundary sits on. Taken from the boundary list rather than from where the
+  // walks ended, because the line a forward walk *starts* on is usually a boundary too - the endpoint
+  // whose parameters the question was about - and a picture that does not say so is hiding the half
+  // of the flow the reader already knows.
+  const ends = new Map<string, Boundary[]>();
+  for (const b of bs) {
+    const id = boxOf(m, c, b.node);
+    if (!kept.has(id)) continue;
+    if (!ends.has(id)) ends.set(id, []);
+    if (!ends.get(id)!.some((x) => x.key === b.key)) ends.get(id)!.push(b);
   }
 
   const lines = [
@@ -94,11 +107,11 @@ export function dot(hits: Hit[], m: Model, c: Condensation, title: string, focus
     const boundaries = ends.get(node);
     const head = nodeLabel(m, c, node);
     const attrs = [`label=${quote(boundaries ? `${head}\n${boundaries.map((b) => b.label).join('\n')}` : head)}`];
-    if (boundaries) {
-      // A boundary box says what it is, because that is the reason the walk stopped there.
-      attrs.push(`fillcolor="${FILL[boundaries[0]!.kind]}"`, 'color="#334155"', 'penwidth=1.6');
-    }
+    // A boundary box says what it is, because that is the reason the walk stopped there.
+    if (boundaries) attrs.push(`fillcolor="${FILL[boundaries[0]!.kind]}"`);
+    // The outline is either-or: the line asked about takes it, even when that line is a boundary.
     if (asked.has(node)) attrs.push('color="#1d4ed8"', 'penwidth=2.4');
+    else if (boundaries) attrs.push('color="#334155"', 'penwidth=1.6');
     if (size(c, node) > 1) attrs.push('peripheries=2');
     lines.push(`  ${quote(node)} [${attrs.join(', ')}];`);
   }

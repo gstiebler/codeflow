@@ -56,7 +56,7 @@ pairs - and FINDINGS.md says what would fix that. EXAMPLES.md has the full outpu
 ## Tests
 
 ```bash
-npm run test:spike           # 65 tests, ~200 ms, never invokes Joern
+npm run test:spike           # 66 tests, ~200 ms, never invokes Joern
 ./spike/test/extract.sh      # builds a CPG from spike/fixtures/tiny and checks it against the fixture
 ```
 

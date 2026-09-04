@@ -62,13 +62,13 @@ if (verb === 'forward') {
   if (direction === 'forward') {
     const starts = [...m.stmtOfNode].filter(([, at]) => at === target).map(([id]) => id);
     if (!starts.length) throw new Error(`no statement ${target} in ${file}`);
-    console.log(dot(forward(c, index, starts), m, c, `forward from ${target}`, starts));
+    console.log(dot(forward(c, index, starts), m, c, bs, `forward from ${target}`, starts));
   } else {
     const targets = bs.filter((b) => b.label.includes(target));
     if (!targets.length) throw new Error(`no boundary matching ${target} in ${file}`);
     const hits = backward(c, index, targets.map((b) => b.node));
     const drawn = hits.map((h) => ({ ...h, path: [...h.path].reverse() }));
-    console.log(dot(drawn, m, c, `backward from ${target}`, targets.map((b) => b.node)));
+    console.log(dot(drawn, m, c, bs, `backward from ${target}`, targets.map((b) => b.node)));
   }
 } else if (verb === 'boundaries') {
   const [file] = rest;

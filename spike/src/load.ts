@@ -1,4 +1,4 @@
-import type { Graph, Model, NodeFact, Stmt, ValueEdge } from './types.ts';
+import type { Graph, MethodFact, Model, NodeFact, Stmt, ValueEdge } from './types.ts';
 
 /**
  * Joern's CPG, turned into the value graph everything downstream walks.

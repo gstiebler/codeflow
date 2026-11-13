@@ -13,7 +13,7 @@ import type { Graph, Model, NodeFact, Stmt, ValueEdge } from './types.ts';
  * clear they were one bug. Keeping Joern's nodes and folding down to lines at render time has no such
  * cases.
  *
- * Four edge kinds, and four is the whole model:
+ * Four edge kinds, and four is the whole model (callbacks, below, reuse `arg` and `ret`):
  *
  * 1. **def-use**, straight from the CPG's REACHING_DEF edges.
  * 2. **composition**, every expression flowing into the expression that contains it - except across a
@@ -24,6 +24,22 @@ import type { Graph, Model, NodeFact, Stmt, ValueEdge } from './types.ts';
  *    this: measured on a Fineract module, a setter-then-getter pair returns zero flows, which is
  *    exactly the shape the rate-factor bug had.
  * 4. **guards**, from the CPG's control-dependence edges.
+ *
+ * **Callbacks** are part of rule 2, not a fifth rule. Joern models a lambda as a method of its own,
+ * `<lambda>N`, and a call that takes one carries a METHOD_REF argument naming it; measured, the
+ * lambda's METHOD_REF has `typeFullName` equal to the lambda itself, not the functional interface,
+ * so the interface is read off the parameter the lambda is passed to instead. Three cases:
+ *
+ * - *Into a jar* (`list.forEach(x -> ..)`): the jar's body is invisible, so the receiver and the
+ *   other non-callback arguments flow to every declared parameter of the callback (index >= 1; slot
+ *   0 is the captured `this`), and the callback's returns flow back to the call. A reference to a
+ *   method with no body, `repo::save`, is a node of its own that the same arguments flow into, which
+ *   is what lets a boundary sit on it.
+ * - *Into the corpus* (`runner.run(v, x -> ..)`): nothing here, the callee's own parameter carries
+ *   the callback, and the type of that parameter is recorded against the callback.
+ * - *Dispatch* (`cb.call(v)` where `call` has no body): arguments flow to the parameters of every
+ *   callback recorded for that interface type, and their returns back. Over-approximate, as the rest
+ *   of this file is; it reaches only types that were seen carrying a callback.
  */
 
 const MAX_CODE = 160;
@@ -125,11 +141,55 @@ export function buildModel(g: Graph): Model {
     add(e.from, e.to, carrierOf(from), 'local');
   }
 
+  // Callback targets. A METHOD_REF's `methodFullName` drops the `(n)` arity suffix when it is a
+  // reference like `repo::save`, so both sides are keyed without it.
+  const unarity = (fullName: string) => fullName.replace(/\(\d+\)$/, '');
+  const methodsByBase = new Map<string, MethodFact[]>();
+  for (const m of g.methods) {
+    const key = unarity(m.fullName);
+    methodsByBase.set(key, [...(methodsByBase.get(key) ?? []), m]);
+  }
+  const targetsOf = (ref: NodeFact | undefined) =>
+    ref?.label === 'METHOD_REF' && ref.methodFullName ? (methodsByBase.get(unarity(ref.methodFullName)) ?? []) : [];
+
+  // Which callbacks were handed to a parameter of a corpus method, keyed by that parameter's type.
+  const carried = new Map<string, Set<MethodFact>>();
+  for (const node of g.nodes) {
+    const callee = node.methodFullName ? methodByFullName.get(node.methodFullName) : undefined;
+    if (!callee) continue;
+    for (const p of callee.params) {
+      if (p.type === 'ANY') continue;
+      for (const target of targetsOf(byId.get(node.args?.[p.index] ?? ''))) {
+        if (!carried.has(p.type)) carried.set(p.type, new Set());
+        carried.get(p.type)!.add(target);
+      }
+    }
+  }
+
+  /** The callback's declared parameters take `from`, and its returns come back to `call`. */
+  const invoke = (target: MethodFact, from: string[], call: string) => {
+    for (const p of target.params) {
+      if (p.index < 1) continue;
+      for (const arg of from) add(arg, p.id, `callback arg ${p.index} ${p.name}`, 'arg');
+    }
+    for (const r of target.returns) add(r, call, `return of ${target.name}()`, 'ret');
+  };
+
   // 2. Composition, and the call exception.
   for (const node of g.nodes) {
     const args = node.args ?? [];
     if (!args.length) continue;
     const callee = node.methodFullName ? methodByFullName.get(node.methodFullName) : undefined;
+
+    // A callback handed to a call into a jar: the jar is what invokes it, with what it was given.
+    if (!callee) {
+      const refs = args.filter((a) => byId.get(a)?.label === 'METHOD_REF');
+      const given = args.filter((a) => a && byId.has(a) && !refs.includes(a));
+      for (const ref of refs) {
+        for (const a of given) add(a, ref, 'callback arg', 'arg');
+        for (const target of targetsOf(byId.get(ref))) invoke(target, given, node.id);
+      }
+    }
 
     if (callee) {
       for (const p of callee.params) {
@@ -144,6 +204,8 @@ export function buildModel(g: Graph): Model {
       // repository read is reachable at all - measured on the tiny fixture, where it removed every
       // pair but one.
       if (callee.returns.length) continue;
+      // And an interface call with no body dispatches to whatever callbacks were seen for that type.
+      for (const target of carried.get(callee.typeFullName) ?? []) invoke(target, args, node.id);
     }
 
     // An assignment runs the other way round: the right-hand side reaches the statement, and the

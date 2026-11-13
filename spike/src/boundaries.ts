@@ -124,6 +124,17 @@ export function boundaries(m: Model): Boundary[] {
   void stmtKey;
 
   for (const node of m.graph.nodes) {
+    // A reference to a repository method, `repo::save`, is the call the framework makes later. It
+    // has no CALL node, so it is the boundary itself, labelled as the direct call would be.
+    if (node.label === 'METHOD_REF' && node.methodFullName) {
+      const owner = simpleName(node.typeFullName ?? '');
+      const name = /\.([^.:]+)(:|$)/.exec(node.methodFullName)?.[1] ?? '';
+      if (owner.endsWith('Repository')) {
+        if (REPOSITORY_WRITE.test(name)) add(node.id, 'out', 'db', `${owner}.${name}`);
+        else if (REPOSITORY_READ.test(name)) add(node.id, 'in', 'db', `${owner}.${name}`);
+      }
+      continue;
+    }
     if (node.label !== 'CALL' || !node.name) continue;
     const at = node.id;
     const produced = node.id;

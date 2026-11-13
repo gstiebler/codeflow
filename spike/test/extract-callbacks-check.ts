@@ -9,8 +9,8 @@ import { tree } from '../src/render.ts';
 
 /**
  * Which callback flows does the dataflow follow today? Run by `extract-callbacks.sh`, never by
- * `node --test`. Only the control is asserted; the other scenarios are printed, because the point is
- * a baseline that a later improvement moves from GAP to FOUND.
+ * `node --test`. All six scenarios are asserted FOUND. A GAP is still printed with the walk that
+ * stops short, so a regression says where the chain broke.
  */
 
 const path = process.argv[2];
@@ -68,5 +68,5 @@ for (const [title, name] of scenarios) {
   }
 }
 
-assert.ok(found('direct'), 'control: direct repo.save(param) must be found');
+for (const [title, name] of scenarios) assert.ok(found(name), `scenario not followed: ${title}`);
 console.log('\nOK');

@@ -109,14 +109,21 @@ import java.io.PrintWriter
       "\"returns\":" + returns.mkString("[", ",", "]"),
     ).mkString(",") + "}"
 
-    for (n <- m.ast.l if KEEP.contains(n.label) && n.lineNumber.isDefined) {
+    // A lambda's METHOD_REF has no line number of its own, and is the only handle a call has on the
+    // lambda, so it is kept and given its parent's line.
+    def lineOf(n: nodes.AstNode): Option[Int] = n.lineNumber.map(_.toInt).orElse(n match {
+      case r: nodes.MethodRef => r.astParent.lineNumber.map(_.toInt)
+      case _                  => None
+    })
+
+    for (n <- m.ast.l if KEEP.contains(n.label) && lineOf(n).isDefined) {
       emitted += n.id
       val fields = scala.collection.mutable.ListBuffer(
         "\"id\":" + q(n.id.toString),
         "\"label\":" + q(n.label),
         "\"code\":" + q(n.code),
         "\"file\":" + q(file),
-        "\"line\":" + n.lineNumber.getOrElse(-1),
+        "\"line\":" + lineOf(n).getOrElse(-1),
         "\"method\":" + q(fullName),
       )
 
@@ -151,6 +158,9 @@ import java.io.PrintWriter
               fields += "\"member\":" + q(owner + "." + f.canonicalName)
             }
           }
+
+        case r: nodes.MethodRef =>
+          fields += "\"methodFullName\":" + q(r.methodFullName)
 
         case r: nodes.Return =>
           fields += "\"args\":" + r.astChildren.l.map(x => q(x.id.toString)).mkString("[", ",", "]")

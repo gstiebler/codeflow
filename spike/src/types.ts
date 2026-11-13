@@ -63,7 +63,8 @@ export type NodeFact = {
   method: string;
   /** CALL only: the callee's simple name. */
   name?: string;
-  /** CALL only: the resolved callee, or a `<unresolved...>` marker. */
+  /** CALL: the resolved callee, or a `<unresolved...>` marker. METHOD_REF: the method or lambda it
+   * names, which for `repo::save` has no `(n)` arity suffix. */
   methodFullName?: string;
   /** CALL only: the static type of argument 0, i.e. what the call is made on. */
   receiverType?: string;

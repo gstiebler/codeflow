@@ -16,6 +16,7 @@ gives up.
 
 ```bash
 # 1. Build a CPG from a source tree. ~15 s for 300 files, ~30 s for 1200.
+#    Optional: DELOMBOK_MODE=types-only DELOMBOK_JAVA=<java17 binary> resolves Lombok types.
 ./spike/build-cpg.sh /path/to/module/src/main/java spike/out/before.cpg
 
 # 2. Dump it to JSON. ~10 s. The script does no analysis at all.

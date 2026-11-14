@@ -18,12 +18,8 @@ flowchart TD
     n12["total"]:::VARIABLE
   end
   n0 --> n12
-  n1 -->|if| n0
   n1 -->|if| n11
   n1 -->|if| n12
-  n1 -->|if| n3
-  n1 -->|if| n4
-  n1 -->|if| n8
   n1 -->|if| n9
   n10 --> n2
   n11 --> n0

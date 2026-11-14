@@ -14,7 +14,6 @@ flowchart TD
     n8["result"]:::VARIABLE
   end
   n0 --> n1
-  n1 --> n6
   n1 --> n8
   n2 --> n0
   n3 --> n0

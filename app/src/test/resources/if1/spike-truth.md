@@ -13,8 +13,6 @@ flowchart TD
     n7["c"]:::VARIABLE
     n8["d"]:::VARIABLE
   end
-  n0 -->|if| n1
-  n0 -->|if| n2
   n0 -->|if| n5
   n0 -->|if| n6
   n1 --> n6

@@ -35,26 +35,16 @@ flowchart TD
     n25["c"]:::VARIABLE
     n26["d"]:::VARIABLE
   end
-  n0 -->|if| n10
-  n0 -->|if| n11
   n0 -->|if| n13
-  n1 -->|if| n0
   n1 -->|if| n12
   n1 -->|if| n13
   n1 -->|if| n14
-  n1 -->|if| n2
-  n1 -->|if| n4
-  n1 -->|if| n6
-  n1 -->|if| n7
-  n1 -->|if| n8
   n10 --> n13
   n11 --> n13
   n12 --> n24
   n13 --> n12
   n13 --> n14
   n14 --> n12
-  n15 -->|if| n18
-  n15 -->|if| n19
   n15 -->|if| n20
   n16 --> n15
   n17 --> n15
@@ -63,7 +53,6 @@ flowchart TD
   n2 -->|if| n12
   n2 -->|if| n13
   n2 -->|if| n14
-  n2 -->|if| n9
   n20 --> n26
   n21 --> n3
   n22 --> n23

@@ -9,28 +9,20 @@ flowchart TD
     n3["0"]:::LITERAL
     n4["1"]:::LITERAL
     n5["2"]:::LITERAL
-    n6["4"]:::LITERAL
-    n7["Config"]:::OBJ_VARIABLE
-    n8["DOWN"]:::OBJ_VARIABLE
-    n9["UP"]:::OBJ_VARIABLE
-    n10["fromExpression"]:::VARIABLE
-    n11["fromStatement"]:::VARIABLE
-    n12["out"]:::VARIABLE
+    n6["Config"]:::OBJ_VARIABLE
+    n7["fromExpression"]:::VARIABLE
+    n8["fromStatement"]:::VARIABLE
+    n9["out"]:::VARIABLE
   end
-  n0 --> n12
-  n1 -->|if| n11
-  n1 -->|if| n4
-  n1 -->|if| n5
-  n1 -->|if| n9
-  n10 --> n0
-  n11 --> n0
-  n2 -->|if| n6
-  n2 -->|if| n8
-  n3 --> n11
-  n4 --> n11
-  n5 --> n11
-  n7 --> n1
-  n7 --> n2
+  n0 --> n9
+  n1 -->|if| n8
+  n3 --> n8
+  n4 --> n8
+  n5 --> n8
+  n6 --> n1
+  n6 --> n2
+  n7 --> n0
+  n8 --> n0
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

@@ -31,14 +31,8 @@ flowchart TD
   n13 --> n5
   n14 --> n12
   n15 --> n12
-  n2 -->|if| n0
-  n2 -->|if| n1
   n2 -->|if| n10
   n2 -->|if| n11
-  n2 -->|if| n3
-  n2 -->|if| n4
-  n2 -->|if| n6
-  n2 -->|if| n9
   n3 --> n10
   n4 --> n2
   n5 --> n11

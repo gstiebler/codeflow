@@ -22,22 +22,14 @@ flowchart TD
     n14["result"]:::VARIABLE
   end
   n0 --> n10
-  n1 -->|if| n0
   n1 -->|if| n10
   n1 -->|if| n11
   n1 -->|if| n12
-  n1 -->|if| n5
-  n1 -->|if| n6
-  n1 -->|if| n8
   n10 --> n14
   n11 --> n0
   n12 --> n0
   n13 --> n3
-  n2 -->|if| n1
   n2 -->|if| n10
-  n2 -->|if| n3
-  n2 -->|if| n4
-  n2 -->|if| n7
   n3 --> n1
   n3 --> n2
   n4 --> n10

@@ -7,56 +7,45 @@ flowchart TD
     n1["+"]:::BIN_OP
     n2["-"]:::BIN_OP
     n3["sizeOf"]:::BIN_OP
-    n4["throw"]:::BIN_OP
-    n5["#lt;init#gt;"]:::EXTERNAL
-    n6["ANY"]:::EXTERNAL
-    n7["args"]:::FUNC_PARAM
-    n8["#quot;unsupported#quot;"]:::LITERAL
-    n9["0"]:::LITERAL
-    n10["11"]:::LITERAL
-    n11["13"]:::LITERAL
-    n12["1"]:::LITERAL
-    n13["2"]:::LITERAL
-    n14["2"]:::LITERAL
-    n15["3"]:::LITERAL
-    n16["41"]:::LITERAL
-    n17["7"]:::LITERAL
-    n18["$obj0"]:::OBJ_VARIABLE
-    n19["base"]:::VARIABLE
-    n20["bonus"]:::VARIABLE
-    n21["doubled"]:::VARIABLE
-    n22["fallback"]:::VARIABLE
-    n23["kind"]:::VARIABLE
-    n24["note"]:::VARIABLE
-    n25["out"]:::VARIABLE
-    n26["total"]:::VARIABLE
+    n4["#lt;init#gt;"]:::EXTERNAL
+    n5["ANY"]:::EXTERNAL
+    n6["args"]:::FUNC_PARAM
+    n7["#quot;unsupported#quot;"]:::LITERAL
+    n8["0"]:::LITERAL
+    n9["11"]:::LITERAL
+    n10["13"]:::LITERAL
+    n11["2"]:::LITERAL
+    n12["41"]:::LITERAL
+    n13["7"]:::LITERAL
+    n14["$obj0"]:::OBJ_VARIABLE
+    n15["base"]:::VARIABLE
+    n16["bonus"]:::VARIABLE
+    n17["doubled"]:::VARIABLE
+    n18["fallback"]:::VARIABLE
+    n19["kind"]:::VARIABLE
+    n20["note"]:::VARIABLE
+    n21["out"]:::VARIABLE
+    n22["total"]:::VARIABLE
   end
-  n0 --> n21
-  n1 --> n25
-  n10 --> n20
-  n11 --> n22
-  n14 --> n0
-  n16 --> n24
-  n17 --> n19
-  n18 --> n5
-  n20 --> n0
-  n22 --> n2
-  n23 -->|if| n12
-  n23 -->|if| n13
-  n23 -->|if| n15
-  n23 -->|if| n18
-  n23 -->|if| n4
-  n23 -->|if| n5
-  n23 -->|if| n6
-  n23 -->|if| n8
-  n24 --> n1
-  n24 --> n2
-  n26 --> n1
-  n3 --> n23
-  n6 --> n18
-  n7 --> n3
-  n8 --> n5
-  n9 --> n24
+  n0 --> n17
+  n1 --> n21
+  n10 --> n18
+  n11 --> n0
+  n12 --> n20
+  n13 --> n15
+  n14 --> n4
+  n16 --> n0
+  n18 --> n2
+  n19 -->|if| n14
+  n20 --> n1
+  n20 --> n2
+  n22 --> n1
+  n3 --> n19
+  n5 --> n14
+  n6 --> n3
+  n7 --> n4
+  n8 --> n20
+  n9 --> n16
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

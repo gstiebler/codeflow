@@ -16,10 +16,6 @@ flowchart TD
     n10["value"]:::VARIABLE
   end
   n0 --> n2
-  n0 -->|if| n1
-  n0 -->|if| n10
-  n0 -->|if| n7
-  n0 -->|if| n8
   n1 --> n2
   n10 --> n1
   n2 --> n9

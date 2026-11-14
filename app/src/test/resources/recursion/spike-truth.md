@@ -20,11 +20,6 @@ flowchart TD
   n0 --> n7
   n1 --> n3
   n10 --> n3
-  n2 -->|if| n0
-  n2 -->|if| n1
-  n2 -->|if| n3
-  n2 -->|if| n5
-  n2 -->|if| n6
   n2 -->|if| n7
   n3 --> n0
   n3 --> n1

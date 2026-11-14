@@ -1,4 +1,4 @@
-import type { Model, NodeFact } from './types.ts';
+import type { ValueEdge, Model, NodeFact } from './types.ts';
 
 /**
  * A condensed view of `m.edges`, in the style of the Kotlin engine's truth.md: variables collapse to
@@ -26,6 +26,26 @@ const SIMPLE = new Set(['int', 'long', 'short', 'byte', 'char', 'boolean', 'floa
 
 /** `field` nodes are keyed without a method and sort after every method key. */
 const FIELD_PREFIX = '~field|';
+
+/**
+ * Guard edges run from a condition to every node evaluated in the branch it controls. Only the writes
+ * the condition decides are worth drawing: the defined variable or field of an assignment (Joern
+ * targets the assignment call, which maps to its left-hand side) and a RETURN. Reads, literals,
+ * operators and calls are dropped. Other edges pass through untouched.
+ */
+export function trimGuards(m: Model): ValueEdge[] {
+  const isAssignment = (n: NodeFact) => n.label === 'CALL' && !!n.name?.startsWith('<operator>.assignment');
+  const lhsOf = (n: NodeFact) => n.args?.find(Boolean); // args[0] is the empty receiver slot
+  const defined = new Set<string>();
+  for (const n of m.byId.values()) if (isAssignment(n) && lhsOf(n)) defined.add(lhsOf(n)!);
+  return m.edges.flatMap((e) => {
+    if (e.kind !== 'guard') return [e];
+    const t = m.byId.get(e.to)!;
+    if (t.label === 'RETURN' || defined.has(t.id)) return [e];
+    if (isAssignment(t) && lhsOf(t)) return [{ ...e, to: lhsOf(t)! }];
+    return [];
+  });
+}
 
 export function condense(m: Model): { nodes: CNode[]; edges: CEdge[]; keyOf: Map<string, string> } {
   const { byId } = m;
@@ -76,7 +96,7 @@ export function condense(m: Model): { nodes: CNode[]; edges: CEdge[]; keyOf: Map
 
   // Pass 2: contract dropped nodes.
   const out = new Map<string, { to: string; guard: boolean }[]>();
-  for (const e of m.edges) (out.get(e.from) ?? out.set(e.from, []).get(e.from)!).push({ to: e.to, guard: e.kind === 'guard' });
+  for (const e of trimGuards(m)) (out.get(e.from) ?? out.set(e.from, []).get(e.from)!).push({ to: e.to, guard: e.kind === 'guard' });
   const edges = new Set<string>();
   for (const [id, c] of info) {
     const seen = new Set<string>();
@@ -95,6 +115,11 @@ export function condense(m: Model): { nodes: CNode[]; edges: CEdge[]; keyOf: Map
     walk(id, '', true);
   }
   const nodes = new Map([...info.values()].map((c) => [c.key, c]));
+  // The same pair as both a plain and an `if` edge keeps the plain one.
+  for (const k of [...edges]) {
+    const [from, to, label] = JSON.parse(k) as [string, string, string];
+    if (label === 'if' && edges.has(JSON.stringify([from, to, ''])) ) edges.delete(k);
+  }
   return {
     keyOf: new Map([...info].map(([id, c]) => [id, c.key])),
     nodes: [...nodes.values()],

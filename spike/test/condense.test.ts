@@ -3,18 +3,19 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import type { Graph, Model, NodeFact } from '../src/types.ts';
 import { buildModel } from '../src/load.ts';
-import { condense } from '../src/condense.ts';
+import { condense, trimGuards } from '../src/condense.ts';
 
 /**
  * Contraction must neither invent nor lose flows. Merging occurrences of one variable is a deliberate
  * change, so the reference is the original graph with each kept node renamed to its condensed key:
- * for every pair of distinct kept keys, reachable in the condensed graph iff in that quotient.
+ * for every pair of distinct kept keys, reachable in the condensed graph iff in that quotient. Guard
+ * edges to reads, literals, operators and calls are trimmed on purpose, so the reference omits them too.
  */
 function check(m: Model) {
   const c = condense(m);
   const name = (id: string) => c.keyOf.get(id) ?? id;
   const quotient = new Map<string, Set<string>>();
-  for (const e of m.edges) {
+  for (const e of trimGuards(m)) {
     const a = name(e.from);
     const b = name(e.to);
     if (a !== b) (quotient.get(a) ?? quotient.set(a, new Set()).get(a)!).add(b);
@@ -64,6 +65,28 @@ test('contraction through dropped nodes keeps flows and invents none', () => {
     'A.f|LITERAL|1|1:1>A.f|VARIABLE|x',
     'A.f|LITERAL|9|1:6>A.f|VARIABLE|y',
     'A.f|VARIABLE|x>A.f|BIN_OP|+|1:4',
+  ]);
+});
+
+test('a guard to a read is dropped; to an assignment target or a RETURN it is kept', () => {
+  const nodes = [
+    node('cond', 'CALL', 'x > 0', { name: '<operator>.greaterThan', col: 1 }),
+    node('read', 'IDENTIFIER', 'r', { typeFullName: 'int', col: 2 }),
+    node('lit', 'LITERAL', '5', { col: 3 }),
+    node('asg', 'CALL', 'y = 5', { name: '<operator>.assignment', args: ['', 'y', 'lit'] }),
+    node('y', 'IDENTIFIER', 'y', { typeFullName: 'int', col: 4 }),
+    node('ret', 'RETURN', 'return 1'),
+  ];
+  const guard = (to: string) => ({ from: 'cond', to, carrier: '', kind: 'guard' as const });
+  const m = {
+    byId: new Map(nodes.map((n) => [n.id, n])),
+    methodByFullName: new Map(),
+    edges: [guard('read'), guard('lit'), guard('asg'), guard('ret')],
+  } as unknown as Model;
+  check(m);
+  assert.deepEqual(condense(m).edges.map((e) => `${e.from}>${e.to}|${e.label}`).sort(), [
+    'A.f|BIN_OP|>|1:1>A.f|RETURN|if',
+    'A.f|BIN_OP|>|1:1>A.f|VARIABLE|y|if',
   ]);
 });
 

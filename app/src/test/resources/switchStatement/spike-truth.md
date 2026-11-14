@@ -7,42 +7,30 @@ flowchart TD
     n1["0"]:::LITERAL
     n2["100"]:::LITERAL
     n3["10"]:::LITERAL
-    n4["1"]:::LITERAL
-    n5["200"]:::LITERAL
-    n6["20"]:::LITERAL
-    n7["2"]:::LITERAL
-    n8["300"]:::LITERAL
-    n9["30"]:::LITERAL
-    n10["3"]:::LITERAL
-    n11["3"]:::LITERAL
-    n12["500"]:::LITERAL
-    n13["chosen"]:::VARIABLE
-    n14["out"]:::VARIABLE
-    n15["selector"]:::VARIABLE
-    n16["side"]:::VARIABLE
+    n4["200"]:::LITERAL
+    n5["20"]:::LITERAL
+    n6["300"]:::LITERAL
+    n7["30"]:::LITERAL
+    n8["3"]:::LITERAL
+    n9["500"]:::LITERAL
+    n10["chosen"]:::VARIABLE
+    n11["out"]:::VARIABLE
+    n12["selector"]:::VARIABLE
+    n13["side"]:::VARIABLE
   end
-  n0 --> n14
-  n1 --> n13
-  n10 --> n15
-  n12 --> n16
+  n0 --> n11
+  n1 --> n10
+  n10 --> n0
+  n12 -->|if| n10
+  n12 -->|if| n13
   n13 --> n0
-  n15 -->|if| n11
-  n15 -->|if| n12
-  n15 -->|if| n13
-  n15 -->|if| n16
-  n15 -->|if| n2
-  n15 -->|if| n3
-  n15 -->|if| n4
-  n15 -->|if| n6
-  n15 -->|if| n7
-  n15 -->|if| n8
-  n15 -->|if| n9
-  n16 --> n0
-  n2 --> n13
-  n3 --> n13
-  n5 --> n16
+  n2 --> n10
+  n3 --> n10
+  n4 --> n13
+  n5 --> n10
   n6 --> n13
-  n8 --> n16
+  n7 --> n10
+  n8 --> n12
   n9 --> n13
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

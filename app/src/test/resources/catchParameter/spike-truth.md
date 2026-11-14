@@ -19,10 +19,7 @@ flowchart TD
   n1 --> n10
   n10 --> n2
   n2 --> n9
-  n3 --> n1
   n3 --> n10
-  n3 --> n2
-  n3 --> n8
   n3 --> n9
   n4 --> n0
   n5 --> n0

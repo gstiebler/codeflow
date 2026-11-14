@@ -3,6 +3,12 @@ Each endpoint takes a `param` and tries to reach `ItemRepository.save` only thro
 mechanism under test, so the pair `POST /cb/<name> -> ItemRepository.save` exists iff the flow is
 followed. `spike/test/extract-callbacks.sh` builds it and prints the table below.
 
+Golden files, like the Kotlin engine's `memberReference/`: `graph.json` is the Joern dump and
+`truth.md` the per-scenario Mermaid generated from it (`spike/src/mermaid.ts`, deterministic across
+Joern runs). `npm run test:spike` compares them without Joern (`callbacks-truth.test.ts`); after a
+Joern or export change run `UPDATE_SNAPSHOTS=1 spike/test/extract-callbacks.sh` to refresh both.
+Only `truth.md` is stable run to run; `graph.json` differs in the order of some edges.
+
 Default `DELOMBOK_MODE`, i.e. no-delombok; Joern 4.0.570; no Joern errors, including on the method
 reference. `check` asserts every row is FOUND.
 

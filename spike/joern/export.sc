@@ -116,6 +116,11 @@ import java.io.PrintWriter
       case _                  => None
     })
 
+    def colOf(n: nodes.AstNode): Option[Int] = n.columnNumber.map(_.toInt).orElse(n match {
+      case r: nodes.MethodRef => r.astParent.columnNumber.map(_.toInt)
+      case _                  => None
+    })
+
     for (n <- m.ast.l if KEEP.contains(n.label) && lineOf(n).isDefined) {
       emitted += n.id
       val fields = scala.collection.mutable.ListBuffer(
@@ -126,6 +131,7 @@ import java.io.PrintWriter
         "\"line\":" + lineOf(n).getOrElse(-1),
         "\"method\":" + q(fullName),
       )
+      colOf(n).foreach(c => fields += "\"col\":" + c)
 
       n match {
         case c: nodes.Call =>

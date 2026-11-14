@@ -59,6 +59,8 @@ export type NodeFact = {
   code: string;
   file: string;
   line: number;
+  /** Joern's `columnNumber`, absent when it has none. Tells apart nodes of one label on one line. */
+  col?: number;
   /** `fullName` of the enclosing method. */
   method: string;
   /** CALL only: the callee's simple name. */

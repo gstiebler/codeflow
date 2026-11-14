@@ -1,4 +1,4 @@
-import type { Boundary, Graph, Model } from './types.ts';
+import type { Boundary, Graph, Model, NodeFact } from './types.ts';
 
 /** One endpoint of the fixture: `key` letter, the path under `/cb`, and a title. */
 export type Scenario = { key: string; path: string; title: string };
@@ -6,14 +6,26 @@ export type Scenario = { key: string; path: string; title: string };
 const esc = (s: string) => s.replace(/"/g, '#quot;').replace(/[<>]/g, (c) => (c === '<' ? '#lt;' : '#gt;'));
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-/** A node's identity and its Mermaid label: `Class:line LABEL<br/>code`. */
+/**
+ * A node's identity and its Mermaid label: `Class:line:col LABEL<br/>code`. Joern sometimes emits
+ * several nodes with the same position, label and code (desugared loops, compound assignments); the
+ * second and later get ` #k` after the label, k counting in dump order, which is stable across runs
+ * even though node ids are not.
+ */
 function nodeText(m: Model) {
-  return (id: string) => {
-    const n = m.byId.get(id)!;
-    const head = `${n.file.replace(/^.*\//, '').replace('.java', '')}:${n.line} ${n.label}`;
-    const code = n.code.replace(/\s+/g, ' ').slice(0, 70);
-    return `${esc(head)}<br/>${esc(code)}`;
+  const base = (n: NodeFact) => {
+    const head = `${n.file.replace(/^.*\//, '').replace('.java', '')}:${n.line}${n.col === undefined ? '' : `:${n.col}`} ${n.label}`;
+    return `${esc(head)}<br/>${esc(n.code.replace(/\s+/g, ' ').slice(0, 70))}`;
   };
+  const seen = new Map<string, number>();
+  const text = new Map<string, string>();
+  for (const [id, n] of m.byId) {
+    const t = base(n);
+    const k = (seen.get(t) ?? 0) + 1;
+    seen.set(t, k);
+    text.set(id, k === 1 ? t : t.replace('<br/>', ` #${k}<br/>`));
+  }
+  return (id: string) => text.get(id)!;
 }
 
 const edgeLabel = (e: { kind: string; carrier: string }) => esc(`${e.kind}: ${e.carrier}`);

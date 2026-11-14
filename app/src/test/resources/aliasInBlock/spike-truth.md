@@ -2,53 +2,55 @@
 
 ```mermaid
 flowchart TD
-  n0["App:13 CALL<br/>Box box = new Box()"]
-  n1["App:13 CALL<br/>new Box()"]
-  n2["App:13 IDENTIFIER<br/>box"]
-  n3["App:14 CALL<br/>box.value"]
-  n4["App:14 CALL<br/>box.value = 1"]
-  n5["App:14 FIELD_IDENTIFIER<br/>value"]
-  n6["App:14 IDENTIFIER<br/>box"]
-  n7["App:14 LITERAL<br/>1"]
-  n8["App:17 CALL<br/>Box alias = box"]
-  n9["App:17 IDENTIFIER<br/>alias"]
-  n10["App:17 IDENTIFIER<br/>box"]
-  n11["App:18 CALL<br/>alias.value"]
-  n12["App:18 CALL<br/>alias.value = 7"]
-  n13["App:18 FIELD_IDENTIFIER<br/>value"]
-  n14["App:18 IDENTIFIER<br/>alias"]
-  n15["App:18 LITERAL<br/>7"]
-  n16["App:21 CALL<br/>box.value"]
-  n17["App:21 CALL<br/>int read = box.value"]
-  n18["App:21 FIELD_IDENTIFIER<br/>value"]
-  n19["App:21 IDENTIFIER<br/>box"]
-  n20["App:21 IDENTIFIER<br/>read"]
-  n21["App:7 METHOD_PARAMETER_IN<br/>this"]
-  n0 -->|"local: ="| n2
-  n1 -->|"local: new Box()"| n0
-  n10 -->|"local: box"| n16
-  n10 -->|"local: box"| n19
-  n10 -->|"local: box"| n8
-  n11 -->|"field: field Box.value"| n16
-  n12 -->|"local: ="| n11
-  n13 -->|"local: value"| n11
-  n14 -->|"local: alias"| n11
-  n15 -->|"local: 7"| n12
-  n16 -->|"local: field Box.value"| n17
-  n17 -->|"local: ="| n20
-  n18 -->|"local: value"| n16
-  n19 -->|"local: box"| n16
-  n2 -->|"arg: arg 0 this"| n21
-  n2 -->|"local: box"| n1
-  n2 -->|"local: box"| n10
-  n2 -->|"local: box"| n2
-  n2 -->|"local: box"| n6
-  n3 -->|"field: field Box.value"| n16
-  n3 -->|"local: field Box.value"| n10
-  n4 -->|"local: ="| n3
-  n5 -->|"local: value"| n3
-  n6 -->|"local: box"| n3
-  n7 -->|"local: 1"| n4
-  n8 -->|"local: ="| n9
-  n9 -->|"local: alias"| n14
+  n0["App:13 CALL<br/>new Box()"]
+  n1["App:13:19 CALL<br/>Box box = new Box()"]
+  n2["App:13:19 IDENTIFIER #2<br/>box"]
+  n3["App:13:19 IDENTIFIER<br/>box"]
+  n4["App:13:25 CALL<br/>new Box()"]
+  n5["App:14:13 FIELD_IDENTIFIER<br/>value"]
+  n6["App:14:21 LITERAL<br/>1"]
+  n7["App:14:9 CALL<br/>box.value"]
+  n8["App:14:9 CALL<br/>box.value = 1"]
+  n9["App:14:9 IDENTIFIER<br/>box"]
+  n10["App:17:23 CALL<br/>Box alias = box"]
+  n11["App:17:23 IDENTIFIER<br/>alias"]
+  n12["App:17:31 IDENTIFIER<br/>box"]
+  n13["App:18:13 CALL<br/>alias.value"]
+  n14["App:18:13 CALL<br/>alias.value = 7"]
+  n15["App:18:13 IDENTIFIER<br/>alias"]
+  n16["App:18:19 FIELD_IDENTIFIER<br/>value"]
+  n17["App:18:27 LITERAL<br/>7"]
+  n18["App:21:19 CALL<br/>int read = box.value"]
+  n19["App:21:19 IDENTIFIER<br/>read"]
+  n20["App:21:26 CALL<br/>box.value"]
+  n21["App:21:26 IDENTIFIER<br/>box"]
+  n22["App:21:30 FIELD_IDENTIFIER<br/>value"]
+  n23["App:7:1 METHOD_PARAMETER_IN<br/>this"]
+  n1 -->|"local: ="| n3
+  n10 -->|"local: ="| n11
+  n11 -->|"local: alias"| n15
+  n12 -->|"local: box"| n10
+  n12 -->|"local: box"| n20
+  n12 -->|"local: box"| n21
+  n13 -->|"field: field Box.value"| n20
+  n14 -->|"local: ="| n13
+  n15 -->|"local: alias"| n13
+  n16 -->|"local: value"| n13
+  n17 -->|"local: 7"| n14
+  n18 -->|"local: ="| n19
+  n2 -->|"arg: arg 0 this"| n23
+  n2 -->|"local: box"| n0
+  n2 -->|"local: box"| n12
+  n2 -->|"local: box"| n9
+  n20 -->|"local: field Box.value"| n18
+  n21 -->|"local: box"| n20
+  n22 -->|"local: value"| n20
+  n3 -->|"local: box"| n2
+  n4 -->|"local: new Box()"| n1
+  n5 -->|"local: value"| n7
+  n6 -->|"local: 1"| n8
+  n7 -->|"field: field Box.value"| n20
+  n7 -->|"local: field Box.value"| n12
+  n8 -->|"local: ="| n7
+  n9 -->|"local: box"| n7
 ```

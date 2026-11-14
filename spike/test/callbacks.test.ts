@@ -153,3 +153,19 @@ test('dispatch reaches only types that carried a callback', () => {
   g.nodes = g.nodes.filter((x) => x.id !== 'e-run');
   assert.ok(!pairs(g).has(`POST /ownCallback -> ${SINK}`));
 });
+
+test('assigning a lambda to a variable is not a call into a jar: the target gets no callback arg', () => {
+  const owner = 'app.api.Api.assign:<unresolvedSignature>(0)';
+  const g: Graph = {
+    version: 1, commit: 'x', types: [], methods: [method(owner, []), method(lam(9, 1), [['a-l-x', 'x', 1, 'ANY']])],
+    nodes: [
+      n('a-lhs', 'IDENTIFIER', 'scale', 5, owner),
+      n('a-ref', 'METHOD_REF', lam(9, 1), 5, owner, { methodFullName: lam(9, 1), typeFullName: lam(9, 1) }),
+      n('a-asg', 'CALL', 'scale = <lambda>', 5, owner, { name: '<operator>.assignment', methodFullName: '<operator>.assignment', args: ['', 'a-lhs', 'a-ref'] }),
+      n('a-l-x', 'METHOD_PARAMETER_IN', 'x', 5, lam(9, 1)),
+    ],
+    edges: [],
+  };
+  const m = buildModel(g);
+  assert.ok(!m.edges.some((e) => e.carrier.startsWith('callback arg')), JSON.stringify(m.edges));
+});

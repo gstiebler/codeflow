@@ -182,7 +182,7 @@ export function buildModel(g: Graph): Model {
     const callee = node.methodFullName ? methodByFullName.get(node.methodFullName) : undefined;
 
     // A callback handed to a call into a jar: the jar is what invokes it, with what it was given.
-    if (!callee) {
+    if (!callee && !node.methodFullName?.startsWith('<operator>') && !node.name?.startsWith('<operator>')) {
       const refs = args.filter((a) => byId.get(a)?.label === 'METHOD_REF');
       const given = args.filter((a) => a && byId.has(a) && !refs.includes(a));
       for (const ref of refs) {

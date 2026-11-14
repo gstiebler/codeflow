@@ -2,46 +2,48 @@
 
 ```mermaid
 flowchart TD
-  n0["App:12 CALL<br/>int seed = 3"]
-  n1["App:12 IDENTIFIER<br/>seed"]
-  n2["App:12 LITERAL<br/>3"]
-  n3["App:13 METHOD_PARAMETER_IN<br/>this"]
-  n4["App:14 METHOD_PARAMETER_IN<br/>int n"]
-  n5["App:15 CALL<br/>n * 2"]
-  n6["App:15 IDENTIFIER<br/>n"]
-  n7["App:15 LITERAL<br/>2"]
-  n8["App:15 RETURN<br/>return n * 2;"]
-  n9["App:18 CALL<br/>$obj0 = new Doubler()"]
-  n10["App:18 CALL<br/>int result = new Doubler().twice(seed)"]
-  n11["App:18 CALL<br/>new Doubler()"]
-  n12["App:18 CALL<br/>new Doubler().twice(seed)"]
-  n13["App:18 IDENTIFIER<br/>$obj0"]
-  n14["App:18 IDENTIFIER<br/>result"]
-  n15["App:18 IDENTIFIER<br/>seed"]
-  n16["App:19 CALL<br/>System.out"]
-  n17["App:19 CALL<br/>System.out.println(result)"]
-  n18["App:19 FIELD_IDENTIFIER<br/>out"]
-  n19["App:19 IDENTIFIER<br/>System"]
-  n20["App:19 IDENTIFIER<br/>result"]
+  n0["App:12:13 CALL<br/>int seed = 3"]
+  n1["App:12:13 IDENTIFIER<br/>seed"]
+  n2["App:12:20 LITERAL<br/>3"]
+  n3["App:13:9 METHOD_PARAMETER_IN<br/>this"]
+  n4["App:14:23 METHOD_PARAMETER_IN<br/>int n"]
+  n5["App:15:17 RETURN<br/>return n * 2;"]
+  n6["App:15:24 CALL<br/>n * 2"]
+  n7["App:15:24 IDENTIFIER<br/>n"]
+  n8["App:15:28 LITERAL<br/>2"]
+  n9["App:18 CALL<br/>new Doubler()"]
+  n10["App:18:13 CALL<br/>int result = new Doubler().twice(seed)"]
+  n11["App:18:13 IDENTIFIER<br/>result"]
+  n12["App:18:22 CALL<br/>$obj0 = new Doubler()"]
+  n13["App:18:22 CALL<br/>new Doubler()"]
+  n14["App:18:22 CALL<br/>new Doubler().twice(seed)"]
+  n15["App:18:22 IDENTIFIER #2<br/>$obj0"]
+  n16["App:18:22 IDENTIFIER<br/>$obj0"]
+  n17["App:18:42 IDENTIFIER<br/>seed"]
+  n18["App:19:16 FIELD_IDENTIFIER<br/>out"]
+  n19["App:19:28 IDENTIFIER<br/>result"]
+  n20["App:19:9 CALL<br/>System.out"]
+  n21["App:19:9 CALL<br/>System.out.println(result)"]
+  n22["App:19:9 IDENTIFIER<br/>System"]
   n0 -->|"local: ="| n1
-  n1 -->|"local: seed"| n15
-  n10 -->|"local: ="| n14
-  n11 -->|"local: new Doubler()"| n9
-  n12 -->|"local: twice()"| n10
-  n13 -->|"arg: arg 0 this"| n3
-  n13 -->|"local: $obj0"| n11
-  n13 -->|"local: $obj0"| n13
-  n14 -->|"local: result"| n20
-  n15 -->|"arg: arg 1 n"| n4
-  n16 -->|"local: field ANY.out"| n17
-  n18 -->|"local: out"| n16
-  n19 -->|"local: System"| n16
+  n1 -->|"local: seed"| n17
+  n10 -->|"local: ="| n11
+  n11 -->|"local: result"| n19
+  n12 -->|"local: ="| n16
+  n13 -->|"local: new Doubler()"| n12
+  n14 -->|"local: twice()"| n10
+  n15 -->|"arg: arg 0 this"| n3
+  n15 -->|"local: $obj0"| n9
+  n16 -->|"local: $obj0"| n15
+  n17 -->|"arg: arg 1 n"| n4
+  n18 -->|"local: out"| n20
+  n19 -->|"local: result"| n21
   n2 -->|"local: 3"| n0
-  n20 -->|"local: result"| n17
-  n4 -->|"local: n"| n6
-  n5 -->|"local: n * 2"| n8
-  n6 -->|"local: n"| n5
-  n7 -->|"local: 2"| n5
-  n8 -->|"ret: return of twice()"| n12
-  n9 -->|"local: ="| n13
+  n20 -->|"local: field ANY.out"| n21
+  n22 -->|"local: System"| n20
+  n4 -->|"local: n"| n7
+  n5 -->|"ret: return of twice()"| n14
+  n6 -->|"local: n * 2"| n5
+  n7 -->|"local: n"| n6
+  n8 -->|"local: 2"| n6
 ```

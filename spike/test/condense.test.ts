@@ -91,6 +91,26 @@ test('a guard to a read is dropped; to an assignment target or a RETURN it is ke
   ]);
 });
 
+test('a guard leaving a contracted assignment keeps the if label on the path through it', () => {
+  const nodes = [
+    node('a', 'IDENTIFIER', 'a', { typeFullName: 'int', col: 1 }),
+    node('d', 'CALL', 'x = a', { name: '<operator>.assignment', args: ['', 'x1', 'a'], col: 2 }),
+    node('b', 'RETURN', 'return a', { col: 3 }),
+  ];
+  const m = {
+    byId: new Map(nodes.map((n) => [n.id, n])),
+    methodByFullName: new Map(),
+    edges: [
+      { from: 'a', to: 'd', carrier: '', kind: 'local' as const },
+      { from: 'd', to: 'b', carrier: '', kind: 'guard' as const },
+    ],
+  } as unknown as Model;
+  check(m);
+  assert.deepEqual(condense(m).edges.map((e) => `${e.from}>${e.to}|${e.label}`), [
+    'A.f|VARIABLE|a>A.f|RETURN|if',
+  ]);
+});
+
 test('each assignment of a local is its own node; reads are contracted into the reaching definition', () => {
   const nodes = [
     node('l0', 'LITERAL', '0', { line: 1, col: 1 }),

@@ -112,19 +112,19 @@ export function condense(m: Model): { nodes: CNode[]; edges: CEdge[]; keyOf: Map
   const edges = new Set<string>();
   for (const [id, c] of info) {
     const seen = new Set<string>();
-    const walk = (from: string, label: string, first: boolean) => {
+    const walk = (from: string, label: string) => {
       for (const e of out.get(from) ?? []) {
-        const l = first ? (e.guard ? 'if' : '') : label;
+        const l = e.guard ? 'if' : label; // a path is `if` once any hop on it is a guard
         const t = info.get(e.to);
         if (t) {
           if (t.key !== c.key) edges.add(JSON.stringify([c.key, t.key, l]));
         } else if (!seen.has(`${e.to}|${l}`)) {
           seen.add(`${e.to}|${l}`);
-          walk(e.to, l, false);
+          walk(e.to, l);
         }
       }
     };
-    walk(id, '', true);
+    walk(id, '');
   }
   const nodes = new Map([...info.values()].map((c) => [c.key, c]));
   // The same pair as both a plain and an `if` edge keeps the plain one.

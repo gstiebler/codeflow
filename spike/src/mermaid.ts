@@ -6,6 +6,18 @@ export type Scenario = { key: string; path: string; title: string };
 const esc = (s: string) => s.replace(/"/g, '#quot;').replace(/[<>]/g, (c) => (c === '<' ? '#lt;' : '#gt;'));
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/** A node's identity and its Mermaid label: `Class:line LABEL<br/>code`. */
+function nodeText(m: Model) {
+  return (id: string) => {
+    const n = m.byId.get(id)!;
+    const head = `${n.file.replace(/^.*\//, '').replace('.java', '')}:${n.line} ${n.label}`;
+    const code = n.code.replace(/\s+/g, ' ').slice(0, 70);
+    return `${esc(head)}<br/>${esc(code)}`;
+  };
+}
+
+const edgeLabel = (e: { kind: string; carrier: string }) => esc(`${e.kind}: ${e.carrier}`);
+
 /**
  * The value graph reachable from each scenario's endpoint, as one Mermaid flowchart per scenario.
  *
@@ -19,12 +31,7 @@ export function scenarioMermaid(g: Graph, m: Model, bs: Boundary[], scenarios: S
   const out = new Map<string, typeof m.edges>();
   for (const e of m.edges) (out.get(e.from) ?? out.set(e.from, []).get(e.from)!).push(e);
   const sinks = new Set(bs.filter((b) => b.dir === 'out').map((b) => b.node));
-  const head = (id: string) => {
-    const n = m.byId.get(id)!;
-    return `${n.file.replace(/^.*\//, '').replace('.java', '')}:${n.line} ${n.label}`;
-  };
-  const code = (id: string) => m.byId.get(id)!.code.replace(/\s+/g, ' ').slice(0, 70);
-  const text = (id: string) => `${esc(head(id))}<br/>${esc(code(id))}`;
+  const text = nodeText(m);
 
   let md = '# Callbacks fixture: value graph per scenario\n\n'
     + 'Source: `spike/fixtures/callbacks/graph.json`. Nodes are Joern nodes (`Class:line LABEL` + code), '
@@ -51,7 +58,7 @@ export function scenarioMermaid(g: Graph, m: Model, bs: Boundary[], scenarios: S
     const gap = new Set(missed.map(text));
     const texts = [...new Set([...seen, ...missed].map(text))].sort(cmp);
     const nid = new Map(texts.map((t, i) => [t, `${key}${i}`]));
-    const edgeLines = [...new Set(edges.map((e) => `  ${nid.get(text(e.from))} -->|"${esc(`${e.kind}: ${e.carrier}`)}"| ${nid.get(text(e.to))}`))].sort(cmp);
+    const edgeLines = [...new Set(edges.map((e) => `  ${nid.get(text(e.from))} -->|"${edgeLabel(e)}"| ${nid.get(text(e.to))}`))].sort(cmp);
 
     md += `\n## ${key}. ${title} (${gap.size ? 'GAP' : reached.size ? 'FOUND' : 'no sink'})\n\n\`\`\`mermaid\nflowchart TD\n`;
     for (const t of texts) {
@@ -61,4 +68,20 @@ export function scenarioMermaid(g: Graph, m: Model, bs: Boundary[], scenarios: S
     md += edgeLines.join('\n') + '\n```\n';
   }
   return md;
+}
+
+/**
+ * The whole value graph of one Kotlin-engine golden case (`app/src/test/resources/<name>`): every
+ * codeflow edge of its own dump, no boundary walk, since these cases have no endpoints. Same node
+ * text, ids and edge sorting as `scenarioMermaid`, so it is deterministic across Joern runs.
+ */
+export function caseMermaid(name: string, m: Model): string {
+  const text = nodeText(m);
+  const texts = [...new Set(m.edges.flatMap((e) => [text(e.from), text(e.to)]))].sort(cmp);
+  const nid = new Map(texts.map((t, i) => [t, `n${i}`]));
+  const edgeLines = [...new Set(m.edges.map((e) => `  ${nid.get(text(e.from))} -->|"${edgeLabel(e)}"| ${nid.get(text(e.to))}`))].sort(cmp);
+  return `# ${name}: spike value graph\n\n\`\`\`mermaid\nflowchart TD\n`
+    + texts.map((t) => `  ${nid.get(t)}["${t}"]\n`).join('')
+    + edgeLines.map((l) => `${l}\n`).join('')
+    + '```\n';
 }

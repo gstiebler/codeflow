@@ -1,3 +1,4 @@
+import { condense } from './condense.ts';
 import type { Boundary, Graph, Model, NodeFact } from './types.ts';
 
 /** One endpoint of the fixture: `key` letter, the path under `/cb`, and a title. */
@@ -82,18 +83,37 @@ export function scenarioMermaid(g: Graph, m: Model, bs: Boundary[], scenarios: S
   return md;
 }
 
+const CLASS_DEFS = `  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
+`;
+
 /**
- * The whole value graph of one Kotlin-engine golden case (`app/src/test/resources/<name>`): every
- * codeflow edge of its own dump, no boundary walk, since these cases have no endpoints. Same node
- * text, ids and edge sorting as `scenarioMermaid`, so it is deterministic across Joern runs.
+ * The value graph of one Kotlin-engine golden case (`app/src/test/resources/<name>`), condensed (see
+ * `condense.ts`) and drawn like the engine's own truth.md: one flat subgraph per method, fields as
+ * top-level nodes outside any subgraph, `if` on guard edges. Deterministic across Joern runs: nodes
+ * are keyed by (method, kind, name[, line:col]), Mermaid ids follow the sorted keys, lines are sorted.
+ * Only nodes with at least one edge are drawn.
  */
 export function caseMermaid(name: string, m: Model): string {
-  const text = nodeText(m);
-  const texts = [...new Set(m.edges.flatMap((e) => [text(e.from), text(e.to)]))].sort(cmp);
-  const nid = new Map(texts.map((t, i) => [t, `n${i}`]));
-  const edgeLines = [...new Set(m.edges.map((e) => `  ${nid.get(text(e.from))} -->|"${edgeLabel(e)}"| ${nid.get(text(e.to))}`))].sort(cmp);
-  return `# ${name}: spike value graph\n\n\`\`\`mermaid\nflowchart TD\n`
-    + texts.map((t) => `  ${nid.get(t)}["${t}"]\n`).join('')
-    + edgeLines.map((l) => `${l}\n`).join('')
-    + '```\n';
+  const c = condense(m);
+  const linked = new Set(c.edges.flatMap((e) => [e.from, e.to]));
+  const nodes = c.nodes.filter((n) => linked.has(n.key)).sort((a, b) => cmp(a.key, b.key));
+  const id = new Map(nodes.map((n, i) => [n.key, `n${i}`]));
+  const decl = (n: (typeof nodes)[number], pad: string) => `${pad}${id.get(n.key)}["${esc(n.label)}"]:::${n.kind}\n`;
+  const methods = [...new Set(nodes.flatMap((n) => (n.method ? [n.method] : [])))].sort(cmp);
+  const shortName = (method: string) => m.methodByFullName.get(method)?.name ?? method;
+  let md = `# ${name}: spike value graph (condensed)\n\n\`\`\`mermaid\nflowchart TD\n`;
+  methods.forEach((method, i) => {
+    md += `  subgraph m${i}["${esc(shortName(method))}"]\n`;
+    for (const n of nodes) if (n.method === method) md += decl(n, '    ');
+    md += '  end\n';
+  });
+  for (const n of nodes) if (!n.method) md += decl(n, '  ');
+  const edgeLines = [...new Set(c.edges.map((e) => `  ${id.get(e.from)} -->${e.label ? `|${e.label}|` : ''} ${id.get(e.to)}`))].sort(cmp);
+  return md + edgeLines.map((l) => `${l}\n`).join('') + CLASS_DEFS + '```\n';
 }

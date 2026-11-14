@@ -1,20 +1,23 @@
-# externalConstant: spike value graph
+# externalConstant: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:21:13 CALL<br/>int budget = MAX_RETRIES"]
-  n1["App:21:13 IDENTIFIER<br/>budget"]
-  n2["App:21:22 IDENTIFIER<br/>MAX_RETRIES"]
-  n3["App:22:13 CALL<br/>int spent = budget + 1"]
-  n4["App:22:13 IDENTIFIER<br/>spent"]
-  n5["App:22:21 CALL<br/>budget + 1"]
-  n6["App:22:21 IDENTIFIER<br/>budget"]
-  n7["App:22:30 LITERAL<br/>1"]
-  n0 -->|"local: ="| n1
-  n1 -->|"local: budget"| n6
-  n2 -->|"local: MAX_RETRIES"| n0
-  n3 -->|"local: ="| n4
-  n5 -->|"local: budget + 1"| n3
-  n6 -->|"local: budget"| n5
-  n7 -->|"local: 1"| n5
+  subgraph m0["main"]
+    n0["+"]:::BIN_OP
+    n1["1"]:::LITERAL
+    n2["MAX_RETRIES"]:::VARIABLE
+    n3["budget"]:::VARIABLE
+    n4["spent"]:::VARIABLE
+  end
+  n0 --> n4
+  n1 --> n0
+  n2 --> n3
+  n3 --> n0
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

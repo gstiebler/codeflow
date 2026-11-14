@@ -1,51 +1,34 @@
-# objectArgument: spike value graph
+# objectArgument: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:12:21 METHOD_PARAMETER_IN<br/>Source origin"]
-  n1["App:13:16 CALL<br/>origin.value"]
-  n2["App:13:16 IDENTIFIER<br/>origin"]
-  n3["App:13:23 FIELD_IDENTIFIER<br/>value"]
-  n4["App:13:9 RETURN<br/>return origin.value;"]
-  n5["App:19 CALL<br/>new Source(7)"]
-  n6["App:19:16 CALL<br/>Source source = new Source(7)"]
-  n7["App:19:16 IDENTIFIER #2<br/>source"]
-  n8["App:19:16 IDENTIFIER<br/>source"]
-  n9["App:19:25 CALL<br/>new Source(7)"]
-  n10["App:19:36 LITERAL<br/>7"]
-  n11["App:20:13 CALL<br/>int out = Reader.read(source)"]
-  n12["App:20:13 IDENTIFIER<br/>out"]
-  n13["App:20:19 CALL<br/>Reader.read(source)"]
-  n14["App:20:31 IDENTIFIER<br/>source"]
-  n15["App:6:12 METHOD_PARAMETER_IN<br/>int seed"]
-  n16["App:6:5 METHOD_PARAMETER_IN<br/>this"]
-  n17["App:7:17 IDENTIFIER<br/>seed"]
-  n18["App:7:9 CALL<br/>this.value"]
-  n19["App:7:9 CALL<br/>this.value = seed"]
-  n20["App:7:9 FIELD_IDENTIFIER<br/>value"]
-  n21["App:7:9 IDENTIFIER<br/>this"]
-  n0 -->|"local: origin"| n1
-  n0 -->|"local: origin"| n2
-  n1 -->|"local: field Source.value"| n4
-  n10 -->|"arg: arg 1 seed"| n15
-  n10 -->|"local: 7"| n5
-  n11 -->|"local: ="| n12
-  n13 -->|"local: read()"| n11
-  n14 -->|"arg: arg 1 origin"| n0
-  n15 -->|"local: seed"| n17
-  n16 -->|"local: this"| n21
-  n17 -->|"local: seed"| n19
-  n18 -->|"field: field Source.value"| n1
-  n19 -->|"local: ="| n18
-  n2 -->|"local: origin"| n1
-  n20 -->|"local: value"| n18
-  n21 -->|"local: this"| n18
-  n3 -->|"local: value"| n1
-  n4 -->|"ret: return of read()"| n13
-  n6 -->|"local: ="| n8
-  n7 -->|"arg: arg 0 this"| n16
-  n7 -->|"local: source"| n14
-  n7 -->|"local: source"| n5
-  n8 -->|"local: source"| n7
-  n9 -->|"local: new Source(7)"| n6
+  subgraph m0["main"]
+    n0["Source"]:::EXTERNAL
+    n1["7"]:::LITERAL
+    n2["out"]:::VARIABLE
+    n3["source"]:::OBJ_VARIABLE
+  end
+  subgraph m1["read"]
+    n4["origin"]:::FUNC_PARAM
+    n5["read"]:::RETURN
+  end
+  subgraph m2["#lt;init#gt;"]
+    n6["seed"]:::FUNC_PARAM
+  end
+  n7["value"]:::VARIABLE
+  n0 --> n3
+  n1 --> n6
+  n3 --> n4
+  n3 --> n7
+  n4 --> n7
+  n5 --> n2
+  n6 --> n7
+  n7 --> n5
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

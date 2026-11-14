@@ -1,70 +1,56 @@
-# earlyReturn: spike value graph
+# earlyReturn: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:10:13 CALL<br/>score #gt; 50"]
-  n1["App:10:13 IDENTIFIER<br/>score"]
-  n2["App:10:21 LITERAL<br/>50"]
-  n3["App:10:25 RETURN<br/>return 55;"]
-  n4["App:10:32 LITERAL<br/>55"]
-  n5["App:12:19 CALL<br/>int floor = 10"]
-  n6["App:12:19 IDENTIFIER<br/>floor"]
-  n7["App:12:27 LITERAL<br/>10"]
-  n8["App:13:19 CALL<br/>int scale = 2"]
-  n9["App:13:19 IDENTIFIER<br/>scale"]
-  n10["App:13:27 LITERAL<br/>2"]
-  n11["App:14:16 CALL<br/>floor * scale"]
-  n12["App:14:16 IDENTIFIER<br/>floor"]
-  n13["App:14:24 IDENTIFIER<br/>scale"]
-  n14["App:14:9 RETURN<br/>return floor * scale;"]
-  n15["App:18:19 CALL<br/>int result = classify(70)"]
-  n16["App:18:19 IDENTIFIER<br/>result"]
-  n17["App:18:28 CALL<br/>classify(70)"]
-  n18["App:18:37 LITERAL<br/>70"]
-  n19["App:8:25 METHOD_PARAMETER_IN<br/>int score"]
-  n20["App:9:13 CALL<br/>score #gt; 90"]
-  n21["App:9:13 IDENTIFIER<br/>score"]
-  n22["App:9:21 LITERAL<br/>90"]
-  n23["App:9:25 RETURN<br/>return 100;"]
-  n24["App:9:32 LITERAL<br/>100"]
-  n0 -->|"guard: guard score #gt; 50"| n10
-  n0 -->|"guard: guard score #gt; 50"| n11
-  n0 -->|"guard: guard score #gt; 50"| n12
-  n0 -->|"guard: guard score #gt; 50"| n13
-  n0 -->|"guard: guard score #gt; 50"| n14
-  n0 -->|"guard: guard score #gt; 50"| n3
-  n0 -->|"guard: guard score #gt; 50"| n4
-  n0 -->|"guard: guard score #gt; 50"| n5
-  n0 -->|"guard: guard score #gt; 50"| n6
-  n0 -->|"guard: guard score #gt; 50"| n7
-  n0 -->|"guard: guard score #gt; 50"| n8
-  n0 -->|"guard: guard score #gt; 50"| n9
-  n1 -->|"local: score"| n0
-  n10 -->|"local: 2"| n8
-  n11 -->|"local: floor * scale"| n14
-  n12 -->|"local: floor"| n11
-  n13 -->|"local: scale"| n11
-  n14 -->|"ret: return of classify()"| n17
-  n15 -->|"local: ="| n16
-  n17 -->|"local: classify()"| n15
-  n18 -->|"arg: arg 1 score"| n19
-  n19 -->|"local: score"| n21
-  n2 -->|"local: 50"| n0
-  n20 -->|"guard: guard score #gt; 90"| n0
-  n20 -->|"guard: guard score #gt; 90"| n1
-  n20 -->|"guard: guard score #gt; 90"| n2
-  n20 -->|"guard: guard score #gt; 90"| n23
-  n20 -->|"guard: guard score #gt; 90"| n24
-  n21 -->|"local: score"| n1
-  n21 -->|"local: score"| n20
-  n22 -->|"local: 90"| n20
-  n23 -->|"ret: return of classify()"| n17
-  n24 -->|"local: 100"| n23
-  n3 -->|"ret: return of classify()"| n17
-  n4 -->|"local: 55"| n3
-  n5 -->|"local: ="| n6
-  n6 -->|"local: floor"| n12
-  n7 -->|"local: 10"| n5
-  n8 -->|"local: ="| n9
-  n9 -->|"local: scale"| n13
+  subgraph m0["classify"]
+    n0["*"]:::BIN_OP
+    n1["#gt;"]:::BIN_OP
+    n2["#gt;"]:::BIN_OP
+    n3["score"]:::FUNC_PARAM
+    n4["100"]:::LITERAL
+    n5["10"]:::LITERAL
+    n6["2"]:::LITERAL
+    n7["50"]:::LITERAL
+    n8["55"]:::LITERAL
+    n9["90"]:::LITERAL
+    n10["classify"]:::RETURN
+    n11["floor"]:::VARIABLE
+    n12["scale"]:::VARIABLE
+  end
+  subgraph m1["main"]
+    n13["70"]:::LITERAL
+    n14["result"]:::VARIABLE
+  end
+  n0 --> n10
+  n1 -->|if| n0
+  n1 -->|if| n10
+  n1 -->|if| n11
+  n1 -->|if| n12
+  n1 -->|if| n5
+  n1 -->|if| n6
+  n1 -->|if| n8
+  n10 --> n14
+  n11 --> n0
+  n12 --> n0
+  n13 --> n3
+  n2 -->|if| n1
+  n2 -->|if| n10
+  n2 -->|if| n3
+  n2 -->|if| n4
+  n2 -->|if| n7
+  n3 --> n1
+  n3 --> n2
+  n4 --> n10
+  n5 --> n11
+  n6 --> n12
+  n7 --> n1
+  n8 --> n10
+  n9 --> n2
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

@@ -1,77 +1,43 @@
-# aliasBranch: spike value graph
+# aliasBranch: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:19:16 METHOD_PARAMETER_IN<br/>int amount"]
-  n1["App:19:9 METHOD_PARAMETER_IN<br/>this"]
-  n2["App:20:13 CALL<br/>this.amount"]
-  n3["App:20:13 CALL<br/>this.amount = amount"]
-  n4["App:20:13 IDENTIFIER<br/>this"]
-  n5["App:20:18 FIELD_IDENTIFIER<br/>amount"]
-  n6["App:20:27 IDENTIFIER<br/>amount"]
-  n7["App:26:13 CALL<br/>args.length"]
-  n8["App:26:13 CALL<br/>args.length #gt; 0"]
-  n9["App:26:13 IDENTIFIER<br/>args"]
-  n10["App:26:27 LITERAL<br/>0"]
-  n11["App:27 CALL<br/>new Holder(11)"]
-  n12["App:27:13 CALL<br/>chosen = new Holder(11)"]
-  n13["App:27:13 IDENTIFIER #2<br/>chosen"]
-  n14["App:27:13 IDENTIFIER<br/>chosen"]
-  n15["App:27:22 CALL<br/>new Holder(11)"]
-  n16["App:27:33 LITERAL<br/>11"]
-  n17["App:29 CALL<br/>new Holder(22)"]
-  n18["App:29:13 CALL<br/>chosen = new Holder(22)"]
-  n19["App:29:13 IDENTIFIER #2<br/>chosen"]
-  n20["App:29:13 IDENTIFIER<br/>chosen"]
-  n21["App:29:22 CALL<br/>new Holder(22)"]
-  n22["App:29:33 LITERAL<br/>22"]
-  n23["App:31:13 CALL<br/>int total = chosen.amount"]
-  n24["App:31:13 IDENTIFIER<br/>total"]
-  n25["App:31:21 CALL<br/>chosen.amount"]
-  n26["App:31:21 IDENTIFIER<br/>chosen"]
-  n27["App:31:28 FIELD_IDENTIFIER<br/>amount"]
-  n0 -->|"local: amount"| n6
-  n1 -->|"local: this"| n4
-  n10 -->|"local: 0"| n8
-  n12 -->|"local: ="| n14
-  n13 -->|"arg: arg 0 this"| n1
-  n13 -->|"local: chosen"| n11
-  n13 -->|"local: chosen"| n25
-  n13 -->|"local: chosen"| n26
-  n14 -->|"local: chosen"| n13
-  n15 -->|"local: new Holder(11)"| n12
-  n16 -->|"arg: arg 1 amount"| n0
-  n16 -->|"local: 11"| n11
-  n18 -->|"local: ="| n20
-  n19 -->|"arg: arg 0 this"| n1
-  n19 -->|"local: chosen"| n17
-  n19 -->|"local: chosen"| n25
-  n19 -->|"local: chosen"| n26
-  n2 -->|"field: field Holder.amount"| n25
-  n20 -->|"local: chosen"| n19
-  n21 -->|"local: new Holder(22)"| n18
-  n22 -->|"arg: arg 1 amount"| n0
-  n22 -->|"local: 22"| n17
-  n23 -->|"local: ="| n24
-  n25 -->|"local: field Holder.amount"| n23
-  n26 -->|"local: chosen"| n25
-  n27 -->|"local: amount"| n25
-  n3 -->|"local: ="| n2
-  n4 -->|"local: this"| n2
-  n5 -->|"local: amount"| n2
-  n6 -->|"local: amount"| n3
-  n7 -->|"local: args.length"| n8
-  n8 -->|"guard: guard args.length #gt; 0"| n11
-  n8 -->|"guard: guard args.length #gt; 0"| n12
-  n8 -->|"guard: guard args.length #gt; 0"| n13
-  n8 -->|"guard: guard args.length #gt; 0"| n14
-  n8 -->|"guard: guard args.length #gt; 0"| n15
-  n8 -->|"guard: guard args.length #gt; 0"| n16
-  n8 -->|"guard: guard args.length #gt; 0"| n17
-  n8 -->|"guard: guard args.length #gt; 0"| n18
-  n8 -->|"guard: guard args.length #gt; 0"| n19
-  n8 -->|"guard: guard args.length #gt; 0"| n20
-  n8 -->|"guard: guard args.length #gt; 0"| n21
-  n8 -->|"guard: guard args.length #gt; 0"| n22
-  n9 -->|"local: args"| n7
+  subgraph m0["#lt;init#gt;"]
+    n0["amount"]:::FUNC_PARAM
+  end
+  subgraph m1["main"]
+    n1["#gt;"]:::BIN_OP
+    n2["sizeOf"]:::BIN_OP
+    n3["App$Holder"]:::EXTERNAL
+    n4["App$Holder"]:::EXTERNAL
+    n5["args"]:::FUNC_PARAM
+    n6["0"]:::LITERAL
+    n7["11"]:::LITERAL
+    n8["22"]:::LITERAL
+    n9["chosen"]:::OBJ_VARIABLE
+    n10["total"]:::VARIABLE
+  end
+  n11["amount"]:::VARIABLE
+  n0 --> n11
+  n1 -->|if| n3
+  n1 -->|if| n4
+  n1 -->|if| n7
+  n1 -->|if| n8
+  n1 -->|if| n9
+  n11 --> n10
+  n2 --> n1
+  n3 --> n9
+  n4 --> n9
+  n5 --> n2
+  n6 --> n1
+  n7 --> n0
+  n8 --> n0
+  n9 --> n11
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

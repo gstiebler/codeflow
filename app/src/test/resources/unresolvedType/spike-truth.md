@@ -1,38 +1,31 @@
-# unresolvedType: spike value graph
+# unresolvedType: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:15:13 CALL<br/>int size = 5"]
-  n1["App:15:13 IDENTIFIER<br/>size"]
-  n2["App:15:20 LITERAL<br/>5"]
-  n3["App:16:16 CALL<br/>Widget widget = Widget.create(size)"]
-  n4["App:16:16 IDENTIFIER<br/>widget"]
-  n5["App:16:25 CALL<br/>create(size)"]
-  n6["App:16:25 IDENTIFIER<br/>Widget"]
-  n7["App:16:39 IDENTIFIER<br/>size"]
-  n8["App:17:13 CALL<br/>int measured = widget.measure()"]
-  n9["App:17:13 IDENTIFIER<br/>measured"]
-  n10["App:17:24 CALL<br/>measure()"]
-  n11["App:17:24 IDENTIFIER<br/>widget"]
-  n12["App:18:13 CALL<br/>int total = measured + 1"]
-  n13["App:18:13 IDENTIFIER<br/>total"]
-  n14["App:18:21 CALL<br/>measured + 1"]
-  n15["App:18:21 IDENTIFIER<br/>measured"]
-  n16["App:18:32 LITERAL<br/>1"]
-  n0 -->|"local: ="| n1
-  n1 -->|"local: size"| n7
-  n10 -->|"local: measure()"| n8
-  n11 -->|"local: widget"| n10
-  n12 -->|"local: ="| n13
-  n14 -->|"local: measured + 1"| n12
-  n15 -->|"local: measured"| n14
-  n16 -->|"local: 1"| n14
-  n2 -->|"local: 5"| n0
-  n3 -->|"local: ="| n4
-  n4 -->|"local: widget"| n11
-  n5 -->|"local: create()"| n3
-  n6 -->|"local: Widget"| n5
-  n7 -->|"local: size"| n5
-  n8 -->|"local: ="| n9
-  n9 -->|"local: measured"| n15
+  subgraph m0["main"]
+    n0["+"]:::BIN_OP
+    n1["create"]:::EXTERNAL
+    n2["measure"]:::EXTERNAL
+    n3["1"]:::LITERAL
+    n4["5"]:::LITERAL
+    n5["measured"]:::VARIABLE
+    n6["size"]:::VARIABLE
+    n7["total"]:::VARIABLE
+    n8["widget"]:::OBJ_VARIABLE
+  end
+  n0 --> n7
+  n1 --> n8
+  n2 --> n5
+  n3 --> n0
+  n4 --> n6
+  n5 --> n0
+  n6 --> n1
+  n8 --> n2
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

@@ -1,51 +1,37 @@
-# classLiteral: spike value graph
+# classLiteral: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:17:18 CALL<br/>Class primitive = boolean.class"]
-  n1["App:17:18 IDENTIFIER<br/>primitive"]
-  n2["App:17:30 CALL<br/>boolean.class"]
-  n3["App:17:30 FIELD_IDENTIFIER<br/>class"]
-  n4["App:17:30 IDENTIFIER<br/>boolean"]
-  n5["App:18:18 CALL<br/>Class reference = String.class"]
-  n6["App:18:18 IDENTIFIER<br/>reference"]
-  n7["App:18:30 CALL<br/>String.class"]
-  n8["App:18:30 FIELD_IDENTIFIER<br/>class"]
-  n9["App:18:30 IDENTIFIER<br/>String"]
-  n10["App:19:18 IDENTIFIER<br/>primitive"]
-  n11["App:19:29 IDENTIFIER<br/>reference"]
-  n12["App:19:9 CALL<br/>register(primitive, reference)"]
-  n13["App:19:9 IDENTIFIER<br/>this"]
-  n14["App:22:34 METHOD_PARAMETER_IN<br/>Class#lt;?#gt; first"]
-  n15["App:22:50 METHOD_PARAMETER_IN<br/>Class#lt;?#gt; second"]
-  n16["App:23:16 CALL<br/>String pair = first.getName() + second.getName()"]
-  n17["App:23:16 IDENTIFIER<br/>pair"]
-  n18["App:23:23 CALL<br/>first.getName() + second.getName()"]
-  n19["App:23:23 CALL<br/>getName()"]
-  n20["App:23:23 IDENTIFIER<br/>first"]
-  n21["App:23:41 CALL<br/>getName()"]
-  n22["App:23:41 IDENTIFIER<br/>second"]
-  n0 -->|"local: ="| n1
-  n1 -->|"local: primitive"| n10
-  n10 -->|"arg: arg 1 first"| n14
-  n10 -->|"local: primitive"| n12
-  n11 -->|"arg: arg 2 second"| n15
-  n11 -->|"local: reference"| n12
-  n13 -->|"local: this"| n12
-  n14 -->|"local: first"| n20
-  n15 -->|"local: second"| n22
-  n16 -->|"local: ="| n17
-  n18 -->|"local: first.getName() + second.getName()"| n16
-  n19 -->|"local: getName()"| n18
-  n2 -->|"local: field boolean.class"| n0
-  n20 -->|"local: first"| n19
-  n21 -->|"local: getName()"| n18
-  n22 -->|"local: second"| n21
-  n3 -->|"local: class"| n2
-  n4 -->|"local: boolean"| n2
-  n5 -->|"local: ="| n6
-  n6 -->|"local: reference"| n11
-  n7 -->|"local: field ANY.class"| n5
-  n8 -->|"local: class"| n7
-  n9 -->|"local: String"| n7
+  subgraph m0["main"]
+    n0["String"]:::OBJ_VARIABLE
+    n1["primitive"]:::OBJ_VARIABLE
+    n2["reference"]:::OBJ_VARIABLE
+  end
+  subgraph m1["register"]
+    n3["+"]:::BIN_OP
+    n4["getName"]:::EXTERNAL
+    n5["getName"]:::EXTERNAL
+    n6["first"]:::FUNC_PARAM
+    n7["second"]:::FUNC_PARAM
+    n8["pair"]:::OBJ_VARIABLE
+  end
+  n9["class"]:::VARIABLE
+  n10["class"]:::VARIABLE
+  n0 --> n9
+  n1 --> n6
+  n10 --> n1
+  n2 --> n7
+  n3 --> n8
+  n4 --> n3
+  n5 --> n3
+  n6 --> n4
+  n7 --> n5
+  n9 --> n2
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

@@ -1,24 +1,23 @@
-# unsupportedAssignment: spike value graph
+# unsupportedAssignment: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:13:29 METHOD_PARAMETER_IN<br/>String[] args"]
-  n1["App:14:16 CALL<br/>Object cast = (Object) args"]
-  n2["App:14:16 IDENTIFIER<br/>cast"]
-  n3["App:14:23 CALL<br/>(Object) args"]
-  n4["App:14:23 TYPE_REF<br/>Object"]
-  n5["App:14:32 IDENTIFIER<br/>args"]
-  n6["App:15:13 CALL<br/>int size = cast.hashCode()"]
-  n7["App:15:13 IDENTIFIER<br/>size"]
-  n8["App:15:20 CALL<br/>hashCode()"]
-  n9["App:15:20 IDENTIFIER<br/>cast"]
-  n0 -->|"local: args"| n5
-  n1 -->|"local: ="| n2
-  n2 -->|"local: cast"| n9
-  n3 -->|"local: (Object) args"| n1
-  n4 -->|"local: Object"| n3
-  n5 -->|"local: args"| n3
-  n6 -->|"local: ="| n7
-  n8 -->|"local: hashCode()"| n6
-  n9 -->|"local: cast"| n8
+  subgraph m0["main"]
+    n0["cast"]:::BIN_OP
+    n1["hashCode"]:::EXTERNAL
+    n2["args"]:::FUNC_PARAM
+    n3["cast"]:::OBJ_VARIABLE
+    n4["size"]:::VARIABLE
+  end
+  n0 --> n3
+  n1 --> n4
+  n2 --> n0
+  n3 --> n1
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

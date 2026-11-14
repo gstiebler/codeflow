@@ -1,49 +1,39 @@
-# catchParameter: spike value graph
+# catchParameter: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:10:13 CALL<br/>out = Integer.parseInt(args[0])"]
-  n1["App:10:13 IDENTIFIER<br/>out"]
-  n2["App:10:19 CALL<br/>parseInt(args[0])"]
-  n3["App:10:19 IDENTIFIER<br/>Integer"]
-  n4["App:10:36 CALL<br/>args[0]"]
-  n5["App:10:36 IDENTIFIER<br/>args"]
-  n6["App:10:41 LITERAL<br/>0"]
-  n7["App:12:20 CALL<br/>String reason = failure.getMessage()"]
-  n8["App:12:20 IDENTIFIER<br/>reason"]
-  n9["App:12:29 CALL<br/>getMessage()"]
-  n10["App:12:29 IDENTIFIER<br/>failure"]
-  n11["App:13:13 CALL<br/>out = reason.length()"]
-  n12["App:13:13 IDENTIFIER<br/>out"]
-  n13["App:13:19 CALL<br/>length()"]
-  n14["App:13:19 IDENTIFIER<br/>reason"]
-  n15["App:7:29 METHOD_PARAMETER_IN<br/>String[] args"]
-  n16["App:8:13 CALL<br/>int out = 0"]
-  n17["App:8:13 IDENTIFIER<br/>out"]
-  n18["App:8:19 LITERAL<br/>0"]
-  n0 -->|"guard: guard out = Integer.parseInt(args[0])"| n10
-  n0 -->|"guard: guard out = Integer.parseInt(args[0])"| n11
-  n0 -->|"guard: guard out = Integer.parseInt(args[0])"| n12
-  n0 -->|"guard: guard out = Integer.parseInt(args[0])"| n13
-  n0 -->|"guard: guard out = Integer.parseInt(args[0])"| n14
-  n0 -->|"guard: guard out = Integer.parseInt(args[0])"| n7
-  n0 -->|"guard: guard out = Integer.parseInt(args[0])"| n8
-  n0 -->|"guard: guard out = Integer.parseInt(args[0])"| n9
-  n0 -->|"local: ="| n1
-  n10 -->|"local: failure"| n9
-  n11 -->|"local: ="| n12
-  n13 -->|"local: length()"| n11
-  n14 -->|"local: reason"| n13
-  n15 -->|"local: args"| n4
-  n15 -->|"local: args"| n5
-  n16 -->|"local: ="| n17
-  n18 -->|"local: 0"| n16
-  n2 -->|"local: parseInt()"| n0
-  n3 -->|"local: Integer"| n2
-  n4 -->|"local: args[0]"| n2
-  n5 -->|"local: args"| n4
-  n6 -->|"local: 0"| n4
-  n7 -->|"local: ="| n8
-  n8 -->|"local: reason"| n14
-  n9 -->|"local: getMessage()"| n7
+  subgraph m0["main"]
+    n0["indexAccess"]:::BIN_OP
+    n1["getMessage"]:::EXTERNAL
+    n2["length"]:::EXTERNAL
+    n3["parseInt"]:::EXTERNAL
+    n4["args"]:::FUNC_PARAM
+    n5["0"]:::LITERAL
+    n6["0"]:::LITERAL
+    n7["Integer"]:::OBJ_VARIABLE
+    n8["failure"]:::OBJ_VARIABLE
+    n9["out"]:::VARIABLE
+    n10["reason"]:::OBJ_VARIABLE
+  end
+  n0 --> n3
+  n1 --> n10
+  n10 --> n2
+  n2 --> n9
+  n3 --> n1
+  n3 --> n10
+  n3 --> n2
+  n3 --> n8
+  n3 --> n9
+  n4 --> n0
+  n5 --> n0
+  n6 --> n9
+  n7 --> n3
+  n8 --> n1
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

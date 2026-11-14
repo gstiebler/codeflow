@@ -1,30 +1,27 @@
-# arrayAccess: spike value graph
+# arrayAccess: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:4:29 METHOD_PARAMETER_IN<br/>String[] args"]
-  n1["App:5:13 CALL<br/>int position = 1"]
-  n2["App:5:13 IDENTIFIER<br/>position"]
-  n3["App:5:24 LITERAL<br/>1"]
-  n4["App:6:16 CALL<br/>String picked = args[position]"]
-  n5["App:6:16 IDENTIFIER<br/>picked"]
-  n6["App:6:25 CALL<br/>args[position]"]
-  n7["App:6:25 IDENTIFIER<br/>args"]
-  n8["App:6:30 IDENTIFIER<br/>position"]
-  n9["App:7:13 CALL<br/>int size = picked.length()"]
-  n10["App:7:13 IDENTIFIER<br/>size"]
-  n11["App:7:20 CALL<br/>length()"]
-  n12["App:7:20 IDENTIFIER<br/>picked"]
-  n0 -->|"local: args"| n6
-  n0 -->|"local: args"| n7
-  n1 -->|"local: ="| n2
-  n11 -->|"local: length()"| n9
-  n12 -->|"local: picked"| n11
-  n3 -->|"local: 1"| n1
-  n4 -->|"local: ="| n5
-  n5 -->|"local: picked"| n12
-  n6 -->|"local: args[position]"| n4
-  n7 -->|"local: args"| n6
-  n8 -->|"local: position"| n6
-  n9 -->|"local: ="| n10
+  subgraph m0["main"]
+    n0["indexAccess"]:::BIN_OP
+    n1["length"]:::EXTERNAL
+    n2["args"]:::FUNC_PARAM
+    n3["1"]:::LITERAL
+    n4["picked"]:::OBJ_VARIABLE
+    n5["position"]:::VARIABLE
+    n6["size"]:::VARIABLE
+  end
+  n0 --> n4
+  n1 --> n6
+  n2 --> n0
+  n3 --> n5
+  n4 --> n1
+  n5 --> n0
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

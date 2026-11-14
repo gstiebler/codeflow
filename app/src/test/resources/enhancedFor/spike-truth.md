@@ -1,74 +1,47 @@
-# enhancedFor: spike value graph
+# enhancedFor: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:10:17 CALL<br/>int size = name.length()"]
-  n1["App:10:17 IDENTIFIER<br/>size"]
-  n2["App:10:24 CALL<br/>length()"]
-  n3["App:10:24 IDENTIFIER<br/>name"]
-  n4["App:11:13 CALL<br/>total = total + size"]
-  n5["App:11:13 IDENTIFIER<br/>total"]
-  n6["App:11:21 CALL<br/>total + size"]
-  n7["App:11:21 IDENTIFIER<br/>total"]
-  n8["App:11:29 IDENTIFIER<br/>size"]
-  n9["App:7:22 CALL<br/>List names = List.of(#quot;a#quot;)"]
-  n10["App:7:22 IDENTIFIER<br/>names"]
-  n11["App:7:30 CALL<br/>of(#quot;a#quot;)"]
-  n12["App:7:30 IDENTIFIER<br/>List"]
-  n13["App:7:38 LITERAL<br/>#quot;a#quot;"]
-  n14["App:8:13 CALL<br/>int total = 0"]
-  n15["App:8:13 IDENTIFIER<br/>total"]
-  n16["App:8:21 LITERAL<br/>0"]
-  n17["App:9:28 CALL #2<br/>names"]
-  n18["App:9:28 CALL<br/>names"]
-  n19["App:9:28 IDENTIFIER<br/>$iterLocal0"]
-  n20["App:9:28 IDENTIFIER<br/>names"]
-  n21["App:9:9 CALL #2<br/>for (String name : names) { int size = name.length(); total = total + "]
-  n22["App:9:9 CALL<br/>#lt;empty#gt;"]
-  n23["App:9:9 CALL<br/>for (String name : names) { int size = name.length(); total = total + "]
-  n24["App:9:9 IDENTIFIER #2<br/>$iterLocal0"]
-  n25["App:9:9 IDENTIFIER<br/>$iterLocal0"]
-  n26["App:9:9 IDENTIFIER<br/>name"]
-  n0 -->|"local: ="| n1
-  n1 -->|"local: size"| n8
-  n10 -->|"local: names"| n20
-  n11 -->|"local: of()"| n9
-  n12 -->|"local: List"| n11
-  n13 -->|"local: #quot;a#quot;"| n11
-  n14 -->|"local: ="| n15
-  n15 -->|"local: total"| n7
-  n16 -->|"local: 0"| n14
-  n17 -->|"local: iterator()"| n18
-  n18 -->|"local: ="| n19
-  n19 -->|"local: $iterLocal0"| n25
-  n2 -->|"local: length()"| n0
-  n20 -->|"local: names"| n17
-  n21 -->|"local: next()"| n22
-  n22 -->|"local: ="| n26
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n0
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n1
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n2
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n21
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n22
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n24
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n25
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n26
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n3
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n4
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n5
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n6
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n7
-  n23 -->|"guard: guard for (String name : names) { int size = name.length(); total = total + size; }"| n8
-  n24 -->|"local: $iterLocal0"| n21
-  n24 -->|"local: $iterLocal0"| n25
-  n25 -->|"local: $iterLocal0"| n23
-  n25 -->|"local: $iterLocal0"| n24
-  n26 -->|"local: name"| n3
-  n3 -->|"local: name"| n2
-  n4 -->|"local: ="| n5
-  n5 -->|"local: total"| n7
-  n6 -->|"local: total + size"| n4
-  n7 -->|"local: total"| n6
-  n8 -->|"local: size"| n6
-  n9 -->|"local: ="| n10
+  subgraph m0["main"]
+    n0["+"]:::BIN_OP
+    n1["hasNext"]:::EXTERNAL
+    n2["iterator"]:::EXTERNAL
+    n3["length"]:::EXTERNAL
+    n4["next"]:::EXTERNAL
+    n5["of"]:::EXTERNAL
+    n6["#quot;a#quot;"]:::LITERAL
+    n7["0"]:::LITERAL
+    n8["$iterLocal0"]:::OBJ_VARIABLE
+    n9["name"]:::OBJ_VARIABLE
+    n10["names"]:::OBJ_VARIABLE
+    n11["size"]:::VARIABLE
+    n12["total"]:::VARIABLE
+  end
+  n0 --> n12
+  n1 -->|if| n0
+  n1 -->|if| n11
+  n1 -->|if| n12
+  n1 -->|if| n3
+  n1 -->|if| n4
+  n1 -->|if| n8
+  n1 -->|if| n9
+  n10 --> n2
+  n11 --> n0
+  n12 --> n0
+  n2 --> n8
+  n3 --> n11
+  n4 --> n9
+  n5 --> n10
+  n6 --> n5
+  n7 --> n12
+  n8 --> n1
+  n8 --> n4
+  n9 --> n3
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

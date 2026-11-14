@@ -1,61 +1,35 @@
-# voidReturn: spike value graph
+# voidReturn: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:10:16 IDENTIFIER<br/>seed"]
-  n1["App:10:9 CALL<br/>this.held"]
-  n2["App:10:9 CALL<br/>this.held = seed"]
-  n3["App:10:9 FIELD_IDENTIFIER<br/>held"]
-  n4["App:10:9 IDENTIFIER<br/>this"]
-  n5["App:16 CALL<br/>new Sink()"]
-  n6["App:16:14 CALL<br/>Sink sink = new Sink()"]
-  n7["App:16:14 IDENTIFIER #2<br/>sink"]
-  n8["App:16:14 IDENTIFIER<br/>sink"]
-  n9["App:16:21 CALL<br/>new Sink()"]
-  n10["App:17:20 LITERAL<br/>5"]
-  n11["App:17:9 CALL<br/>sink.store(5)"]
-  n12["App:17:9 IDENTIFIER<br/>sink"]
-  n13["App:18:13 CALL<br/>int out = sink.held"]
-  n14["App:18:13 IDENTIFIER<br/>out"]
-  n15["App:18:19 CALL<br/>sink.held"]
-  n16["App:18:19 IDENTIFIER<br/>sink"]
-  n17["App:18:24 FIELD_IDENTIFIER<br/>held"]
-  n18["App:3:1 METHOD_PARAMETER_IN<br/>this"]
-  n19["App:6:16 METHOD_PARAMETER_IN<br/>int seed"]
-  n20["App:6:5 METHOD_PARAMETER_IN<br/>this"]
-  n21["App:7:13 CALL<br/>seed #lt; 0"]
-  n22["App:7:13 IDENTIFIER<br/>seed"]
-  n23["App:7:20 LITERAL<br/>0"]
-  n24["App:8:13 RETURN<br/>return;"]
-  n0 -->|"local: seed"| n2
-  n1 -->|"field: field Sink.held"| n15
-  n10 -->|"arg: arg 1 seed"| n19
-  n12 -->|"arg: arg 0 this"| n20
-  n12 -->|"local: sink"| n15
-  n12 -->|"local: sink"| n16
-  n13 -->|"local: ="| n14
-  n15 -->|"local: field Sink.held"| n13
-  n16 -->|"local: sink"| n15
-  n17 -->|"local: held"| n15
-  n19 -->|"local: seed"| n22
-  n2 -->|"local: ="| n1
-  n20 -->|"local: this"| n4
-  n21 -->|"guard: guard seed #lt; 0"| n0
-  n21 -->|"guard: guard seed #lt; 0"| n1
-  n21 -->|"guard: guard seed #lt; 0"| n2
-  n21 -->|"guard: guard seed #lt; 0"| n24
-  n21 -->|"guard: guard seed #lt; 0"| n3
-  n21 -->|"guard: guard seed #lt; 0"| n4
-  n22 -->|"local: seed"| n0
-  n22 -->|"local: seed"| n21
-  n23 -->|"local: 0"| n21
-  n24 -->|"ret: return of store()"| n11
-  n3 -->|"local: held"| n1
-  n4 -->|"local: this"| n1
-  n6 -->|"local: ="| n8
-  n7 -->|"arg: arg 0 this"| n18
-  n7 -->|"local: sink"| n12
-  n7 -->|"local: sink"| n5
-  n8 -->|"local: sink"| n7
-  n9 -->|"local: new Sink()"| n6
+  subgraph m0["main"]
+    n0["Sink"]:::EXTERNAL
+    n1["5"]:::LITERAL
+    n2["out"]:::VARIABLE
+    n3["sink"]:::OBJ_VARIABLE
+  end
+  subgraph m1["store"]
+    n4["#lt;"]:::BIN_OP
+    n5["seed"]:::FUNC_PARAM
+    n6["0"]:::LITERAL
+    n7["store"]:::RETURN
+  end
+  n8["held"]:::VARIABLE
+  n0 --> n3
+  n1 --> n5
+  n3 --> n8
+  n4 -->|if| n5
+  n4 -->|if| n7
+  n4 -->|if| n8
+  n5 --> n4
+  n5 --> n8
+  n6 --> n4
+  n8 --> n2
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

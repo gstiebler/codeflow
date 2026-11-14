@@ -1,31 +1,25 @@
-# externalObject: spike value graph
+# externalObject: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:15:28 CALL<br/>List items = List.of()"]
-  n1["App:15:28 IDENTIFIER<br/>items"]
-  n2["App:15:36 CALL<br/>of()"]
-  n3["App:15:36 IDENTIFIER<br/>List"]
-  n4["App:16:19 CALL<br/>int size = items.size()"]
-  n5["App:16:19 IDENTIFIER<br/>size"]
-  n6["App:16:26 CALL<br/>size()"]
-  n7["App:16:26 IDENTIFIER<br/>items"]
-  n8["App:17:19 CALL<br/>int doubled = size + size"]
-  n9["App:17:19 IDENTIFIER<br/>doubled"]
-  n10["App:17:29 CALL<br/>size + size"]
-  n11["App:17:29 IDENTIFIER<br/>size"]
-  n12["App:17:36 IDENTIFIER<br/>size"]
-  n0 -->|"local: ="| n1
-  n1 -->|"local: items"| n7
-  n10 -->|"local: size + size"| n8
-  n11 -->|"local: size"| n10
-  n12 -->|"local: size"| n10
-  n2 -->|"local: of()"| n0
-  n3 -->|"local: List"| n2
-  n4 -->|"local: ="| n5
-  n5 -->|"local: size"| n11
-  n5 -->|"local: size"| n12
-  n6 -->|"local: size()"| n4
-  n7 -->|"local: items"| n6
-  n8 -->|"local: ="| n9
+  subgraph m0["main"]
+    n0["+"]:::BIN_OP
+    n1["of"]:::EXTERNAL
+    n2["size"]:::EXTERNAL
+    n3["doubled"]:::VARIABLE
+    n4["items"]:::OBJ_VARIABLE
+    n5["size"]:::VARIABLE
+  end
+  n0 --> n3
+  n1 --> n4
+  n2 --> n5
+  n4 --> n2
+  n5 --> n0
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

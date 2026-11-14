@@ -1,35 +1,34 @@
-# twoMains: spike value graph
+# twoMains: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["Alpha:5:13 CALL<br/>int fromAlpha = 1"]
-  n1["Alpha:5:13 IDENTIFIER<br/>fromAlpha"]
-  n2["Alpha:5:25 LITERAL<br/>1"]
-  n3["Alpha:6:13 CALL<br/>int alphaOut = fromAlpha + 1"]
-  n4["Alpha:6:13 IDENTIFIER<br/>alphaOut"]
-  n5["Alpha:6:24 CALL<br/>fromAlpha + 1"]
-  n6["Alpha:6:24 IDENTIFIER<br/>fromAlpha"]
-  n7["Alpha:6:36 LITERAL<br/>1"]
-  n8["Zeta:5:13 CALL<br/>int fromZeta = 2"]
-  n9["Zeta:5:13 IDENTIFIER<br/>fromZeta"]
-  n10["Zeta:5:24 LITERAL<br/>2"]
-  n11["Zeta:6:13 CALL<br/>int zetaOut = fromZeta + 1"]
-  n12["Zeta:6:13 IDENTIFIER<br/>zetaOut"]
-  n13["Zeta:6:23 CALL<br/>fromZeta + 1"]
-  n14["Zeta:6:23 IDENTIFIER<br/>fromZeta"]
-  n15["Zeta:6:34 LITERAL<br/>1"]
-  n0 -->|"local: ="| n1
-  n1 -->|"local: fromAlpha"| n6
-  n10 -->|"local: 2"| n8
-  n11 -->|"local: ="| n12
-  n13 -->|"local: fromZeta + 1"| n11
-  n14 -->|"local: fromZeta"| n13
-  n15 -->|"local: 1"| n13
-  n2 -->|"local: 1"| n0
-  n3 -->|"local: ="| n4
-  n5 -->|"local: fromAlpha + 1"| n3
-  n6 -->|"local: fromAlpha"| n5
-  n7 -->|"local: 1"| n5
-  n8 -->|"local: ="| n9
-  n9 -->|"local: fromZeta"| n14
+  subgraph m0["main"]
+    n0["+"]:::BIN_OP
+    n1["1"]:::LITERAL
+    n2["1"]:::LITERAL
+    n3["alphaOut"]:::VARIABLE
+    n4["fromAlpha"]:::VARIABLE
+  end
+  subgraph m1["main"]
+    n5["+"]:::BIN_OP
+    n6["1"]:::LITERAL
+    n7["2"]:::LITERAL
+    n8["fromZeta"]:::VARIABLE
+    n9["zetaOut"]:::VARIABLE
+  end
+  n0 --> n3
+  n1 --> n4
+  n2 --> n0
+  n4 --> n0
+  n5 --> n9
+  n6 --> n5
+  n7 --> n8
+  n8 --> n5
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

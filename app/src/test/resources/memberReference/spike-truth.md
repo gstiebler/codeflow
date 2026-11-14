@@ -1,27 +1,26 @@
-# memberReference: spike value graph
+# memberReference: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:10:13 CALL<br/>int out = counter.get()"]
-  n1["App:10:13 IDENTIFIER<br/>out"]
-  n2["App:10:19 CALL<br/>get()"]
-  n3["App:10:19 IDENTIFIER<br/>counter"]
-  n4["App:8:22 CALL<br/>List names = List.of(#quot;a#quot;)"]
-  n5["App:8:22 IDENTIFIER<br/>names"]
-  n6["App:8:30 CALL<br/>of(#quot;a#quot;)"]
-  n7["App:8:30 IDENTIFIER<br/>List"]
-  n8["App:8:38 LITERAL<br/>#quot;a#quot;"]
-  n9["App:9:27 CALL<br/>Supplier counter = names::size"]
-  n10["App:9:27 IDENTIFIER<br/>counter"]
-  n11["App:9:37 METHOD_REF<br/>names::size"]
-  n0 -->|"local: ="| n1
-  n10 -->|"local: counter"| n3
-  n11 -->|"local: names::size"| n9
-  n2 -->|"local: get()"| n0
-  n3 -->|"local: counter"| n2
-  n4 -->|"local: ="| n5
-  n6 -->|"local: of()"| n4
-  n7 -->|"local: List"| n6
-  n8 -->|"local: #quot;a#quot;"| n6
-  n9 -->|"local: ="| n10
+  subgraph m0["main"]
+    n0["get"]:::EXTERNAL
+    n1["names::size"]:::EXTERNAL
+    n2["of"]:::EXTERNAL
+    n3["#quot;a#quot;"]:::LITERAL
+    n4["counter"]:::OBJ_VARIABLE
+    n5["names"]:::OBJ_VARIABLE
+    n6["out"]:::VARIABLE
+  end
+  n0 --> n6
+  n1 --> n4
+  n2 --> n5
+  n3 --> n2
+  n4 --> n0
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

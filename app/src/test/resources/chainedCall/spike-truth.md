@@ -1,24 +1,25 @@
-# chainedCall: spike value graph
+# chainedCall: spike value graph (condensed)
 
 ```mermaid
 flowchart TD
-  n0["App:15:28 CALL<br/>List items = List.of()"]
-  n1["App:15:28 IDENTIFIER<br/>items"]
-  n2["App:15:36 CALL<br/>of()"]
-  n3["App:15:36 IDENTIFIER<br/>List"]
-  n4["App:16:19 CALL<br/>int size = items.stream().toList().size()"]
-  n5["App:16:19 IDENTIFIER<br/>size"]
-  n6["App:16:26 CALL<br/>stream()"]
-  n7["App:16:26 CALL<br/>stream().toList()"]
-  n8["App:16:26 CALL<br/>stream().toList().size()"]
-  n9["App:16:26 IDENTIFIER<br/>items"]
-  n0 -->|"local: ="| n1
-  n1 -->|"local: items"| n9
-  n2 -->|"local: of()"| n0
-  n3 -->|"local: List"| n2
-  n4 -->|"local: ="| n5
-  n6 -->|"local: stream()"| n7
-  n7 -->|"local: toList()"| n8
-  n8 -->|"local: size()"| n4
-  n9 -->|"local: items"| n6
+  subgraph m0["main"]
+    n0["of"]:::EXTERNAL
+    n1["size"]:::EXTERNAL
+    n2["stream"]:::EXTERNAL
+    n3["toList"]:::EXTERNAL
+    n4["items"]:::OBJ_VARIABLE
+    n5["size"]:::VARIABLE
+  end
+  n0 --> n4
+  n1 --> n5
+  n2 --> n3
+  n3 --> n1
+  n4 --> n2
+  classDef LITERAL fill:#00FF0030
+  classDef VARIABLE fill:#80808030
+  classDef BIN_OP fill:#80808080
+  classDef FUNC_PARAM fill:#8080FF30
+  classDef RETURN fill:#FF808080
+  classDef EXTERNAL fill:#FFA50040
+  classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
 ```

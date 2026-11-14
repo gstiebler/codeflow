@@ -45,26 +45,27 @@ test('contraction through dropped nodes keeps flows and invents none', () => {
   const nodes = [
     node('lit', 'LITERAL', '1', { col: 1 }),
     node('x1', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 2 }),
-    node('asg', 'CALL', 'x = 1', { name: '<operator>.assignment' }),
+    node('asg', 'CALL', 'x = 1', { name: '<operator>.assignment', args: ['', 'x1', 'lit'] }),
     node('x2', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 3 }),
     node('add', 'CALL', 'x + 2', { name: '<operator>.addition', col: 4 }),
     node('blk', 'BLOCK', ''),
     node('y', 'IDENTIFIER', 'y', { typeFullName: 'int', col: 5 }),
     node('other', 'LITERAL', '9', { col: 6 }),
+    node('asgy', 'CALL', 'y = ...', { name: '<operator>.assignment', args: ['', 'y', 'add'] }),
   ];
   const edge = (from: string, to: string) => ({ from, to, carrier: '', kind: 'local' as const });
   const m = {
     byId: new Map(nodes.map((n) => [n.id, n])),
     methodByFullName: new Map(),
-    edges: [edge('lit', 'asg'), edge('asg', 'x1'), edge('x2', 'add'), edge('add', 'blk'), edge('blk', 'y'), edge('other', 'blk')],
+    edges: [edge('lit', 'asg'), edge('asg', 'x1'), edge('x1', 'x2'), edge('x2', 'add'), edge('add', 'blk'), edge('blk', 'y'), edge('other', 'blk')],
   } as unknown as Model;
   check(m);
   const c = condense(m);
   assert.deepEqual(c.edges.map((e) => `${e.from}>${e.to}`).sort(), [
-    'A.f|BIN_OP|+|1:4>A.f|VARIABLE|y',
-    'A.f|LITERAL|1|1:1>A.f|VARIABLE|x',
-    'A.f|LITERAL|9|1:6>A.f|VARIABLE|y',
-    'A.f|VARIABLE|x>A.f|BIN_OP|+|1:4',
+    'A.f|BIN_OP|+|1:4>A.f|VARIABLE|y|1:5',
+    'A.f|LITERAL|1|1:1>A.f|VARIABLE|x|1:2',
+    'A.f|LITERAL|9|1:6>A.f|VARIABLE|y|1:5',
+    'A.f|VARIABLE|x|1:2>A.f|BIN_OP|+|1:4',
   ]);
 });
 
@@ -86,7 +87,36 @@ test('a guard to a read is dropped; to an assignment target or a RETURN it is ke
   check(m);
   assert.deepEqual(condense(m).edges.map((e) => `${e.from}>${e.to}|${e.label}`).sort(), [
     'A.f|BIN_OP|>|1:1>A.f|RETURN|if',
-    'A.f|BIN_OP|>|1:1>A.f|VARIABLE|y|if',
+    'A.f|BIN_OP|>|1:1>A.f|VARIABLE|y|1:4|if',
+  ]);
+});
+
+test('each assignment of a local is its own node; reads are contracted into the reaching definition', () => {
+  const nodes = [
+    node('l0', 'LITERAL', '0', { line: 1, col: 1 }),
+    node('r0', 'IDENTIFIER', 'r', { typeFullName: 'int', line: 1, col: 2 }),
+    node('a0', 'CALL', 'r = 0', { name: '<operator>.assignment', line: 1, args: ['', 'r0', 'l0'] }),
+    node('l1', 'LITERAL', '1', { line: 2, col: 1 }),
+    node('r1', 'IDENTIFIER', 'r', { typeFullName: 'int', line: 2, col: 2 }),
+    node('a1', 'CALL', 'r = 1', { name: '<operator>.assignment', line: 2, args: ['', 'r1', 'l1'] }),
+    node('rd', 'IDENTIFIER', 'r', { typeFullName: 'int', line: 3, col: 2 }),
+    node('ret', 'RETURN', 'return r', { line: 3 }),
+  ];
+  const edge = (from: string, to: string) => ({ from, to, carrier: '', kind: 'local' as const });
+  const m = {
+    byId: new Map(nodes.map((n) => [n.id, n])),
+    methodByFullName: new Map(),
+    edges: [edge('l0', 'r0'), edge('l1', 'r1'), edge('r1', 'rd'), edge('rd', 'ret')],
+  } as unknown as Model;
+  check(m);
+  const c = condense(m);
+  assert.deepEqual(c.nodes.map((n) => n.key).sort(), [
+    'A.f|LITERAL|0|1:1', 'A.f|LITERAL|1|2:1', 'A.f|RETURN', 'A.f|VARIABLE|r|1:2', 'A.f|VARIABLE|r|2:2',
+  ]);
+  assert.deepEqual(c.edges.map((e) => `${e.from}>${e.to}`).sort(), [
+    'A.f|LITERAL|0|1:1>A.f|VARIABLE|r|1:2',
+    'A.f|LITERAL|1|2:1>A.f|VARIABLE|r|2:2',
+    'A.f|VARIABLE|r|2:2>A.f|RETURN',
   ]);
 });
 

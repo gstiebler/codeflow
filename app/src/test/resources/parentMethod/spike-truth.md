@@ -15,37 +15,34 @@ flowchart TD
     n7["adjust"]:::RETURN
     n8["scaled"]:::VARIABLE
     n9["shifted"]:::VARIABLE
-    n10["super"]:::OBJ_VARIABLE
   end
   subgraph m2["scale"]
-    n11["*"]:::BIN_OP
-    n12["factor"]:::FUNC_PARAM
-    n13["3"]:::LITERAL
-    n14["scale"]:::RETURN
+    n10["*"]:::BIN_OP
+    n11["factor"]:::FUNC_PARAM
+    n12["3"]:::LITERAL
+    n13["scale"]:::RETURN
   end
   subgraph m3["shift"]
-    n15["+"]:::BIN_OP
-    n16["amount"]:::FUNC_PARAM
-    n17["shift"]:::RETURN
+    n14["+"]:::BIN_OP
+    n15["amount"]:::FUNC_PARAM
+    n16["shift"]:::RETURN
   end
-  n18["offset"]:::VARIABLE
+  n17["offset"]:::VARIABLE
   n0 --> n2
   n1 --> n5
-  n10 --> n18
-  n10 --> n4
-  n11 --> n14
-  n12 --> n11
-  n13 --> n11
-  n15 --> n17
-  n16 --> n15
-  n17 --> n9
-  n18 --> n10
-  n18 --> n15
-  n2 --> n10
-  n2 --> n18
+  n10 --> n13
+  n11 --> n10
+  n12 --> n10
+  n14 --> n16
+  n15 --> n14
+  n16 --> n9
+  n17 --> n14
+  n17 --> n4
+  n2 --> n17
+  n2 --> n4
   n4 --> n8
-  n5 --> n16
-  n6 --> n18
+  n5 --> n15
+  n6 --> n17
   n7 --> n3
   n8 --> n7
   n9 --> n4

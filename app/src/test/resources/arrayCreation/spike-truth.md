@@ -14,24 +14,24 @@ flowchart TD
     n8["7"]:::LITERAL
     n9["9"]:::LITERAL
     n10["filled"]:::OBJ_VARIABLE
-    n11["out"]:::VARIABLE
-    n12["seed"]:::VARIABLE
-    n13["size"]:::VARIABLE
-    n14["sized"]:::OBJ_VARIABLE
+    n11["sized"]:::OBJ_VARIABLE
+    n12["out"]:::VARIABLE
+    n13["seed"]:::VARIABLE
+    n14["size"]:::VARIABLE
   end
-  n0 --> n11
+  n0 --> n12
   n1 --> n10
   n10 --> n2
-  n12 --> n1
-  n13 --> n4
-  n14 --> n3
+  n11 --> n3
+  n13 --> n1
+  n14 --> n4
   n2 --> n0
   n3 --> n0
-  n4 --> n14
+  n4 --> n11
   n5 --> n2
   n6 --> n3
-  n7 --> n13
-  n8 --> n12
+  n7 --> n14
+  n8 --> n13
   n9 --> n1
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

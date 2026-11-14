@@ -9,22 +9,22 @@ flowchart TD
     n3["instanceOf"]:::BIN_OP
     n4["length"]:::EXTERNAL
     n5["args"]:::FUNC_PARAM
-    n6["isText"]:::VARIABLE
-    n7["size"]:::VARIABLE
-    n8["text"]:::OBJ_VARIABLE
-    n9["value"]:::OBJ_VARIABLE
+    n6["text"]:::OBJ_VARIABLE
+    n7["value"]:::OBJ_VARIABLE
+    n8["isText"]:::VARIABLE
+    n9["size"]:::VARIABLE
   end
-  n0 -->|if| n7
-  n1 --> n8
-  n2 --> n6
+  n0 -->|if| n9
+  n1 --> n6
+  n2 --> n8
   n3 --> n0
-  n3 -->|if| n8
-  n4 --> n7
-  n5 --> n9
-  n8 --> n4
-  n9 --> n1
-  n9 --> n2
-  n9 --> n3
+  n3 -->|if| n6
+  n4 --> n9
+  n5 --> n7
+  n6 --> n4
+  n7 --> n1
+  n7 --> n2
+  n7 --> n3
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

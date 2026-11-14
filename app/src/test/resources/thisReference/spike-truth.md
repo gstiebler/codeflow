@@ -5,31 +5,31 @@ flowchart TD
   subgraph m0["main"]
     n0["Source"]:::EXTERNAL
     n1["7"]:::LITERAL
-    n2["out"]:::VARIABLE
-    n3["source"]:::OBJ_VARIABLE
+    n2["source"]:::OBJ_VARIABLE
+    n3["out"]:::VARIABLE
   end
   subgraph m1["#lt;init#gt;"]
     n4["seed"]:::FUNC_PARAM
   end
   subgraph m2["wrapAndRead"]
     n5["Wrapper"]:::EXTERNAL
-    n6["wrapAndRead"]:::RETURN
-    n7["wrapper"]:::OBJ_VARIABLE
+    n6["wrapper"]:::OBJ_VARIABLE
+    n7["wrapAndRead"]:::RETURN
   end
   subgraph m3["#lt;init#gt;"]
     n8["origin"]:::FUNC_PARAM
   end
   n9["value"]:::VARIABLE
   n10["held"]:::VARIABLE
-  n0 --> n3
+  n0 --> n2
   n1 --> n4
-  n10 --> n6
-  n3 --> n8
-  n3 --> n9
+  n10 --> n7
+  n2 --> n8
+  n2 --> n9
   n4 --> n9
-  n5 --> n7
-  n6 --> n2
-  n7 --> n10
+  n5 --> n6
+  n6 --> n10
+  n7 --> n3
   n8 --> n9
   n9 --> n10
   classDef LITERAL fill:#00FF0030

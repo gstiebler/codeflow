@@ -13,31 +13,33 @@ flowchart TD
     n7["2"]:::LITERAL
     n8["30"]:::LITERAL
     n9["3"]:::LITERAL
-    n10["compound"]:::VARIABLE
-    n11["counter"]:::OBJ_VARIABLE
+    n10["counter"]:::OBJ_VARIABLE
+    n11["compound"]:::VARIABLE
     n12["expanded"]:::VARIABLE
     n13["field"]:::VARIABLE
     n14["folded"]:::VARIABLE
-    n15["total"]:::VARIABLE
+    n15["folded"]:::VARIABLE
+    n16["total"]:::VARIABLE
+    n17["total"]:::VARIABLE
   end
-  n16["count"]:::VARIABLE
-  n1 --> n15
-  n11 --> n16
-  n14 --> n0
-  n14 --> n10
-  n15 --> n1
-  n15 --> n12
-  n16 --> n11
-  n16 --> n13
-  n16 --> n2
-  n2 --> n16
-  n3 --> n11
+  n18["count"]:::VARIABLE
+  n1 --> n17
+  n10 --> n18
+  n14 --> n15
+  n15 --> n0
+  n15 --> n11
+  n16 --> n1
+  n17 --> n12
+  n18 --> n13
+  n18 --> n2
+  n2 --> n18
+  n3 --> n10
   n4 --> n1
-  n5 --> n15
+  n5 --> n16
   n6 --> n0
   n7 --> n14
   n8 --> n2
-  n9 --> n16
+  n9 --> n18
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

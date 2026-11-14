@@ -13,35 +13,42 @@ flowchart TD
     n7["0"]:::LITERAL
     n8["total"]:::RETURN
     n9["$idx0"]:::VARIABLE
-    n10["part"]:::VARIABLE
-    n11["sum"]:::VARIABLE
+    n10["$idx0"]:::VARIABLE
+    n11["$idx0"]:::VARIABLE
+    n12["part"]:::VARIABLE
+    n13["sum"]:::VARIABLE
+    n14["sum"]:::VARIABLE
   end
   subgraph m1["main"]
-    n12["arrayInitializer"]:::BIN_OP
-    n13["1"]:::LITERAL
-    n14["2"]:::LITERAL
-    n15["3"]:::LITERAL
-    n16["out"]:::VARIABLE
+    n15["arrayInitializer"]:::BIN_OP
+    n16["1"]:::LITERAL
+    n17["2"]:::LITERAL
+    n18["3"]:::LITERAL
+    n19["out"]:::VARIABLE
   end
-  n1 --> n11
-  n10 --> n1
-  n11 --> n1
-  n11 --> n8
-  n12 --> n6
-  n13 --> n5
-  n14 --> n12
-  n15 --> n12
-  n2 -->|if| n10
-  n2 -->|if| n11
-  n3 --> n10
+  n1 --> n14
+  n10 --> n11
+  n10 --> n2
+  n11 --> n0
+  n11 --> n2
+  n12 --> n1
+  n13 --> n1
+  n13 --> n8
+  n14 --> n1
+  n14 --> n8
+  n15 --> n6
+  n16 --> n5
+  n17 --> n15
+  n18 --> n15
+  n2 -->|if| n12
+  n2 -->|if| n14
+  n3 --> n12
   n4 --> n2
-  n5 --> n11
+  n5 --> n13
   n6 --> n3
   n6 --> n4
-  n7 --> n9
-  n8 --> n16
-  n9 --> n0
-  n9 --> n2
+  n7 --> n10
+  n8 --> n19
   n9 --> n3
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

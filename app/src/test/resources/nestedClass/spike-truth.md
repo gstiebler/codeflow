@@ -10,14 +10,14 @@ flowchart TD
   subgraph m1["main"]
     n3["App$Helper"]:::EXTERNAL
     n4["21"]:::LITERAL
-    n5["doubled"]:::VARIABLE
-    n6["helper"]:::OBJ_VARIABLE
+    n5["helper"]:::OBJ_VARIABLE
+    n6["doubled"]:::VARIABLE
     n7["seed"]:::VARIABLE
   end
   n0 --> n2
   n1 --> n0
-  n2 --> n5
-  n3 --> n6
+  n2 --> n6
+  n3 --> n5
   n4 --> n7
   n7 --> n1
   classDef LITERAL fill:#00FF0030

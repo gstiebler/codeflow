@@ -1,8 +1,8 @@
 import type { ValueEdge, Model, NodeFact } from './types.ts';
 
 /**
- * A condensed view of `m.edges`, in the style of the Kotlin engine's truth.md: variables collapse to
- * one node per (method, name), a method's returns to one node, fields to one node per member; calls
+ * A condensed view of `m.edges`, in the style of the Kotlin engine's truth.md: each assignment of a local is
+ * one node (reads are contracted into the definitions that reach them), a method's returns to one node, fields to one node per member; calls
  * into the corpus, assignments, `this`, type references and class-name receivers disappear. A dropped
  * node is contracted: each predecessor is connected to each successor, through chains of dropped
  * nodes. Pure view; the analysis in load.ts is untouched.
@@ -61,6 +61,16 @@ export function condense(m: Model): { nodes: CNode[]; edges: CEdge[]; keyOf: Map
     used.set(base, k);
     return { key: k === 1 ? base : `${base}#${k}`, kind, label, method: n.method };
   };
+  // Identifiers that define a local (assignment target, ++/--) and those with a reaching definition.
+  const defIds = new Set<string>();
+  for (const n of byId.values()) {
+    if (n.label !== 'CALL' || !n.name) continue;
+    const isDef = n.name.startsWith('<operator>.assignment') || /^<operator>\.(post|pre)(Increment|Decrement)$/.test(n.name);
+    const target = isDef ? n.args?.find(Boolean) : undefined;
+    if (target) defIds.add(target);
+  }
+  const reached = new Set<string>();
+  for (const e of m.edges) if (e.kind === 'local') reached.add(e.to);
   for (const n of byId.values()) {
     let c: CNode | undefined;
     if (n.label === 'LITERAL') c = occurrence(n, 'LITERAL', n.code);
@@ -77,7 +87,9 @@ export function condense(m: Model): { nodes: CNode[]; edges: CEdge[]; keyOf: Map
         if (paramNames(n.method).has(n.code)) c = { key: `${n.method}|FUNC_PARAM|${n.code}`, kind: 'FUNC_PARAM', label: n.code, method: n.method };
         else {
           const kind = SIMPLE.has(n.typeFullName ?? '') ? 'VARIABLE' : 'OBJ_VARIABLE';
-          c = { key: `${n.method}|VARIABLE|${n.code}`, kind, label: n.code, method: n.method };
+          if (defIds.has(n.id)) c = occurrence(n, kind, n.code);
+          else if (reached.has(n.id)) c = undefined; // a read: contracted into its reaching definition
+          else c = { key: `${n.method}|VARIABLE|${n.code}`, kind, label: n.code, method: n.method };
         }
       }
     } else if (n.label === 'CALL' && n.name) {

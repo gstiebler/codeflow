@@ -6,14 +6,14 @@ flowchart TD
     n0["+"]:::BIN_OP
     n1["of"]:::EXTERNAL
     n2["size"]:::EXTERNAL
-    n3["doubled"]:::VARIABLE
-    n4["items"]:::OBJ_VARIABLE
+    n3["items"]:::OBJ_VARIABLE
+    n4["doubled"]:::VARIABLE
     n5["size"]:::VARIABLE
   end
-  n0 --> n3
-  n1 --> n4
+  n0 --> n4
+  n1 --> n3
   n2 --> n5
-  n4 --> n2
+  n3 --> n2
   n5 --> n0
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

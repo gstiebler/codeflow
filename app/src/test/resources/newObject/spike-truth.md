@@ -9,21 +9,21 @@ flowchart TD
     n3["#quot;text#quot;"]:::LITERAL
     n4["4"]:::LITERAL
     n5["box"]:::OBJ_VARIABLE
-    n6["read"]:::VARIABLE
-    n7["sb"]:::OBJ_VARIABLE
+    n6["sb"]:::OBJ_VARIABLE
+    n7["read"]:::VARIABLE
     n8["seed"]:::VARIABLE
   end
   subgraph m1["#lt;init#gt;"]
     n9["v"]:::FUNC_PARAM
   end
   n10["held"]:::VARIABLE
-  n1 --> n7
-  n10 --> n6
+  n1 --> n6
+  n10 --> n7
   n2 --> n5
   n3 --> n0
   n4 --> n8
   n5 --> n10
-  n7 --> n0
+  n6 --> n0
   n8 --> n9
   n9 --> n10
   classDef LITERAL fill:#00FF0030

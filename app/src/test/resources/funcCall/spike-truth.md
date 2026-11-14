@@ -30,9 +30,9 @@ flowchart TD
     n18["ClassX"]:::EXTERNAL
     n19["paramH"]:::FUNC_PARAM
     n20["6"]:::LITERAL
-    n21["methodC"]:::RETURN
-    n22["X1"]:::OBJ_VARIABLE
-    n23["X2"]:::OBJ_VARIABLE
+    n21["X1"]:::OBJ_VARIABLE
+    n22["X2"]:::OBJ_VARIABLE
+    n23["methodC"]:::RETURN
     n24["g"]:::VARIABLE
   end
   n25["memberX"]:::VARIABLE
@@ -45,18 +45,18 @@ flowchart TD
   n14 --> n4
   n15 --> n14
   n17 --> n24
-  n18 --> n22
+  n18 --> n21
   n19 --> n17
   n2 --> n9
   n20 --> n17
-  n21 --> n15
-  n21 --> n16
-  n22 --> n23
+  n21 --> n22
+  n21 --> n25
   n22 --> n25
-  n23 --> n25
+  n23 --> n15
+  n23 --> n16
   n24 --> n25
-  n25 --> n21
   n25 --> n22
+  n25 --> n23
   n5 --> n8
   n7 --> n11
   n8 --> n7

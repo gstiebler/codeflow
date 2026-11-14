@@ -19,15 +19,15 @@ flowchart TD
     n13["10"]:::LITERAL
     n14["3"]:::LITERAL
     n15["a"]:::VARIABLE
-    n16["b"]:::VARIABLE
-    n17["both"]:::VARIABLE
+    n16["both"]:::VARIABLE
+    n17["b"]:::VARIABLE
     n18["difference"]:::VARIABLE
     n19["either"]:::VARIABLE
     n20["equal"]:::VARIABLE
-    n21["greater"]:::VARIABLE
-    n22["greaterOrEqual"]:::VARIABLE
-    n23["less"]:::VARIABLE
-    n24["lessOrEqual"]:::VARIABLE
+    n21["greaterOrEqual"]:::VARIABLE
+    n22["greater"]:::VARIABLE
+    n23["lessOrEqual"]:::VARIABLE
+    n24["less"]:::VARIABLE
     n25["notEqual"]:::VARIABLE
     n26["product"]:::VARIABLE
     n27["quotient"]:::VARIABLE
@@ -36,11 +36,11 @@ flowchart TD
   end
   n0 --> n25
   n1 --> n28
-  n10 --> n21
+  n10 --> n22
   n11 --> n27
   n12 --> n19
   n13 --> n15
-  n14 --> n16
+  n14 --> n17
   n15 --> n0
   n15 --> n1
   n15 --> n10
@@ -52,29 +52,29 @@ flowchart TD
   n15 --> n7
   n15 --> n8
   n15 --> n9
-  n16 --> n0
-  n16 --> n1
-  n16 --> n10
-  n16 --> n11
-  n16 --> n3
-  n16 --> n4
-  n16 --> n5
-  n16 --> n6
-  n16 --> n7
-  n16 --> n8
-  n16 --> n9
-  n2 --> n17
+  n17 --> n0
+  n17 --> n1
+  n17 --> n10
+  n17 --> n11
+  n17 --> n3
+  n17 --> n4
+  n17 --> n5
+  n17 --> n6
+  n17 --> n7
+  n17 --> n8
+  n17 --> n9
+  n2 --> n16
   n20 --> n12
   n20 --> n2
-  n23 --> n12
-  n23 --> n2
+  n24 --> n12
+  n24 --> n2
   n3 --> n26
   n4 --> n29
   n5 --> n18
-  n6 --> n24
-  n7 --> n23
+  n6 --> n23
+  n7 --> n24
   n8 --> n20
-  n9 --> n22
+  n9 --> n21
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

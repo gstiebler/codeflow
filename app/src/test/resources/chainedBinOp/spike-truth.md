@@ -12,23 +12,23 @@ flowchart TD
     n6["3"]:::LITERAL
     n7["a"]:::VARIABLE
     n8["b"]:::VARIABLE
-    n9["c"]:::VARIABLE
-    n10["chained"]:::VARIABLE
+    n9["chained"]:::VARIABLE
+    n10["c"]:::VARIABLE
     n11["nested"]:::VARIABLE
   end
-  n0 --> n10
+  n0 --> n9
   n1 --> n0
+  n10 --> n0
+  n10 --> n2
   n2 --> n11
   n3 --> n2
   n4 --> n7
   n5 --> n8
-  n6 --> n9
+  n6 --> n10
   n7 --> n1
   n7 --> n3
   n8 --> n1
   n8 --> n3
-  n9 --> n0
-  n9 --> n2
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

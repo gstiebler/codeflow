@@ -11,15 +11,15 @@ flowchart TD
     n3["applyAsInt"]:::EXTERNAL
     n4["statementLambda.App.#lt;lambda#gt;0:#lt;unresolve"]:::EXTERNAL
     n5["4"]:::LITERAL
-    n6["out"]:::VARIABLE
-    n7["twice"]:::OBJ_VARIABLE
+    n6["twice"]:::OBJ_VARIABLE
+    n7["out"]:::VARIABLE
   end
   n0 --> n2
   n1 --> n0
-  n3 --> n6
-  n4 --> n7
+  n3 --> n7
+  n4 --> n6
   n5 --> n3
-  n7 --> n3
+  n6 --> n3
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

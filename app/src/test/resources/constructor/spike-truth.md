@@ -9,11 +9,11 @@ flowchart TD
     n3["#quot;test#quot;"]:::LITERAL
     n4["13"]:::LITERAL
     n5["5"]:::LITERAL
-    n6["b"]:::VARIABLE
-    n7["c"]:::VARIABLE
-    n8["cp"]:::OBJ_VARIABLE
-    n9["x"]:::OBJ_VARIABLE
-    n10["x2"]:::OBJ_VARIABLE
+    n6["cp"]:::OBJ_VARIABLE
+    n7["x2"]:::OBJ_VARIABLE
+    n8["x"]:::OBJ_VARIABLE
+    n9["b"]:::VARIABLE
+    n10["c"]:::VARIABLE
   end
   subgraph m1["#lt;init#gt;"]
     n11["initialValue"]:::FUNC_PARAM
@@ -28,20 +28,20 @@ flowchart TD
     n16["7"]:::LITERAL
   end
   n17["memberX"]:::VARIABLE
-  n0 --> n8
-  n1 --> n9
-  n10 --> n17
+  n0 --> n6
+  n1 --> n8
   n11 --> n17
   n13 --> n17
   n16 --> n17
-  n17 --> n6
-  n17 --> n7
-  n2 --> n10
+  n17 --> n10
+  n17 --> n9
+  n2 --> n7
   n3 --> n12
   n4 --> n11
   n5 --> n15
-  n8 --> n14
-  n9 --> n17
+  n6 --> n14
+  n7 --> n17
+  n8 --> n17
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

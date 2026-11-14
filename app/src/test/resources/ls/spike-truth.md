@@ -5,15 +5,15 @@ flowchart TD
   subgraph m0["main"]
     n0["A"]:::EXTERNAL
     n1["5"]:::LITERAL
-    n2["a"]:::OBJ_VARIABLE
-    n3["a2"]:::OBJ_VARIABLE
+    n2["a2"]:::OBJ_VARIABLE
+    n3["a"]:::OBJ_VARIABLE
     n4["b"]:::VARIABLE
   end
   n5["_a"]:::VARIABLE
-  n0 --> n2
+  n0 --> n3
   n1 --> n5
-  n2 --> n3
   n2 --> n5
+  n3 --> n2
   n3 --> n5
   n5 --> n2
   n5 --> n4

@@ -17,7 +17,7 @@ flowchart TD
   n3 --> n6
   n4 --> n3
   n4 --> n6
-  n6 --> n4
+  n6 --> n3
   n6 --> n5
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

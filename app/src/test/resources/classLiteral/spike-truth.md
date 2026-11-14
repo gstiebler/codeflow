@@ -3,9 +3,9 @@
 ```mermaid
 flowchart TD
   subgraph m0["main"]
-    n0["String"]:::OBJ_VARIABLE
-    n1["primitive"]:::OBJ_VARIABLE
-    n2["reference"]:::OBJ_VARIABLE
+    n0["primitive"]:::OBJ_VARIABLE
+    n1["reference"]:::OBJ_VARIABLE
+    n2["String"]:::OBJ_VARIABLE
   end
   subgraph m1["register"]
     n3["+"]:::BIN_OP
@@ -17,16 +17,16 @@ flowchart TD
   end
   n9["class"]:::VARIABLE
   n10["class"]:::VARIABLE
-  n0 --> n9
-  n1 --> n6
-  n10 --> n1
-  n2 --> n7
+  n0 --> n6
+  n1 --> n7
+  n10 --> n0
+  n2 --> n9
   n3 --> n8
   n4 --> n3
   n5 --> n3
   n6 --> n4
   n7 --> n5
-  n9 --> n2
+  n9 --> n1
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

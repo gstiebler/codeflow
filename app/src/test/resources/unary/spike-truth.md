@@ -11,20 +11,22 @@ flowchart TD
     n5["true"]:::LITERAL
     n6["afterIncrement"]:::VARIABLE
     n7["counter"]:::VARIABLE
-    n8["flag"]:::VARIABLE
-    n9["inverted"]:::VARIABLE
-    n10["negated"]:::VARIABLE
-    n11["value"]:::VARIABLE
+    n8["counter"]:::VARIABLE
+    n9["flag"]:::VARIABLE
+    n10["inverted"]:::VARIABLE
+    n11["negated"]:::VARIABLE
+    n12["value"]:::VARIABLE
   end
-  n0 --> n9
-  n11 --> n2
-  n2 --> n10
+  n0 --> n10
+  n12 --> n2
+  n2 --> n11
   n3 --> n7
-  n4 --> n11
-  n5 --> n8
-  n7 --> n1
-  n7 --> n6
-  n8 --> n0
+  n4 --> n12
+  n5 --> n9
+  n7 --> n8
+  n8 --> n1
+  n8 --> n6
+  n9 --> n0
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

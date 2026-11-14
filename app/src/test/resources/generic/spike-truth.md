@@ -9,8 +9,8 @@ flowchart TD
     n3["length"]:::EXTERNAL
     n4["#quot;payload#quot;"]:::LITERAL
     n5["holder"]:::OBJ_VARIABLE
-    n6["size"]:::VARIABLE
-    n7["taken"]:::OBJ_VARIABLE
+    n6["taken"]:::OBJ_VARIABLE
+    n7["size"]:::VARIABLE
   end
   subgraph m1["#lt;init#gt;"]
     n8["initial"]:::FUNC_PARAM
@@ -21,12 +21,12 @@ flowchart TD
   n10["held"]:::VARIABLE
   n1 --> n5
   n10 --> n9
-  n2 --> n7
-  n3 --> n6
+  n2 --> n6
+  n3 --> n7
   n4 --> n0
   n5 --> n0
   n5 --> n2
-  n7 --> n3
+  n6 --> n3
   n8 --> n10
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

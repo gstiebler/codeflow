@@ -8,19 +8,19 @@ flowchart TD
     n2["measure"]:::EXTERNAL
     n3["1"]:::LITERAL
     n4["5"]:::LITERAL
-    n5["measured"]:::VARIABLE
-    n6["size"]:::VARIABLE
-    n7["total"]:::VARIABLE
-    n8["widget"]:::OBJ_VARIABLE
+    n5["widget"]:::OBJ_VARIABLE
+    n6["measured"]:::VARIABLE
+    n7["size"]:::VARIABLE
+    n8["total"]:::VARIABLE
   end
-  n0 --> n7
-  n1 --> n8
-  n2 --> n5
+  n0 --> n8
+  n1 --> n5
+  n2 --> n6
   n3 --> n0
-  n4 --> n6
-  n5 --> n0
-  n6 --> n1
-  n8 --> n2
+  n4 --> n7
+  n5 --> n2
+  n6 --> n0
+  n7 --> n1
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

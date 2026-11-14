@@ -8,46 +8,46 @@ flowchart TD
     n2["5"]:::LITERAL
     n3["6"]:::LITERAL
     n4["8"]:::LITERAL
-    n5["a"]:::VARIABLE
-    n6["b"]:::VARIABLE
-    n7["c"]:::VARIABLE
-    n8["d"]:::VARIABLE
-    n9["j"]:::VARIABLE
-    n10["x1"]:::OBJ_VARIABLE
-    n11["y"]:::OBJ_VARIABLE
-    n12["y1"]:::OBJ_VARIABLE
+    n5["x1"]:::OBJ_VARIABLE
+    n6["y1"]:::OBJ_VARIABLE
+    n7["y"]:::OBJ_VARIABLE
+    n8["a"]:::VARIABLE
+    n9["a"]:::VARIABLE
+    n10["b"]:::VARIABLE
+    n11["c"]:::VARIABLE
+    n12["d"]:::VARIABLE
+    n13["j"]:::VARIABLE
   end
   subgraph m1["main"]
-    n13["App"]:::EXTERNAL
-    n14["app"]:::OBJ_VARIABLE
+    n14["App"]:::EXTERNAL
+    n15["app"]:::OBJ_VARIABLE
   end
   subgraph m2["getMemberX"]
-    n15["getMemberX"]:::RETURN
+    n16["getMemberX"]:::RETURN
   end
-  n16["memberA"]:::VARIABLE
-  n17["memberX"]:::VARIABLE
-  n18["x"]:::VARIABLE
-  n0 --> n18
-  n1 --> n11
-  n10 --> n17
-  n11 --> n12
-  n11 --> n18
-  n12 --> n18
-  n13 --> n14
-  n14 --> n16
-  n15 --> n7
-  n16 --> n6
-  n17 --> n15
-  n17 --> n8
-  n18 --> n10
-  n18 --> n11
+  n17["memberA"]:::VARIABLE
+  n18["memberX"]:::VARIABLE
+  n19["x"]:::VARIABLE
+  n0 --> n19
+  n1 --> n7
+  n11 --> n13
+  n14 --> n15
+  n15 --> n17
+  n16 --> n11
+  n17 --> n10
   n18 --> n12
-  n18 --> n17
-  n2 --> n5
-  n3 --> n5
-  n4 --> n17
-  n5 --> n16
-  n7 --> n9
+  n18 --> n16
+  n19 --> n18
+  n19 --> n5
+  n19 --> n6
+  n2 --> n8
+  n3 --> n9
+  n4 --> n18
+  n5 --> n18
+  n6 --> n19
+  n7 --> n19
+  n7 --> n6
+  n9 --> n17
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

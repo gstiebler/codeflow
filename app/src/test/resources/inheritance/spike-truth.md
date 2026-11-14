@@ -18,7 +18,8 @@ flowchart TD
   n0 --> n7
   n1 --> n0
   n10 --> n1
-  n10 --> n6
+  n10 --> n8
+  n10 --> n9
   n2 --> n6
   n3 --> n10
   n4 --> n9
@@ -27,9 +28,11 @@ flowchart TD
   n6 --> n8
   n6 --> n9
   n8 --> n1
-  n8 --> n6
+  n8 --> n10
+  n8 --> n9
   n9 --> n0
-  n9 --> n6
+  n9 --> n10
+  n9 --> n8
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

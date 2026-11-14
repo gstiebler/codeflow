@@ -8,8 +8,8 @@ flowchart TD
   subgraph m1["of"]
     n1["Amount"]:::EXTERNAL
     n2["seed"]:::FUNC_PARAM
-    n3["of"]:::RETURN
-    n4["$obj0"]:::OBJ_VARIABLE
+    n3["$obj0"]:::OBJ_VARIABLE
+    n4["of"]:::RETURN
   end
   subgraph m2["read"]
     n5["read"]:::RETURN
@@ -21,10 +21,10 @@ flowchart TD
   end
   n9["held"]:::VARIABLE
   n0 --> n9
-  n1 --> n4
+  n1 --> n3
   n2 --> n0
-  n3 --> n7
-  n4 --> n9
+  n3 --> n9
+  n4 --> n7
   n5 --> n8
   n6 --> n2
   n7 --> n9

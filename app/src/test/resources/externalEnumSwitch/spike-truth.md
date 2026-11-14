@@ -12,17 +12,21 @@ flowchart TD
     n6["Config"]:::OBJ_VARIABLE
     n7["fromExpression"]:::VARIABLE
     n8["fromStatement"]:::VARIABLE
-    n9["out"]:::VARIABLE
+    n9["fromStatement"]:::VARIABLE
+    n10["fromStatement"]:::VARIABLE
+    n11["out"]:::VARIABLE
   end
-  n0 --> n9
-  n1 -->|if| n8
+  n0 --> n11
+  n1 -->|if| n10
+  n1 -->|if| n9
+  n10 --> n0
   n3 --> n8
-  n4 --> n8
-  n5 --> n8
+  n4 --> n9
+  n5 --> n10
   n6 --> n1
   n6 --> n2
   n7 --> n0
-  n8 --> n0
+  n9 --> n0
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

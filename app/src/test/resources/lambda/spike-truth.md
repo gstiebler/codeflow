@@ -6,26 +6,24 @@ flowchart TD
     n0["*"]:::BIN_OP
     n1["value"]:::FUNC_PARAM
     n2["#lt;lambda#gt;0"]:::RETURN
-    n3["base"]:::VARIABLE
   end
   subgraph m1["main"]
-    n4["applyAsInt"]:::EXTERNAL
-    n5["lambda.App.#lt;lambda#gt;0:#lt;unresolvedSignatur"]:::EXTERNAL
-    n6["3"]:::LITERAL
-    n7["4"]:::LITERAL
+    n3["applyAsInt"]:::EXTERNAL
+    n4["lambda.App.#lt;lambda#gt;0:#lt;unresolvedSignatur"]:::EXTERNAL
+    n5["3"]:::LITERAL
+    n6["4"]:::LITERAL
+    n7["scale"]:::OBJ_VARIABLE
     n8["base"]:::VARIABLE
     n9["out"]:::VARIABLE
-    n10["scale"]:::OBJ_VARIABLE
   end
   n0 --> n2
   n1 --> n0
-  n10 --> n4
-  n3 --> n0
-  n4 --> n9
-  n5 --> n10
-  n6 --> n8
-  n7 --> n4
-  n8 --> n3
+  n3 --> n9
+  n4 --> n7
+  n5 --> n8
+  n6 --> n3
+  n7 --> n3
+  n8 --> n0
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

@@ -5,8 +5,8 @@ flowchart TD
   subgraph m0["main"]
     n0["Sink"]:::EXTERNAL
     n1["5"]:::LITERAL
-    n2["out"]:::VARIABLE
-    n3["sink"]:::OBJ_VARIABLE
+    n2["sink"]:::OBJ_VARIABLE
+    n3["out"]:::VARIABLE
   end
   subgraph m1["store"]
     n4["#lt;"]:::BIN_OP
@@ -15,15 +15,15 @@ flowchart TD
     n7["store"]:::RETURN
   end
   n8["held"]:::VARIABLE
-  n0 --> n3
+  n0 --> n2
   n1 --> n5
-  n3 --> n8
+  n2 --> n8
   n4 -->|if| n7
   n4 -->|if| n8
   n5 --> n4
   n5 --> n8
   n6 --> n4
-  n8 --> n2
+  n8 --> n3
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

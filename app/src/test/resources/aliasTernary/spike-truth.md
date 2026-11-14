@@ -19,18 +19,19 @@ flowchart TD
     n11["$obj1"]:::OBJ_VARIABLE
     n12["chosen"]:::OBJ_VARIABLE
     n13["flag"]:::VARIABLE
-    n14["total"]:::VARIABLE
+    n14["flag"]:::VARIABLE
+    n15["total"]:::VARIABLE
   end
-  n15["amount"]:::VARIABLE
-  n0 --> n15
-  n1 --> n13
-  n10 --> n15
-  n11 --> n15
-  n12 --> n15
+  n16["amount"]:::VARIABLE
+  n0 --> n16
+  n1 --> n14
+  n10 --> n16
+  n11 --> n16
+  n12 --> n16
   n13 --> n3
   n13 -->|if| n10
   n13 -->|if| n11
-  n15 --> n14
+  n16 --> n15
   n2 --> n1
   n3 --> n12
   n4 --> n10

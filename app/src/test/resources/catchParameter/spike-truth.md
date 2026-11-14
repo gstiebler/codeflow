@@ -10,22 +10,25 @@ flowchart TD
     n4["args"]:::FUNC_PARAM
     n5["0"]:::LITERAL
     n6["0"]:::LITERAL
-    n7["Integer"]:::OBJ_VARIABLE
-    n8["failure"]:::OBJ_VARIABLE
-    n9["out"]:::VARIABLE
-    n10["reason"]:::OBJ_VARIABLE
+    n7["reason"]:::OBJ_VARIABLE
+    n8["Integer"]:::OBJ_VARIABLE
+    n9["failure"]:::OBJ_VARIABLE
+    n10["out"]:::VARIABLE
+    n11["out"]:::VARIABLE
+    n12["out"]:::VARIABLE
   end
   n0 --> n3
-  n1 --> n10
-  n10 --> n2
-  n2 --> n9
+  n1 --> n7
+  n2 --> n11
   n3 --> n10
-  n3 --> n9
+  n3 --> n11
+  n3 --> n7
   n4 --> n0
   n5 --> n0
-  n6 --> n9
-  n7 --> n3
-  n8 --> n1
+  n6 --> n12
+  n7 --> n2
+  n8 --> n3
+  n9 --> n1
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

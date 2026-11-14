@@ -4,8 +4,8 @@
 flowchart TD
   subgraph m0["main"]
     n0["true"]:::LITERAL
-    n1["big"]:::VARIABLE
-    n2["chosen"]:::OBJ_VARIABLE
+    n1["chosen"]:::OBJ_VARIABLE
+    n2["big"]:::VARIABLE
   end
   subgraph m1["fromFlag"]
     n3["ternary"]:::BIN_OP
@@ -14,11 +14,11 @@ flowchart TD
     n6["LARGE"]:::OBJ_VARIABLE
   end
   n7["SMALL"]:::VARIABLE
-  n0 --> n1
-  n1 --> n4
+  n0 --> n2
+  n2 --> n4
   n3 --> n5
   n4 --> n3
-  n5 --> n2
+  n5 --> n1
   n6 --> n3
   n7 --> n3
   classDef LITERAL fill:#00FF0030

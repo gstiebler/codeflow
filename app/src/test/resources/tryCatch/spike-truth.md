@@ -12,15 +12,18 @@ flowchart TD
     n6["attempts"]:::VARIABLE
     n7["reported"]:::VARIABLE
     n8["result"]:::VARIABLE
+    n9["result"]:::VARIABLE
   end
   n0 --> n1
   n1 --> n8
+  n1 --> n9
   n2 --> n0
   n3 --> n0
   n4 --> n6
   n5 --> n1
-  n6 --> n8
+  n6 --> n9
   n8 --> n7
+  n9 --> n7
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

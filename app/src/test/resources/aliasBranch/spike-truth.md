@@ -15,20 +15,23 @@ flowchart TD
     n7["11"]:::LITERAL
     n8["22"]:::LITERAL
     n9["chosen"]:::OBJ_VARIABLE
-    n10["total"]:::VARIABLE
+    n10["chosen"]:::OBJ_VARIABLE
+    n11["total"]:::VARIABLE
   end
-  n11["amount"]:::VARIABLE
-  n0 --> n11
+  n12["amount"]:::VARIABLE
+  n0 --> n12
+  n1 -->|if| n10
   n1 -->|if| n9
-  n11 --> n10
+  n10 --> n12
+  n12 --> n11
   n2 --> n1
   n3 --> n9
-  n4 --> n9
+  n4 --> n10
   n5 --> n2
   n6 --> n1
   n7 --> n0
   n8 --> n0
-  n9 --> n11
+  n9 --> n12
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

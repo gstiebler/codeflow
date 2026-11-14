@@ -12,27 +12,29 @@ flowchart TD
     n6["#quot;a#quot;"]:::LITERAL
     n7["0"]:::LITERAL
     n8["$iterLocal0"]:::OBJ_VARIABLE
-    n9["name"]:::OBJ_VARIABLE
-    n10["names"]:::OBJ_VARIABLE
+    n9["names"]:::OBJ_VARIABLE
+    n10["name"]:::OBJ_VARIABLE
     n11["size"]:::VARIABLE
     n12["total"]:::VARIABLE
+    n13["total"]:::VARIABLE
   end
   n0 --> n12
+  n1 -->|if| n10
   n1 -->|if| n11
   n1 -->|if| n12
-  n1 -->|if| n9
-  n10 --> n2
+  n10 --> n3
   n11 --> n0
   n12 --> n0
+  n13 --> n0
   n2 --> n8
   n3 --> n11
-  n4 --> n9
-  n5 --> n10
+  n4 --> n10
+  n5 --> n9
   n6 --> n5
-  n7 --> n12
+  n7 --> n13
   n8 --> n1
   n8 --> n4
-  n9 --> n3
+  n9 --> n2
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

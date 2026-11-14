@@ -17,48 +17,55 @@ flowchart TD
     n11["4"]:::LITERAL
     n12["classify"]:::RETURN
     n13["r"]:::VARIABLE
-    n14["s"]:::VARIABLE
+    n14["r"]:::VARIABLE
+    n15["r"]:::VARIABLE
+    n16["r"]:::VARIABLE
+    n17["r"]:::VARIABLE
+    n18["s"]:::VARIABLE
   end
   subgraph m1["either"]
-    n15["#gt;"]:::BIN_OP
-    n16["v"]:::FUNC_PARAM
-    n17["0"]:::LITERAL
-    n18["6"]:::LITERAL
-    n19["7"]:::LITERAL
-    n20["either"]:::RETURN
+    n19["#gt;"]:::BIN_OP
+    n20["v"]:::FUNC_PARAM
+    n21["0"]:::LITERAL
+    n22["6"]:::LITERAL
+    n23["7"]:::LITERAL
+    n24["either"]:::RETURN
   end
   subgraph m2["main"]
-    n21["10"]:::LITERAL
-    n22["3"]:::LITERAL
-    n23["a"]:::VARIABLE
-    n24["b"]:::VARIABLE
-    n25["c"]:::VARIABLE
-    n26["d"]:::VARIABLE
+    n25["10"]:::LITERAL
+    n26["3"]:::LITERAL
+    n27["a"]:::VARIABLE
+    n28["b"]:::VARIABLE
+    n29["c"]:::VARIABLE
+    n30["d"]:::VARIABLE
   end
-  n0 -->|if| n13
+  n0 -->|if| n16
+  n0 -->|if| n17
   n1 -->|if| n12
-  n1 -->|if| n13
   n1 -->|if| n14
-  n10 --> n13
-  n11 --> n13
-  n12 --> n24
-  n13 --> n12
-  n13 --> n14
+  n1 -->|if| n18
+  n10 --> n16
+  n11 --> n17
+  n12 --> n28
   n14 --> n12
-  n15 -->|if| n20
-  n16 --> n15
-  n17 --> n15
-  n18 --> n20
-  n19 --> n20
+  n15 --> n18
+  n16 --> n18
+  n17 --> n18
+  n18 --> n12
+  n19 -->|if| n24
   n2 -->|if| n12
-  n2 -->|if| n13
-  n2 -->|if| n14
-  n20 --> n26
-  n21 --> n3
-  n22 --> n23
-  n23 --> n16
-  n23 --> n4
-  n24 --> n25
+  n2 -->|if| n15
+  n2 -->|if| n18
+  n20 --> n19
+  n21 --> n19
+  n22 --> n24
+  n23 --> n24
+  n24 --> n30
+  n25 --> n3
+  n26 --> n27
+  n27 --> n20
+  n27 --> n4
+  n28 --> n29
   n3 --> n1
   n4 --> n0
   n4 --> n1
@@ -66,8 +73,8 @@ flowchart TD
   n5 --> n13
   n6 --> n0
   n7 --> n2
-  n8 --> n13
-  n9 --> n13
+  n8 --> n14
+  n9 --> n15
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

@@ -9,15 +9,14 @@ flowchart TD
   subgraph m1["run"]
     n2["Holder"]:::EXTERNAL
     n3["3"]:::LITERAL
-    n4["copied"]:::VARIABLE
-    n5["total"]:::OBJ_VARIABLE
+    n4["total"]:::OBJ_VARIABLE
+    n5["copied"]:::VARIABLE
   end
   n6["total"]:::VARIABLE
   n0 --> n1
-  n2 --> n5
+  n2 --> n4
   n3 --> n6
-  n5 --> n6
-  n6 --> n4
+  n4 --> n6
   n6 --> n5
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030

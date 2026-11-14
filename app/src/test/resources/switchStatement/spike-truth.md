@@ -14,24 +14,39 @@ flowchart TD
     n8["3"]:::LITERAL
     n9["500"]:::LITERAL
     n10["chosen"]:::VARIABLE
-    n11["out"]:::VARIABLE
-    n12["selector"]:::VARIABLE
-    n13["side"]:::VARIABLE
+    n11["chosen"]:::VARIABLE
+    n12["chosen"]:::VARIABLE
+    n13["chosen"]:::VARIABLE
+    n14["chosen"]:::VARIABLE
+    n15["out"]:::VARIABLE
+    n16["selector"]:::VARIABLE
+    n17["selector"]:::VARIABLE
+    n18["side"]:::VARIABLE
+    n19["side"]:::VARIABLE
+    n20["side"]:::VARIABLE
   end
-  n0 --> n11
+  n0 --> n15
   n1 --> n10
-  n10 --> n0
-  n12 -->|if| n10
-  n12 -->|if| n13
+  n11 --> n0
   n13 --> n0
-  n2 --> n10
-  n3 --> n10
-  n4 --> n13
-  n5 --> n10
-  n6 --> n13
-  n7 --> n10
-  n8 --> n12
-  n9 --> n13
+  n14 --> n0
+  n16 -->|if| n11
+  n16 -->|if| n12
+  n16 -->|if| n13
+  n16 -->|if| n14
+  n16 -->|if| n19
+  n16 -->|if| n20
+  n18 --> n0
+  n19 --> n0
+  n2 --> n14
+  n20 --> n0
+  n3 --> n11
+  n4 --> n18
+  n5 --> n12
+  n6 --> n19
+  n7 --> n13
+  n8 --> n17
+  n9 --> n20
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

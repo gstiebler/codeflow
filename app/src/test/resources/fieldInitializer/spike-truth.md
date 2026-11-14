@@ -7,12 +7,12 @@ flowchart TD
     n1["Outer"]:::EXTERNAL
     n2["3"]:::LITERAL
     n3["delegated"]:::OBJ_VARIABLE
-    n4["fromBlock"]:::VARIABLE
-    n5["fromDelegated"]:::VARIABLE
-    n6["fromField"]:::VARIABLE
-    n7["fromNested"]:::VARIABLE
-    n8["fromPlain"]:::VARIABLE
-    n9["outer"]:::OBJ_VARIABLE
+    n4["outer"]:::OBJ_VARIABLE
+    n5["fromBlock"]:::VARIABLE
+    n6["fromDelegated"]:::VARIABLE
+    n7["fromField"]:::VARIABLE
+    n8["fromNested"]:::VARIABLE
+    n9["fromPlain"]:::VARIABLE
   end
   subgraph m1["#lt;init#gt;"]
     n10["+"]:::BIN_OP
@@ -39,7 +39,7 @@ flowchart TD
   n24["nested"]:::VARIABLE
   n25["plain"]:::VARIABLE
   n26["seeded"]:::VARIABLE
-  n0 --> n9
+  n0 --> n4
   n1 --> n3
   n10 --> n21
   n11 --> n10
@@ -53,26 +53,29 @@ flowchart TD
   n19 --> n23
   n2 --> n17
   n20 --> n26
-  n21 --> n7
-  n22 --> n4
-  n22 --> n9
+  n21 --> n8
+  n22 --> n24
+  n22 --> n25
+  n22 --> n5
   n23 --> n14
-  n23 --> n5
+  n23 --> n22
+  n23 --> n24
+  n23 --> n25
   n23 --> n6
-  n23 --> n9
+  n23 --> n7
   n24 --> n21
   n24 --> n23
   n24 --> n25
   n25 --> n23
   n25 --> n26
-  n26 --> n8
+  n26 --> n9
   n3 --> n23
   n3 --> n24
   n3 --> n25
-  n9 --> n22
-  n9 --> n23
-  n9 --> n24
-  n9 --> n25
+  n4 --> n22
+  n4 --> n23
+  n4 --> n24
+  n4 --> n25
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

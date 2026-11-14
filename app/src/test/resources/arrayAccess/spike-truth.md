@@ -9,12 +9,13 @@ flowchart TD
     n3["1"]:::LITERAL
     n4["picked"]:::OBJ_VARIABLE
     n5["position"]:::VARIABLE
-    n6["size"]:::VARIABLE
+    n6["position"]:::VARIABLE
+    n7["size"]:::VARIABLE
   end
   n0 --> n4
-  n1 --> n6
+  n1 --> n7
   n2 --> n0
-  n3 --> n5
+  n3 --> n6
   n4 --> n1
   n5 --> n0
   classDef LITERAL fill:#00FF0030

@@ -13,8 +13,14 @@ cpg="${1:?usage: dump.sh <in.cpg> <out.json> [commit]}"
 out="${2:?usage: dump.sh <in.cpg> <out.json> [commit]}"
 commit="${3:-unknown}"
 
+abs() { echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"; }
+cpg="$(abs "$cpg")"
+out="$(abs "$out")"
+
+# Joern writes its workspace/ to the current directory; keep it in spike/ (gitignored).
+cd "$here"
 # 10g because the default heap is killed (exit 137) part-way through a Fineract module.
 "$JOERN_HOME/joern" -J-Xmx10g --script "$here/joern/export.sc" \
-  --param "cpgFile=$(cd "$(dirname "$cpg")" && pwd)/$(basename "$cpg")" \
+  --param "cpgFile=$cpg" \
   --param "out=$out" \
   --param "commit=$commit"

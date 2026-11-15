@@ -775,46 +775,9 @@ class Frame(
         is Receiver.Value -> run.objects(insn.receiver.value)
     }
 
-    /**
-     * Which body this call runs, which is a question about the receiver rather than about the name.
-     *
-     * javac resolves a call against the *declared* type, so `Base b = new Sub(); b.f(7)` comes back
-     * as `Base.f` - a correct answer to a different question. Taking it drew the superclass body
-     * with no sign anything had been chosen, which is the silently wrong graph in its purest form.
-     *
-     * Dispatch is on the objects the receiver actually holds, not on the declared type, because
-     * those are already known: inlining is per call site and arguments carry their memory positions
-     * into the callee, so a receiver is a concrete set here even when it is a parameter several
-     * frames down.
-     *
-     * Only when they agree on **one** implementation. Several is a real answer this cannot draw yet
-     * - it needs a box saying "one of these" - and picking one of them would be the guess this whole
-     * change exists to stop. So several takes the opaque EXTERNAL path, as does a receiver whose
-     * objects say nothing about their class.
-     */
-    private fun resolve(insn: Call, objects: Set<MemPos>): Method? {
-        val declared = insn.target as? ExecutableElement ?: return null
-        val statically = globalCtx.findMethod(declared)
-        if (!isVirtual(insn, declared)) return statically
-        val types = objects.mapNotNull { it.type }.distinct()
-        if (types.isEmpty()) return statically
-        return types.map { globalCtx.implementation(declared, it) }.distinct().singleOrNull()
-    }
-
-    /**
-     * Whether the receiver's class gets to choose, which is what "virtual" means.
-     *
-     * `super.f()` names the implementation the written class has, and its receiver is the same
-     * object as `this` - so dispatching on the object would send it back to the method it is
-     * written inside. A `static` method has no receiver, and a `private` one is not inherited, so
-     * neither can be overridden. Anything that is not a method declaration - a constructor, or a
-     * name javac could not resolve - is not dispatched either.
-     */
-    private fun isVirtual(insn: Call, declared: ExecutableElement): Boolean =
-        insn.receiver != Receiver.Super &&
-            declared.kind == ElementKind.METHOD &&
-            Modifier.STATIC !in declared.modifiers &&
-            Modifier.PRIVATE !in declared.modifiers
+    /** The rule is shared with the summarizer; see [Dispatch.resolve]. */
+    private fun resolve(insn: Call, objects: Set<MemPos>): Method? =
+        Dispatch.resolve(globalCtx, insn, objects.mapNotNull { it.type }.distinct())
 
     /**
      * Whether this method is already open further up the chain of call sites being inlined.

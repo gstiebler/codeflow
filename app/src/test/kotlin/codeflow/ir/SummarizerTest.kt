@@ -26,15 +26,21 @@ class SummarizerTest {
     @TempDir
     lateinit var dir: Path
 
-    private fun summarise(source: String, method: String): Summary {
+    private fun summarise(source: String, method: String, budget: Int = Summarizer.DEFAULT_BUDGET): Summary =
+        summariseInOrder(source, listOf(method), budget).getValue(method)
+
+    /** Each of [methods] asked for in turn of one summarizer, which keeps what the earlier ones solved. */
+    private fun summariseInOrder(source: String, methods: List<String>, budget: Int = Summarizer.DEFAULT_BUDGET): Map<String, Summary> {
         val file = dir.resolve("A.java")
         Files.writeString(file, source)
         return AstReader(dir).analyse(listOf(file)).use { analysis ->
-            val target = analysis.methods().first { MethodSpec.matches(it, method) }
             val builder = IrGraphBuilder(analysis.globalCtx)
-            Summarizer(analysis.globalCtx, builder::bodyOf, builder::initializersOf).summary(target)
+            val summarizer = Summarizer(analysis.globalCtx, builder::bodyOf, builder::initializersOf, budget)
+            methods.associateWith { method -> summarizer.summary(analysis.methods().first { MethodSpec.matches(it, method) }) }
         }
     }
+
+    private fun Summary.spelled() = pairs().map { "${it.first}>${it.second}".replace(SITE, "@_") }
 
     private fun pairs(source: String, method: String) =
         summarise(source, method).pairs().map { "${it.first}>${it.second}".replace(SITE, "@_") }
@@ -446,11 +452,112 @@ class SummarizerTest {
         assertTrue("P0>RET" in pairs("class A { int g(int a) { int t; return t; } int f(int a) { return g(a); } }", "A#f"))
     }
 
-    /** Until the fixpoint lands, a recursive call contributes nothing - and says so. */
+    // Recursion and loops.
+
+    @Test fun recursionReachesAFixpoint() =
+        assertEquals(listOf("P0>RET", "P1>RET"), pairs("class A { int f(int n, int k) { return n == 0 ? k : f(n - 1, k); } }", "A#f"))
+    @Test fun mutualRecursionReachesAFixpoint() =
+        assertEquals(listOf("P1>RET"), pairs("class A { int e(int n, int k) { if (n == 0) return k; return o(n - 1, k); } int o(int n, int k) { return e(n - 1, k); } }", "A#o").filter { it == "P1>RET" })
+
+    /**
+     * The loop's condition does not reach `t`: a loop's header phi is not gated, since its condition
+     * is computed from the phi (`docs/decisions/joins.md`), and the builder draws `P1>RET` alone.
+     * Nothing reaches the return on the first pass, so this holds only once the body has re-run.
+     */
+    @Test fun anAccumulatorLoopIsAFixpoint() =
+        assertEquals(listOf("P1>RET"), pairs("class A { int f(int n, int a) { int t = 0; for (int i = 0; i < n; i++) t = t + a; return t; } }", "A#f"))
+    @Test fun aRecursiveFactoryTerminates() {
+        val s = summarise("class N { N next; } class A { N f(int n) { N x = new N(); if (n > 0) x.next = f(n - 1); return x; } }", "A#f")
+        assertTrue(s.gaps.none { it.kind == "fixpoint" }, "${s.gaps}")
+    }
+
+    /**
+     * `m` reaches the return only through the recursive call, as what the callee returns for its
+     * own `k` - so only a second pass, reading the first pass's summary, finds it. The builder,
+     * cutting the recursion as an EXTERNAL, draws all three.
+     */
     @Test
-    fun aRecursiveCallIsAFixpointGap() =
-        assertEquals(
-            listOf("fixpoint"),
-            summarise("class A { int f(int a) { return a + f(a - 1); } }", "A#f").gaps.map { it.kind }
-        )
+    fun aRecursionThatSwapsItsArgumentsNeedsASecondPass() {
+        val s = summarise("class A { int f(int n, int k, int m) { return n == 0 ? k : f(n - 1, m, k); } }", "A#f")
+        assertEquals(listOf("P0>RET", "P1>RET", "P2>RET"), s.spelled())
+        assertEquals(emptyList(), s.gaps.toList())
+    }
+
+    /** Out of budget, the summary keeps what it last had, and says at the method that it is not done. */
+    @Test
+    fun aRecursionOverBudgetKeepsItsLastValueAndAFixpointGap() {
+        val s = summarise("class A { int f(int n, int k, int m) { return n == 0 ? k : f(n - 1, m, k); } }", "A#f", budget = 1)
+        assertEquals(listOf("P0>RET", "P1>RET"), s.spelled())
+        assertEquals(listOf("fixpoint"), s.gaps.map { it.kind })
+        assertTrue(s.gaps.single().detail.contains("A#f"), "${s.gaps}")
+        assertEquals("A.java:1:11", s.gaps.single().at)
+    }
+
+    /**
+     * A cycle has one answer, whichever of its methods is asked for first. A cut would memoise
+     * the second method with the first still unknown - `o` asked after `e` would return nothing.
+     */
+    @Test
+    fun mutualRecursionDoesNotDependOnWhichMethodIsAskedFirst() {
+        val src = "class A { int e(int n, int k) { if (n == 0) return k; return o(n - 1, k); } int o(int n, int k) { return e(n - 1, k); } }"
+        val oFirst = summariseInOrder(src, listOf("A#o", "A#e")).mapValues { it.value.spelled() }
+        val eFirst = summariseInOrder(src, listOf("A#e", "A#o")).mapValues { it.value.spelled() }
+        assertEquals(oFirst, eFirst)
+        assertEquals(mapOf("A#o" to listOf("P0>RET", "P1>RET"), "A#e" to listOf("P0>RET", "P1>RET")), oFirst)
+    }
+
+    /**
+     * `a` moves one variable per pass, so `x` has it only on the third; the builder joins every
+     * back edge and draws `P1>RET`. Given fewer passes than that, the loop says it stopped short.
+     */
+    @Test
+    fun aLoopIsRunUntilStableWithinTheBudget() {
+        val src = "class A { int f(int n, int a) { int x = 0; int y = 0; int z = 0; for (int i = 0; i < n; i++) { x = y; y = z; z = a; } return x; } }"
+        val s = summarise(src, "A#f")
+        assertEquals(listOf("P1>RET"), s.spelled())
+        assertEquals(emptyList(), s.gaps.toList())
+        val short = summarise(src, "A#f", budget = 2)
+        assertEquals(listOf("fixpoint"), short.gaps.map { it.kind })
+    }
+
+    /**
+     * Three calls deep, two objects one call made are named by the same two outer call sites once
+     * the chain is cut at [Summarizer.K_LIMIT]: they are one object in the caller, which joins
+     * their fields - `P0>RET` the builder does not draw - so it says so.
+     */
+    @Test
+    fun twoObjectsOneAllocationChainCutMakesOneAreADepthGap() {
+        val src = "class B { int v; } class P { B x; B y; } class A { " +
+            "P make(int a, int k) { P p = new P(); B x = new B(); B y = new B(); x.v = a; y.v = k; p.x = x; p.y = y; return p; } " +
+            "P mid(int a, int k) { return make(a, k); } int top(int a, int k) { return mid(a, k).y.v; } }"
+        val s = summarise(src, "A#top")
+        assertTrue(s.gaps.any { it.kind == "depth" }, "${s.gaps}")
+        assertTrue("P1>RET" in s.spelled(), "${s.spelled()}")
+        assertEquals(emptyList(), summarise(src, "A#mid").gaps.toList())
+    }
+
+    /**
+     * A query that throws bubbles, and leaves nothing behind: asked again, the cycle is solved from
+     * scratch, not answered with the nothing it held while it was running.
+     */
+    @Test
+    fun aQueryThatThrowsLeavesNoHalfSolvedSummaries() {
+        val src = "class A { int e(int n, int k) { if (n == 0) return k; return o(n - 1, k); } int o(int n, int k) { return e(n - 1, k); } }"
+        val file = dir.resolve("A.java")
+        Files.writeString(file, src)
+        AstReader(dir).analyse(listOf(file)).use { analysis ->
+            val builder = IrGraphBuilder(analysis.globalCtx)
+            var failures = 1
+            val bodyOf = { m: codeflow.graph.Method ->
+                if (m.element.simpleName.contentEquals("o") && failures-- > 0) throw IllegalStateException("lowering o")
+                builder.bodyOf(m)
+            }
+            val summarizer = Summarizer(analysis.globalCtx, bodyOf, builder::initializersOf)
+            val e = analysis.methods().first { MethodSpec.matches(it, "A#e") }
+            assertEquals("lowering o", kotlin.runCatching { summarizer.summary(e) }.exceptionOrNull()?.message)
+            assertEquals(listOf("P0>RET", "P1>RET"), summarizer.summary(e).spelled())
+            val o = analysis.methods().first { MethodSpec.matches(it, "A#o") }
+            assertEquals(listOf("P0>RET", "P1>RET"), summarizer.summary(o).spelled())
+        }
+    }
 }

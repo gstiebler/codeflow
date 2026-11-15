@@ -28,11 +28,23 @@ import javax.lang.model.element.VariableElement
 class Summarizer(
     private val globalCtx: GlobalContext,
     private val bodyOf: (Method) -> MethodBody,
-    private val initializersOf: (Element?) -> List<Insn>
+    private val initializersOf: (Element?) -> List<Insn>,
+    private val budget: Int = DEFAULT_BUDGET
 ) {
+    init {
+        require(budget >= 1) { "a budget of $budget runs computes nothing" }
+    }
+
     /** Keyed by `(method, receiver class)`, or by [Initializers] - see [solve]. */
-    private val summaries = LinkedHashMap<Any, Summary>()
-    private val inProgress = HashSet<Any>()
+    private val summaries = HashMap<Any, Summary>()
+    /** How each key is computed and where it is declared, so a callee that changed can have it run again. */
+    private val tasks = HashMap<Any, Task>()
+    /** For each key, every key a run of which read it - those that must run again when it changes. */
+    private val dependents = HashMap<Any, LinkedHashSet<Any>>()
+    private val runs = HashMap<Any, Int>()
+    private val worklist = LinkedHashSet<Any>()
+    /** The keys being run right now, innermost last: the one a [solve] is reading on behalf of. */
+    private val running = ArrayList<Any>()
 
     /** Methods whose lowering threw: a call to one is opaque, and inherits the `body` gap that says why. */
     private val unlowerable = HashSet<Element>()
@@ -47,28 +59,83 @@ class Summarizer(
      * override it.
      */
     fun summary(method: Method, receiverType: Element? = null): Summary =
-        summaryAt(method, receiverType, method.ctx.location(method.name))
-
-    private fun summaryAt(method: Method, receiverType: Element?, at: String): Summary =
-        solve(method.element to receiverType, at, label(method.element)) { summarise(method, receiverType) }
+        solve(method.element to receiverType) {
+            Task(method.ctx.location(method.name), label(method.element)) { summarise(method, receiverType) }
+        }
 
     /** A class's field initializers, summarised as a body of their own for a `new` with no constructor to run them. */
     private data class Initializers(val cls: Element)
 
+    /** What [solve] runs for a key, and the declaration a `fixpoint` gap names when it will not settle. */
+    private class Task(val at: String, val label: String, val compute: () -> Summary)
+
     /**
-     * Every summary is computed here, and this is where recursion is met: one asked for while it is
-     * being computed is a cycle. For now it contributes nothing, and says so with a `fixpoint` gap
-     * at the call - which every summary on the cycle then carries. A fixpoint replaces this.
+     * Every summary is computed here, as a fixpoint: a key's run reads the summaries of what it
+     * calls as they stand, and is run again whenever one of them changes.
+     *
+     * So recursion needs no cut. A key asked for while it is running - a cycle - contributes what it
+     * has so far, nothing the first time, and the reader is queued to run again once it has more.
+     * The outermost call drains the queue, and every key is then the same as one more run would
+     * make it. Every key starts from nothing and is run again until it stops changing, so where
+     * runs only add - most code - the answer is the least one, whichever key was asked first. A key
+     * that has finished is never queued again, since everything it read had finished first.
+     *
+     * Each key runs at most [budget] times; then it keeps its last value and a `fixpoint` gap at its
+     * declaration says it had not settled. That bound, not the analysis converging, is what makes it
+     * stop: a strong update makes a caller's summary able to shrink when its callee's grows, and
+     * such a system need not settle at all.
+     *
+     * A run that throws leaves nothing half-solved behind: every key this query added is forgotten,
+     * since each was read against values that will now never be finished.
      */
-    private fun solve(key: Any, at: String, label: String, compute: () -> Summary): Summary {
-        summaries[key]?.let { return it }
-        if (!inProgress.add(key)) {
-            return Summary(EMPTY, emptyMap(), emptyMap(), setOf(Gap("fixpoint", at, "recursive call to $label, taken as doing nothing")))
+    private fun solve(key: Any, task: () -> Task): Summary {
+        val reader = running.lastOrNull()
+        if (reader != null) {
+            // The reader is recorded after the read: what a first run hands back is what it read,
+            // and only a later change is news to it.
+            val value = summaries[key] ?: run(key.also { tasks[it] = task() })
+            dependents.getOrPut(key, ::LinkedHashSet).add(reader)
+            return value
         }
-        val summary = compute()
-        inProgress.remove(key)
-        summaries[key] = summary
-        return summary
+        summaries[key]?.let { return it }
+        tasks[key] = task()
+        val known = HashSet(summaries.keys)
+        var solved = false
+        try {
+            run(key)
+            while (worklist.isNotEmpty()) run(worklist.first().also { worklist.remove(it) })
+            solved = true
+        } finally {
+            if (!solved) {
+                listOf(summaries, tasks, runs, dependents).forEach { it.keys.retainAll(known) }
+                dependents.values.forEach { it.retainAll(known) }
+                worklist.clear()
+            }
+        }
+        return summaries.getValue(key)
+    }
+
+    /** One run of [key], queueing its readers when it changed - or, out of budget, its gap. */
+    private fun run(key: Any): Summary {
+        val task = tasks.getValue(key)
+        val before = summaries.getOrPut(key) { NOTHING }
+        val count = (runs[key] ?: 0) + 1
+        val after = if (count > budget) {
+            before.copy(gaps = before.gaps + Gap("fixpoint", task.at, "${task.label} still changing after $budget runs"))
+        } else {
+            runs[key] = count
+            running.add(key)
+            try {
+                task.compute()
+            } finally {
+                running.removeAt(running.size - 1)
+            }
+        }
+        if (after != before) {
+            summaries[key] = after
+            dependents[key]?.let { worklist.addAll(it) }
+        }
+        return after
     }
 
     /**
@@ -94,15 +161,18 @@ class Summarizer(
     }
 
     /** Null for a class outside the sources, which has none. */
-    private fun initializers(cls: Element?, at: String): Summary? {
+    private fun initializers(cls: Element?): Summary? {
         val declaring = globalCtx.findClass(cls) ?: return null
-        return solve(Initializers(cls!!), at, "${cls.simpleName} initializers") {
-            val lists = try {
-                listOf(initializersOf(cls))
-            } catch (e: GraphException) {
-                return@solve unlowered(declaring.ctx.location(declaring.tree), e)
+        val at = declaring.ctx.location(declaring.tree)
+        return solve(Initializers(cls!!)) {
+            Task(at, "${cls.simpleName} initializers") {
+                val lists = try {
+                    listOf(initializersOf(cls))
+                } catch (e: GraphException) {
+                    return@Task unlowered(at, e)
+                }
+                Interpretation(setOf(PathObj(This)), emptyList(), cls).run(lists)
             }
-            Interpretation(setOf(PathObj(This)), emptyList(), cls).run(lists)
         }
     }
 
@@ -225,18 +295,21 @@ class Summarizer(
          *
          * A loop's header [Phi] names a value from further down the list, which the builder joins
          * once the list is drawn. Here that value is the previous pass's, so the list is re-run from
-         * the state it started in until a pass changes nothing. Values only grow and there are finitely
-         * many atoms and objects in one method, so it stops.
+         * the state it started in until a pass changes nothing.
+         *
+         * At most [budget] passes: values need not only grow - a strong update, or a callee's summary
+         * that shrank - so nothing else promises it stops. A list still changing on the last pass
+         * keeps that pass, and a `fixpoint` gap at its first loop says the result is not settled.
          */
         private fun execute(instructions: List<Insn>) {
             check(openForks.isEmpty()) { "an instruction list started inside a fork" }
-            val hasBackEdges = instructions.withIndex().any { (index, insn) ->
+            val header = instructions.withIndex().firstOrNull { (index, insn) ->
                 insn is Phi && insn.paths.any { it.index >= index }
-            }
+            }?.value
             val start = State(LinkedHashMap(heap), LinkedHashMap(written), ret, LinkedHashMap(sinks), LinkedHashSet(gaps))
             val values = Array(instructions.size) { EMPTY }
             val forks = HashMap<Int, Fork>()
-            while (true) {
+            for (pass in 1..budget) {
                 heap = LinkedHashMap(start.heap)
                 written = LinkedHashMap(start.written)
                 ret = start.ret
@@ -244,7 +317,8 @@ class Summarizer(
                 gaps = LinkedHashSet(start.gaps)
                 val previous = values.copyOf()
                 instructions.forEachIndexed { index, insn -> values[index] = eval(insn, index, values, forks) }
-                if (!hasBackEdges || values.contentEquals(previous)) break
+                if (header == null || values.contentEquals(previous)) break
+                if (pass == budget) gaps.add(Gap("fixpoint", header.source, "loop still changing after $budget passes"))
             }
             base += instructions.size
         }
@@ -369,7 +443,7 @@ class Summarizer(
             if (constructor != null) {
                 enter(constructor, cls, created, insn.args.map { values[it.index] }, insn, index)?.let { return AbsVal(it.flows, created) }
             } else {
-                initializers(cls, insn.source)?.let { instantiate(it, "${cls!!.simpleName} initializers", created, emptyList(), insn, index) }
+                initializers(cls)?.let { instantiate(it, "${cls!!.simpleName} initializers", created, emptyList(), insn, index) }
             }
             return AbsVal(opaqueCall(insn.typeName, insn.args, insn, values).flows, created)
         }
@@ -394,7 +468,7 @@ class Summarizer(
          * lowered - then the call is opaque, and the `body` gap is inherited to say why.
          */
         private fun enter(method: Method, receiverType: Element?, receiver: Set<Obj>, args: List<AbsVal>, insn: Insn, index: Int): AbsVal? {
-            val callee = summaryAt(method, receiverType, insn.source)
+            val callee = summary(method, receiverType)
             if (method.element in unlowerable) {
                 gaps.addAll(callee.gaps)
                 return null
@@ -430,7 +504,10 @@ class Summarizer(
          * here. That is what keeps the caller's own value of a field the callee wrote on only some
          * paths - its effect carries the entry, which is this value.
          *
-         * An object the callee made is renamed by this call site, so two calls make two objects. A
+         * An object the callee made is renamed by this call site, so two calls make two objects - and
+         * only the [K_LIMIT] newest sites are kept, or a recursive factory would name a new object on
+         * every pass. Two the callee told apart only by a site that was dropped are one object here,
+         * which joins their fields: that is a `depth` gap, as a path cut at [DEPTH_CAP] is. A
          * value the callee stored that has no object here - an argument from an opaque call - gets a
          * stand-in per call site *and* field it was stored in, as the builder's `write` gives one per
          * write: one per call site would make two unrelated objects one.
@@ -448,6 +525,14 @@ class Summarizer(
             fun field(holders: Set<Obj>, field: Element): AbsVal =
                 holders.fold(EMPTY) { acc, holder -> acc + read(holder to field, field.asType().kind.isPrimitive, site) }
             val paths = HashMap<PathObj, Set<Obj>>()
+            val names = HashMap<Obj, Obj>()
+            fun chain(sites: List<String>) = (listOf(site) + sites).take(K_LIMIT)
+            fun renamed(obj: Obj, name: Obj): Obj = name.also {
+                val first = names.putIfAbsent(name, obj)
+                if (first != null && first != obj) {
+                    gaps.add(Gap("depth", site, "$label makes two objects one past $K_LIMIT call sites: $first and $obj"))
+                }
+            }
             fun objs(obj: Obj): Set<Obj> = when (obj) {
                 is PathObj -> paths.getOrPut(obj) {
                     val root: Set<Obj> = when (obj.root) {
@@ -457,8 +542,8 @@ class Summarizer(
                     }
                     obj.fields.fold(root) { holders, f -> field(holders, f).objs }
                 }
-                is AllocObj -> setOf(AllocObj(listOf(site) + obj.site, obj.type))
-                is StandInObj -> setOf(StandInObj(listOf(site) + obj.site).also { standInsMadeAt.putIfAbsent(it, base + index) })
+                is AllocObj -> setOf(renamed(obj, AllocObj(chain(obj.site), obj.type)))
+                is StandInObj -> setOf(renamed(obj, StandInObj(chain(obj.site))).also { standInsMadeAt.putIfAbsent(it, base + index) })
             }
             fun lost(what: String) = gaps.add(Gap("unmodelled", site, "$what by $label on no object this can name"))
             fun value(v: AbsVal) = AbsVal(
@@ -744,5 +829,17 @@ class Summarizer(
     companion object {
         /** How many fields deep a path is followed: `this.a.b` is named, `this.a.b.c` is not. */
         const val DEPTH_CAP = 2
+
+        /**
+         * How many call sites name an object a callee made: `[outer, inner]`, the oldest dropped.
+         * Recursion would otherwise name a new object on every pass, and never settle.
+         */
+        const val K_LIMIT = 2
+
+        /** How many runs of one summary, or passes over one loop, before it is taken as unsettled. */
+        const val DEFAULT_BUDGET = 20
+
+        /** What a summary is before its first run has finished: what a cycle reads of itself. */
+        private val NOTHING = Summary(EMPTY, emptyMap(), emptyMap(), emptySet())
     }
 }

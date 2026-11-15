@@ -356,6 +356,9 @@ class Summarizer(
                     holders.forEach { write(it to element!!, stored, insn.source) }
                     stored
                 }
+                // The boundary-order token is order, not data: nothing flows out of a read of it and
+                // a write of it is no output, so a boundary call summarises as its parameters alone.
+                is ReadBoundaryOrder, is WriteBoundaryOrder -> EMPTY
                 is FieldFork -> EMPTY.also { forks[index] = Fork(journal.size, base + index).also { openForks.add(it) } }
                 is FieldArm -> EMPTY.also { endArm(forks.getValue(insn.fork.index)) }
                 is FieldJoin -> EMPTY.also { fieldJoin(insn, forks.getValue(insn.fork.index), values) }

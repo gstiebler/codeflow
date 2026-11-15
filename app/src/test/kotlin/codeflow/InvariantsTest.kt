@@ -3,6 +3,7 @@ package codeflow
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
 import codeflow.graph.NodeType
+import codeflow.ir.BOUNDARY_ORDER
 import codeflow.ir.BinOp
 import codeflow.ir.Bind
 import codeflow.ir.Call
@@ -17,12 +18,14 @@ import codeflow.ir.New
 import codeflow.ir.Opaque
 import codeflow.ir.Param
 import codeflow.ir.Phi
+import codeflow.ir.ReadBoundaryOrder
 import codeflow.ir.ReadField
 import codeflow.ir.Return
 import codeflow.ir.Select
 import codeflow.ir.ThisRef
 import codeflow.ir.UnOp
 import codeflow.ir.Unmodelled
+import codeflow.ir.WriteBoundaryOrder
 import codeflow.ir.WriteField
 import codeflow.ir.WriteLocal
 import codeflow.java.AstReader
@@ -132,7 +135,9 @@ class InvariantsTest {
         is New -> insn.typeName
         is Opaque -> insn.label
         is Unmodelled -> insn.kind
-        is ReadField, is Return, is ThisRef, is Delegate -> null
+        is WriteBoundaryOrder -> BOUNDARY_ORDER
+        // Read like a field: the box the last boundary call left, and only the first read draws one.
+        is ReadField, is ReadBoundaryOrder, is Return, is ThisRef, is Delegate -> null
         // Markers, not values. A fork and an arm draw nothing, and a join draws a box per *field the
         // paths disagree about* - none when they agree - so no one box can be asked of it.
         is FieldFork, is FieldArm, is FieldJoin -> null
@@ -206,17 +211,24 @@ class InvariantsTest {
      * one holder produces no box of its own, and the receiver is deliberately not drawn as flowing
      * into the field - `counter.value` is the box `value` was written into, not a new one taking
      * `counter`.
+     *
+     * The start of the boundary-order chain is not an exemption but a neighbour: a boundary's
+     * assumed body sits at one position, so the first read of the token - a box with nothing in, as
+     * an unwritten static's is - shares the position and the label of the write the call feeds. The
+     * builder records it as the unwritten read it is, and only that box is left out.
      */
     @Test
     fun everyBoxThatConsumesAValueShowsItArriving() {
         var checked = 0
         fixtures().forEach { fixture ->
             val drawn = drawn(fixture)
+            val starts = drawn.builder.unwrittenStaticReads.map { it.second.serial }.toSet()
             drawn.blocks.forEach { block ->
                 drawn.body(block).forEach { insn ->
                     if (insn is ReadField || insn.inputs.isEmpty()) return@forEach
                     val label = drawnLabel(insn) ?: return@forEach
                     drawn.nodesAt(block, insn.source, label).forEach { node ->
+                        if (insn is WriteBoundaryOrder && node.serial in starts) return@forEach
                         checked++
                         assertTrue(
                             node.serial in drawn.arrivedAt,
@@ -315,11 +327,12 @@ class InvariantsTest {
 
     private companion object {
         val ENTRY_POINTS = mapOf(
-            "noMain" to "Report#total", "twoEntryPoints" to "Api#quote", "boundary" to "App#entrypoint"
+            "noMain" to "Report#total", "twoEntryPoints" to "Api#quote", "boundary" to "App#entrypoint",
+            "boundaryOrder" to "App#entrypoint"
         )
 
         /** Drawn as the fixture's own test draws it, so the sweep checks the graph the golden holds. */
-        val BOUNDARIES = mapOf("boundary" to listOf("Boundary"))
+        val BOUNDARIES = mapOf("boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"))
 
         val cache = HashMap<String, Drawn>()
     }

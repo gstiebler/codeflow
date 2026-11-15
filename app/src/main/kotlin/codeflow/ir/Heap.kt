@@ -84,8 +84,21 @@ class Heap(private val symbols: Symbols) {
         return staticMemPositions.getOrPut(element.enclosingElement) { allocate(label) }
     }
 
-    /** Every class's static holder, in no order anybody chose. */
-    fun staticHolders(): Collection<MemPos> = staticMemPositions.values
+    /** See [boundaryOrderHolder]. Allocated on first use, so a run with no boundary numbers its objects as before. */
+    private var boundaryOrder: MemPos? = null
+
+    /**
+     * What holds the boundary-order token ([ReadBoundaryOrder]): a static holder of its own, as if
+     * one class of the sources declared it as its only static field.
+     *
+     * It is this object, not the name `boundaries`, that makes the token the token. A field the
+     * sources declare under that name is held by its own class and keyed by its own declaration,
+     * so the two cannot meet.
+     */
+    fun boundaryOrderHolder(): MemPos = boundaryOrder ?: allocate(BOUNDARY_ORDER).also { boundaryOrder = it }
+
+    /** Every class's static holder, and the boundary-order token's once it exists, in no order anybody chose. */
+    fun staticHolders(): Collection<MemPos> = staticMemPositions.values + listOfNotNull(boundaryOrder)
 
     /**
      * The object an enum constant is, which is one object for the whole program.

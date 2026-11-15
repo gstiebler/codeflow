@@ -197,11 +197,18 @@ class Lowering(private val symbols: Symbols, private val isBoundary: (Method) ->
          *
          * The operation is a call javac resolved to nothing, on no object - the instruction an
          * unresolved call already is - so the builder draws it `EXTERNAL` and the summarizer reads
-         * it as an opaque call, with no new instruction for either to learn.
+         * it as an opaque call.
+         *
+         * Every boundary call also takes the order token after its parameters and leaves the call's
+         * value in it - see [ReadBoundaryOrder] - so boundary calls are drawn in the order they ran,
+         * void ones included. Read before the call and written after it: the other way round, the
+         * call would take what it itself left.
          */
         fun assumeBoundary(method: Method, parameters: List<Val>) {
             val source = ctx.location(method.name)
-            val call = emit(Call("call${method.name.name}", null, Receiver.TypeName, parameters, source))
+            val order = emit(ReadBoundaryOrder(source))
+            val call = emit(Call("call${method.name.name}", null, Receiver.TypeName, parameters + order, source))
+            emit(WriteBoundaryOrder(call, source))
             val returnType = method.element.returnType.kind
             if (returnType == TypeKind.VOID) return
             val result = emit(WriteLocal("result", null, returnType.isPrimitive, call, source))

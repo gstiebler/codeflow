@@ -369,6 +369,15 @@ class Frame(
             )
         }
 
+        is ReadBoundaryOrder -> readBoundaryOrder(insn)
+
+        // Journaled like a static field's write, so an arm's calls are undone with the arm and the
+        // join draws the order each arm left.
+        is WriteBoundaryOrder -> write(
+            BOUNDARY_ORDER, null, true, setOf(builder.heap.boundaryOrderHolder()), emptySet(), insn,
+            run.node(insn.value), journal = true
+        )
+
         is FieldFork -> {
             run.forks[run.reached] = builder.openFork()
             null
@@ -518,6 +527,24 @@ class Frame(
                 }
             }
         return Value(node, builder.heap.objectsOf(id))
+    }
+
+    /**
+     * The boundary-order token as it stands - see [ReadBoundaryOrder] - read the way [readFrom] reads
+     * a static field: what the last boundary call left, or, before any, a box with nothing flowing in
+     * that is the start of the chain and is recorded as an unwritten static read, so that several
+     * roots tie it to each other's last call as they tie a static.
+     *
+     * Keyed with no declaration, which is the name, on a holder nothing else has: [unassigned] is
+     * not asked, since there is no field for it to check.
+     */
+    private fun readBoundaryOrder(insn: ReadBoundaryOrder): Value {
+        val holder = builder.heap.boundaryOrderHolder()
+        val id = JNodeId(stack, BOUNDARY_ORDER, null, setOf(holder))
+        val node = builder.fieldNode(holder, id)
+            ?: builder.record(block.addPrimitiveVariable(base(id, insn)), setOf(holder))
+                .also { builder.unwrittenStaticReads.add(id to it) }
+        return Value(node)
     }
 
     /**

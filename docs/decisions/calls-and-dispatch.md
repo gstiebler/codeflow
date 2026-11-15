@@ -77,3 +77,18 @@ dispatch, `--summaries` - sees an ordinary method and needs no case of its own; 
 would have had to be repeated in the summarizer, and two copies of that rule are two chances to
 disagree. `boundary` is the fixture; `aBoundaryBodyIsNotRead` checks the body's literals are absent
 with the flag and present without it.
+
+**Boundary calls are chained in the order they ran.** Boundaries usually have side effects, so each
+assumed implementation also reads an order token before its call and writes the call's value back
+into it after: `boundaries → call<f> → boundaries → call<g> → …`. The token is one more input after
+the parameters, and void boundaries thread it too. It is a static field in all but source: a holder
+of its own in `Heap` (`boundaryOrderHolder`, listed in `staticHolders`), read and written by
+`ReadBoundaryOrder` / `WriteBoundaryOrder` through the journaled write a static uses. So the static
+rules give it, with no case of its own: a start with nothing flowing in; one chain across inlined
+callees; a gated phi where `if` arms leave it different; no back edge in loops; and `SHARED` edges
+between roots. The token is recognised by that holder, never by its name, so a field the sources call
+`boundaries` stays their own. The summarizer ignores it, and `--summaries` is unchanged. **Known cost:**
+the chain uses plain `FLOW` edges, so every argument of a boundary call now *reaches* every later
+boundary call through the token, and `reaches()`-style questions across boundary calls over-approximate.
+An `ORDER` edge kind would tell order from data; it was left out until asked for. Fixture:
+`boundaryOrder`.

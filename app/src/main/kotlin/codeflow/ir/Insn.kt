@@ -342,6 +342,32 @@ class WriteField(
 }
 
 /**
+ * What the boundary-order token is drawn as. A caption only: the token is told apart by its holder,
+ * [Heap.boundaryOrderHolder], never by this name, so a field the sources call `boundaries` stays theirs.
+ */
+const val BOUNDARY_ORDER = "boundaries"
+
+/**
+ * A read of the boundary-order token, which a boundary call takes after its parameters.
+ *
+ * The token is a variable no source declares, threaded through every boundary call so that the
+ * order they ran in is drawn: `boundaries -> call<f> -> boundaries -> call<g> -> ...`. It behaves as
+ * a static field of the sources would - one per run, held by the builder rather than by a frame, so
+ * inlining, forks and several roots treat it as they treat statics. Only [Lowering.Body.assumeBoundary]
+ * emits it. The summarizer ignores it: it is order, not data.
+ */
+class ReadBoundaryOrder(source: String) : Insn(source) {
+    override val inputs get() = emptyList<Val>()
+    override fun render() = "read $BOUNDARY_ORDER"
+}
+
+/** The token after a boundary call: what the call left, for the next one to take. See [ReadBoundaryOrder]. */
+class WriteBoundaryOrder(val value: Val, source: String) : Insn(source) {
+    override val inputs get() = listOf(value)
+    override fun render() = "write $BOUNDARY_ORDER <- $value"
+}
+
+/**
  * `this`, as a value: `return this`, `new Wrapper(this)`.
  *
  * Distinct from a field access *on* this, which names the object as its receiver and produces no

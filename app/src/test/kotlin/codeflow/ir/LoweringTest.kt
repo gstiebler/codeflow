@@ -618,4 +618,46 @@ class LoweringTest {
             lower("unboundLocal", listOf("App.java"), "App#main")
         )
     }
+
+    /** One method of a fixture lowered with [boundaries] configured, as `--boundary` would. */
+    private fun lowerWithBoundaries(testDir: String, boundaries: List<String>, method: String): List<String> {
+        val paths = Files.walk(testResourcesPath.resolve(testDir)).filter { it.toString().endsWith(".java") }.toList()
+        val analysis = AstReader(testResourcesPath).analyse(paths, boundaries)
+        return Lowering(analysis.symbols, analysis.globalCtx::isBoundary).lower(analysis.method(method)).render()
+    }
+
+    /**
+     * A boundary's assumed body takes the order token after its parameters and leaves the call's
+     * value in it: read, call, write, in that order - and then `result` and the return, as before.
+     * The order is the claim: written first, the call would take the token it itself left.
+     */
+    @Test
+    fun aBoundaryCallReadsTheOrderTokenBeforeItAndWritesItAfter() {
+        assertEquals(
+            listOf(
+                "0: param x",
+                "1: param y",
+                "2: read boundaries",
+                "3: call callboundaryfunc2 on static 0 1 2",
+                "4: write boundaries <- 3",
+                "5: write result <- 3",
+                "6: return 5"
+            ),
+            lowerWithBoundaries("boundary", listOf("Boundary"), "Boundary#boundaryfunc2")
+        )
+    }
+
+    /** A void boundary threads the token too; it only has no `result` and no return. */
+    @Test
+    fun aVoidBoundaryCallThreadsTheOrderTokenToo() {
+        assertEquals(
+            listOf(
+                "0: param value",
+                "1: read boundaries",
+                "2: call calllog on static 0 1",
+                "3: write boundaries <- 2"
+            ),
+            lowerWithBoundaries("boundaryOrder", listOf("Gateway"), "Gateway#log")
+        )
+    }
 }

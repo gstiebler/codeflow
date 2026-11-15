@@ -3,8 +3,11 @@
  */
 package codeflow
 
+import codeflow.graph.EdgeKind
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphException
+import codeflow.graph.GraphNode
+import codeflow.graph.NodeType
 import codeflow.java.AstReader
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -1051,8 +1054,177 @@ class AppTest {
         assertTrue(reaches(graph, "result2", "callboundaryfunc3"), "result2 does not reach callboundaryfunc3")
         assertTrue(reaches(graph, "b", "callboundaryfunc3"), "b does not reach callboundaryfunc3")
         assertTrue(reaches(graph, "c", "callboundaryfunc3"), "c does not reach callboundaryfunc3")
-        // The negative paired with the positives above: `c` is passed to boundaryfunc3 only.
-        assertFalse(reaches(graph, "c", "callboundaryfunc2"), "c reaches callboundaryfunc2, which it is never passed to")
+        // The negative paired with the positives above: `c` is passed to boundaryfunc3 only, and
+        // boundaryfunc1 runs before it. (It does reach boundaryfunc2 now, through the order chain:
+        // the known cost of drawing order as plain flow - see docs/decisions/calls-and-dispatch.md.)
+        assertFalse(reaches(graph, "c", "callboundaryfunc1"), "c reaches callboundaryfunc1, which runs before it is passed anywhere")
+    }
+
+    // --- The order boundary calls run in: one `boundaries` token threaded through every call. ---
+
+    private fun blocksUnder(block: GraphBuilderBlock): List<GraphBuilderBlock> =
+        listOf(block) + block.calledMethods.flatMap { blocksUnder(it) }
+
+    private fun nodesOf(roots: List<GraphBuilderBlock>): List<GraphNode> =
+        roots.flatMap { blocksUnder(it) }.flatMap { it.graph.getNodes() }
+
+    private fun edgesOf(roots: List<GraphBuilderBlock>): List<Triple<GraphNode, EdgeKind, GraphNode>> =
+        nodesOf(roots).flatMap { from -> from.edgesIterator().asSequence().map { Triple(from, it.kind, it.target) }.toList() }
+
+    /** The boundary call drawn for the call site on [line] of App.java - one block per call site. */
+    private fun callAt(roots: List<GraphBuilderBlock>, line: Int): GraphNode =
+        roots.flatMap { blocksUnder(it) }.single { Regex("""App\.java:$line:\d+$""").containsMatchIn(it.openedAt) }
+            .graph.getNodes().single { it.getType() == NodeType.EXTERNAL && it.label.startsWith("call") }
+
+    private fun callNamed(roots: List<GraphBuilderBlock>, label: String): GraphNode =
+        nodesOf(roots).single { it.label == label }
+
+    /** The token a call leaves behind: the one `boundaries` box it feeds. */
+    private fun orderAfter(roots: List<GraphBuilderBlock>, call: GraphNode): GraphNode =
+        edgesOf(roots).filter { it.first === call && it.third.label == "boundaries" }.map { it.third }.single()
+
+    /** The token a call takes: the one `boundaries` box feeding it. */
+    private fun orderBefore(roots: List<GraphBuilderBlock>, call: GraphNode): GraphNode =
+        edgesOf(roots).filter { it.third === call && it.first.label == "boundaries" }.map { it.first }.single()
+
+    private fun boundaryRoots() =
+        rootsOf("boundary", boundaryFiles, from = listOf("App#entrypoint"), boundaries = listOf("Boundary"))
+
+    private fun boundaryOrderRoots(from: List<String> = listOf("App#entrypoint")) =
+        rootsOf("boundaryOrder", listOf("App.java", "Gateway.java"), from = from, boundaries = listOf("Gateway"))
+
+    /**
+     * The chain starts at one `boundaries` with nothing flowing in, the first call takes it after
+     * its parameter - one input more than it has parameters - and what that call leaves is what the
+     * first call of *each* arm takes.
+     */
+    @Test
+    fun theBoundaryOrderStartsBeforeTheFirstCallAndFeedsBothArms() {
+        val roots = boundaryRoots()
+        val edges = edgesOf(roots)
+        val func1 = callAt(roots, 10)
+        val start = orderBefore(roots, func1)
+        assertEquals(NodeType.VARIABLE, start.getType())
+        assertTrue(edges.none { it.third === start }, "the start of the chain has something flowing in")
+        assertEquals(
+            listOf(start), nodesOf(roots).filter { n -> n.label == "boundaries" && edges.none { it.third === n } },
+            "the chain does not have exactly one start"
+        )
+        assertEquals(2, edges.count { it.third === func1 }, "callboundaryfunc1 takes its one parameter and the token, nothing else")
+        val after1 = orderAfter(roots, func1)
+        assertTrue(after1 !== start, "the call writes back into the box it read")
+        for (first in listOf(callAt(roots, 13), callAt(roots, 16))) {
+            assertTrue(orderBefore(roots, first) === after1, "${first.label} does not take what callboundaryfunc1 left")
+        }
+    }
+
+    /** Each arm runs its two calls in its own order, and neither arm's calls follow the other's. */
+    @Test
+    fun eachArmRunsItsBoundaryCallsInSourceOrderAndNotTheOther() {
+        val roots = boundaryRoots()
+        val then2 = callAt(roots, 13)
+        val then3 = callAt(roots, 14)
+        val else3 = callAt(roots, 16)
+        val else2 = callAt(roots, 17)
+        assertEquals(listOf("callboundaryfunc2", "callboundaryfunc3", "callboundaryfunc3", "callboundaryfunc2"),
+            listOf(then2, then3, else3, else2).map { it.label })
+        assertTrue(orderAfter(roots, then2) === orderBefore(roots, then3), "then-arm: 2 does not hand the token to 3")
+        assertTrue(orderAfter(roots, else3) === orderBefore(roots, else2), "else-arm: 3 does not hand the token to 2")
+        assertTrue(TestFixtures.reaches(then2, then3), "then-arm: callboundaryfunc2 does not reach callboundaryfunc3")
+        assertFalse(TestFixtures.reaches(then3, then2), "then-arm: callboundaryfunc3 reaches callboundaryfunc2, the order reversed")
+        assertTrue(TestFixtures.reaches(else3, else2), "else-arm: callboundaryfunc3 does not reach callboundaryfunc2")
+        assertFalse(TestFixtures.reaches(else2, else3), "else-arm: callboundaryfunc2 reaches callboundaryfunc3, the order reversed")
+        for (a in listOf(then2, then3)) for (b in listOf(else3, else2)) {
+            assertFalse(TestFixtures.reaches(a, b), "the then-arm's ${a.label} runs before the else-arm's ${b.label}")
+            assertFalse(TestFixtures.reaches(b, a), "the else-arm's ${b.label} runs before the then-arm's ${a.label}")
+        }
+    }
+
+    /** What each arm leaves meets at one `boundaries`, chosen by `a > b` like any static field written in an arm. */
+    @Test
+    fun theArmsOrdersMeetAtOneGatedJoin() {
+        val roots = boundaryRoots()
+        val edges = edgesOf(roots)
+        val fromThen = orderAfter(roots, callAt(roots, 14))
+        val fromElse = orderAfter(roots, callAt(roots, 17))
+        val chosen = edges.single { it.first === fromThen }.let { (_, kind, target) ->
+            assertEquals(EdgeKind.TRUE, kind, "the then-arm's token does not arrive on the true edge")
+            target
+        }
+        assertEquals(listOf(EdgeKind.FALSE to chosen), edges.filter { it.first === fromElse }.map { it.second to it.third },
+            "the else-arm's token does not arrive at the same choice on the false edge")
+        assertEquals("if", chosen.label)
+        assertEquals(listOf(">"), edges.filter { it.third === chosen && it.second == EdgeKind.CONDITION }.map { it.first.label },
+            "the join is not gated by a > b")
+        val joined = edges.filter { it.first === chosen }.map { it.third }
+        assertEquals(listOf("boundaries"), joined.map { it.label }, "the choice does not come out as one boundaries")
+        assertEquals(1, edges.filter { it.first.label == "boundaries" && it.third.label == "if" }.map { it.third }.distinct().size,
+            "the token is joined at more than one choice")
+    }
+
+    /**
+     * A source method between two boundary calls - `helper`, calling two more - is inlined, and the
+     * chain runs through it in source order: open, fetch, log, close. `log` and `close` are void.
+     */
+    @Test
+    fun oneBoundaryOrderRunsThroughAnInlinedCallee() {
+        val roots = boundaryOrderRoots()
+        val calls = listOf("callopen", "callfetch", "calllog", "callclose").map { callNamed(roots, it) }
+        calls.zipWithNext().forEach { (before, after) ->
+            assertTrue(orderAfter(roots, before) === orderBefore(roots, after), "${before.label} does not hand the token to ${after.label}")
+        }
+        calls.zipWithNext().forEach { (before, after) ->
+            assertFalse(TestFixtures.reaches(after, before), "${after.label} reaches ${before.label}, the order reversed")
+        }
+    }
+
+    /** A void boundary has no result, and still leaves the token for the next call. */
+    @Test
+    fun aVoidBoundaryCallThreadsTheOrder() {
+        val roots = boundaryOrderRoots()
+        val log = callNamed(roots, "calllog")
+        val close = callNamed(roots, "callclose")
+        assertTrue(orderAfter(roots, log) === orderBefore(roots, close), "the void calllog does not hand the token on")
+        assertEquals(listOf("boundaries"), edgesOf(roots).filter { it.first === close }.map { it.third.label },
+            "the last, void, call does not leave the token - or leaves something else")
+    }
+
+    /**
+     * The sources' own field `boundaries` is not the token: it is told apart by what holds it, not by
+     * its name. Its one box takes `a` and gives `seen`, and has no edge to or from the chain.
+     */
+    @Test
+    fun aFieldNamedBoundariesIsNotTheOrderToken() {
+        val roots = boundaryOrderRoots()
+        val edges = edgesOf(roots)
+        val named = nodesOf(roots).filter { it.label == "boundaries" }
+        val (field, token) = named.partition { "App.java" in it.source }
+        assertEquals(1, field.size, "the field is not one box: $field")
+        assertTrue(token.size == 5 && token.all { "Gateway.java" in it.source }, "the token is not a start and four writes: $token")
+        val box = field.single()
+        assertEquals(listOf("a"), edges.filter { it.third === box }.map { it.first.label })
+        assertEquals(listOf("seen"), edges.filter { it.first === box }.map { it.third.label })
+        assertTrue(edges.none { (it.first === box && it.third in token) || (it.third === box && it.first in token) },
+            "an edge joins the program's field to the order chain")
+    }
+
+    /**
+     * Two entry points each start their own chain, and each start is tied to the other's last call
+     * by a SHARED edge, as a static field's unwritten read is: they can run in either order.
+     */
+    @Test
+    fun severalRootsTieTheirOrdersTogetherAsAStaticFieldIs() {
+        val roots = boundaryOrderRoots(listOf("App#entrypoint", "App#helper"))
+        val edges = edgesOf(roots)
+        val (entry, helper) = roots
+        fun only(root: GraphBuilderBlock, label: String) = nodesOf(listOf(root)).single { it.label == label }
+        val entryStart = orderBefore(listOf(entry), only(entry, "callopen"))
+        val helperStart = orderBefore(listOf(helper), only(helper, "callfetch"))
+        assertTrue(edges.none { it.third === helperStart && it.second == EdgeKind.FLOW }, "the second root's chain continues the first's")
+        assertEquals(listOf(EdgeKind.SHARED to orderAfter(listOf(helper), only(helper, "calllog"))),
+            edges.filter { it.third === entryStart }.map { it.second to it.first })
+        assertEquals(listOf(EdgeKind.SHARED to orderAfter(listOf(entry), only(entry, "callclose"))),
+            edges.filter { it.third === helperStart }.map { it.second to it.first })
     }
 
     @Test
@@ -2197,6 +2369,9 @@ class AppTest {
 
     @Test fun boundary() = codeflow(
         "boundary", boundaryFiles, from = listOf("App#entrypoint"), boundaries = listOf("Boundary")
+    )
+    @Test fun boundaryOrder() = codeflow(
+        "boundaryOrder", listOf("App.java", "Gateway.java"), from = listOf("App#entrypoint"), boundaries = listOf("Gateway")
     )
     @Test fun member() = codeflow("member", listOf("App.java"))
     @Test fun files() = codeflow("files", listOf("App.java", "ClassX.java", "ClassY.java"))

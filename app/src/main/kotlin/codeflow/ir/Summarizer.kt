@@ -430,14 +430,18 @@ class Summarizer(
          * here. That is what keeps the caller's own value of a field the callee wrote on only some
          * paths - its effect carries the entry, which is this value.
          *
-         * An object the callee made is renamed by this call site, so two calls make two objects. An
-         * effect on one object is a strong update; on either of several - a receiver a join left
-         * pointing at two - it is weak, since the call wrote one of them and the other keeps what
-         * it had. Two effects landing on one field - the same object passed twice - are both
-         * possible, since nothing here says which the callee wrote last.
+         * An object the callee made is renamed by this call site, so two calls make two objects. A
+         * value the callee stored that has no object here - an argument from an opaque call - gets a
+         * stand-in per call site *and* field it was stored in, as the builder's `write` gives one per
+         * write: one per call site would make two unrelated objects one.
          *
-         * A path the caller has no object for - an argument from an opaque call - cannot carry a
-         * read or a write, and says so rather than dropping it.
+         * An effect is a strong update on every object its holder is here, including either of
+         * several a join left the receiver pointing at: the builder's inlined write is the same, and
+         * so is its known gap (`docs/decisions/joins.md`). Two effects landing on one field - the same
+         * object passed twice - are both possible, since nothing here says which the callee wrote last.
+         *
+         * A path the caller has no object for cannot carry a read or a write, and says so rather than
+         * dropping it. Nor can two the callee took as distinct that are one object here - see [aliases].
          */
         private fun instantiate(callee: Summary, label: String, receiver: Set<Obj>, args: List<AbsVal>, insn: Insn, index: Int): AbsVal {
             val site = insn.source
@@ -472,27 +476,66 @@ class Summarizer(
                 v.objs.flatMapTo(LinkedHashSet()) { objs(it) }
             )
 
+            aliases(callee, label, site, ::objs)
             val result = value(callee.ret)
             val calleeSinks = callee.sinks.mapValues { value(it.value) }
             val updates = LinkedHashMap<Pair<Obj, Element>, AbsVal>()
-            val weak = LinkedHashSet<Pair<Obj, Element>>()
             for ((key, effect) in callee.effects) {
                 val (holder, f) = key
                 val holders = objs(holder)
                 if (holders.isEmpty()) lost("${if (holder is PathObj) spell(holder, f) else qualifiedField(f)} written")
-                val written = stored(value(effect), f.asType().kind.isPrimitive, insn, index)
+                val mapped = value(effect)
+                val written = when {
+                    f.asType().kind.isPrimitive -> AbsVal(mapped.flows)
+                    mapped.objs.isNotEmpty() -> mapped
+                    else -> AbsVal(mapped.flows, setOf(StandInObj(listOf(site, effectName(key))).also { standInsMadeAt.putIfAbsent(it, base + index) }))
+                }
                 for (target in holders) {
                     val k = target to f
                     updates[k] = updates[k]?.plus(written) ?: written
-                    if (holders.size > 1) weak.add(k)
                 }
             }
-            val before = weak.associateWith { k -> (heap[k] ?: entry(k, k.second.asType().kind.isPrimitive, site)).value }
 
             calleeSinks.forEach { (k, v) -> sinks[k] = (sinks[k] ?: EMPTY) + v }
             gaps.addAll(callee.gaps)
-            for ((k, v) in updates) write(k, before[k]?.plus(v) ?: v, site)
+            for ((k, v) in updates) write(k, v, site)
             return result
+        }
+
+        /** The callee's field [key], as a link in a stand-in's site chain: `this.A.b1`, `new <site>.A.b`. */
+        private fun effectName(key: Pair<Obj, Element>): String = when (val holder = key.first) {
+            is PathObj -> spell(holder, key.second)
+            is AllocObj -> "new ${holder.site.joinToString(" ")}." + qualifiedField(key.second)
+            is StandInObj -> "obj ${holder.site.joinToString(" ")}." + qualifiedField(key.second)
+        }
+
+        /**
+         * Whether the callee read a field through one of its paths that it wrote through another,
+         * where the two are one object here.
+         *
+         * The callee was read as if `this` and each parameter were distinct objects, so the read
+         * found what the field held at entry - which is not what it holds once the write through the
+         * other name has run. The summary cannot give that flow, and says so: `g(b, b)`, `o.g(o)`.
+         * A path a summary names is followed off the entry heap, so each field it goes through is a
+         * read too.
+         */
+        private fun aliases(callee: Summary, label: String, site: String, objs: (Obj) -> Set<Obj>) {
+            val reads = LinkedHashSet<Pair<PathObj, Element>>()
+            fun path(obj: Obj) {
+                if (obj is PathObj) obj.fields.indices.forEach { reads.add(PathObj(obj.root, obj.fields.take(it)) to obj.fields[it]) }
+            }
+            fun value(v: AbsVal) {
+                v.flows.forEach { if (it is FieldAtom) { reads.add(it.obj to it.field); path(it.obj) } }
+                v.objs.forEach(::path)
+            }
+            value(callee.ret)
+            callee.sinks.values.forEach(::value)
+            callee.effects.forEach { (key, v) -> path(key.first); value(v) }
+            val writes = callee.effects.keys.mapNotNull { (holder, f) -> (holder as? PathObj)?.let { it to f } }
+            for ((read, f) in reads) for ((write, g) in writes) {
+                if (f != g || read == write || objs(read).none { it in objs(write) }) continue
+                gaps.add(Gap("alias", site, "$label reads ${spell(read, f)} and writes ${spell(write, f)}, which are one object here"))
+            }
         }
 
         /**

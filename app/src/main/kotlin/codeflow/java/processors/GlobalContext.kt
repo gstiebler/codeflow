@@ -5,7 +5,6 @@ import codeflow.java.Symbols
 import com.sun.source.tree.ClassTree
 import com.sun.source.tree.MethodTree
 import com.sun.source.tree.Tree
-import mu.KotlinLogging
 import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
 import javax.lang.model.element.ExecutableElement
@@ -23,20 +22,6 @@ class GlobalContext(val symbols: Symbols) {
      * last for every call to either.
      */
     private val methods = HashMap<Element, Method>()
-    private val idToMemPos = HashMap<GraphNodeId, Set<MemPos>>()
-
-    /**
-     * One memory position per class, holding that class's static fields.
-     *
-     * A static belongs to the class rather than to any instance, so there is no object to hang it
-     * on, and the block-parent chain cannot stand in: a method that writes a static is a sibling of
-     * the one that reads it, not an ancestor. Giving the class a position of its own makes a static
-     * the same kind of thing as an instance field, found the same way, and makes `Counter.total`
-     * and a bare `total` inside `Counter` one variable rather than two.
-     *
-     * Keyed by the class's Element, so two classes each declaring `total` stay apart.
-     */
-    private val staticMemPositions = HashMap<Element, MemPos>()
 
     /**
      * The class declarations these sources contain, so that construction can reach what a class
@@ -59,10 +44,6 @@ class GlobalContext(val symbols: Symbols) {
      * knows to look.
      */
     private val unmodelledConstructs = LinkedHashSet<String>()
-
-    /** See [enumConstantMemPos]. */
-    private val enumConstantMemPositions = HashMap<Element, MemPos>()
-    private val logger = KotlinLogging.logger {}
 
     class SourceClass(val tree: ClassTree, val ctx: ProcessorContext)
 
@@ -139,69 +120,4 @@ class GlobalContext(val symbols: Symbols) {
      */
     fun sourceMethods(): List<Method> = methods.values
         .sortedWith(compareBy({ it.ctx.path.toString() }, { it.ctx.getPosId(it.name) }))
-
-    /**
-     * The objects a variable can point at, which is a set because a name is not one object.
-     *
-     * `if (c) p = i1; else p = i2;` leaves `p` standing for either, and a field read through it
-     * finds a field on each. Keeping one position per variable could only answer with an arm, and
-     * which arm was decided by the order the walk happened to take - the branch drawn straight
-     * through, moved into the alias model where nothing on the diagram shows it happened.
-     *
-     * Empty for anything not tracked, such as an object from outside the analysed sources.
-     */
-    fun objectsOf(nodeId: GraphNodeId): Set<MemPos> = idToMemPos[nodeId] ?: emptySet()
-
-    /** [type] is the class the object was constructed as - see [MemPos.type]. */
-    fun createMemPos(label: String, type: Element? = null): MemPos = MemPos(label, type)
-
-    /**
-     * The class's memory position when [tree] names a static field, and null for anything else.
-     *
-     * Callers read it as "the holder this name has of its own", falling back to the instance they
-     * were going to use otherwise. A static has no instance to fall back to - a static method has
-     * no `this` at all - so without this the qualified form found no memory position, took the
-     * receiver-is-from-outside path, and came out as an opaque EXTERNAL node: two reads of one
-     * field drawn as one box, with the write that happened between them reaching neither.
-     *
-     * Only for a field these sources declare. `System.out` is a static field too, and resolves just
-     * as confidently, but it is not ours to model: tracking it would draw a variable standing for
-     * an object we know nothing about, where the opaque EXTERNAL node is the honest answer.
-     *
-     * The tree only labels the position in a log line, so the first caller's will do.
-     */
-    fun staticHolder(tree: Tree): MemPos? = staticHolder(symbols.element(tree), "$tree")
-
-    /** The same question asked of the declaration directly, which is what the IR carries. */
-    fun staticHolder(element: Element?, label: String): MemPos? {
-        if (element?.kind != ElementKind.FIELD || Modifier.STATIC !in element.modifiers) return null
-        if (!symbols.isDeclaredInSources(element)) return null
-        return staticMemPositions.getOrPut(element.enclosingElement) { MemPos(label) }
-    }
-
-    /** Every static field's current node, as if nothing had been written before - see [forgetStatics]. */
-    fun staticWrites(): Map<GraphNodeId, GraphNode> = staticMemPositions.values.flatMap { it.nodes().entries }
-        .associate { it.key to it.value }
-
-    /**
-     * Static fields back to holding nothing, so that the next entry point is built as if it ran alone.
-     */
-    fun forgetStatics() = staticMemPositions.values.forEach { it.forget() }
-
-    /**
-     * The object an enum constant is, which is one object for the whole program.
-     *
-     * `Size.SMALL` names the same instance at every mention, so unlike `new X(...)` - a fresh object
-     * per call site - the memory position has to outlive the invocation that first asked for it.
-     * The constructor is still inlined per mention, as every other call is; each run writes the
-     * constant's fields again, to the same values, on this one position.
-     */
-    fun enumConstantMemPos(element: Element, declaration: String): MemPos =
-        enumConstantMemPositions.getOrPut(element) { MemPos(declaration) }
-
-    /** Records what a variable now points at. A later write replaces it, as the assignment does. */
-    fun setObjects(nodeId: GraphNodeId, objects: Set<MemPos>) {
-        logger.debug { "setObjects: $nodeId -> $objects" }
-        idToMemPos[nodeId] = objects
-    }
 }

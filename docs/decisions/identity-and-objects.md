@@ -22,7 +22,8 @@ asserting flows that do not exist, with nothing to notice. `assertNoDuplicateNod
 
 ## MemPos is object identity
 
-A `MemPos` stands for one object instance and owns the nodes for its fields. It is how
+A `MemPos` stands for one object instance - an identity only; `IrGraphBuilder` keeps the nodes for
+its fields, by `MemPos.id`, and `ir/Heap.kt` makes the positions. It is how
 `this.field`, an implicit-`this` field read, and a field written in a constructor and read in
 another method all find each other — the block-parent chain does not span sibling methods, so
 `Frame.read` and `Frame.write` consult the owning `MemPos` before the block — and they are about
@@ -31,7 +32,7 @@ fields only, since locals are resolved by then. `MemPos` has no
 
 A *name*, though, is not one object: a variable points at a **set** of them. `if (c) p = i1; else p
 = i2;` leaves `p` standing for either, so `Frame.Value.objects`, `Frame.owner`, `holderOf` and
-`GlobalContext.objectsOf` are all sets, and `Frame.phi` unions what each path left behind. Holding
+`Heap.objectsOf` are all sets, and `Frame.phi` unions what each path left behind. Holding
 one position per variable could only answer with an arm, and which arm was whichever the walk
 reached last — §1's wound moved into the alias model, where nothing on the diagram shows it
 happened. A read through several holders looks the field up on each and merges them with the same

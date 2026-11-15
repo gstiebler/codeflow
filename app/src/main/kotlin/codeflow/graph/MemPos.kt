@@ -1,10 +1,13 @@
 package codeflow.graph
 
-import mu.KotlinLogging
 import javax.lang.model.element.Element
 
 /**
  * Represents a memory position. Multiple variables can point to the same memory position.
+ *
+ * It is an identity and nothing more: which fields an object holds is the builder's to record, so
+ * that the alias model can be read and tested without any graph in it. Ids come from
+ * [codeflow.ir.Heap], which is the only place a position is made.
  *
  * [label] is only what the memory position is called in a log line or an error, so it is whatever
  * names the object best where it is created - a `path:line:col`, or the expression that made it.
@@ -14,40 +17,9 @@ import javax.lang.model.element.Element
  * outside the analysed sources - and a null type dispatches to nothing, which leaves the call
  * exactly where it was before.
  */
-class MemPos(private val label: String, val type: Element? = null) {
-
-    // nodes for primitive variables inside this instance
-    // In x.memberX = 5; a node is created for memberX, and receives 5
-    // x is a MemPos
-    private val referencedNodes = HashMap<GraphNodeId, GraphNode>()
-
-    private val logger = KotlinLogging.logger {}
-    companion object {
-        var counter = 0
-    }
-
-    private val id = counter++
-
-    init {
-         logger.debug { "MemPos created: $this" }
-    }
+class MemPos(val id: Int, private val label: String, val type: Element? = null) {
 
     override fun toString(): String {
         return "MemPos($id, '$label')"
-    }
-
-    fun addNode(node: GraphNode) {
-        logger.debug { "addNode: $node" }
-        referencedNodes[node.id] = node
-    }
-
-    /** Every node this position holds, by the name it is looked up under. */
-    fun nodes(): Map<GraphNodeId, GraphNode> = referencedNodes
-
-    /** Back to holding nothing, as at the start of a run. */
-    fun forget() = referencedNodes.clear()
-
-    fun getNode(id: GraphNodeId): GraphNode? {
-        return referencedNodes[id];
     }
 }

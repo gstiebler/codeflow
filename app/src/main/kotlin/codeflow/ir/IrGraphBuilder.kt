@@ -31,6 +31,30 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
 
     private val lowering = Lowering(globalCtx.symbols)
 
+    /** Which objects a name can point at; no nodes in it. */
+    val heap = Heap(globalCtx.symbols)
+
+    /**
+     * The nodes each object's fields currently hold, by the name they are looked up under.
+     * In `x.memberX = 5;` a node is created for memberX on every object `x` could be.
+     */
+    private val fields = HashMap<Int, HashMap<GraphNodeId, GraphNode>>()
+
+    /** Files [node] as a field of each of [owners], and hands it back. */
+    fun record(node: GraphNode, owners: Set<MemPos>): GraphNode {
+        owners.forEach { fields.getOrPut(it.id) { HashMap() }[node.id] = node }
+        return node
+    }
+
+    fun fieldNode(owner: MemPos, id: GraphNodeId): GraphNode? = fields[owner.id]?.get(id)
+
+    /** Every static field's current node, as if nothing had been written before - see [forgetStatics]. */
+    private fun staticWrites(): Map<GraphNodeId, GraphNode> =
+        heap.staticHolders().flatMap { fields[it.id]?.entries ?: emptySet() }.associate { it.key to it.value }
+
+    /** Static fields back to holding nothing, so that the next entry point is built as if it ran alone. */
+    private fun forgetStatics() = heap.staticHolders().forEach { fields[it.id]?.clear() }
+
     /** Lowered once per method, however many call sites reach it. */
     private val bodies = HashMap<Element, MethodBody>()
     private val initializers = HashMap<Element, List<Insn>>()
@@ -67,14 +91,14 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
 
         var nextSerial = 0
         val built = roots.map { root ->
-            globalCtx.forgetStatics()
+            forgetStatics()
             unwrittenStaticReads.clear()
             val block = build(root, nextSerial)
             nextSerial = block.serialsUsed()
             val reads = unwrittenStaticReads.toList()
             // A read that found nothing leaves its own box in the field; it is not a write.
             val readNodes = reads.map { it.second }.toSet()
-            Built(block, globalCtx.staticWrites().filterValues { it !in readNodes }, reads)
+            Built(block, staticWrites().filterValues { it !in readNodes }, reads)
         }
         for (reader in built) for (writer in built) {
             if (reader === writer) continue
@@ -174,7 +198,7 @@ class Frame(
      */
     fun invoke(arguments: List<GraphNode>, argumentMemPositions: List<Set<MemPos>>) {
         block.parameterNodes.zip(argumentMemPositions).forEach { (parameter, objects) ->
-            if (objects.isNotEmpty()) globalCtx.setObjects(parameter.id, objects)
+            if (objects.isNotEmpty()) builder.heap.setObjects(parameter.id, objects)
         }
         val method = block.method
         if (method.element.kind == ElementKind.CONSTRUCTOR && !delegatesToSameClass(method)) {
@@ -208,7 +232,7 @@ class Frame(
     private fun draw(insn: Insn, run: Run): Value? = when (insn) {
         is Const -> Value(block.addLiteral(base(labelId(insn.text, insn), insn)))
 
-        is Param -> block.parameterNodes[insn.index].let { Value(it, globalCtx.objectsOf(it.id)) }
+        is Param -> block.parameterNodes[insn.index].let { Value(it, builder.heap.objectsOf(it.id)) }
 
         is WriteLocal -> write(insn.name, insn.element, insn.isPrimitive, owner, run.objects(insn.value), insn, run.node(insn.value))
 
@@ -275,7 +299,7 @@ class Frame(
      * different fact from "one object", and the two are read apart below.
      */
     private fun holderOf(receiver: Receiver, element: Element?, insn: Insn, run: Run): Set<MemPos> {
-        globalCtx.staticHolder(element, insn.source)?.let { return setOf(it) }
+        builder.heap.staticHolder(element, insn.source)?.let { return setOf(it) }
         return when (receiver) {
             Receiver.Enclosing, Receiver.Super -> owner
             Receiver.TypeName -> emptySet()
@@ -339,18 +363,18 @@ class Frame(
         insn: Insn
     ): Value {
         val id = JNodeId(stack, name, element, setOfNotNull(holder))
-        val node = holder?.getNode(id)
+        val node = holder?.let { builder.fieldNode(it, id) }
             ?: block.getVariable(id)?.lastNode
             ?: if (holder == null && written) {
                 block.addExternal(base(id, insn), emptyList())
             } else {
                 unassigned(id, name, element, isPrimitive, setOfNotNull(holder), insn).also {
-                    if (holder != null && holder === globalCtx.staticHolder(element, insn.source)) {
+                    if (holder != null && holder === builder.heap.staticHolder(element, insn.source)) {
                         builder.unwrittenStaticReads.add(id to it)
                     }
                 }
             }
-        return Value(node, globalCtx.objectsOf(id))
+        return Value(node, builder.heap.objectsOf(id))
     }
 
     /**
@@ -376,17 +400,17 @@ class Frame(
         valueNode: GraphNode
     ): Value {
         val written = if (isPrimitive) emptySet()
-        else valueObjects.ifEmpty { setOf(globalCtx.createMemPos(insn.source)) }
+        else valueObjects.ifEmpty { setOf(builder.heap.allocate(insn.source)) }
         val nodes = holders.ifEmpty { setOf(null) }.map { holder ->
             val owning = setOfNotNull(holder)
             val id = JNodeId(stack, name, element, owning)
             val node = if (isPrimitive) {
-                block.addPrimitiveVariable(base(id, insn), owning)
+                builder.record(block.addPrimitiveVariable(base(id, insn)), owning)
             } else {
-                block.addObjectVariable(base(id, insn), owning)
+                builder.record(block.addObjectVariable(base(id, insn)), owning)
             }
             block.addAssignment(node, valueNode)
-            if (!isPrimitive) globalCtx.setObjects(id, written)
+            if (!isPrimitive) builder.heap.setObjects(id, written)
             node
         }
         return Value(nodes.first(), written)
@@ -402,17 +426,17 @@ class Frame(
     private fun bind(insn: Bind, run: Run): Value {
         val id = JNodeId(stack, insn.name, insn.element, owner)
         val node = if (insn.isPrimitive) {
-            block.addPrimitiveVariable(base(id, insn), owner)
+            builder.record(block.addPrimitiveVariable(base(id, insn)), owner)
         } else {
-            block.addObjectVariable(base(id, insn), owner)
+            builder.record(block.addObjectVariable(base(id, insn)), owner)
         }
         insn.value?.let { block.addAssignment(node, run.node(it)) }
         val objects = when (insn.identity) {
             Identity.OfValue -> insn.value?.let { run.objects(it) } ?: emptySet()
-            Identity.Fresh -> if (insn.isPrimitive) emptySet() else setOf(globalCtx.createMemPos(insn.source))
+            Identity.Fresh -> if (insn.isPrimitive) emptySet() else setOf(builder.heap.allocate(insn.source))
             Identity.Unknown -> emptySet()
         }
-        if (objects.isNotEmpty()) globalCtx.setObjects(id, objects)
+        if (objects.isNotEmpty()) builder.heap.setObjects(id, objects)
         return Value(node, objects)
     }
 
@@ -490,10 +514,10 @@ class Frame(
      * alike and be drawn as one object.
      */
     private fun thisValue(insn: ThisRef): Value = thisValue ?: run {
-        val instance = owner.ifEmpty { setOf(globalCtx.createMemPos(insn.source)) }
+        val instance = owner.ifEmpty { setOf(builder.heap.allocate(insn.source)) }
         val id = JNodeId(stack, "this", null, instance)
-        val node = block.addObjectVariable(base(id, insn), instance)
-        globalCtx.setObjects(id, instance)
+        val node = builder.record(block.addObjectVariable(base(id, insn)), instance)
+        builder.heap.setObjects(id, instance)
         Value(node, instance).also { thisValue = it }
     }
 
@@ -520,7 +544,7 @@ class Frame(
             creation.constructor,
             creation.args.map { run.node(it) },
             creation.args.map { run.objects(it) },
-            globalCtx.enumConstantMemPos(element, creation.source),
+            builder.heap.enumConstantMemPos(element, creation.source),
             creation
         )
     }
@@ -647,7 +671,7 @@ class Frame(
         // class declares no constructor - attribution inserts one, and its enclosing element is
         // still the class. `Plain` in the fieldInitializer fixture is the case that proves it.
         val created = setOf(
-            into ?: globalCtx.createMemPos(insn.source, constructorElement?.enclosingElement)
+            into ?: builder.heap.allocate(insn.source, constructorElement?.enclosingElement)
         )
         val constructor = globalCtx.findMethod(constructorElement)
         if (constructor == null) {
@@ -693,9 +717,9 @@ class Frame(
             throw GraphException("'$name' at ${insn.source} has no value in ${block.getMethodName()}")
         }
         return if (isPrimitive) {
-            block.addPrimitiveVariable(base(id, insn), holder)
+            builder.record(block.addPrimitiveVariable(base(id, insn)), holder)
         } else {
-            block.addObjectVariable(base(id, insn), holder)
+            builder.record(block.addObjectVariable(base(id, insn)), holder)
         }
     }
 

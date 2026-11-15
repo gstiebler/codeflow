@@ -149,7 +149,7 @@ writes go through it. Deep fields, aliasing, merged references and the object re
 then become one mechanism with one test surface.
 
 **Status: the set is done; the separate pass is not.** A variable now points at a `Set<MemPos>`
-(`Frame.Value.objects`, `Frame.owner`, `holderOf`, `GlobalContext.objectsOf`), a phi unions what
+(`Frame.Value.objects`, `Frame.owner`, `holderOf`, `Heap.objectsOf`), a phi unions what
 each path left behind, and a field read through several holders merges the field on each â€” the
 `aliasBranch` fixture and `aFieldReadThroughEitherOfTwoObjectsFindsBoth`. A method with two returns
 now hands the caller both objects rather than the first. `AstMemPosProcessor` and its swallowed
@@ -159,6 +159,10 @@ references unions too, over `Select.alternatives` rather than over every input â
 drawn rather than as its own pass over the IR, so it still has no observable but the diagram; arrays
 still have no element model; and a phi's back edge contributes no objects, because the value it
 names has not been drawn when the phi is.
+
+The alias state now lives in `ir/Heap.kt` and holds no graph nodes (the fields an object holds are
+a map in `IrGraphBuilder`), so it can be built and asserted on without drawing - `HeapTest`. It is
+still filled in while drawing, not by a separate pass.
 
 **Since partly done.** Dispatch reads the points-to set: a call resolves to the implementation the
 receiver's `MemPos` was constructed as, rather than to whichever method javac resolved against the
@@ -310,8 +314,8 @@ whole callee off the diagram unnoticed.
 
 Recorded so it is not rediscovered. Done: `graph/ObjVariable.kt`, `NodeType.MEM_SPACE` /
 `GraphNode.MemSpace` and the throwing `GlobalContext.getMemPos` are deleted; the golden count is no
-longer written down anywhere. Still open: `MemPos.counter` is a JVM-global mutable counter, the same
-non-determinism `serial` was changed to avoid, still present for anything that prints a `MemPos`.
+longer written down anywhere. Also done: `MemPos.counter` is gone - ids come from a per-run counter
+in `ir/Heap.kt`, so anything that prints a `MemPos` numbers it the same way every run.
 
 ## The order it would actually be done in
 

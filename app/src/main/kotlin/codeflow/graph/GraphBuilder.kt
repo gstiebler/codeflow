@@ -161,20 +161,15 @@ class GraphBuilderBlock(
         return newNode
     }
 
-    /*
-    In x.memberX = 5;, x is the owner of memberX
-     */
-    fun addPrimitiveVariable(base: GraphNode.Base, owner: Set<MemPos>): GraphNode {
+    fun addPrimitiveVariable(base: GraphNode.Base): GraphNode {
         val newNode = graph.createGraphNode(NodeType.VARIABLE, base)
         setLastNode(newNode)
-        owner.forEach { it.addNode(newNode) }
         return newNode
     }
 
-    fun addObjectVariable(base: GraphNode.Base, owner: Set<MemPos>): GraphNode {
+    fun addObjectVariable(base: GraphNode.Base): GraphNode {
         val newNode = graph.createGraphNode(NodeType.OBJ_VARIABLE, base)
         setLastNode(newNode)
-        owner.forEach { it.addNode(newNode) }
         return newNode
     }
 

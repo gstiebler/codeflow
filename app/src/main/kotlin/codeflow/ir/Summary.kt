@@ -45,6 +45,16 @@ data class PathObj(val root: Root, val fields: List<Element> = emptyList()) : Ob
  */
 data class AllocObj(val site: List<String>, val type: Element?) : Obj
 
+/**
+ * The object a value is drawn as when nothing here knows where it came from - what an opaque call
+ * returned, a loop element, a caught exception - so a field set on it has somewhere to hang, as the
+ * builder's `write` gives it a position.
+ *
+ * Not an allocation: its fields held something before the method looked, which this cannot name.
+ * A read of one, or a write that dies with the method, is a gap rather than a quiet nothing.
+ */
+data class StandInObj(val site: List<String>) : Obj
+
 /** An input: something a value in the method can have come from. */
 sealed interface Atom
 
@@ -103,19 +113,59 @@ data class Summary(
 /**
  * Every `input -> output` pair, spelled as the output document spells them, sorted.
  *
- * Fields on an [AllocObj] are not spelled: the caller cannot name the object, so they are kept for
- * instantiation and are not an output of their own.
+ * A field of an object the method made is spelled through the field of the caller's that holds it,
+ * `this.A.b.B.v` for `this.b = x; x.v = a`. One only the result leads to has no name yet: it is
+ * kept for instantiation, where the caller's own path to it names it.
  */
 fun Summary.pairs(): List<Pair<String, String>> {
     val out = LinkedHashSet<Pair<String, String>>()
+    val names = names(effects).names
     ret.flows.forEach { out.add(spell(it) to "RET") }
     for ((key, value) in effects) {
-        val holder = key.first as? PathObj ?: continue
-        val target = spell(holder, key.second)
-        value.flows.forEach { out.add(spell(it) to target) }
+        val holders = (key.first as? PathObj)?.let { setOf(it) } ?: names[key.first] ?: continue
+        for (holder in holders) {
+            val target = spell(holder, key.second)
+            value.flows.forEach { out.add(spell(it) to target) }
+        }
     }
     for ((key, value) in sinks) value.flows.forEach { out.add(spell(it) to key) }
     return out.sortedWith(compareBy({ it.first }, { it.second }))
+}
+
+/**
+ * What the caller can call each object [effects] leaves in one of its fields, and the objects it can
+ * reach only past [Summarizer.DEPTH_CAP] - the name each was cut at.
+ */
+class Names(val names: Map<Obj, Set<PathObj>>, val tooDeep: Map<Obj, PathObj>)
+
+/**
+ * Follows the effects from the caller's paths into the objects they store, one field at a time.
+ *
+ * A name keeps the [PathObj] cap, so a field of it is still within [Summarizer.DEPTH_CAP] and
+ * spelling one never needs a deeper path than a read could have made.
+ */
+fun names(effects: Map<Pair<Obj, Element>, AbsVal>): Names {
+    val names = LinkedHashMap<Obj, LinkedHashSet<PathObj>>()
+    val tooDeep = LinkedHashMap<Obj, PathObj>()
+    fun namesOf(obj: Obj): Set<PathObj> = if (obj is PathObj) setOf(obj) else names[obj] ?: emptySet()
+    var changed = true
+    while (changed) {
+        changed = false
+        for ((key, value) in effects) {
+            for (base in namesOf(key.first)) {
+                val name = PathObj(base.root, base.fields + key.second)
+                for (obj in value.objs) {
+                    if (obj is PathObj) continue
+                    if (name.fields.size < Summarizer.DEPTH_CAP) {
+                        if (names.getOrPut(obj) { LinkedHashSet() }.add(name)) changed = true
+                    } else {
+                        tooDeep.putIfAbsent(obj, name)
+                    }
+                }
+            }
+        }
+    }
+    return Names(names, tooDeep.filterKeys { it !in names })
 }
 
 fun spell(atom: Atom): String = when (atom) {
@@ -140,7 +190,7 @@ fun spell(obj: PathObj): String {
 fun extArg(label: String, site: String) = "ext-arg:$label@$site"
 
 /** The declaring class's qualified name, then the field's: `pkg.Loan.rate`. Taken from the element. */
-private fun qualifiedField(field: Element): String {
+internal fun qualifiedField(field: Element): String {
     val owner = field.enclosingElement
     val ownerName = (owner as? TypeElement)?.qualifiedName?.toString() ?: owner.toString()
     return "$ownerName.${field.simpleName}"

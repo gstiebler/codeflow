@@ -14,7 +14,8 @@ import javax.lang.model.element.Modifier
  * rules are the builder's, read off `IrGraphBuilder`, and whatever edge the builder draws is a flow
  * here. Where the builder has a known gap (`docs/decisions/joins.md`: no back edge for a field in a
  * loop body, `?:`/`&&`/`||` not forked, a strong update through several holders) this has the same
- * one, so the two disagree only where a summary is meant to differ - which the parity test records.
+ * one, so the two disagree only where a summary is meant to differ - which the parity test Task 6
+ * adds will record.
  *
  * Interpreting a method is a pure function of the method and what it is given, so it can be run
  * again. Calls are opaque for now ([opaqueCall]), each one an [ExtResult] and a sink.
@@ -42,15 +43,19 @@ class Summarizer(
      */
     private class Cell(val value: AbsVal)
 
-    /** The builder's [OpenFork]: where its journal starts, and what each finished arm left. */
-    private class Fork(val mark: Int) {
+    /**
+     * The builder's [OpenFork]: where its journal starts, and what each finished arm left. [index]
+     * is the fork's instruction, so a join can tell an object from before the fork from one made
+     * inside it.
+     */
+    private class Fork(val mark: Int, val index: Int) {
         val arms = ArrayList<Map<Pair<Obj, Element>, Cell>>()
     }
 
     /** What an [Interpretation] held when an instruction list began, for each pass to start from. */
     private class State(
         val heap: Map<Pair<Obj, Element>, Cell>,
-        val written: Set<Pair<Obj, Element>>,
+        val written: Map<Pair<Obj, Element>, String>,
         val ret: AbsVal,
         val sinks: Map<String, AbsVal>,
         val gaps: Set<Gap>
@@ -73,8 +78,10 @@ class Summarizer(
         private val journal = ArrayList<Pair<Pair<Obj, Element>, Cell?>>()
         private val openForks = ArrayList<Fork>()
 
-        /** Every field a write touched: the heap also holds fields that were only read. */
-        private var written = LinkedHashSet<Pair<Obj, Element>>()
+        /** Every field a write touched, with where it was first written: the heap also holds fields only read. */
+        private var written = LinkedHashMap<Pair<Obj, Element>, String>()
+        /** The instruction each [StandInObj] was made at - the same on every pass. */
+        private val standInsMadeAt = HashMap<Obj, Int>()
         private var ret = EMPTY
         private var sinks = LinkedHashMap<String, AbsVal>()
         private var gaps = LinkedHashSet<Gap>()
@@ -94,20 +101,33 @@ class Summarizer(
 
         /**
          * The final value of every field written on an object the caller can reach: a [PathObj], or
-         * an [AllocObj] that the result or such a field leads to. The rest died with the method.
+         * an object made here that the result or such a field leads to. The rest died with the method.
+         *
+         * What died is said where it was a flow lost rather than a dead store: a write on a
+         * [StandInObj] was to an object from outside, and an object the caller reaches only past
+         * the depth cap cannot be spelled.
          */
         private fun effects(): Map<Pair<Obj, Element>, AbsVal> {
-            val final = written.mapNotNull { key -> heap[key]?.let { key to it.value } }
+            val final = written.keys.mapNotNull { key -> heap[key]?.let { key to it.value } }
             val kept = LinkedHashSet<Obj>()
             val work = ArrayList<Obj>()
-            fun keep(objs: Set<Obj>) = objs.forEach { if (it is AllocObj && kept.add(it)) work.add(it) }
+            fun keep(objs: Set<Obj>) = objs.forEach { if (it !is PathObj && kept.add(it)) work.add(it) }
             keep(ret.objs)
             final.forEach { (key, value) -> if (key.first is PathObj) keep(value.objs) }
             while (work.isNotEmpty()) {
                 val obj = work.removeAt(work.size - 1)
                 final.forEach { (key, value) -> if (key.first == obj) keep(value.objs) }
             }
-            return final.filter { (key, _) -> key.first is PathObj || key.first in kept }.toMap(LinkedHashMap())
+            val effects = final.filter { (key, _) -> key.first is PathObj || key.first in kept }.toMap(LinkedHashMap())
+            val tooDeep = names(effects).tooDeep
+            for ((key, at) in written) {
+                if (key.first is StandInObj && key !in effects) {
+                    gaps.add(Gap("unmodelled", at, "${qualifiedField(key.second)} written on an object with no tracked origin"))
+                }
+                val cut = tooDeep[key.first]
+                if (cut != null && key in effects) gaps.add(Gap("depth", at, spell(cut, key.second)))
+            }
+            return effects
         }
 
         /**
@@ -123,12 +143,12 @@ class Summarizer(
             val hasBackEdges = instructions.withIndex().any { (index, insn) ->
                 insn is Phi && insn.paths.any { it.index >= index }
             }
-            val start = State(LinkedHashMap(heap), LinkedHashSet(written), ret, LinkedHashMap(sinks), LinkedHashSet(gaps))
+            val start = State(LinkedHashMap(heap), LinkedHashMap(written), ret, LinkedHashMap(sinks), LinkedHashSet(gaps))
             val values = Array(instructions.size) { EMPTY }
             val forks = HashMap<Int, Fork>()
             while (true) {
                 heap = LinkedHashMap(start.heap)
-                written = LinkedHashSet(start.written)
+                written = LinkedHashMap(start.written)
                 ret = start.ret
                 sinks = LinkedHashMap(start.sinks)
                 gaps = LinkedHashSet(start.gaps)
@@ -144,20 +164,20 @@ class Summarizer(
             return when (insn) {
                 is Const -> EMPTY
                 is Param -> params[insn.index]
-                is WriteLocal -> stored(v(insn.value), insn.isPrimitive, insn)
+                is WriteLocal -> stored(v(insn.value), insn.isPrimitive, insn, index)
                 is ReadField -> readField(insn, values)
                 is WriteField -> {
-                    val stored = stored(v(insn.value), insn.isPrimitive, insn)
+                    val stored = stored(v(insn.value), insn.isPrimitive, insn, index)
                     val element = insn.element
                     val holders = element?.let { holders(insn.receiver, it, values) } ?: emptySet()
                     if (holders.isEmpty()) untracked(insn, insn.name, element)
-                    holders.forEach { write(it to element!!, stored) }
+                    holders.forEach { write(it to element!!, stored, insn.source) }
                     stored
                 }
-                is FieldFork -> EMPTY.also { forks[index] = Fork(journal.size).also { openForks.add(it) } }
+                is FieldFork -> EMPTY.also { forks[index] = Fork(journal.size, index).also { openForks.add(it) } }
                 is FieldArm -> EMPTY.also { endArm(forks.getValue(insn.fork.index)) }
                 is FieldJoin -> EMPTY.also { fieldJoin(insn, forks.getValue(insn.fork.index), values) }
-                is ThisRef -> AbsVal(objs = thisObjs.ifEmpty { setOf(AllocObj(listOf(insn.source), null)) })
+                is ThisRef -> AbsVal(objs = thisObjs.ifEmpty { error("`this` in a static method at ${insn.source}") })
                 // A path from further down is a back edge: the builder joins its node, so its flows
                 // arrive, but its objects do not - the phi's objects are the paths that had arrived.
                 is Phi -> {
@@ -172,7 +192,7 @@ class Summarizer(
                     insn.value?.let { v(it).flows } ?: emptySet(),
                     when (insn.identity) {
                         Identity.OfValue -> insn.value?.let { v(it).objs } ?: emptySet()
-                        Identity.Fresh -> if (insn.isPrimitive) emptySet() else setOf(AllocObj(listOf(insn.source), null))
+                        Identity.Fresh -> if (insn.isPrimitive) emptySet() else setOf(standIn(insn, index))
                         Identity.Unknown -> emptySet()
                     }
                 )
@@ -210,9 +230,12 @@ class Summarizer(
          * A value as a write leaves it. An object nothing here tracks gets a position of its own at
          * the write, as the builder's `write` does, so a field set on it later has somewhere to hang.
          */
-        private fun stored(value: AbsVal, isPrimitive: Boolean, insn: Insn): AbsVal =
+        private fun stored(value: AbsVal, isPrimitive: Boolean, insn: Insn, index: Int): AbsVal =
             if (isPrimitive) AbsVal(value.flows)
-            else AbsVal(value.flows, value.objs.ifEmpty { setOf(AllocObj(listOf(insn.source), null)) })
+            else AbsVal(value.flows, value.objs.ifEmpty { setOf(standIn(insn, index)) })
+
+        private fun standIn(insn: Insn, index: Int): StandInObj =
+            StandInObj(listOf(insn.source)).also { standInsMadeAt.putIfAbsent(it, index) }
 
         /**
          * The objects an access happens on - the builder's `holderOf`. A static field is held by its
@@ -275,27 +298,33 @@ class Summarizer(
          * What [key] held when the method began, recorded as its box without journaling it.
          *
          * A [PathObj]'s field is the caller's and held something before the call, so it is an input.
-         * An object this method allocated starts with nothing in its fields.
+         * An object this method allocated starts with nothing in its fields. A [StandInObj]'s held
+         * something too, but nothing here can say what: it is nothing, and a gap. Nothing, because
+         * the builder draws that read as a box with no inputs - the receiver does not flow into it.
          */
         private fun entry(key: Pair<Obj, Element>, isPrimitive: Boolean, at: String): Cell {
             val (holder, field) = key
-            val value = if (holder is PathObj) {
-                val objs: Set<Obj> = when {
-                    isPrimitive -> emptySet()
-                    holder.fields.size + 1 < DEPTH_CAP -> setOf(PathObj(holder.root, holder.fields + field))
-                    else -> emptySet<Obj>().also { gaps.add(Gap("depth", at, spell(holder, field))) }
+            val value = when (holder) {
+                is PathObj -> {
+                    val objs: Set<Obj> = when {
+                        isPrimitive -> emptySet()
+                        holder.fields.size + 1 < DEPTH_CAP -> setOf(PathObj(holder.root, holder.fields + field))
+                        else -> emptySet<Obj>().also { gaps.add(Gap("depth", at, spell(holder, field))) }
+                    }
+                    AbsVal(setOf(FieldAtom(holder, field)), objs)
                 }
-                AbsVal(setOf(FieldAtom(holder, field)), objs)
-            } else {
-                EMPTY
+                is StandInObj -> EMPTY.also {
+                    gaps.add(Gap("unmodelled", at, "${qualifiedField(field)} read on an object with no tracked origin"))
+                }
+                is AllocObj -> EMPTY
             }
             return Cell(value).also { heap[key] = it }
         }
 
         /** A strong update, journaled while a fork is open so the arm that made it can undo it. */
-        private fun write(key: Pair<Obj, Element>, value: AbsVal) {
+        private fun write(key: Pair<Obj, Element>, value: AbsVal, at: String) {
             set(key, Cell(value))
-            written.add(key)
+            written.putIfAbsent(key, at)
         }
 
         /** The builder's `setFieldState`: nothing to do when the box is already there. */
@@ -332,13 +361,21 @@ class Summarizer(
          * the arm that did not write it arrives with that, so it is the entry. This is where a summary
          * parts from the builder drawing the method as a root, which has no box for it and lets the
          * one arm's write stand alone - a summary is read in a caller, where the field may well hold
-         * a value. A field of an object allocated here has no entry, and arrives only from the arms.
+         * a value. A field of an object allocated here has no entry, and arrives only from the arms;
+         * one of a [StandInObj] that existed before the fork has an entry nobody can name, which is a
+         * gap. A stand-in made inside the fork - a loop's element - had no fields before it.
          */
+        private fun hasEntry(obj: Obj, fork: Fork): Boolean = when (obj) {
+            is PathObj -> true
+            is StandInObj -> standInsMadeAt.getValue(obj) < fork.index
+            is AllocObj -> false
+        }
+
         private fun fieldJoin(insn: FieldJoin, fork: Fork, values: Array<AbsVal>) {
             val keys = LinkedHashSet<Pair<Obj, Element>>()
             insn.arms.forEach { keys.addAll(fork.arms[it].keys) }
             val merges = keys.map { key ->
-                val entry = heap[key] ?: if (key.first is PathObj) {
+                val entry = heap[key] ?: if (hasEntry(key.first, fork)) {
                     entry(key, key.second.asType().kind.isPrimitive, insn.source)
                 } else {
                     null

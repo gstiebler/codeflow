@@ -75,7 +75,7 @@ export const nodeWidth = (badge: string) => Math.round(badge.length * CHAR_WIDTH
  * enclosing both endpoints, and only the root always qualifies. GraphmlExporter has the same rule
  * for the same reason.
  */
-export function elkGraph(view: View): ElkNode {
+export function elkGraph(view: View, previous?: Map<Id, Point>): ElkNode {
   const byParent = new Map<Id | undefined, ElkNode[]>();
   const boxes: ElkNode[] = [];
 
@@ -93,7 +93,7 @@ export function elkGraph(view: View): ElkNode {
   // are whatever named it, so there is nothing to walk down to.
   for (const box of boxes) box.children = byParent.get(box.id) ?? [];
 
-  return {
+  const root: ElkNode = {
     id: 'root',
     layoutOptions: ELK_OPTIONS,
     children: byParent.get(undefined) ?? [],
@@ -101,6 +101,7 @@ export function elkGraph(view: View): ElkNode {
       .filter((edge) => edge.visible)
       .map((edge) => ({ id: `${edge.source}->${edge.target}`, sources: [edge.source], targets: [edge.target] })),
   };
+  return previous ? stabilise(root, previous) : root;
 }
 
 /**
@@ -122,13 +123,74 @@ const FLAT_OPTIONS: Record<string, string> = {
 export const flatEdgeId = (edge: { source: Id; target: Id; kind: string }) =>
   `${edge.source}->${edge.target}:${edge.kind}`;
 
-export function flatElkGraph(view: CondensedView, caption: (node: CondensedNode) => string): ElkNode {
-  return {
+export function flatElkGraph(
+  view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>,
+): ElkNode {
+  const root: ElkNode = {
     id: 'root',
     layoutOptions: FLAT_OPTIONS,
     children: view.nodes.map((node) => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT })),
     edges: view.edges.map((edge) => ({ id: flatEdgeId(edge), sources: [edge.source], targets: [edge.target] })),
   };
+  return previous ? stabilise(root, previous) : root;
+}
+
+export type Point = { x: number; y: number };
+
+/**
+ * What tells ELK to start from the drawing before: layer by the given positions, and keep the given
+ * order within a layer while still minimising crossings around it. Model order was the other
+ * candidate, and it crashes ELK 0.9.3 inside a hierarchical layout - docs/decisions/viewer.md has
+ * that, and the measurements that chose these.
+ */
+export const INTERACTIVE_OPTIONS: Record<string, string> = {
+  'elk.layered.layering.strategy': 'INTERACTIVE',
+  'elk.layered.crossingMinimization.semiInteractive': 'true',
+};
+
+/**
+ * The same ELK problem, posed so that the answer stays close to `previous` - the positions the page
+ * drew last, each relative to its parent, as ELK and React Flow both give them.
+ *
+ * A node that was drawn starts where it was. One that was not starts half a pixel past its first
+ * neighbour among its siblings that was - inside that neighbour's layer, just after it - or, with
+ * none, wherever ELK puts a node it was given no position for. Siblings only: a position means
+ * something only next to others in the same box.
+ *
+ * A new tree: the input, and the option objects it shares with every other box, are left alone.
+ */
+export function stabilise(root: ElkNode, previous: Map<Id, Point>): ElkNode {
+  const neighbours = new Map<Id, Id[]>();
+  const link = (a: Id, b: Id) => {
+    if (!neighbours.has(a)) neighbours.set(a, []);
+    neighbours.get(a)!.push(b);
+  };
+  for (const edge of root.edges ?? []) {
+    for (const s of edge.sources) for (const t of edge.targets) { link(s, t); link(t, s); }
+  }
+
+  const rebuild = (graph: ElkNode): ElkNode => {
+    const siblings = new Set((graph.children ?? []).map((c) => c.id));
+    const seat = (id: Id): Point | undefined => {
+      const at = previous.get(id);
+      if (at) return at;
+      const old = (neighbours.get(id) ?? []).find((n) => siblings.has(n) && previous.has(n));
+      return old === undefined ? undefined : { x: previous.get(old)!.x + 0.5, y: previous.get(old)!.y + 0.5 };
+    };
+    const children = (graph.children ?? []).map((child) => {
+      const at = seat(child.id);
+      const placed: ElkNode = at
+        ? { ...child, x: at.x, y: at.y, layoutOptions: { ...child.layoutOptions, 'elk.position': `(${at.x},${at.y})` } }
+        : child;
+      return child.children ? rebuild(placed) : placed;
+    });
+    return {
+      ...graph,
+      ...(graph.layoutOptions ? { layoutOptions: { ...graph.layoutOptions, ...INTERACTIVE_OPTIONS } } : {}),
+      children,
+    };
+  };
+  return rebuild(root);
 }
 
 export type Positioned ={ id: Id; x: number; y: number; width: number; height: number; parent?: Id };

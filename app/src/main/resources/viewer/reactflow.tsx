@@ -7,7 +7,7 @@
  *
  * Nothing here decides what is on screen. That is model.ts, where the tests are.
  */
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Background, Handle, MarkerType, Position, ReactFlow,
@@ -17,7 +17,9 @@ import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { captionParts, opening, screen, tap } from './model.ts';
 import { condensed, condensedCaption, condensedOpening, hoverText, tapCondensed } from './condensed.ts';
-import { elkGraph, flatEdgeId, flatElkGraph, positions, NODE_HEIGHT, TITLE_HEIGHT, type Positioned } from './layout.ts';
+import {
+  elkGraph, flatEdgeId, flatElkGraph, positions, NODE_HEIGHT, TITLE_HEIGHT, type Point, type Positioned,
+} from './layout.ts';
 import { PALETTE, NODE_DEFAULT, BOUNDARY_OUTLINE, GROUP_OUTLINE, edgeStyle } from './theme.ts';
 import type {
   CondensedNode, CondensedTarget, CondensedView, EdgeKind, Id, Payload, View, ViewNode,
@@ -128,14 +130,21 @@ function Graph({ payload, revealed, setRevealed }: Revealing) {
   const [laid, setLaid] = useState<Positioned[]>([]);
   const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
   const view = useMemo(() => screen(payload, revealed), [payload, revealed]);
+  const previous = useRef<Map<Id, Point>>(undefined);
 
   useEffect(() => {
     let current = true;
     // No cast either way: layout.ts's ElkNode is assignable to the library's, and what comes back is
     // assignable to positions(). Keeping the two types structurally compatible is what lets layout.ts
-    // stay importable by `node --test`, which cannot load elkjs.
-    new ELK().layout(elkGraph(view)).then((result) => {
-      if (current) setLaid(positions(result));
+    // stay importable without elkjs.
+    //
+    // Seeded from the last drawing, so that what was on screen stays roughly where it was - see
+    // `stabilise`. A view switch remounts this, so a switch lays out from scratch.
+    new ELK().layout(elkGraph(view, previous.current)).then((result) => {
+      if (!current) return;
+      const laid = positions(result);
+      previous.current = new Map(laid.map((p) => [p.id, { x: p.x, y: p.y }]));
+      setLaid(laid);
     });
     return () => { current = false; };
   }, [view]);
@@ -239,11 +248,15 @@ function CondensedGraph({ payload, revealed, setRevealed }: Revealing) {
   const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
   const [hover, setHover] = useState<Hover | null>(null);
   const view = useMemo(() => condensed(payload, revealed), [payload, revealed]);
+  const previous = useRef<Map<Id, Point>>(undefined);
 
   useEffect(() => {
     let current = true;
-    new ELK().layout(flatElkGraph(view, condensedCaption)).then((result) => {
-      if (current) setLaid(positions(result));
+    new ELK().layout(flatElkGraph(view, condensedCaption, previous.current)).then((result) => {
+      if (!current) return;
+      const laid = positions(result);
+      previous.current = new Map(laid.map((p) => [p.id, { x: p.x, y: p.y }]));
+      setLaid(laid);
     });
     return () => { current = false; };
   }, [view]);

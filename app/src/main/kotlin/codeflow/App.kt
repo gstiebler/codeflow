@@ -10,7 +10,7 @@ import java.nio.file.Path
 import kotlin.system.exitProcess
 
 /**
- * `--from` takes a value, so the arguments cannot be read as "the one that is not a flag".
+ * `--from` takes a value and may be repeated, so the arguments cannot be read as "the one that is not a flag".
  *
  * `codeflow src --from App#run` would otherwise take `App#run` for the source directory - it does
  * not start with `--` - and fail on a path that was never meant to be one. Both spellings are
@@ -19,8 +19,7 @@ import kotlin.system.exitProcess
 private class Args(argv: Array<String>) {
     var directory: String? = null
         private set
-    var from: String? = null
-        private set
+    val from = ArrayList<String>()
     val flags = HashSet<String>()
 
     init {
@@ -29,10 +28,10 @@ private class Args(argv: Array<String>) {
             val arg = argv[i]
             when {
                 arg == "--from" -> {
-                    from = argv.getOrNull(i + 1) ?: throw IllegalArgumentException("--from needs a Class#method")
+                    from.add(argv.getOrNull(i + 1) ?: throw IllegalArgumentException("--from needs a Class#method"))
                     i++
                 }
-                arg.startsWith("--from=") -> from = arg.removePrefix("--from=")
+                arg.startsWith("--from=") -> from.add(arg.removePrefix("--from="))
                 // An unknown flag is refused rather than ignored. The exporter chain ends in Mermaid,
                 // so a flag nobody recognises used to produce a complete, plausible document that is
                 // not the one asked for - a mistyped `--html`, or `--html-cytoscape` after the second
@@ -61,19 +60,19 @@ fun main(argv: Array<String>) {
 
     val filesPaths = generateListOfJavaFilesFromDir(javaRootDirPath)
     val reader = AstReader(javaRootDirPath)
-    val mainMethod = reader.process(filesPaths, args.from)
+    val roots = reader.process(filesPaths, args.from)
 
     val result = ArrayList<String>()
     // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on
     // stderr, so redirecting stdout to a file gives something a viewer can open directly.
     if (args.flags.contains("--html")) {
-        HtmlExporter("reactflow.bundle.js").processMainMethod(mainMethod) { result.add(it) }
+        HtmlExporter("reactflow.bundle.js").processMainMethod(roots) { result.add(it) }
     } else if (args.flags.contains("--json")) {
-        JsonExporter().processMainMethod(mainMethod) { result.add(it) }
+        JsonExporter().processMainMethod(roots) { result.add(it) }
     } else if (args.flags.contains("--graphml")) {
-        GraphmlExporter().processMainMethod(mainMethod) { result.add(it) }
+        GraphmlExporter().processMainMethod(roots) { result.add(it) }
     } else {
-        MermaidExporter().processMainMethod(mainMethod) { result.add(it) }
+        MermaidExporter().processMainMethod(roots) { result.add(it) }
     }
 
     result.forEach { println(it) }

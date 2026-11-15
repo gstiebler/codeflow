@@ -30,20 +30,20 @@ class AppTest {
         .resolve("test")
         .resolve("resources")
 
-    private fun mainMethodOf(testDir: String, testFiles: List<String>, from: String? = null): GraphBuilderBlock {
+    private fun rootsOf(testDir: String, testFiles: List<String>, from: List<String> = emptyList()): List<GraphBuilderBlock> {
         val testDirPath = testResourcesPath.resolve(testDir)
         return AstReader(testResourcesPath).process(testFiles.map { testDirPath.resolve(it) }, from)
     }
 
-    private fun mermaid(mainMethod: GraphBuilderBlock): List<String> {
+    private fun mermaid(roots: List<GraphBuilderBlock>): List<String> {
         val result = ArrayList<String>()
         MermaidExporter()
-            .processMainMethod(mainMethod) { result.add(it) }
+            .processMainMethod(roots) { result.add(it) }
         return result
     }
 
-    private fun buildGraph(testDir: String, testFiles: List<String>, from: String? = null): List<String> =
-        mermaid(mainMethodOf(testDir, testFiles, from))
+    private fun buildGraph(testDir: String, testFiles: List<String>, from: List<String> = emptyList()): List<String> =
+        mermaid(rootsOf(testDir, testFiles, from))
 
     /**
      * The GraphML rendering, parsed.
@@ -55,11 +55,11 @@ class AppTest {
     private fun buildGraphml(testDir: String, testFiles: List<String>): Document {
         val testDirPath = testResourcesPath.resolve(testDir)
         val testFilePaths = testFiles.map { testDirPath.resolve(it) }
-        val mainMethod = AstReader(testResourcesPath).process(testFilePaths)
+        val roots = AstReader(testResourcesPath).process(testFilePaths)
 
         val text = StringBuilder()
         GraphmlExporter()
-            .processMainMethod(mainMethod) { text.append(it).append("\n") }
+            .processMainMethod(roots) { text.append(it).append("\n") }
         return DocumentBuilderFactory.newInstance()
             .newDocumentBuilder()
             .parse(ByteArrayInputStream(text.toString().toByteArray()))
@@ -69,10 +69,10 @@ class AppTest {
     private fun buildJson(testDir: String, testFiles: List<String>): JsonObject {
         val testDirPath = testResourcesPath.resolve(testDir)
         val testFilePaths = testFiles.map { testDirPath.resolve(it) }
-        val mainMethod = AstReader(testResourcesPath).process(testFilePaths)
+        val roots = AstReader(testResourcesPath).process(testFilePaths)
 
         val text = StringBuilder()
-        JsonExporter().processMainMethod(mainMethod) { text.append(it).append("\n") }
+        JsonExporter().processMainMethod(roots) { text.append(it).append("\n") }
         return JsonParser.parseString(text.toString()).asJsonObject
     }
 
@@ -139,7 +139,7 @@ class AppTest {
      * flow. Written out once because three separate assertions parse edges and all three stopped
      * matching the moment a condition edge gained a label.
      */
-    private val arrow = """ -->(?:\|\w+\|)? """
+    private val arrow = """ (?:-->(?:\|\w+\|)?|-\. \w+ \.->) """
 
     /** The graph's edges as (source label, target label) pairs, ignoring the generated ids. */
     private fun edgeLabels(graph: List<String>): List<Pair<String, String>> {
@@ -192,24 +192,24 @@ class AppTest {
      * none. The page is self-contained and about two megabytes of bundled library - the price of the
      * file opening from disk with no server, and the reason it is not committed.
      */
-    private fun writePage(testDirPath: Path, mainMethod: GraphBuilderBlock) {
+    private fun writePage(testDirPath: Path, roots: List<GraphBuilderBlock>) {
         val page = StringBuilder()
-        HtmlExporter("reactflow.bundle.js").processMainMethod(mainMethod) { page.append(it).append("\n") }
+        HtmlExporter("reactflow.bundle.js").processMainMethod(roots) { page.append(it).append("\n") }
         Files.writeString(testDirPath.resolve("graph.html"), page)
 
         // The same payload the page inlines, on its own, because the viewer's Node tests need it:
         // model.ts decides what is on screen and a sweep over the real corpus is the only thing
         // that can say a fixture is reachable at all. Gitignored and rewritten like the page.
         val payload = StringBuilder()
-        JsonExporter().processMainMethod(mainMethod) { payload.append(it).append("\n") }
+        JsonExporter().processMainMethod(roots) { payload.append(it).append("\n") }
         Files.writeString(testDirPath.resolve("graph.json"), payload)
     }
 
-    private fun codeflow(testDir: String, testFiles: List<String>) {
+    private fun codeflow(testDir: String, testFiles: List<String>, from: List<String> = emptyList()) {
         val testDirPath = testResourcesPath.resolve(testDir)
-        val mainMethod = mainMethodOf(testDir, testFiles)
-        val result = mermaid(mainMethod)
-        writePage(testDirPath, mainMethod)
+        val roots = rootsOf(testDir, testFiles, from)
+        val result = mermaid(roots)
+        writePage(testDirPath, roots)
 
         // The snapshot is only written when it does not exist yet, or when explicitly asked for.
         // Rewriting it on every mismatch would let a regression overwrite the expectation and pass
@@ -245,7 +245,7 @@ class AppTest {
      */
     private fun assertLinkStylesAddressTheEdgesTheyMean(testDir: String, graph: List<String>) {
         val strokes = mapOf("true" to "#2e7d32", "false" to "#c62828", "if" to "#6a6a6a")
-        val edge = Regex("""n\d+\[[^]]*]:::\w+ -->(?:\|(\w+)\|)? n\d+\[""")
+        val edge = Regex("""n\d+\[[^]]*]:::\w+ (?:-->(?:\|(\w+)\|)?|-\. \w+ \.->) n\d+\[""")
         val style = Regex("""^\s*linkStyle (\d+) stroke:(#\w+)""")
         val wanted = HashMap<Int, String>()
         val found = HashMap<Int, String>()
@@ -850,7 +850,7 @@ class AppTest {
      */
     @Test
     fun theEntryPointCanBeNamedRatherThanBeingWhicheverMainSortsFirst() {
-        val graph = buildGraph("funcCall", listOf("App.java"), from = "App#methodB")
+        val graph = buildGraph("funcCall", listOf("App.java"), from = listOf("App#methodB"))
         val labels = nodeTypes(graph).map { it.first }
         val edges = edgeLabels(graph)
         assertTrue(graph.any { it.contains("""subgraph b0["methodB"]""") }, "methodB is not the root: $graph")
@@ -867,7 +867,7 @@ class AppTest {
      */
     @Test
     fun aCorpusWithNoMainCanStillBeGraphed() {
-        val edges = edgeLabels(buildGraph("noMain", listOf("Report.java"), from = "Report#total"))
+        val edges = edgeLabels(buildGraph("noMain", listOf("Report.java"), from = listOf("Report#total")))
         assertTrue("base" to "*" in edges, "the parameter does not reach the operator: $edges")
         assertTrue("*" to "bonus" in edges, "the operator does not reach the variable: $edges")
     }
@@ -881,7 +881,7 @@ class AppTest {
     @Test
     fun anEntryPointThatMatchesNothingNamesTheCandidates() {
         val error = assertFailsWith<GraphException> {
-            buildGraph("funcCall", listOf("App.java"), from = "App#methodZ")
+            buildGraph("funcCall", listOf("App.java"), from = listOf("App#methodZ"))
         }
         val message = error.message ?: ""
         assertTrue("App#methodZ" in message, "error does not repeat what was asked for: $message")
@@ -1446,6 +1446,44 @@ class AppTest {
     }
 
     /**
+     * Two entry points sharing a static field are one graph, joined by a `shared` edge from the
+     * write to the read, and the join does not depend on which was named first.
+     *
+     * `configure` writes `Settings.rate` and `quote` reads it, so `newRate` reaches what `quote`
+     * returns - through the field and nothing else. The edge is `shared` rather than plain flow
+     * because it holds only if `configure` ran first, which nothing here knows. Each entry point is
+     * drawn as it would be alone: `quote` on its own has no value for `rate`, and `configure` on
+     * its own draws the write with nothing reading it.
+     */
+    @Test
+    fun entryPointsShareAStaticFieldWhateverOrderTheyAreNamedIn() {
+        val both = listOf("Api#configure", "Api#quote")
+        val graph = buildGraph("twoEntryPoints", listOf("Api.java"), from = both)
+        val edges = edgeLabels(graph)
+        assertTrue(reaches(graph, "newRate", "price"), "the written value does not reach the read: $edges")
+        assertTrue(reaches(graph, "newRate", "quote"), "the written value does not reach what quote returns: $edges")
+        val shared = graph.filter { it.contains(" -. shared .-> ") }
+        assertEquals(1, shared.size, "expected exactly one shared edge: $shared")
+        assertTrue(shared.single().startsWith("  n") && shared.single().contains("[rate]:::VARIABLE -. shared .-> "),
+            "the shared edge is not the write of rate into quote's read: $shared")
+        assertTrue(shared.single().endsWith("[rate]:::VARIABLE"), "the shared edge does not end at the read: $shared")
+        // Without the shared edge there is no way from configure to quote at all.
+        val withoutShared = graph.filterNot { it.contains(" -. shared .-> ") }
+        assertTrue(!reaches(withoutShared, "newRate", "price"), "something other than the field connects them")
+
+        val swapped = edgeLabels(buildGraph("twoEntryPoints", listOf("Api.java"), from = both.reversed()))
+        assertEquals(edges.map { it.toString() }.sorted(), swapped.map { it.toString() }.sorted(), "the order of --from changed the graph")
+
+        val configureOnly = edgeLabels(buildGraph("twoEntryPoints", listOf("Api.java"), from = listOf("Api#configure")))
+        assertTrue("newRate" to "*" in configureOnly, "configure alone was not built: $configureOnly")
+        val quoteOnlyGraph = buildGraph("twoEntryPoints", listOf("Api.java"), from = listOf("Api#quote"))
+        val quoteOnly = edgeLabels(quoteOnlyGraph)
+        assertTrue("amount" to "*" in quoteOnly, "quote alone was not built: $quoteOnly")
+        assertTrue(quoteOnly.none { it.second == "rate" }, "quote alone has something flowing into rate: $quoteOnly")
+        assertTrue(quoteOnlyGraph.none { it.contains("shared") }, "a single entry point drew a shared edge")
+    }
+
+    /**
      * `args[position]` takes a value out of the array, and which one depends on the index, so both
      * flow into it. `[]` cannot be the label: square brackets delimit a node in Mermaid.
      */
@@ -1922,8 +1960,8 @@ class AppTest {
     fun htmlPageCarriesItsLibrariesAndItsData() {
         val page = StringBuilder()
         val testDirPath = testResourcesPath.resolve("funcCall")
-        val mainMethod = AstReader(testResourcesPath).process(listOf(testDirPath.resolve("App.java")))
-        HtmlExporter("reactflow.bundle.js").processMainMethod(mainMethod) { page.append(it).append("\n") }
+        val roots = AstReader(testResourcesPath).process(listOf(testDirPath.resolve("App.java")))
+        HtmlExporter("reactflow.bundle.js").processMainMethod(roots) { page.append(it).append("\n") }
         val html = page.toString()
 
         // Strings from inside the bundle, and string *literals* specifically: the bundle is minified,
@@ -1941,6 +1979,7 @@ class AppTest {
         assertTrue("<script" in html && "</html>" in html, "the page is not a complete document")
     }
 
+    @Test fun twoEntryPoints() = codeflow("twoEntryPoints", listOf("Api.java"), from = listOf("Api#configure", "Api#quote"))
     @Test fun base() = codeflow("base", listOf("App.java"))
     @Test fun funcCall() = codeflow("funcCall", listOf("App.java"))
     @Test fun member() = codeflow("member", listOf("App.java"))

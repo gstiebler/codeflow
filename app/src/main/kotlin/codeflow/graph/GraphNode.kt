@@ -21,7 +21,13 @@ enum class EdgeKind(val label: String?) {
     FLOW(null),
     TRUE("true"),
     FALSE("false"),
-    CONDITION("if")
+    CONDITION("if"),
+
+    /**
+     * A static field's value leaving one entry point and arriving at another's read of it. The
+     * entry points can run in either order, so this says "if that one ran first", not "then".
+     */
+    SHARED("shared")
 }
 
 /**

@@ -325,7 +325,7 @@ class InvariantsTest {
             ?: analysis.globalCtx.mainMethods().first()
 
     private companion object {
-        val ENTRY_POINTS = mapOf("noMain" to "Report#total")
+        val ENTRY_POINTS = mapOf("noMain" to "Report#total", "twoEntryPoints" to "Api#quote")
 
         val cache = HashMap<String, Drawn>()
     }

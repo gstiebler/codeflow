@@ -36,9 +36,11 @@ class AstReader(private val basePath: Path) {
      * a question about the source and is asked once per method; which box a value is drawn as is a
      * question about a call site and is asked once per call site. See `codeflow.ir`.
      */
-    fun process(fileNames: List<Path>, entryPoint: String? = null): GraphBuilderBlock {
+    fun process(fileNames: List<Path>, entryPoints: List<String> = emptyList()): List<GraphBuilderBlock> {
         val analysis = analyse(fileNames)
-        val root = IrGraphBuilder(analysis.globalCtx).build(selectEntry(analysis.globalCtx, entryPoint))
+        val entries = if (entryPoints.isEmpty()) listOf(selectEntry(analysis.globalCtx, null))
+        else entryPoints.map { selectEntry(analysis.globalCtx, it) }
+        val root = IrGraphBuilder(analysis.globalCtx).build(entries)
         unmodelled = analysis.globalCtx.unmodelled()
         reportUnmodelled()
         analysis.close()

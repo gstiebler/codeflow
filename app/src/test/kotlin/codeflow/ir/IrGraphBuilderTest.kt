@@ -49,7 +49,7 @@ class IrGraphBuilderTest {
         Files.walk(testResourcesPath.resolve(fixture)).filter { it.toString().endsWith(".java") }.toList()
 
     private fun graph(fixture: String): List<String> =
-        shape(AstReader(testResourcesPath).process(sources(fixture)))
+        shape(AstReader(testResourcesPath).process(sources(fixture)).single())
 
     /**
      * A lambda's `int` parameter is a primitive, and is drawn as one.

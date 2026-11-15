@@ -24,9 +24,9 @@ class HtmlExporter(private val bundle: String) {
         // from a graph with no nodes. Failing here is the whole difference.
             ?: throw GraphException("viewer asset '/viewer/$name' is missing from the jar")
 
-    fun processMainMethod(mainMethod: GraphBuilderBlock, writer: (String) -> Unit) {
+    fun processMainMethod(roots: List<GraphBuilderBlock>, writer: (String) -> Unit) {
         val payload = StringBuilder()
-        JsonExporter().processMainMethod(mainMethod) { payload.append(it).append("\n") }
+        JsonExporter().processMainMethod(roots) { payload.append(it).append("\n") }
 
         // Literal replacement, not regex: the bundle is full of $ and \ that Regex.replace would
         // read as group references and mangle.

@@ -50,8 +50,43 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
         return enumConstants.getOrPut(element) { lowering.lowerEnumConstant(declaringClass, element) }
     }
 
-    fun build(root: Method): GraphBuilderBlock {
-        val block = GraphBuilderBlock(null, root, PosStack(), emptySet(), root.ctx, root.ctx.location(root.name))
+    /** The reads of a static field, in the entry point being built, that found nothing written. */
+    val unwrittenStaticReads = ArrayList<Pair<GraphNodeId, GraphNode>>()
+
+    /**
+     * One root per entry point, each built as if it ran alone and then tied together.
+     *
+     * Entry points can run in any order, so none is built on top of another's writes: static
+     * fields are emptied between them. What each leaves in a static field at its end, and what each
+     * reads of one before writing it, are recorded, and afterwards every read gets an edge from
+     * every *other* entry point's write of that field - [EdgeKind.SHARED]. Which was named first
+     * decides nothing.
+     */
+    fun build(roots: List<Method>): List<GraphBuilderBlock> {
+        class Built(val block: GraphBuilderBlock, val writes: Map<GraphNodeId, GraphNode>, val reads: List<Pair<GraphNodeId, GraphNode>>)
+
+        var nextSerial = 0
+        val built = roots.map { root ->
+            globalCtx.forgetStatics()
+            unwrittenStaticReads.clear()
+            val block = build(root, nextSerial)
+            nextSerial = block.serialsUsed()
+            val reads = unwrittenStaticReads.toList()
+            // A read that found nothing leaves its own box in the field; it is not a write.
+            val readNodes = reads.map { it.second }.toSet()
+            Built(block, globalCtx.staticWrites().filterValues { it !in readNodes }, reads)
+        }
+        for (reader in built) for (writer in built) {
+            if (reader === writer) continue
+            for ((id, read) in reader.reads) writer.writes[id]?.addEdge(read, EdgeKind.SHARED)
+        }
+        return built.map { it.block }
+    }
+
+    fun build(root: Method, firstSerial: Int = 0): GraphBuilderBlock {
+        val block = GraphBuilderBlock(
+            null, root, PosStack(), emptySet(), root.ctx, root.ctx.location(root.name), firstSerial
+        )
         Frame(this, block, PosStack(), emptySet(), null).invoke(emptyList(), emptyList())
         return block
     }
@@ -309,7 +344,11 @@ class Frame(
             ?: if (holder == null && written) {
                 block.addExternal(base(id, insn), emptyList())
             } else {
-                unassigned(id, name, element, isPrimitive, setOfNotNull(holder), insn)
+                unassigned(id, name, element, isPrimitive, setOfNotNull(holder), insn).also {
+                    if (holder != null && holder === globalCtx.staticHolder(element, insn.source)) {
+                        builder.unwrittenStaticReads.add(id to it)
+                    }
+                }
             }
         return Value(node, globalCtx.objectsOf(id))
     }

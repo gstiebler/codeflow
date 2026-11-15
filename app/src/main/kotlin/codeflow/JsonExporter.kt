@@ -38,10 +38,10 @@ class JsonExporter {
         }
     }
 
-    fun processMainMethod(mainMethod: GraphBuilderBlock, writer: (String) -> Unit) {
+    fun processMainMethod(roots: List<GraphBuilderBlock>, writer: (String) -> Unit) {
         val nodes = ArrayList<String>()
         val edges = ArrayList<String>()
-        collect(mainMethod, null, nodes, edges)
+        roots.forEach { collect(it, null, nodes, edges) }
 
         writer("{")
         writer("""  "nodes": [""")

@@ -41,6 +41,12 @@ class MemPos(private val label: String, val type: Element? = null) {
         referencedNodes[node.id] = node
     }
 
+    /** Every node this position holds, by the name it is looked up under. */
+    fun nodes(): Map<GraphNodeId, GraphNode> = referencedNodes
+
+    /** Back to holding nothing, as at the start of a run. */
+    fun forget() = referencedNodes.clear()
+
     fun getNode(id: GraphNodeId): GraphNode? {
         return referencedNodes[id];
     }

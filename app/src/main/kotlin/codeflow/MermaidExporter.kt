@@ -38,11 +38,18 @@ class MermaidExporter() {
 
     private fun genSpaces(n: Int) = " ".repeat(n)
 
-    fun processMainMethod(mainMethod: GraphBuilderBlock, writer: (String) -> Unit) {
+    /**
+     * One flowchart for all [roots], each its own top-level subgraph. An edge between two roots -
+     * see [EdgeKind.SHARED] - has no block enclosing both ends but the flowchart itself, so it is
+     * written after the last subgraph, at the top level.
+     */
+    fun processMainMethod(roots: List<GraphBuilderBlock>, writer: (String) -> Unit) {
         writer("```mermaid")
         writer("flowchart TD")
         val links = Links()
-        processMethod(mainMethod, 2, writer, links, placeEdges(mainMethod))
+        val placed = placeEdges(roots)
+        roots.forEach { processMethod(it, 2, writer, links, placed) }
+        writeEdges(placed[TOP_LEVEL].orEmpty(), 2, writer, links)
         links.styles.forEach { writer(genSpaces(2) + it) }
         getClasses().forEach { writer(genSpaces(2) + it) }
         writer("```")
@@ -78,7 +85,7 @@ class MermaidExporter() {
      * requires an edge to sit in a graph enclosing both endpoints, and the root always does. Mermaid
      * does not require it, so the edges that do not need moving stay beside the block they describe.
      */
-    private fun placeEdges(root: GraphBuilderBlock): Map<Int, List<Pair<GraphNode, GraphNode.Edge>>> {
+    private fun placeEdges(roots: List<GraphBuilderBlock>): Map<Int, List<Pair<GraphNode, GraphNode.Edge>>> {
         val blockOfNode = HashMap<Int, Int>()
         val ancestry = HashMap<Int, List<Int>>()
 
@@ -88,7 +95,7 @@ class MermaidExporter() {
             block.graph.getNodes().forEach { blockOfNode[it.serial] = block.serial }
             block.calledMethods.forEach { index(it, chain) }
         }
-        index(root, emptyList())
+        roots.forEach { index(it, emptyList()) }
 
         val placed = HashMap<Int, MutableList<Pair<GraphNode, GraphNode.Edge>>>()
         fun collect(block: GraphBuilderBlock) {
@@ -97,13 +104,13 @@ class MermaidExporter() {
                     val target = blockOfNode[edge.target.serial] ?: block.serial
                     val enclosingTarget = ancestry[target].orEmpty()
                     val owner = ancestry.getValue(block.serial).firstOrNull { it in enclosingTarget }
-                        ?: root.serial
+                        ?: TOP_LEVEL
                     placed.getOrPut(owner) { ArrayList() }.add(node to edge)
                 }
             }
             block.calledMethods.forEach { collect(it) }
         }
-        collect(root)
+        roots.forEach { collect(it) }
         return placed
     }
 
@@ -121,18 +128,35 @@ class MermaidExporter() {
         for (node in nodes) {
             writer(genSpaces(depth + 2) + getNodeStr(node))
         }
-        for ((node, edge) in placed[method.serial].orEmpty()) {
-            val arrow = edge.kind.label?.let { "-->|$it|" } ?: "-->"
-            strokes[edge.kind]?.let {
-                links.styles.add("linkStyle ${links.count} stroke:$it,color:$it")
-            }
-            links.count++
-            writer(genSpaces(depth + 2) + "${getNodeStr(node)} $arrow ${getNodeStr(edge.target)}")
-        }
+        writeEdges(placed[method.serial].orEmpty(), depth + 2, writer, links)
         for (calledMethod in method.calledMethods) {
             processMethod(calledMethod, depth + 2, writer, links, placed)
         }
         writer(genSpaces(depth) + "end")
     }
-}
 
+    private fun writeEdges(
+        edges: List<Pair<GraphNode, GraphNode.Edge>>,
+        depth: Int,
+        writer: (String) -> Unit,
+        links: Links
+    ) {
+        for ((node, edge) in edges) {
+            val arrow = when (edge.kind) {
+                // Dashed: it is not a value flowing within one run but one run leaving a value for another.
+                EdgeKind.SHARED -> "-. shared .->"
+                else -> edge.kind.label?.let { "-->|$it|" } ?: "-->"
+            }
+            strokes[edge.kind]?.let {
+                links.styles.add("linkStyle ${links.count} stroke:$it,color:$it")
+            }
+            links.count++
+            writer(genSpaces(depth) + "${getNodeStr(node)} $arrow ${getNodeStr(edge.target)}")
+        }
+    }
+
+    private companion object {
+        /** The owner of an edge no block encloses both ends of: the flowchart itself. */
+        const val TOP_LEVEL = -1
+    }
+}

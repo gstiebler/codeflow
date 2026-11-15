@@ -23,14 +23,16 @@ class GraphBuilderBlock(
      * it drew - so without this there is nothing to ask whether a call drew anything at all, and a
      * call that quietly drew nothing takes its whole callee off the diagram with it.
      */
-    val openedAt: String
+    val openedAt: String,
+    /** Where a root's serials start, so that a second root in one document continues the first's. */
+    firstSerial: Int = 0
 ) {
     private val logger = KotlinLogging.logger {}
 
     // Declared above returnNode and parameterNodes, which create nodes and so call nextSerial()
     // while this block is still being constructed. Kotlin runs property initialisers top to
     // bottom, so moving this down leaves the counter at 0 for those first few nodes.
-    private var serialCounter = 0
+    private var serialCounter = firstSerial
 
     val graph: Graph = Graph(this)
     private val nodeIdToVariable = HashMap<GraphNodeId, Variable>()
@@ -49,6 +51,9 @@ class GraphBuilderBlock(
      * other; otherwise the diagram simply claimed a value flowed somewhere it never did.
      */
     fun nextSerial(): Int = parent?.nextSerial() ?: serialCounter++
+
+    /** The next serial a root would hand out, which is where another root's should start. */
+    fun serialsUsed(): Int = serialCounter
 
     /** The subgraph's own id, from the same counter and for the same reason. */
     val serial = nextSerial()

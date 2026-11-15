@@ -38,7 +38,7 @@ class GraphmlExporter {
 
     private fun genSpaces(n: Int) = " ".repeat(n)
 
-    fun processMainMethod(mainMethod: GraphBuilderBlock, writer: (String) -> Unit) {
+    fun processMainMethod(roots: List<GraphBuilderBlock>, writer: (String) -> Unit) {
         writer("""<?xml version="1.0" encoding="UTF-8"?>""")
         writer("""<graphml xmlns="http://graphml.graphdrawing.org/xmlns">""")
         writer("""  <key id="label" for="node" attr.name="label" attr.type="string"/>""")
@@ -46,8 +46,8 @@ class GraphmlExporter {
         writer("""  <key id="source" for="node" attr.name="source" attr.type="string"/>""")
         writer("""  <key id="kind" for="edge" attr.name="kind" attr.type="string"/>""")
         writer("""  <graph id="G" edgedefault="directed">""")
-        processMethod(mainMethod, 4, writer)
-        for (edge in collectEdges(mainMethod)) {
+        roots.forEach { processMethod(it, 4, writer) }
+        for (edge in roots.flatMap { collectEdges(it) }) {
             writer(genSpaces(4) + """<edge source="${edge.first}" target="${edge.second}">""")
             writer(genSpaces(6) + """<data key="kind">${edge.third}</data>""")
             writer(genSpaces(4) + "</edge>")

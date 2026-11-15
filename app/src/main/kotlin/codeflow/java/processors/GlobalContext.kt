@@ -179,6 +179,15 @@ class GlobalContext(val symbols: Symbols) {
         return staticMemPositions.getOrPut(element.enclosingElement) { MemPos(label) }
     }
 
+    /** Every static field's current node, as if nothing had been written before - see [forgetStatics]. */
+    fun staticWrites(): Map<GraphNodeId, GraphNode> = staticMemPositions.values.flatMap { it.nodes().entries }
+        .associate { it.key to it.value }
+
+    /**
+     * Static fields back to holding nothing, so that the next entry point is built as if it ran alone.
+     */
+    fun forgetStatics() = staticMemPositions.values.forEach { it.forget() }
+
     /**
      * The object an enum constant is, which is one object for the whole program.
      *

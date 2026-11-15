@@ -26,10 +26,10 @@ npm run check:bundle                 # committed bundle matches its sources
 
 - `npm install` once. `npm test`'s corpus sweeps read the `graph.json` files `./gradlew test` writes,
   so run Gradle first.
-- **Two JDKs.** Gradle (8.10.2) and the Kotlin compile run on **21**; `test` and `run` run on **25**
-  via a `javaLauncher` override, because javac 21 has a silent `Attr.visitYield` bug on real input.
-  Start Gradle with `JAVA_HOME` = a JDK 21. The installed CLI (`./gradlew installDist`) uses whatever
-  `JAVA_HOME` names — set a 25 for it. → `docs/decisions/toolchain.md`
+- **JDK 25, everywhere.** codeflow parses with the running JDK's javac, and javac 21 has a silent
+  `Attr.visitYield` bug on real input. `jvmToolchain(25)` covers build, test and `run`; start Gradle
+  with `JAVA_HOME` = a 25 too. The installed CLI (`./gradlew installDist`) uses whatever `JAVA_HOME`
+  names. → `docs/decisions/toolchain.md`
 - `scripts/delombok.sh <src> [out]` preprocesses a Lombok corpus; codeflow parses with `-proc:none`
   and no classpath and never runs Lombok itself.
 - The viewer bundle (`app/src/main/resources/viewer/reactflow.bundle.js`) is **committed**; Gradle

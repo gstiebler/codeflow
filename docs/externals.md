@@ -219,8 +219,8 @@ reasons and any one would do. It gives codeflow a jar dependency it must locate 
 the whole input contract is *a directory and nothing else*. Lombok works by reaching into javac's
 internals, so it needs `--add-opens` on the analysing JVM — ten of them on JDK 25, which is exactly
 the flag set the installed CLI's start script cannot be given from the build. It pins codeflow to
-whichever Lombok versions have caught up with whichever javac it is running on, on top of the 21/25
-duality already in play. And `-proc:none` is doing a second job nobody wrote down: turning
+whichever Lombok versions have caught up with whichever javac it is running on, on top of the
+JDK-25 pin already in play. And `-proc:none` is doing a second job nobody wrote down: turning
 annotation processing on generally means any processor discoverable from the analysed corpus gets to
 **execute** during what the user thinks is a read.
 

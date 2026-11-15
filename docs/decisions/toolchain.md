@@ -30,12 +30,12 @@ jar on the processor path, `--add-opens` on the analysing JVM, and would let a p
 analysed corpus execute during what the reader thinks is a read. The trade is that every `file:line`
 codeflow prints afterwards names the delomboked copy. `docs/externals.md` measures both halves.
 
-**Two JDK numbers, and they are not interchangeable.** codeflow parses with the *running* JDK's
-javac (`ToolProvider.getSystemJavaCompiler()`), so the JDK is an input to the output and not just to
-the build. `app/build.gradle` therefore compiles to bytecode **21** — `jvmToolchain(21)`, because
-Kotlin 1.9 cannot target 25 and fails with "Inconsistent JVM-target compatibility" — and runs
-`test` and `run` on **25** through a `javaLauncher` override (`def runtimeJdk = 25`). Bytecode 21
-runs on 25 unchanged, so the two are free to differ.
+**One JDK, and it has to be 25.** codeflow parses with the *running* JDK's javac
+(`ToolProvider.getSystemJavaCompiler()`), so the JDK is an input to the output and not just to the
+build. `app/build.gradle` sets `jvmToolchain(25)`, which compiles, tests and runs on the same JDK.
+Until Kotlin 2 this was two numbers — Kotlin 1.9 could not target 25, so the build compiled to
+bytecode 21 and borrowed a 25 for `test` and `run` through a `javaLauncher` override, and Gradle
+8.10 could not itself start on 25.
 
 Runtime 25 is not a preference. On javac 21 the whole test suite passes and real input does not:
 attributing a `yield` whose type javac never worked out trips an internal assertion in `Attr`
@@ -46,7 +46,6 @@ runs on the javac the tool is pointed at.
 
 The installed CLI (`./gradlew installDist`, then `./app/build/install/app/bin/app <dir>`) cannot be
 pinned from the build — its start script takes whatever `JAVA_HOME` names — so set a 25 yourself:
-`JAVA_HOME=$HOME/.sdkman/candidates/java/25.0.4-tem` (or `$(/usr/libexec/java_home -v 25)`). Older
-than 21 fails outright with `UnsupportedClassVersionError`; 21 through 24 run but carry the javac
-bug above, which is the worse failure because it is silent about being one.
-
+`JAVA_HOME=$HOME/.sdkman/candidates/java/25.0.4-tem`. Since the bytecode is 25, anything older fails
+outright with `UnsupportedClassVersionError`, which retired the worse case of the two-number era: on
+21 through 24 the old build ran, and carried the javac bug above silently.

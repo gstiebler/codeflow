@@ -1015,6 +1015,21 @@ class AppTest {
         assertEquals(listOf("TYPE_CAST at unsupported/App.java:15:21"), reader.unmodelled)
     }
 
+    /**
+     * `--summaries` reports what it could not model the way the graph run does, and from the same
+     * list, so the exit status `main` takes from [AstReader.unmodelled] is non-zero for it too. The
+     * summarizer never draws, so a construct only the builder recorded was a gap in the document
+     * and a run that exited 0.
+     */
+    @Test
+    fun summariesReportEachConstructTheyCouldNotModel() {
+        val reader = AstReader(testResourcesPath)
+        val summaries = reader.summarise(listOf(testResourcesPath.resolve("unsupported").resolve("App.java")))
+        assertEquals(listOf("TYPE_CAST at unsupported/App.java:15:21"), reader.unmodelled)
+        assertTrue(summaries.any { (_, s) -> s.gaps.any { it.kind == "unmodelled" && it.detail == "TYPE_CAST" } },
+            "the cast is not a gap in the document")
+    }
+
     /** And says nothing when there was nothing to say, so the summary means something. */
     @Test
     fun aRunThatModelledEverythingReportsNothing() {

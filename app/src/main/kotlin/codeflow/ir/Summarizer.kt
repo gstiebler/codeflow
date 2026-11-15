@@ -375,7 +375,11 @@ class Summarizer(
                 // The objects come from the alternatives only: a ternary is never its condition.
                 is Select -> AbsVal(flows(insn.inputs).flows, insn.alternatives.flatMapTo(LinkedHashSet()) { v(it).objs })
                 is Opaque -> flows(insn.inputs)
-                is Unmodelled -> flows(insn.inputs).also { gaps.add(Gap("unmodelled", insn.source, insn.kind)) }
+                // Recorded where the builder records it too, so `--summaries` reports and exits as a graph run does.
+                is Unmodelled -> flows(insn.inputs).also {
+                    gaps.add(Gap("unmodelled", insn.source, insn.kind))
+                    globalCtx.recordUnmodelled("${insn.kind} at ${insn.source}")
+                }
                 is Return -> EMPTY.also { insn.value?.let { ret += v(it) } }
                 is Call -> call(insn, index, values)
                 is New -> construct(insn, index, values)

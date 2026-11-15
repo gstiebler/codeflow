@@ -2,6 +2,7 @@ package codeflow
 
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphException
+import java.nio.file.Path
 
 /**
  * The graph as one self-contained page.
@@ -17,7 +18,7 @@ import codeflow.graph.GraphException
  * lives in JsonExporter, where the tests are. The bundles are built by `npm run build:viewer` and
  * committed, so this never needs npm.
  */
-class HtmlExporter(private val bundle: String) {
+class HtmlExporter(private val bundle: String, private val sourceRoot: Path) {
     private fun asset(name: String): String =
         javaClass.getResource("/viewer/$name")?.readText()
         // A page whose libraries are missing renders as an empty canvas, which is indistinguishable
@@ -26,7 +27,7 @@ class HtmlExporter(private val bundle: String) {
 
     fun processMainMethod(roots: List<GraphBuilderBlock>, writer: (String) -> Unit) {
         val payload = StringBuilder()
-        JsonExporter().processMainMethod(roots) { payload.append(it).append("\n") }
+        JsonExporter(sourceRoot).processMainMethod(roots) { payload.append(it).append("\n") }
 
         // Literal replacement, not regex: the bundle is full of $ and \ that Regex.replace would
         // read as group references and mangle.

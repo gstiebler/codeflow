@@ -87,9 +87,9 @@ internal fun runCli(argv: Array<String>): Int {
     // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on
     // stderr, so redirecting stdout to a file gives something a viewer can open directly.
     if (args.flags.contains("--html")) {
-        HtmlExporter("reactflow.bundle.js").processMainMethod(roots) { result.add(it) }
+        HtmlExporter("reactflow.bundle.js", javaRootDirPath).processMainMethod(roots) { result.add(it) }
     } else if (args.flags.contains("--json")) {
-        JsonExporter().processMainMethod(roots) { result.add(it) }
+        JsonExporter(javaRootDirPath).processMainMethod(roots) { result.add(it) }
     } else if (args.flags.contains("--graphml")) {
         GraphmlExporter().processMainMethod(roots) { result.add(it) }
     } else {

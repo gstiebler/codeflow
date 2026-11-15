@@ -4,12 +4,6 @@ import codeflow.graph.Method
 import codeflow.ir.Summary
 import codeflow.ir.pairs
 import java.util.TreeMap
-import javax.lang.model.element.TypeElement
-import javax.lang.model.type.ArrayType
-import javax.lang.model.type.DeclaredType
-import javax.lang.model.type.TypeKind
-import javax.lang.model.type.TypeMirror
-import javax.lang.model.type.TypeVariable
 
 /**
  * Every method's summary as one JSON document.
@@ -26,7 +20,7 @@ class SummariesExporter {
     fun export(entries: List<Pair<Method, Summary>>): String = document(entries).text
 
     fun document(entries: List<Pair<Method, Summary>>): Document {
-        val rows = entries.map { (method, summary) -> Row(methodKey(method), method.ctx.location(method.name), summary) }
+        val rows = entries.map { (method, summary) -> Row(method.key(), method.ctx.location(method.name), summary) }
             .sortedWith(compareBy({ it.method }, { it.at }))
         val gapCounts = TreeMap<String, Int>()
         rows.forEach { row -> row.summary.gaps.forEach { gapCounts.merge(it.kind, 1, Int::plus) } }
@@ -60,22 +54,6 @@ class SummariesExporter {
     /** One method's line; its pairs are computed once, being the most expensive thing in it. */
     private class Row(val method: String, val at: String, val summary: Summary) {
         val pairs = summary.pairs()
-    }
-
-    /** `pkg.Class#name(int,java.lang.String[])`: the class javac resolved, never text from the source. */
-    private fun methodKey(method: Method): String {
-        val owner = method.element.enclosingElement as TypeElement
-        val params = method.element.parameters.joinToString(",") { erase(it.asType()) }
-        return "${owner.qualifiedName}#${method.name.name}($params)"
-    }
-
-    /** Erased by hand: no `Types` instance reaches here, and erasure is only these three cases. */
-    private fun erase(type: TypeMirror): String = when (type.kind) {
-        TypeKind.DECLARED -> ((type as DeclaredType).asElement() as TypeElement).qualifiedName.toString()
-        TypeKind.ARRAY -> erase((type as ArrayType).componentType) + "[]"
-        TypeKind.TYPEVAR -> erase((type as TypeVariable).upperBound)
-        TypeKind.INTERSECTION -> erase(type.let { (it as javax.lang.model.type.IntersectionType).bounds.first() })
-        else -> type.toString()
     }
 
     private fun escape(text: String) = buildString {

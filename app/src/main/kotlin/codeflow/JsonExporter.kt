@@ -2,6 +2,10 @@ package codeflow
 
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.TreeMap
+import java.util.TreeSet
 
 /**
  * The graph as JSON: the viewer's payload, and what the tests assert on.
@@ -11,8 +15,11 @@ import codeflow.graph.GraphNode
  * is how a graph library models a container - React Flow's `parentId` is this field - and it is
  * what the viewer draws as a foldable box. So `parent` is the method boundary, and a payload that
  * drops it is a correct graph with every boundary silently gone.
+ *
+ * [sourceRoot] is what every node's `source` path is relative to - the directory AstReader was
+ * pointed at - so that the lines those sources name can be read back for the page's hover.
  */
-class JsonExporter {
+class JsonExporter(private val sourceRoot: Path) {
     // The same `n` and `b` prefixes the other exporters use, so a node found in one document can be
     // found in the others by the serial that identifies it.
     private fun nodeId(node: GraphNode) = "n${node.serial}"
@@ -41,7 +48,9 @@ class JsonExporter {
     fun processMainMethod(roots: List<GraphBuilderBlock>, writer: (String) -> Unit) {
         val nodes = ArrayList<String>()
         val edges = ArrayList<String>()
-        roots.forEach { collect(it, null, nodes, edges) }
+        val sources = ArrayList<String>()
+        roots.forEach { collect(it, null, nodes, edges, sources) }
+        val lines = linesOf(sources)
 
         writer("{")
         writer("""  "nodes": [""")
@@ -53,8 +62,35 @@ class JsonExporter {
         edges.forEachIndexed { index, edge ->
             writer("    $edge${if (index < edges.size - 1) "," else ""}")
         }
-        writer("  ]")
+        writer("  ],")
+        writer("""  "lines": {""")
+        lines.entries.forEachIndexed { index, (file, texts) ->
+            val entries = texts.entries.joinToString(", ") { (line, text) -> """"$line": "${escape(text)}"""" }
+            writer("""    "${escape(file)}": {$entries}${if (index < lines.size - 1) "," else ""}""")
+        }
+        writer("  }")
         writer("}")
+    }
+
+    /**
+     * The text of every line some node's `source` names, trimmed: file -> line -> text.
+     *
+     * Only those lines, so the page carries the few it can hover rather than the whole corpus. Read
+     * from disk rather than from the blocks' compilation units, because a node is not always drawn
+     * in a block of its own file: a class with no constructor of its own has its field initialisers
+     * run inside the block that constructs it. A source that names no line - `unknown position`,
+     * `offset N` - names nothing to read.
+     */
+    private fun linesOf(sources: List<String>): Map<String, Map<Int, String>> {
+        val wanted = TreeMap<String, TreeSet<Int>>()
+        for (source in sources) {
+            val match = SOURCE.matchEntire(source) ?: continue
+            wanted.getOrPut(match.groupValues[1]) { TreeSet() }.add(match.groupValues[2].toInt())
+        }
+        return wanted.mapValues { (file, numbers) ->
+            val text = Files.readAllLines(sourceRoot.resolve(file))
+            numbers.associateWith { text[it - 1].trim() }
+        }
     }
 
     /**
@@ -67,13 +103,20 @@ class JsonExporter {
         block: GraphBuilderBlock,
         parentId: String?,
         nodes: MutableList<String>,
-        edges: MutableList<String>
+        edges: MutableList<String>,
+        sources: MutableList<String>
     ) {
         val ownId = blockId(block)
-        nodes.add(entry(ownId, block.getMethodName(), "METHOD", block.getSource(), parentId))
+        val boundary = if (block.boundary) """, "boundary": true""" else ""
+        nodes.add(
+            entry(ownId, block.getMethodName(), "METHOD", block.getSource(), parentId) +
+                    """, "method": "${escape(block.method.key())}"$boundary}"""
+        )
+        sources.add(block.getSource())
 
         for (node in block.graph.getNodes()) {
-            nodes.add(entry(nodeId(node), node.label, node.getType().toString(), node.source, ownId, node.lead))
+            nodes.add(entry(nodeId(node), node.label, node.getType().toString(), node.source, ownId, node.lead) + "}")
+            sources.add(node.source)
             for (edge in node.edgesIterator()) {
                 // `kind` is on every edge, plain ones included, for the same reason `source` is on
                 // every node: a key the viewer has to test for is one it can quietly stop using.
@@ -84,7 +127,7 @@ class JsonExporter {
             }
         }
         for (calledMethod in block.calledMethods) {
-            collect(calledMethod, ownId, nodes, edges)
+            collect(calledMethod, ownId, nodes, edges, sources)
         }
     }
 
@@ -98,6 +141,9 @@ class JsonExporter {
      *
      * `lead` is the opposite case on purpose: only a boundary call has one, and its absence is
      * the answer for every other node - the label is the whole caption. See [GraphNode.lead].
+     *
+     * The object is left open, so a box can add its own keys before closing it: `method`, and
+     * `boundary` on a boundary method's block - absent meaning no, the same rule as `lead`.
      */
     private fun entry(
         id: String, label: String, type: String, source: String, parentId: String?, lead: String? = null
@@ -105,6 +151,11 @@ class JsonExporter {
         val parent = if (parentId == null) "" else """, "parent": "$parentId""""
         val leading = if (lead == null) "" else """, "lead": "${escape(lead)}""""
         return """{"id": "$id", "label": "${escape(label)}", "type": "$type", """ +
-                """"source": "${escape(source)}"$parent$leading}"""
+                """"source": "${escape(source)}"$parent$leading"""
+    }
+
+    private companion object {
+        /** `path:line:column`, as `ProcessorContext.location` writes it. */
+        val SOURCE = Regex("""(.*):(\d+):(\d+)""")
     }
 }

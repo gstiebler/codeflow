@@ -24,6 +24,12 @@ class GraphBuilderBlock(
      * call that quietly drew nothing takes its whole callee off the diagram with it.
      */
     val openedAt: String,
+    /**
+     * This block is a boundary method's assumed body rather than one read from source - see
+     * `GlobalContext.isBoundary`. Asked once, where the block is opened, so the exporters never
+     * have to work it out again from the method.
+     */
+    val boundary: Boolean,
     /** Where a root's serials start, so that a second root in one document continues the first's. */
     firstSerial: Int = 0
 ) {

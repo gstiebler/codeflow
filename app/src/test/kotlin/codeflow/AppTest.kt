@@ -86,7 +86,7 @@ class AppTest {
         val roots = AstReader(testResourcesPath).process(testFilePaths)
 
         val text = StringBuilder()
-        JsonExporter().processMainMethod(roots) { text.append(it).append("\n") }
+        JsonExporter(testResourcesPath).processMainMethod(roots) { text.append(it).append("\n") }
         return JsonParser.parseString(text.toString()).asJsonObject
     }
 
@@ -324,14 +324,14 @@ class AppTest {
      */
     private fun writePage(testDirPath: Path, roots: List<GraphBuilderBlock>) {
         val page = StringBuilder()
-        HtmlExporter("reactflow.bundle.js").processMainMethod(roots) { page.append(it).append("\n") }
+        HtmlExporter("reactflow.bundle.js", testResourcesPath).processMainMethod(roots) { page.append(it).append("\n") }
         Files.writeString(testDirPath.resolve("graph.html"), page)
 
         // The same payload the page inlines, on its own, because the viewer's Node tests need it:
         // model.ts decides what is on screen and a sweep over the real corpus is the only thing
         // that can say a fixture is reachable at all. Gitignored and rewritten like the page.
         val payload = StringBuilder()
-        JsonExporter().processMainMethod(roots) { payload.append(it).append("\n") }
+        JsonExporter(testResourcesPath).processMainMethod(roots) { payload.append(it).append("\n") }
         Files.writeString(testDirPath.resolve("graph.json"), payload)
     }
 
@@ -2518,6 +2518,61 @@ class AppTest {
         assertTrue("<init>" in labels, "the constructor's return label did not survive: $labels")
     }
 
+    private fun jsonOf(roots: List<GraphBuilderBlock>): JsonObject {
+        val text = StringBuilder()
+        JsonExporter(testResourcesPath).processMainMethod(roots) { text.append(it).append("\n") }
+        return JsonParser.parseString(text.toString()).asJsonObject
+    }
+
+    /**
+     * A box names its method as javac resolved it, and says when it is a boundary method's block -
+     * which is what the condensed view groups by, so a boundary told by its label instead would be
+     * the guess the payload exists to avoid. Every block of a boundary method carries it, and the
+     * entry point's does not.
+     */
+    @Test
+    fun jsonNamesEachBoxsMethodAndMarksBoundaryBlocks() {
+        val boxes = jsonNodes(jsonOf(boundaryRootBlocks())).filter { it.get("type").asString == "METHOD" }
+        val func1 = boxes.single { jsonLabel(it) == "boundaryfunc1" }
+        assertEquals("boundary.Boundary#boundaryfunc1(int)", func1.get("method").asString)
+        assertEquals(true, func1.get("boundary")?.asBoolean, "boundaryfunc1's block is not marked a boundary")
+
+        val entry = boxes.single { jsonLabel(it) == "entrypoint" }
+        assertEquals("boundary.App#entrypoint(int,int,int)", entry.get("method").asString)
+        assertEquals(null, entry.get("boundary"), "the entry point's block is marked a boundary")
+
+        assertEquals(
+            listOf("boundaryfunc1", "boundaryfunc2", "boundaryfunc2", "boundaryfunc3", "boundaryfunc3"),
+            boxes.filter { it.get("boundary")?.asBoolean == true }.map { jsonLabel(it) }.sorted()
+        )
+    }
+
+    /**
+     * `lines` holds exactly the lines the nodes' sources name, each as that line of the file,
+     * trimmed. The text is checked against the file read here, so a line off by one fails.
+     */
+    @Test
+    fun jsonCarriesTheTextOfEveryLineANodeNamesAndNoOther() {
+        val doc = jsonOf(boundaryRootBlocks())
+        val lines = doc.getAsJsonObject("lines")
+        val named = jsonNodes(doc).map { jsonSource(it)!! }
+            .map { it.split(":") }
+            .map { it[0] to it[1] }
+            .toSet()
+        val carried = lines.entrySet().flatMap { (file, texts) -> texts.asJsonObject.keySet().map { file to it } }.toSet()
+        assertEquals(named, carried, "lines carries a line no node names, or misses one a node does")
+        assertEquals(setOf("boundary/App.java", "boundary/Boundary.java"), lines.keySet())
+
+        for ((file, line) in carried) {
+            val expected = Files.readAllLines(testResourcesPath.resolve(file))[line.toInt() - 1].trim()
+            assertEquals(expected, lines.getAsJsonObject(file).get(line).asString, "$file:$line")
+        }
+        assertEquals(
+            "int result1 = Boundary.boundaryfunc1(a);",
+            lines.getAsJsonObject("boundary/App.java").get("10").asString
+        )
+    }
+
     /** The three exporters render one graph, so they have to agree on its edges. */
     @Test
     fun jsonKeepsEveryEdgeTheMermaidGraphHas() {
@@ -2535,7 +2590,7 @@ class AppTest {
         val page = StringBuilder()
         val testDirPath = testResourcesPath.resolve("funcCall")
         val roots = AstReader(testResourcesPath).process(listOf(testDirPath.resolve("App.java")))
-        HtmlExporter("reactflow.bundle.js").processMainMethod(roots) { page.append(it).append("\n") }
+        HtmlExporter("reactflow.bundle.js", testResourcesPath).processMainMethod(roots) { page.append(it).append("\n") }
         val html = page.toString()
 
         // Strings from inside the bundle, and string *literals* specifically: the bundle is minified,

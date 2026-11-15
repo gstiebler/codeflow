@@ -227,7 +227,7 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
         journal.clear()
         openForks.clear()
         val block = GraphBuilderBlock(
-            null, root, PosStack(), emptySet(), root.ctx, root.ctx.location(root.name), firstSerial
+            null, root, PosStack(), emptySet(), root.ctx, root.ctx.location(root.name), globalCtx.isBoundary(root), firstSerial
         )
         Frame(this, block, PosStack(), emptySet(), null).invoke(emptyList(), emptyList())
         return block
@@ -903,7 +903,9 @@ class Frame(
     /** The frame a call site opens: a block nested in this one, on the objects the callee runs on. */
     private fun enter(method: Method, memPos: Set<MemPos>, insn: Insn): Frame {
         val childStack = stack.push(insn.source)
-        val childBlock = GraphBuilderBlock(block, method, childStack, memPos, method.ctx, insn.source)
+        val childBlock = GraphBuilderBlock(
+            block, method, childStack, memPos, method.ctx, insn.source, globalCtx.isBoundary(method)
+        )
         block.addCalledMethod(childBlock)
         return Frame(builder, childBlock, childStack, memPos, this)
     }

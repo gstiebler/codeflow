@@ -20,7 +20,8 @@ export type NodeType =
   | 'BASE' | 'LITERAL' | 'VARIABLE' | 'OBJ_VARIABLE' | 'BIN_OP' | 'FUNC_PARAM'
   | 'RETURN' | 'EXTERNAL' | 'UNMODELLED' | 'BOUNDARIES';
 
-export type EdgeKind = 'FLOW' | 'TRUE' | 'FALSE' | 'CONDITION' | 'ORDER';
+/** Every `codeflow.graph.EdgeKind`. SHARED is one entry point's static write reaching another's read. */
+export type EdgeKind = 'FLOW' | 'TRUE' | 'FALSE' | 'CONDITION' | 'ORDER' | 'SHARED';
 
 export type PayloadNode = {
   id: Id;
@@ -41,6 +42,14 @@ export type PayloadNode = {
    * boundary call, so it is read as written and never found by matching the label's text.
    */
   lead?: string;
+  /**
+   * On a METHOD box only: the method as javac resolved it, `pkg.Class#name(ParamTypes)`. Every block
+   * of one method - one per call site - carries the same string, which is what lets the condensed
+   * view gather them.
+   */
+  method?: string;
+  /** On a METHOD box only, and only when it is a boundary method's block: never found from a label. */
+  boundary?: boolean;
 };
 
 export type PayloadEdge = { source: Id; target: Id; kind: EdgeKind };
@@ -53,7 +62,15 @@ export type PayloadEdge = { source: Id; target: Id; kind: EdgeKind };
  */
 export type Link = { source: Id; target: Id };
 
-export type Payload = { nodes: PayloadNode[]; edges: PayloadEdge[] };
+export type Payload = {
+  nodes: PayloadNode[];
+  edges: PayloadEdge[];
+  /**
+   * file -> line number -> that line's text, trimmed: only the lines some node's `source` names.
+   * Optional for the hand-written payloads in the unit tests; JsonExporter always writes it.
+   */
+  lines?: Record<string, Record<string, string>>;
+};
 
 /** How many edges at a node lead somewhere off screen, per direction. */
 export type HiddenDegree = { in: number; out: number };
@@ -71,6 +88,30 @@ export type ViewNode = PayloadNode & {
 };
 
 export type ViewEdge = PayloadEdge & { visible: boolean };
+
+/**
+ * One thing drawn in the condensed view: a leaf on its own, or a group standing in for every leaf of
+ * it not yet taken out - `members` of them. condensed.ts decides all of it.
+ */
+export type CondensedNode = {
+  id: Id;
+  label: string;
+  type: NodeType | 'GROUP';
+  /** On a group: how many of its leaves it still stands for. */
+  members?: number;
+  /** On a group of a boundary method's blocks. */
+  boundary?: boolean;
+  /** On a leaf, as in the payload. */
+  lead?: string;
+};
+
+/** Every payload edge of one kind between one pair of display nodes, drawn once. */
+export type CondensedEdge = { source: Id; target: Id; kind: EdgeKind; count: number };
+
+export type CondensedView = { nodes: CondensedNode[]; edges: CondensedEdge[] };
+
+/** What a click or a hover in the condensed view lands on: a display node, or a drawn edge. */
+export type CondensedTarget = { node: Id } | { edge: [Id, Id, EdgeKind] };
 
 export type View = {
   /** Leaves on screen: everything revealed, plus one stub per offered callee. */

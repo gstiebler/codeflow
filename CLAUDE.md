@@ -76,6 +76,8 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
 - **Viewer: `model.ts` decides, the renderer draws.** Every visibility decision is a pure function
   of `(payload, revealed)`; `revealed` is the only state. ELK options are **strings**. A parent node
   must precede its children. → `docs/decisions/viewer.md`
+  The condensed view (`condensed.ts`) follows the same contract; a group is a boundary `method`
+  read off the box, never a label.
 
 ## Adding a Java construct
 

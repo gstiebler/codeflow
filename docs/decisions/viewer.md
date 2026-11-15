@@ -21,7 +21,8 @@ and drawing is the point:
 | File | What it is |
 |---|---|
 | `model.ts` | every decision about what is on screen — `opening`, `tap`, `screen` — as pure functions of `(payload, revealed)`, no DOM and no library |
-| `layout.ts` | the layout posed as a value: `elkGraph(view)` and `positions(laidOut)` |
+| `condensed.ts` | the same for the condensed view — `condensed`, `tapCondensed`, `hoverText` — see [The condensed view](#the-condensed-view) |
+| `layout.ts` | the layout posed as a value: `elkGraph(view)`, `flatElkGraph(view)` and `positions(laidOut)` |
 | `types.ts`, `theme.ts` | the payload and view types, and the colours the page paints with |
 | `reactflow.tsx` | the renderer, and what `--html` emits |
 
@@ -193,4 +194,42 @@ inert is a method whose whole body *is* its own RETURN — `member`'s `getMember
 
 `showing` is derived inside `screen()` on every call and never stored, so folding a box cannot
 strand a stub that was added when it opened.
+
+## The condensed view
+
+A second view on the same page and payload, behind a `Boxes` / `Condensed` switch (Boxes is the
+default and draws what it drew before). Spec: `docs/superpowers/specs/2026-11-15-condensed-view-design.md`.
+`condensed.ts` holds the rules under the same contract as `model.ts` — pure functions of
+`(payload, revealed)`, types the only import — and the page keeps one `revealed` per view, so
+switching away and back returns to what was open. `R` and the `Reset` button reset the view on screen.
+
+**Groups are read from the payload, never guessed.** A leaf belongs to a boundary method's group iff
+its *nearest* enclosing box carries `boundary: true`; the group is keyed by that box's `method`
+(`pkg.Class#name(ParamTypes)`, JsonExporter's `Method.key()`), which is what makes every block of
+one method — one per call site, across roots — a single group. Keyed by box id instead, `boundary`
+would open on six nodes, not four. Everything else, including a leaf with no box, is `program`; no
+leaf is ever dropped, and the corpus sweep holds that at every step of a click-everything walk.
+
+**Click rules** (`tapCondensed`; each only adds to `revealed`):
+- a leaf → its neighbours in both directions;
+- a group → its *frontier*, the members with an edge to something drawn outside the group; with no
+  frontier, every member, so a group click always does something — without that fallback the walk
+  stalls on a group with no outside edge;
+- a drawn edge → the endpoints of the payload edges it stands for, of its kind only.
+
+**Edges.** Each payload edge is drawn between `shown(u)` and `shown(v)` (the leaf if revealed, else
+its group), dropped when both land on one display node, and deduplicated per (source, target,
+**kind**) with a count — kinds kept apart so ORDER/TRUE/FALSE colours still mean something. A group
+whose last member came out is not drawn. The layout is flat (`flatElkGraph`, no compound nodes);
+edge ids carry the kind, since the pair alone is not unique.
+
+**Hover is an approximation, on purpose.** A leaf shows the method of its nearest box and its line
+with the text; a group, its count and each method's line range, capped at ten then `+N more`; an
+edge, the method and line of its *targets* — where the value arrives, not the expression that moved
+it, which for a phi or a call is not the same line. The text comes from the payload's `lines`
+(only the lines some node names), read from disk by JsonExporter rather than from the block's own
+file, because a field initialiser can be drawn in a block of another file.
+
+The page's `window.drawn` counts only real condensed layouts (the layout state starts `null`), so a
+browser test waiting on it after switching views waits for ELK, not for the empty first render.
 

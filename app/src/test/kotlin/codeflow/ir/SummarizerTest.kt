@@ -393,18 +393,34 @@ class SummarizerTest {
      * Through a receiver that is either of two objects, the callee's write is a strong update on
      * each, as the builder's inlined write is - the known gap `docs/decisions/joins.md` names ("a
      * write through a receiver with several holders is a strong update on each"), which loses the
-     * other object's old value `k`. Carried over on purpose, neither better nor worse than the builder.
+     * other object's old value `k`. Carried over on purpose, neither better nor worse than the
+     * builder - and said, with an `alias` gap at the call.
      */
     @Test
-    fun aCalleeEffectOnEitherOfTwoObjectsIsAStrongUpdateOnEachLikeTheBuilder() =
-        assertEquals(
-            listOf("P1>RET"),
-            pairs(
-                "class B { int v; } class A { void set(B b, int a) { b.v = a; } " +
-                    "int f(boolean c, int a, int k) { B x = new B(); B y = new B(); x.v = k; y.v = k; B p = c ? x : y; set(p, a); return x.v; } }",
-                "A#f"
-            )
+    fun aCalleeEffectOnEitherOfTwoObjectsIsAStrongUpdateOnEachLikeTheBuilder() {
+        val s = summarise(
+            "class B { int v; } class A { void set(B b, int a) { b.v = a; } " +
+                "int f(boolean c, int a, int k) { B x = new B(); B y = new B(); x.v = k; y.v = k; B p = c ? x : y; set(p, a); return x.v; } }",
+            "A#f"
         )
+        assertEquals(listOf("P1>RET"), s.spelled())
+        assertEquals(listOf("alias"), s.besidesEscape().map { it.kind }, "${s.gaps}")
+        assertTrue(s.besidesEscape().single().detail.contains("B.v"), "${s.gaps}")
+    }
+
+    /** The same write made here: `p.v = a` on either of two objects loses `k` from the other, and says so. */
+    @Test
+    fun aWriteOnEitherOfTwoObjectsIsAnAliasGap() {
+        val s = summarise(
+            "class B { int v; } class A { " +
+                "int f(boolean c, int a, int k) { B x = new B(); B y = new B(); x.v = k; y.v = k; B p = c ? x : y; p.v = a; return x.v; } }",
+            "A#f"
+        )
+        assertEquals(listOf("P1>RET"), s.spelled())
+        assertEquals(listOf("alias"), s.besidesEscape().map { it.kind }, "${s.gaps}")
+        val one = summarise("class B { int v; } class A { int f(int a) { B x = new B(); x.v = a; return x.v; } }", "A#f")
+        assertEquals(emptyList(), one.besidesEscape())
+    }
 
     /**
      * A stand-in the callee hands back is an object the caller sees: a field it set is read back,

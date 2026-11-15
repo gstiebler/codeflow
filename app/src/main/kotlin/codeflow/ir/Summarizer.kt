@@ -18,7 +18,7 @@ import javax.lang.model.element.VariableElement
  * here. Where the builder has a known gap (`docs/decisions/joins.md`: no back edge for a field in a
  * loop body, `?:`/`&&`/`||` not forked, a strong update through several holders) this has the same
  * one, so the two disagree only where a summary is meant to differ - which `SummaryParityTest`
- * records. The reasoning, the atoms and the gap kinds are in `docs/decisions/summaries.md`.
+ * records. The last of those is also an `alias` gap here, since it drops a flow. The reasoning, the atoms and the gap kinds are in `docs/decisions/summaries.md`.
  *
  * Interpreting a method is a pure function of the method and what it is given, so it can be run
  * again. A call to a source method instantiates the callee's summary at the call site
@@ -350,6 +350,7 @@ class Summarizer(
                     val element = insn.element
                     val holders = element?.let { holders(insn.receiver, it, values) } ?: emptySet()
                     if (holders.isEmpty()) untracked(insn, insn.name, element)
+                    if (holders.size > 1) severalHolders(element!!, holders.size, insn.source)
                     holders.forEach { write(it to element!!, stored, insn.source) }
                     stored
                 }
@@ -589,6 +590,7 @@ class Summarizer(
                 val (holder, f) = key
                 val holders = objs(holder)
                 if (holders.isEmpty()) lost("${if (holder is PathObj) spell(holder, f) else qualifiedField(f)} written")
+                if (holders.size > 1) severalHolders(f, holders.size, site)
                 val mapped = value(effect)
                 val written = when {
                     f.asType().kind.isPrimitive -> AbsVal(mapped.flows)
@@ -715,6 +717,14 @@ class Summarizer(
                 return EMPTY
             }
             return holders.fold(EMPTY) { acc, holder -> acc + read(holder to element!!, insn.isPrimitive, insn.source) }
+        }
+
+        /**
+         * A write through a receiver that is one of several objects: a strong update on each, as the
+         * builder's is (`docs/decisions/joins.md`), which drops what the others held - so said.
+         */
+        private fun severalHolders(field: Element, count: Int, at: String) {
+            gaps.add(Gap("alias", at, "${qualifiedField(field)} written through a receiver that is one of $count objects, a strong update on each"))
         }
 
         /**

@@ -15,7 +15,7 @@ import {
 } from '@xyflow/react';
 import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
-import { opening, screen, tap } from './model.ts';
+import { captionParts, opening, screen, tap } from './model.ts';
 import { elkGraph, positions, NODE_HEIGHT, TITLE_HEIGHT, type Positioned } from './layout.ts';
 import { PALETTE, NODE_DEFAULT, edgeStyle } from './theme.ts';
 import type { Id, Payload, View, ViewNode } from './types.ts';
@@ -36,7 +36,7 @@ function installStyles() {
 }
 
 /**
- * A leaf. The caption is `badge`, never `label`: the hidden-neighbour counts are a property of the
+ * A leaf, its `lead` - if the payload gave it one - in bold. The caption is `badge`, never `label`: the hidden-neighbour counts are a property of the
  * current view rather than of the value, and every test that looks a node up by name needs the name
  * to go on being there.
  *
@@ -44,10 +44,12 @@ function installStyles() {
  */
 function LeafNode({ data }: NodeProps) {
   const node = data as unknown as ViewNode;
+  const caption = captionParts(node);
   return (
     <div className="cf-node" style={{ background: PALETTE[node.type] ?? NODE_DEFAULT }}>
       <Handle type="target" position={Position.Top} />
-      {node.badge}
+      {caption.lead !== undefined && <strong>{caption.lead}</strong>}
+      {caption.rest}
       <Handle type="source" position={Position.Bottom} />
     </div>
   );

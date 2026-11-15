@@ -50,6 +50,9 @@ Make boundary calls and their order chain easy to spot and read:
   no other node is `BOUNDARIES`; each boundary call node is labelled `call boundaryfunc<N>` and has
   `lead = "call"`; no other node has a lead (an unresolved non-boundary call stays plain).
   `boundaryOrder/`: an inlined callee's token is labelled with the root's name; two roots → two names.
+- `boundaryRoots/` (`--from App#first --from App#second --boundary Store`): each root's chain is
+  labelled after it, each root has its own call boxes, each root's arguments reach only its own
+  calls, the chains are tied only by `SHARED` edges (no `ORDER` across roots), no body literal.
 - Each check fails against a wrong version (lead set from the text prefix; label from the current
   frame's method instead of the root).
 - Viewer: a unit test that a `BOUNDARIES` node gets its colour and a node with a lead renders it in

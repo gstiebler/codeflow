@@ -3,7 +3,7 @@ package codeflow
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
 import codeflow.graph.NodeType
-import codeflow.ir.BOUNDARY_ORDER
+import codeflow.ir.boundaryOrderCaption
 import codeflow.ir.BinOp
 import codeflow.ir.Bind
 import codeflow.ir.Call
@@ -121,7 +121,7 @@ class InvariantsTest {
      * - [Delegate] to a constructor outside the analysed sources has no body to inline and, being a
      *   statement, no value for anything to read.
      */
-    private fun drawnLabel(insn: Insn): String? = when (insn) {
+    private fun drawnLabel(insn: Insn, root: GraphBuilderBlock): String? = when (insn) {
         is Const -> insn.text
         is Param -> insn.name
         is WriteLocal -> insn.name
@@ -135,7 +135,8 @@ class InvariantsTest {
         is New -> insn.typeName
         is Opaque -> insn.label
         is Unmodelled -> insn.kind
-        is WriteBoundaryOrder -> BOUNDARY_ORDER
+        // Captioned after the root the chain was opened from, inlined callees' writes included.
+        is WriteBoundaryOrder -> boundaryOrderCaption(root.getMethodName())
         // Read like a field: the box the last boundary call left, and only the first read draws one.
         is ReadField, is ReadBoundaryOrder, is Return, is ThisRef, is Delegate -> null
         // Markers, not values. A fork and an arm draw nothing, and a join draws a box per *field the
@@ -226,7 +227,7 @@ class InvariantsTest {
             drawn.blocks.forEach { block ->
                 drawn.body(block).forEach { insn ->
                     if (insn is ReadField || insn.inputs.isEmpty()) return@forEach
-                    val label = drawnLabel(insn) ?: return@forEach
+                    val label = drawnLabel(insn, drawn.root) ?: return@forEach
                     drawn.nodesAt(block, insn.source, label).forEach { node ->
                         if (insn is WriteBoundaryOrder && node.serial in starts) return@forEach
                         checked++
@@ -271,7 +272,7 @@ class InvariantsTest {
             val drawn = drawn(fixture)
             drawn.blocks.forEach { block ->
                 drawn.body(block).forEach { insn ->
-                    val label = drawnLabel(insn) ?: return@forEach
+                    val label = drawnLabel(insn, drawn.root) ?: return@forEach
                     checked++
                     assertTrue(
                         drawn.nodesAt(block, insn.source, label).isNotEmpty() ||
@@ -328,11 +329,13 @@ class InvariantsTest {
     private companion object {
         val ENTRY_POINTS = mapOf(
             "noMain" to "Report#total", "twoEntryPoints" to "Api#quote", "boundary" to "App#entrypoint",
-            "boundaryOrder" to "App#entrypoint"
+            "boundaryOrder" to "App#entrypoint", "boundaryRoots" to "App#first"
         )
 
         /** Drawn as the fixture's own test draws it, so the sweep checks the graph the golden holds. */
-        val BOUNDARIES = mapOf("boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"))
+        val BOUNDARIES = mapOf(
+            "boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"), "boundaryRoots" to listOf("Store")
+        )
 
         val cache = HashMap<String, Drawn>()
     }

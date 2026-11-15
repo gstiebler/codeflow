@@ -638,7 +638,7 @@ class LoweringTest {
                 "0: param x",
                 "1: param y",
                 "2: read boundaries",
-                "3: call callboundaryfunc2 on static 0 1 2",
+                "3: call call boundaryfunc2 on static 0 1 2",
                 "4: write boundaries <- 3",
                 "5: write result <- 3",
                 "6: return 5"
@@ -654,7 +654,7 @@ class LoweringTest {
             listOf(
                 "0: param value",
                 "1: read boundaries",
-                "2: call calllog on static 0 1",
+                "2: call call log on static 0 1",
                 "3: write boundaries <- 2"
             ),
             lowerWithBoundaries("boundaryOrder", listOf("Gateway"), "Gateway#log")

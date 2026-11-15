@@ -16,14 +16,21 @@ import { resolve } from 'node:path';
  * `member` earns its place beside `funcCall`: `app.func1()` passes no argument and returns nothing,
  * so not one edge crosses from `main` into `func1`, and the callee is reachable only through call
  * structure. It is the fixture where following dataflow finds nothing at all.
+ *
+ * `boundaryRoots` is drawn as its golden is, with its roots and `--boundary`: it is the page where a
+ * boundary call's `call` is bold and the order token has its own fill.
  */
-const FIXTURES = ['funcCall', 'member'];
+const FIXTURES = {
+  funcCall: '',
+  member: '',
+  boundaryRoots: '--from App#first --from App#second --boundary Store',
+};
 
 export default function globalSetup() {
   mkdirSync('build/viewer-test', { recursive: true });
-  for (const name of FIXTURES) {
+  for (const [name, flags] of Object.entries(FIXTURES)) {
     const html = execSync(
-      `./gradlew -q run --args="${resolve(`app/src/test/resources/${name}`)} --html"`,
+      `./gradlew -q run --args="${resolve(`app/src/test/resources/${name}`)} --html ${flags}"`,
       // stderr is ignored, not inherited: codeflow logs at debug level there and it buries the test
       // report. A build failure still surfaces, as execSync throws on a non-zero exit.
       { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] },

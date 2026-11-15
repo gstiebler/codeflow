@@ -3,7 +3,15 @@ package codeflow.graph
 import mu.KotlinLogging
 
 enum class NodeType {
-    BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, EXTERNAL, UNMODELLED
+    BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, EXTERNAL, UNMODELLED,
+
+    /**
+     * The boundary-order token - see [codeflow.ir.ReadBoundaryOrder]: the start of the chain, each
+     * write after a boundary call, and the join where `if` arms meet. A type rather than a flag on
+     * VARIABLE because colour is per type in Mermaid and in the viewer, and the chain is order, not a
+     * value, so it should not read as one. The gated `if` of its join is still a BIN_OP.
+     */
+    BOUNDARIES
 }
 
 /**
@@ -55,6 +63,10 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
     val label: String
         get() = base.label
 
+    /** See [Base.lead]. */
+    val lead: String?
+        get() = base.lead
+
     /** See [Base.source]. */
     val source: String
         get() = base.source
@@ -80,9 +92,18 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
      *   that does - it is keyed by the variable it is for, since two joins at one `if` keyed alike
      *   would be one entry in the lookup map, and captioned with the construct that made it, since
      *   three boxes in a row all saying `a` is what made the choice invisible.
+     * @param lead the start of [label] a renderer draws bold - `call` in `call fetch` - or null.
+     *   Carried as a fact rather than found in the text, so that only what [codeflow.ir.Call.lead]
+     *   marked is ever bold. It must be where the label starts; anything else is a builder bug.
      */
-    class Base(val id: GraphNodeId, val source: String, caption: String? = null) {
+    class Base(val id: GraphNodeId, val source: String, caption: String? = null, val lead: String? = null) {
         val label: String = caption ?: id.label
+
+        init {
+            if (lead != null && !label.startsWith(lead)) {
+                throw GraphException("'$label' at $source does not start with its lead '$lead'")
+            }
+        }
     }
 
     /** One arrow: where it goes, and what it means. */
@@ -129,6 +150,7 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
                 NodeType.RETURN -> MethodReturn(base, serial)
                 NodeType.EXTERNAL -> External(base, serial)
                 NodeType.UNMODELLED -> Unmodelled(base, serial)
+                NodeType.BOUNDARIES -> Boundaries(base, serial)
                 NodeType.BASE -> throw GraphException("BASE is the abstract case and has no node")
             }
 
@@ -166,6 +188,10 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
      */
     class Unmodelled(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.UNMODELLED
+    }
+    /** The boundary-order token; see [NodeType.BOUNDARIES]. */
+    class Boundaries(base: Base, serial: Int) : GraphNode(base, serial) {
+        override fun getType() = NodeType.BOUNDARIES
     }
     class MethodReturn(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.RETURN

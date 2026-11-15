@@ -25,6 +25,8 @@ export const PALETTE: Partial<Record<NodeType, string>> = {
   EXTERNAL:     'rgba(255, 165, 0, 0.25)',
   // Where codeflow stopped rather than something the code does - see GraphNode.Unmodelled.
   UNMODELLED:   'rgba(255, 0, 0, 0.19)',
+  // The boundary-order token, in the ORDER edges' purple: the chain's boxes and arrows are one thing.
+  BOUNDARIES:   'rgba(123, 31, 162, 0.25)',
   METHOD:       'rgba(240, 240, 240, 0.60)',
 };
 

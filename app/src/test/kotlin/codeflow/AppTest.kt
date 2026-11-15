@@ -8,6 +8,8 @@ import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphException
 import codeflow.graph.GraphNode
 import codeflow.graph.NodeType
+import codeflow.ir.BOUNDARY_CALL_LEAD
+import codeflow.ir.BOUNDARY_ORDER
 import codeflow.java.AstReader
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -238,11 +240,20 @@ class AppTest {
         }
     }
 
+    /**
+     * A node's label as the source wrote it: a bold lead's markdown string - ``"`**call** f`"``, see
+     * `MermaidExporter.caption` - read back as `call f`, so a test names a boundary call by its label.
+     */
+    private fun plain(label: String): String {
+        val markdown = Regex("""^"`(.*)`"$""").find(label) ?: return label
+        return markdown.groupValues[1].replace("**", "").replace("\\_", "_")
+    }
+
     /** The declared nodes as (label, type) pairs, ignoring the generated ids. */
     private fun nodeTypes(graph: List<String>): List<Pair<String, String>> {
         val declaration = Regex("""^\s*n\d+\[([^]]*)]:::(\w+)$""")
         return graph.mapNotNull { line ->
-            declaration.find(line)?.let { it.groupValues[1] to it.groupValues[2] }
+            declaration.find(line)?.let { plain(it.groupValues[1]) to it.groupValues[2] }
         }
     }
 
@@ -263,7 +274,7 @@ class AppTest {
     private fun edgeLabels(graph: List<String>): List<Pair<String, String>> {
         val edge = Regex("""n\d+\[([^]]*)]:::\w+${arrow}n\d+\[([^]]*)]""")
         return graph.mapNotNull { line ->
-            edge.find(line)?.let { it.groupValues[1] to it.groupValues[2] }
+            edge.find(line)?.let { plain(it.groupValues[1]) to plain(it.groupValues[2]) }
         }
     }
 
@@ -280,8 +291,8 @@ class AppTest {
         val outgoing = edges.groupBy({ it.groupValues[1] }, { it.groupValues[3] })
         val labelOf = HashMap<String, String>()
         edges.forEach {
-            labelOf[it.groupValues[1]] = it.groupValues[2]
-            labelOf[it.groupValues[3]] = it.groupValues[4]
+            labelOf[it.groupValues[1]] = plain(it.groupValues[2])
+            labelOf[it.groupValues[3]] = plain(it.groupValues[4])
         }
         val seen = HashSet<String>()
         val queue = ArrayDeque(labelOf.filterValues { it == fromLabel }.keys)
@@ -1037,35 +1048,35 @@ class AppTest {
     }
 
     /**
-     * Each call is the assumed implementation: parameters into `call<name>`, that into `result`,
+     * Each call is the assumed implementation: parameters into `call <name>`, that into `result`,
      * `result` out through the method's RETURN to the caller.
      */
     @Test
     fun aBoundaryCallIsTheAssumedImplementation() {
         val graph = boundaryGraph()
         val types = nodeTypes(graph).toSet()
-        assertTrue("callboundaryfunc1" to "EXTERNAL" in types, "no EXTERNAL call node: $types")
+        assertTrue("call boundaryfunc1" to "EXTERNAL" in types, "no EXTERNAL call node: $types")
         assertTrue("result" to "VARIABLE" in types, "no result local: $types")
         val edges = edgeLabels(graph)
-        assertTrue("x" to "callboundaryfunc1" in edges, "the parameter does not feed the call: $edges")
-        assertTrue("callboundaryfunc1" to "result" in edges, "the call does not feed result: $edges")
+        assertTrue("x" to "call boundaryfunc1" in edges, "the parameter does not feed the call: $edges")
+        assertTrue("call boundaryfunc1" to "result" in edges, "the call does not feed result: $edges")
     }
 
     /** What the caller passes reaches the call it is passed to, in each arm of the `if`. */
     @Test
     fun argumentsReachTheBoundaryCallsTheyArePassedTo() {
         val graph = boundaryGraph()
-        assertTrue(reaches(graph, "a", "callboundaryfunc1"), "a does not reach callboundaryfunc1")
-        assertTrue(reaches(graph, "callboundaryfunc1", "result1"), "the call's result does not reach result1")
-        assertTrue(reaches(graph, "result1", "callboundaryfunc2"), "result1 does not reach callboundaryfunc2")
-        assertTrue(reaches(graph, "result2", "callboundaryfunc3"), "result2 does not reach callboundaryfunc3")
-        assertTrue(reaches(graph, "b", "callboundaryfunc3"), "b does not reach callboundaryfunc3")
-        assertTrue(reaches(graph, "c", "callboundaryfunc3"), "c does not reach callboundaryfunc3")
+        assertTrue(reaches(graph, "a", "call boundaryfunc1"), "a does not reach call boundaryfunc1")
+        assertTrue(reaches(graph, "call boundaryfunc1", "result1"), "the call's result does not reach result1")
+        assertTrue(reaches(graph, "result1", "call boundaryfunc2"), "result1 does not reach call boundaryfunc2")
+        assertTrue(reaches(graph, "result2", "call boundaryfunc3"), "result2 does not reach call boundaryfunc3")
+        assertTrue(reaches(graph, "b", "call boundaryfunc3"), "b does not reach call boundaryfunc3")
+        assertTrue(reaches(graph, "c", "call boundaryfunc3"), "c does not reach call boundaryfunc3")
         // The negatives paired with the positives above: `c` is passed to boundaryfunc3 only, and
         // boundaryfunc3 returns nothing. boundaryfunc2 runs after it in the else-arm, which is order
         // and not data - the order chain's edges are ORDER, and a value does not cross them.
-        assertFalse(reaches(graph, "c", "callboundaryfunc2"), "c reaches callboundaryfunc2, which it is never passed to")
-        assertFalse(reaches(graph, "c", "callboundaryfunc1"), "c reaches callboundaryfunc1, which runs before it is passed anywhere")
+        assertFalse(reaches(graph, "c", "call boundaryfunc2"), "c reaches call boundaryfunc2, which it is never passed to")
+        assertFalse(reaches(graph, "c", "call boundaryfunc1"), "c reaches call boundaryfunc1, which runs before it is passed anywhere")
     }
 
     // --- The order boundary calls run in: one `boundaries` token threaded through every call. ---
@@ -1082,20 +1093,20 @@ class AppTest {
     /** The boundary call drawn for the call site on [line] of App.java - one block per call site. */
     private fun callAt(roots: List<GraphBuilderBlock>, line: Int): GraphNode =
         roots.flatMap { blocksUnder(it) }.single { Regex("""App\.java:$line:\d+$""").containsMatchIn(it.openedAt) }
-            .graph.getNodes().single { it.getType() == NodeType.EXTERNAL && it.label.startsWith("call") }
+            .graph.getNodes().single { it.getType() == NodeType.EXTERNAL && it.lead == BOUNDARY_CALL_LEAD }
 
     private fun callNamed(roots: List<GraphBuilderBlock>, label: String): GraphNode =
         nodesOf(roots).single { it.label == label }
 
     /** The token a call leaves behind: the one `boundaries` box it feeds. */
     private fun orderAfter(roots: List<GraphBuilderBlock>, call: GraphNode): GraphNode =
-        edgesOf(roots).filter { it.first === call && it.third.label == "boundaries" }.map { it.third }.single()
+        edgesOf(roots).filter { it.first === call && it.third.getType() == NodeType.BOUNDARIES }.map { it.third }.single()
 
     /** The token a call takes: the one `boundaries` box feeding it. */
     private fun orderBefore(roots: List<GraphBuilderBlock>, call: GraphNode): GraphNode =
-        edgesOf(roots).filter { it.third === call && it.first.label == "boundaries" }.map { it.first }.single()
+        edgesOf(roots).filter { it.third === call && it.first.getType() == NodeType.BOUNDARIES }.map { it.first }.single()
 
-    private fun boundaryRoots() =
+    private fun boundaryRootBlocks() =
         rootsOf("boundary", boundaryFiles, from = listOf("App#entrypoint"), boundaries = listOf("Boundary"))
 
     private fun boundaryOrderRoots(from: List<String> = listOf("App#entrypoint")) =
@@ -1108,40 +1119,40 @@ class AppTest {
      */
     @Test
     fun theBoundaryOrderStartsBeforeTheFirstCallAndFeedsBothArms() {
-        val roots = boundaryRoots()
+        val roots = boundaryRootBlocks()
         val edges = edgesOf(roots)
         val func1 = callAt(roots, 10)
         val start = orderBefore(roots, func1)
-        assertEquals(NodeType.VARIABLE, start.getType())
+        assertEquals(NodeType.BOUNDARIES, start.getType())
         assertTrue(edges.none { it.third === start }, "the start of the chain has something flowing in")
         assertEquals(
-            listOf(start), nodesOf(roots).filter { n -> n.label == "boundaries" && edges.none { it.third === n } },
+            listOf(start), nodesOf(roots).filter { n -> n.getType() == NodeType.BOUNDARIES && edges.none { it.third === n } },
             "the chain does not have exactly one start"
         )
-        assertEquals(2, edges.count { it.third === func1 }, "callboundaryfunc1 takes its one parameter and the token, nothing else")
+        assertEquals(2, edges.count { it.third === func1 }, "call boundaryfunc1 takes its one parameter and the token, nothing else")
         val after1 = orderAfter(roots, func1)
         assertTrue(after1 !== start, "the call writes back into the box it read")
         for (first in listOf(callAt(roots, 13), callAt(roots, 16))) {
-            assertTrue(orderBefore(roots, first) === after1, "${first.label} does not take what callboundaryfunc1 left")
+            assertTrue(orderBefore(roots, first) === after1, "${first.label} does not take what call boundaryfunc1 left")
         }
     }
 
     /** Each arm runs its two calls in its own order, and neither arm's calls follow the other's. */
     @Test
     fun eachArmRunsItsBoundaryCallsInSourceOrderAndNotTheOther() {
-        val roots = boundaryRoots()
+        val roots = boundaryRootBlocks()
         val then2 = callAt(roots, 13)
         val then3 = callAt(roots, 14)
         val else3 = callAt(roots, 16)
         val else2 = callAt(roots, 17)
-        assertEquals(listOf("callboundaryfunc2", "callboundaryfunc3", "callboundaryfunc3", "callboundaryfunc2"),
+        assertEquals(listOf("call boundaryfunc2", "call boundaryfunc3", "call boundaryfunc3", "call boundaryfunc2"),
             listOf(then2, then3, else3, else2).map { it.label })
         assertTrue(orderAfter(roots, then2) === orderBefore(roots, then3), "then-arm: 2 does not hand the token to 3")
         assertTrue(orderAfter(roots, else3) === orderBefore(roots, else2), "else-arm: 3 does not hand the token to 2")
-        assertTrue(TestFixtures.ordered(then2, then3), "then-arm: callboundaryfunc2 does not run before callboundaryfunc3")
-        assertFalse(TestFixtures.ordered(then3, then2), "then-arm: callboundaryfunc3 runs before callboundaryfunc2, the order reversed")
-        assertTrue(TestFixtures.ordered(else3, else2), "else-arm: callboundaryfunc3 does not run before callboundaryfunc2")
-        assertFalse(TestFixtures.ordered(else2, else3), "else-arm: callboundaryfunc2 runs before callboundaryfunc3, the order reversed")
+        assertTrue(TestFixtures.ordered(then2, then3), "then-arm: call boundaryfunc2 does not run before call boundaryfunc3")
+        assertFalse(TestFixtures.ordered(then3, then2), "then-arm: call boundaryfunc3 runs before call boundaryfunc2, the order reversed")
+        assertTrue(TestFixtures.ordered(else3, else2), "else-arm: call boundaryfunc3 does not run before call boundaryfunc2")
+        assertFalse(TestFixtures.ordered(else2, else3), "else-arm: call boundaryfunc2 runs before call boundaryfunc3, the order reversed")
         for (a in listOf(then2, then3)) for (b in listOf(else3, else2)) {
             assertFalse(TestFixtures.ordered(a, b), "the then-arm's ${a.label} runs before the else-arm's ${b.label}")
             assertFalse(TestFixtures.ordered(b, a), "the else-arm's ${b.label} runs before the then-arm's ${a.label}")
@@ -1151,7 +1162,7 @@ class AppTest {
     /** What each arm leaves meets at one `boundaries`, chosen by `a > b` like any static field written in an arm. */
     @Test
     fun theArmsOrdersMeetAtOneGatedJoin() {
-        val roots = boundaryRoots()
+        val roots = boundaryRootBlocks()
         val edges = edgesOf(roots)
         val fromThen = orderAfter(roots, callAt(roots, 14))
         val fromElse = orderAfter(roots, callAt(roots, 17))
@@ -1165,8 +1176,10 @@ class AppTest {
         assertEquals(listOf(">"), edges.filter { it.third === chosen && it.second == EdgeKind.CONDITION }.map { it.first.label },
             "the join is not gated by a > b")
         val joined = edges.filter { it.first === chosen }.map { it.third }
-        assertEquals(listOf("boundaries"), joined.map { it.label }, "the choice does not come out as one boundaries")
-        assertEquals(1, edges.filter { it.first.label == "boundaries" && it.third.label == "if" }.map { it.third }.distinct().size,
+        assertEquals(listOf("boundaries entrypoint" to NodeType.BOUNDARIES), joined.map { it.label to it.getType() },
+            "the choice does not come out as one boundaries")
+        assertEquals(NodeType.BIN_OP, chosen.getType(), "the gate is drawn as the token rather than as the choice it is")
+        assertEquals(1, edges.filter { it.first.getType() == NodeType.BOUNDARIES && it.third.label == "if" }.map { it.third }.distinct().size,
             "the token is joined at more than one choice")
     }
 
@@ -1178,10 +1191,10 @@ class AppTest {
      */
     @Test
     fun theOrderChainsEdgesAreOrderAndNoOthers() {
-        for ((roots, calls) in listOf(boundaryRoots() to 5, boundaryOrderRoots() to 4)) {
+        for ((roots, calls) in listOf(boundaryRootBlocks() to 5, boundaryOrderRoots() to 4)) {
             val edges = edgesOf(roots)
-            fun token(n: GraphNode) = n.label == "boundaries" && "App.java" !in n.source
-            fun call(n: GraphNode) = n.getType() == NodeType.EXTERNAL && n.label.startsWith("call")
+            fun token(n: GraphNode) = n.getType() == NodeType.BOUNDARIES
+            fun call(n: GraphNode) = n.getType() == NodeType.EXTERNAL && n.lead == BOUNDARY_CALL_LEAD
             val chain = edges.filter { (from, _, to) -> (token(from) && call(to)) || (call(from) && token(to)) }
             assertEquals(2 * calls, chain.size, "not one token in and one out per boundary call: $chain")
             assertEquals(listOf(EdgeKind.ORDER), chain.map { it.second }.distinct(), "a chain edge is not ORDER")
@@ -1199,16 +1212,16 @@ class AppTest {
      */
     @Test
     fun aBoundaryCallRunsBeforeALaterOneItsArgumentsDoNotReach() {
-        val roots = boundaryRoots()
+        val roots = boundaryRootBlocks()
         val func1 = callAt(roots, 10)
         val else2 = callAt(roots, 17)
         val then2 = callAt(roots, 13)
         val x = edgesOf(roots).single { it.third === func1 && it.first.getType() == NodeType.FUNC_PARAM }.first
-        assertTrue(TestFixtures.ordered(func1, else2), "callboundaryfunc1 does not run before the else-arm's callboundaryfunc2")
-        assertFalse(TestFixtures.reaches(x, else2), "boundaryfunc1's argument reaches the else-arm's callboundaryfunc2")
+        assertTrue(TestFixtures.ordered(func1, else2), "call boundaryfunc1 does not run before the else-arm's call boundaryfunc2")
+        assertFalse(TestFixtures.reaches(x, else2), "boundaryfunc1's argument reaches the else-arm's call boundaryfunc2")
         // The pair: the same argument does reach the then-arm's call, through result1 - real data.
-        assertTrue(TestFixtures.reaches(x, then2), "boundaryfunc1's argument does not reach the then-arm's callboundaryfunc2 through result1")
-        assertFalse(TestFixtures.ordered(else2, func1), "the else-arm's callboundaryfunc2 runs before callboundaryfunc1")
+        assertTrue(TestFixtures.reaches(x, then2), "boundaryfunc1's argument does not reach the then-arm's call boundaryfunc2 through result1")
+        assertFalse(TestFixtures.ordered(else2, func1), "the else-arm's call boundaryfunc2 runs before call boundaryfunc1")
     }
 
     /**
@@ -1218,7 +1231,7 @@ class AppTest {
     @Test
     fun oneBoundaryOrderRunsThroughAnInlinedCallee() {
         val roots = boundaryOrderRoots()
-        val calls = listOf("callopen", "callfetch", "calllog", "callclose").map { callNamed(roots, it) }
+        val calls = listOf("call open", "call fetch", "call log", "call close").map { callNamed(roots, it) }
         calls.zipWithNext().forEach { (before, after) ->
             assertTrue(orderAfter(roots, before) === orderBefore(roots, after), "${before.label} does not hand the token to ${after.label}")
         }
@@ -1232,10 +1245,10 @@ class AppTest {
     @Test
     fun aVoidBoundaryCallThreadsTheOrder() {
         val roots = boundaryOrderRoots()
-        val log = callNamed(roots, "calllog")
-        val close = callNamed(roots, "callclose")
-        assertTrue(orderAfter(roots, log) === orderBefore(roots, close), "the void calllog does not hand the token on")
-        assertEquals(listOf("boundaries"), edgesOf(roots).filter { it.first === close }.map { it.third.label },
+        val log = callNamed(roots, "call log")
+        val close = callNamed(roots, "call close")
+        assertTrue(orderAfter(roots, log) === orderBefore(roots, close), "the void call log does not hand the token on")
+        assertEquals(listOf("boundaries entrypoint"), edgesOf(roots).filter { it.first === close }.map { it.third.label },
             "the last, void, call does not leave the token - or leaves something else")
     }
 
@@ -1247,9 +1260,10 @@ class AppTest {
     fun aFieldNamedBoundariesIsNotTheOrderToken() {
         val roots = boundaryOrderRoots()
         val edges = edgesOf(roots)
-        val named = nodesOf(roots).filter { it.label == "boundaries" }
-        val (field, token) = named.partition { "App.java" in it.source }
-        assertEquals(1, field.size, "the field is not one box: $field")
+        val field = nodesOf(roots).filter { it.label == "boundaries" }
+        val token = nodesOf(roots).filter { it.getType() == NodeType.BOUNDARIES }
+        assertTrue(field.size == 1 && "App.java" in field.single().source, "the field is not one box: $field")
+        assertEquals(NodeType.VARIABLE, field.single().getType(), "the program's field is drawn as the token")
         assertTrue(token.size == 5 && token.all { "Gateway.java" in it.source }, "the token is not a start and four writes: $token")
         val box = field.single()
         assertEquals(listOf("a"), edges.filter { it.third === box }.map { it.first.label })
@@ -1268,13 +1282,139 @@ class AppTest {
         val edges = edgesOf(roots)
         val (entry, helper) = roots
         fun only(root: GraphBuilderBlock, label: String) = nodesOf(listOf(root)).single { it.label == label }
-        val entryStart = orderBefore(listOf(entry), only(entry, "callopen"))
-        val helperStart = orderBefore(listOf(helper), only(helper, "callfetch"))
+        val entryStart = orderBefore(listOf(entry), only(entry, "call open"))
+        val helperStart = orderBefore(listOf(helper), only(helper, "call fetch"))
         assertTrue(edges.none { it.third === helperStart && it.second == EdgeKind.FLOW }, "the second root's chain continues the first's")
-        assertEquals(listOf(EdgeKind.SHARED to orderAfter(listOf(helper), only(helper, "calllog"))),
+        assertEquals(listOf(EdgeKind.SHARED to orderAfter(listOf(helper), only(helper, "call log"))),
             edges.filter { it.third === entryStart }.map { it.second to it.first })
-        assertEquals(listOf(EdgeKind.SHARED to orderAfter(listOf(entry), only(entry, "callclose"))),
+        assertEquals(listOf(EdgeKind.SHARED to orderAfter(listOf(entry), only(entry, "call close"))),
             edges.filter { it.third === helperStart }.map { it.second to it.first })
+        // Two roots, two names: each chain is captioned after the root it was opened from.
+        assertEquals(setOf("boundaries entrypoint"), tokensOf(entry).map { it.label }.toSet())
+        assertEquals(setOf("boundaries helper"), tokensOf(helper).map { it.label }.toSet())
+    }
+
+    private fun tokensOf(root: GraphBuilderBlock): List<GraphNode> =
+        nodesOf(listOf(root)).filter { it.getType() == NodeType.BOUNDARIES }
+
+    // --- How the chain and its calls look: BOUNDARIES boxes, `call <name>` with `call` bold. ---
+
+    /**
+     * Every box of the token - the start, each write after a call, the join where the arms meet -
+     * is BOUNDARIES and captioned after the root, and no other box is BOUNDARIES. A token is found
+     * by what it is, its id's name [BOUNDARY_ORDER] (the gate of its join is `if boundaries`, a
+     * BIN_OP), so a wrong caption cannot hide one from the check.
+     */
+    @Test
+    fun everyOrderTokenIsBoundariesCaptionedAfterItsRoot() {
+        val nodes = nodesOf(boundaryRootBlocks())
+        val (tokens, others) = nodes.partition { it.id.label == BOUNDARY_ORDER }
+        assertEquals(listOf(NodeType.BIN_OP), others.filter { it.id.label == "if $BOUNDARY_ORDER" }.map { it.getType() },
+            "the join is not gated by one if")
+        assertEquals(7, tokens.size, "not a start, five writes and a join: ${tokens.map { it.label }}")
+        assertEquals(setOf("boundaries entrypoint" to NodeType.BOUNDARIES), tokens.map { it.label to it.getType() }.toSet())
+        assertTrue(others.none { it.getType() == NodeType.BOUNDARIES }, "a box that is not the token is BOUNDARIES")
+    }
+
+    /**
+     * Each boundary call is `call <name>` with `call` as its lead; no other box has a lead. The
+     * `boundaryRoots` fixture's `later.call()` is an outside call labelled `call` that is no
+     * boundary: emphasis read off the text would make it bold.
+     */
+    @Test
+    fun eachBoundaryCallIsCallNameAndOnlyItsCallIsBold() {
+        val leading = nodesOf(boundaryRootBlocks()).filter { it.lead != null }
+        assertEquals(
+            listOf("call boundaryfunc1", "call boundaryfunc2", "call boundaryfunc2", "call boundaryfunc3", "call boundaryfunc3"),
+            leading.map { it.label }.sorted()
+        )
+        assertTrue(leading.all { it.lead == "call" && it.getType() == NodeType.EXTERNAL }, "a lead is not call on an EXTERNAL")
+        val plain = nodesOf(boundaryRootsFixture()).filter { it.label == "call" }
+        assertEquals(listOf(NodeType.EXTERNAL to null), plain.map { it.getType() to it.lead },
+            "the outside call named call is missing, or bold")
+    }
+
+    /**
+     * A callee inlined between two boundary calls - `helper` - leaves tokens of the root's chain,
+     * captioned `boundaries entrypoint`, not after the method its frame runs.
+     */
+    @Test
+    fun anInlinedCalleesTokenIsCaptionedAfterTheRoot() {
+        val roots = boundaryOrderRoots()
+        val helper = roots.flatMap { blocksUnder(it) }.single { it.getMethodName() == "helper" }
+        val inHelper = tokensOf(helper)
+        assertTrue(inHelper.size >= 2, "helper's boundary calls leave no token: $inHelper")
+        assertEquals(setOf("boundaries entrypoint"), roots.flatMap { tokensOf(it) }.map { it.label }.toSet())
+    }
+
+    /** `boundaryRoots/`: two roots calling one boundary class, as `--from App#first --from App#second`. */
+    private fun boundaryRootsFixture(boundaries: List<String> = listOf("Store")) = rootsOf(
+        "boundaryRoots", listOf("App.java", "Store.java"),
+        from = listOf("App#first", "App#second"), boundaries = boundaries
+    )
+
+    private fun boundaryCalls(root: GraphBuilderBlock) = nodesOf(listOf(root)).filter { it.lead == BOUNDARY_CALL_LEAD }
+
+    /** Each root's chain is captioned after that root, and only that root. */
+    @Test
+    fun eachRootsChainIsCaptionedAfterItsRoot() {
+        val (first, second) = boundaryRootsFixture()
+        assertEquals(setOf("boundaries first"), tokensOf(first).map { it.label }.toSet())
+        assertEquals(setOf("boundaries second"), tokensOf(second).map { it.label }.toSet())
+        assertTrue(tokensOf(first).size == 3 && tokensOf(second).size == 2, "not a start and a write per call per root")
+    }
+
+    /** Each root draws its own boundary call box per call site; no box is shared between roots. */
+    @Test
+    fun eachRootHasItsOwnBoundaryCallPerCallSite() {
+        val (first, second) = boundaryRootsFixture()
+        val (save, load) = boundaryCalls(first)
+        assertEquals(listOf("call save", "call load"), listOf(save, load).map { it.label })
+        assertEquals(listOf("call save"), boundaryCalls(second).map { it.label })
+        assertTrue(boundaryCalls(first).none { it in boundaryCalls(second) }, "a call box is drawn in both roots")
+        assertTrue(TestFixtures.ordered(save, load), "first: save does not run before load")
+        assertFalse(TestFixtures.ordered(load, save), "first: load runs before save, the order reversed")
+    }
+
+    /** What a root is passed reaches its own boundary calls and never the other root's. */
+    @Test
+    fun eachRootsArgumentsReachOnlyItsOwnCalls() {
+        val (first, second) = boundaryRootsFixture()
+        val a = first.parameterNodes.single()
+        val b = second.parameterNodes.first()
+        boundaryCalls(first).forEach { assertTrue(TestFixtures.reaches(a, it), "a does not reach first's ${it.label}") }
+        boundaryCalls(second).forEach { assertTrue(TestFixtures.reaches(b, it), "b does not reach second's ${it.label}") }
+        boundaryCalls(second).forEach { assertFalse(TestFixtures.reaches(a, it), "a reaches second's ${it.label}") }
+        boundaryCalls(first).forEach { assertFalse(TestFixtures.reaches(b, it), "b reaches first's ${it.label}") }
+    }
+
+    /**
+     * The two chains are tied by SHARED edges only - each start takes the other root's last write,
+     * as a static's unwritten read does - and no ORDER edge, nor any other, crosses between them.
+     */
+    @Test
+    fun twoRootsChainsAreTiedOnlyBySharedEdges() {
+        val roots = boundaryRootsFixture()
+        val (first, second) = roots
+        val edges = edgesOf(roots)
+        val inFirst = nodesOf(listOf(first)).toSet()
+        val crossing = edges.filter { (it.first in inFirst) != (it.third in inFirst) }
+        assertEquals(listOf(EdgeKind.SHARED, EdgeKind.SHARED), crossing.map { it.second }, "edges cross between roots: $crossing")
+        fun start(root: GraphBuilderBlock) = tokensOf(root).single { t -> edges.none { it.third === t && it.second != EdgeKind.SHARED } }
+        fun last(root: GraphBuilderBlock) = tokensOf(root).single { t -> edges.none { it.first === t && it.second != EdgeKind.SHARED } }
+        assertEquals(
+            setOf(last(first) to start(second), last(second) to start(first)),
+            crossing.map { it.first to it.third }.toSet(), "a SHARED edge is not last write to the other root's start"
+        )
+    }
+
+    /** Store's bodies are never read, by either root - and are, without the boundary. */
+    @Test
+    fun neitherRootReadsTheBoundaryBodies() {
+        val labels = nodesOf(boundaryRootsFixture()).map { it.label }
+        assertTrue(labels.none { it == "8001" || it == "8002" }, "a boundary body literal was drawn: $labels")
+        val read = nodesOf(boundaryRootsFixture(emptyList())).map { it.label }
+        assertTrue("8001" in read && "8002" in read, "the body literals are not drawn even without --boundary: $read")
     }
 
     @Test
@@ -1290,9 +1430,9 @@ class AppTest {
     fun aBoundarySummarisesAsItsAssumedImplementation() {
         val doc = buildSummaries("boundary", boundaries = listOf("Boundary"))
         val flows = flowsOf(doc, "boundary.Boundary#boundaryfunc2(int,int)")
-        val ext = Regex("""ext:callboundaryfunc2@[\w/]*Boundary\.java:\d+:\d+>RET""")
-        assertTrue(flows.any { it.startsWith("P0>ext-arg:callboundaryfunc2@") }, "P0 does not reach the call: $flows")
-        assertTrue(flows.any { it.startsWith("P1>ext-arg:callboundaryfunc2@") }, "P1 does not reach the call: $flows")
+        val ext = Regex("""ext:call boundaryfunc2@[\w/]*Boundary\.java:\d+:\d+>RET""")
+        assertTrue(flows.any { it.startsWith("P0>ext-arg:call boundaryfunc2@") }, "P0 does not reach the call: $flows")
+        assertTrue(flows.any { it.startsWith("P1>ext-arg:call boundaryfunc2@") }, "P1 does not reach the call: $flows")
         assertTrue(flows.any { ext.matches(it) }, "the call does not reach RET: $flows")
     }
 
@@ -1308,7 +1448,7 @@ class AppTest {
             System.setOut(saved)
         }
         assertEquals(0, status)
-        assertTrue("callboundaryfunc1" in out.toString(), "the call is not drawn: $out")
+        assertTrue("[\"`**call** boundaryfunc1`\"]:::EXTERNAL" in out.toString(), "the call is not drawn, with call in bold: $out")
         assertTrue("9001" !in out.toString(), "the boundary body was drawn: $out")
     }
 
@@ -2419,6 +2559,9 @@ class AppTest {
 
     @Test fun boundary() = codeflow(
         "boundary", boundaryFiles, from = listOf("App#entrypoint"), boundaries = listOf("Boundary")
+    )
+    @Test fun boundaryRoots() = codeflow(
+        "boundaryRoots", listOf("App.java", "Store.java"), from = listOf("App#first", "App#second"), boundaries = listOf("Store")
     )
     @Test fun boundaryOrder() = codeflow(
         "boundaryOrder", listOf("App.java", "Gateway.java"), from = listOf("App#entrypoint"), boundaries = listOf("Gateway")

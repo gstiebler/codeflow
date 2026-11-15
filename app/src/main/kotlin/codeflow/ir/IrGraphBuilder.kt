@@ -7,6 +7,7 @@ import codeflow.graph.GraphNode
 import codeflow.graph.GraphNodeId
 import codeflow.graph.MemPos
 import codeflow.graph.Method
+import codeflow.graph.NodeType
 import codeflow.graph.PosStack
 import codeflow.java.ids.JNodeId
 import codeflow.java.processors.GlobalContext
@@ -272,6 +273,15 @@ class Frame(
 
     private val globalCtx = builder.globalCtx
 
+    /**
+     * What this run's boundary-order token is captioned with: the name of the root the whole chain
+     * of frames was opened from, not of the method this one runs - an inlined callee's token is
+     * still that entry point's chain. See [boundaryOrderCaption].
+     */
+    private val orderCaption: String by lazy {
+        parent?.orderCaption ?: boundaryOrderCaption(block.method.displayName())
+    }
+
     /** The node for `this` in this invocation, created on the first mention. See [thisValue]. */
     private var thisValue: Value? = null
 
@@ -383,7 +393,8 @@ class Frame(
         // join draws the order each arm left. The call leaving the token is order, not data.
         is WriteBoundaryOrder -> write(
             BOUNDARY_ORDER, null, true, setOf(builder.heap.boundaryOrderHolder()), emptySet(), insn,
-            run.node(insn.value), journal = true, kind = EdgeKind.ORDER
+            run.node(insn.value), journal = true, kind = EdgeKind.ORDER,
+            draw = { block.addBoundaryOrder(base(it.id, insn, orderCaption)) }
         )
 
         is FieldFork -> {
@@ -550,7 +561,7 @@ class Frame(
         val holder = builder.heap.boundaryOrderHolder()
         val id = JNodeId(stack, BOUNDARY_ORDER, null, setOf(holder))
         val node = builder.fieldNode(holder, id)
-            ?: builder.record(block.addPrimitiveVariable(base(id, insn)), setOf(holder))
+            ?: builder.record(block.addBoundaryOrder(base(id, insn, orderCaption)), setOf(holder))
                 .also { builder.unwrittenStaticReads.add(id to it) }
         return Value(node)
     }
@@ -567,6 +578,8 @@ class Frame(
      * same value: there is one write in the source and two fields it could land in, and drawing one
      * of them would be choosing which. The value of the expression is the first, since `(a.f = v)`
      * is `v` whichever object `a` turned out to be.
+     *
+     * [draw] makes the box; only the boundary-order token draws one other than a variable's.
      */
     private fun write(
         name: String,
@@ -577,7 +590,9 @@ class Frame(
         insn: Insn,
         valueNode: GraphNode,
         journal: Boolean = false,
-        kind: EdgeKind = EdgeKind.FLOW
+        kind: EdgeKind = EdgeKind.FLOW,
+        draw: (GraphNode.Base) -> GraphNode =
+            { if (isPrimitive) block.addPrimitiveVariable(it) else block.addObjectVariable(it) }
     ): Value {
         val written = if (isPrimitive) emptySet()
         else valueObjects.ifEmpty { setOf(builder.heap.allocate(insn.source)) }
@@ -586,11 +601,7 @@ class Frame(
             val id = JNodeId(stack, name, element, owning)
             val key = if (journal && builder.forking) FieldKey(holder?.id, id, block.takeIf { holder == null }, isPrimitive) else null
             val before = key?.let { builder.fieldState(it) }
-            val node = if (isPrimitive) {
-                builder.record(block.addPrimitiveVariable(base(id, insn)), owning)
-            } else {
-                builder.record(block.addObjectVariable(base(id, insn)), owning)
-            }
+            val node = builder.record(draw(base(id, insn)), owning)
             block.addAssignment(node, valueNode, kind)
             if (!isPrimitive) builder.heap.setObjects(id, written)
             key?.let { builder.journalWrite(it, before) }
@@ -707,11 +718,16 @@ class Frame(
                     paths + (run.node(it.value) to EdgeKind.CONDITION)
                 )
             }
-            val node = block.addJoin(
-                base(key.id, insn),
-                chosen?.let { listOf(it to EdgeKind.FLOW) } ?: paths,
-                key.isPrimitive
-            )
+            // The token's join is the token, told apart by its holder like every other box of it.
+            val isOrder = key.owner == builder.heap.boundaryOrderHolder().id
+            val node = if (isOrder) {
+                block.addJoin(
+                    base(key.id, insn, orderCaption), chosen?.let { listOf(it to EdgeKind.FLOW) } ?: paths,
+                    key.isPrimitive, NodeType.BOUNDARIES
+                )
+            } else {
+                block.addJoin(base(key.id, insn), chosen?.let { listOf(it to EdgeKind.FLOW) } ?: paths, key.isPrimitive)
+            }
             val objects = if (key.isPrimitive) emptySet() else merge.reaching.flatMapTo(HashSet()) { it.state.objects }
             builder.setFieldState(key, FieldState(node, objects), before)
         }
@@ -797,7 +813,7 @@ class Frame(
             // The order token a boundary call takes is not an argument any value flows through.
             val (order, data) = insn.args.partition { it.index in run.orderReads }
             val inputs = listOfNotNull(receiverNode) + data.map { run.node(it) }
-            val external = block.addExternal(base(labelId(insn.name, insn), insn), inputs)
+            val external = block.addExternal(base(labelId(insn.name, insn), insn, lead = insn.lead), inputs)
             order.forEach { run.node(it).addEdge(external, EdgeKind.ORDER) }
             return Value(external)
         }
@@ -926,6 +942,6 @@ class Frame(
     /** A node that stands for an occurrence rather than for a variable: an operator, a literal. */
     private fun labelId(label: String, insn: Insn) = GraphNodeId(stack.push(insn.source), label)
 
-    private fun base(id: GraphNodeId, insn: Insn, caption: String? = null) =
-        GraphNode.Base(id, insn.source, caption)
+    private fun base(id: GraphNodeId, insn: Insn, caption: String? = null, lead: String? = null) =
+        GraphNode.Base(id, insn.source, caption, lead)
 }

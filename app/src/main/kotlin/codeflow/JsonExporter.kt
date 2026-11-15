@@ -73,7 +73,7 @@ class JsonExporter {
         nodes.add(entry(ownId, block.getMethodName(), "METHOD", block.getSource(), parentId))
 
         for (node in block.graph.getNodes()) {
-            nodes.add(entry(nodeId(node), node.label, node.getType().toString(), node.source, ownId))
+            nodes.add(entry(nodeId(node), node.label, node.getType().toString(), node.source, ownId, node.lead))
             for (edge in node.edgesIterator()) {
                 // `kind` is on every edge, plain ones included, for the same reason `source` is on
                 // every node: a key the viewer has to test for is one it can quietly stop using.
@@ -95,10 +95,16 @@ class JsonExporter {
      * "which line is this?", and a key present on only some kinds is worse than one on none, since
      * nothing on screen distinguishes a node with no position from one the viewer failed to use.
      * It is escaped like the label because a path on Windows contains backslashes.
+     *
+     * `lead` is the opposite case on purpose: only a boundary call has one, and its absence is
+     * the answer for every other node - the label is the whole caption. See [GraphNode.lead].
      */
-    private fun entry(id: String, label: String, type: String, source: String, parentId: String?): String {
+    private fun entry(
+        id: String, label: String, type: String, source: String, parentId: String?, lead: String? = null
+    ): String {
         val parent = if (parentId == null) "" else """, "parent": "$parentId""""
+        val leading = if (lead == null) "" else """, "lead": "${escape(lead)}""""
         return """{"id": "$id", "label": "${escape(label)}", "type": "$type", """ +
-                """"source": "${escape(source)}"$parent}"""
+                """"source": "${escape(source)}"$parent$leading}"""
     }
 }

@@ -62,13 +62,13 @@ Every method declared on that class (constructors and nested classes are not inc
 **assumed implementation** in place of its body:
 
 ```java
-T f(p0, p1, …) { T result = call<f>(p0, p1, …); return result; }   // void: the call, no return
+T f(p0, p1, …) { T result = call f(p0, p1, …); return result; }   // void: the call, no return
 ```
 
-`call<f>` is the instruction an unresolved call already is - a `Call` with no target, on no object -
+`call f` is the instruction an unresolved call already is - a `Call` with no target, on no object -
 so the builder draws it `EXTERNAL` and the summarizer reads it as an opaque call
-(`ext:call<f>@…`), with no new instruction, node type or viewer change. A call to a boundary is drawn
-the same way every time, `args → params → call<f> → result → RETURN f → caller`, which says what
+(`ext:call f@…`), with no new instruction. A call to a boundary is drawn
+the same way every time, `args → params → call f → result → RETURN f → caller`, which says what
 went in without claiming anything about what happened inside.
 
 **Lowering replaces the body**, rather than the builder skipping the call, because what a method
@@ -80,7 +80,7 @@ with the flag and present without it.
 
 **Boundary calls are chained in the order they ran.** Boundaries usually have side effects, so each
 assumed implementation also reads an order token before its call and writes the call's value back
-into it after: `boundaries → call<f> → boundaries → call<g> → …`. The token is one more input after
+into it after: `boundaries → call f → boundaries → call g → …`. The token is one more input after
 the parameters, and void boundaries thread it too. It is a static field in all but source: a holder
 of its own in `Heap` (`boundaryOrderHolder`, listed in `staticHolders`), read and written by
 `ReadBoundaryOrder` / `WriteBoundaryOrder` through the journaled write a static uses. So the static
@@ -88,12 +88,24 @@ rules give it, with no case of its own: a start with nothing flowing in; one cha
 callees; a gated phi where `if` arms leave it different; no back edge in loops; and `SHARED` edges
 between roots. The token is recognised by that holder, never by its name, so a field the sources call
 `boundaries` stays their own. The summarizer ignores it, and `--summaries` is unchanged. **The
-token's two edges at each call are `ORDER`**, not `FLOW` - `boundaries → call<f>` and
-`call<f> → boundaries`, nothing else: drawn as flow, every argument of a boundary call *reached* every
+token's two edges at each call are `ORDER`**, not `FLOW` - `boundaries → call f` and
+`call f → boundaries`, nothing else: drawn as flow, every argument of a boundary call *reached* every
 later one through the token. The kind is decided where the edge is made, from the instruction - the
 builder's `Run.orderReads` marks a `ReadBoundaryOrder`'s value, and a call taking one draws that input
-as `ORDER`; `WriteBoundaryOrder` writes with `ORDER` - never from the box's name. `call<f> → result`
+as `ORDER`; `WriteBoundaryOrder` writes with `ORDER` - never from the box's name. `call f → result`
 stays `FLOW`, and the token's gated join and `SHARED` edges keep their kinds: between two `ORDER`
 edges they carry no data anywhere. Drawn dashed (`-. order .->`, purple `#7b1fa2`) in Mermaid and
 the viewer. The tests' `reaches()` walks follow data only; `TestFixtures.ordered` follows the chain.
 Fixture: `boundaryOrder`.
+
+**How it looks.** Every token box - start, writes, the gated join's value - is `NodeType.BOUNDARIES`,
+filled in the ORDER purple (`classDef BOUNDARIES fill:#7B1FA240`, emitted only when one is drawn, so
+documents without `--boundary` are unchanged; `PALETTE.BOUNDARIES` in the viewer). The gate itself
+stays `BIN_OP`. A token is labelled `boundaries <root>` - the root's simple name, the same in every
+inlined callee; the label only, its identity is untouched. A boundary call is `EXTERNAL`, labelled
+`call f`, and carries a structured `lead = "call"` (`Call.lead`, set only by `assumeBoundary`, never
+read from the text) that is drawn bold: a Mermaid markdown string `` "`**call** f`" `` (it renders
+`<strong>` with HTML labels on or off, where `<b>` shows literally in Mermaid 10 without them; `_`
+escaped so it is not italic), `<strong>` in the viewer (`captionParts`), plain in GraphML. An
+outside call that merely is named `call` has no lead and stays plain. Several roots each get their
+own chain, named after them and tied only by `SHARED` edges: fixture `boundaryRoots`.

@@ -100,6 +100,19 @@ export function badgeLabel(name: string, hidden?: HiddenDegree): string {
   return parts.length === 0 ? name : `${name} ${parts.join(' ')}`;
 }
 
+/**
+ * A leaf's caption cut where the renderer changes weight: the node's `lead` and the rest of `badge`.
+ *
+ * The lead is the payload's, never a prefix found in the text - a source call named `call x` has
+ * none and stays plain. A badge that does not start with its lead is a payload this viewer was not
+ * written for, and it is drawn whole rather than with the wrong letters in bold.
+ */
+export function captionParts(node: { badge: string; lead?: string }): { lead?: string; rest: string } {
+  const { badge, lead } = node;
+  if (lead === undefined || !badge.startsWith(lead)) return { rest: badge };
+  return { lead, rest: badge.slice(lead.length) };
+}
+
 const isBoxNode = (node: PayloadNode) => node.type === 'METHOD';
 
 /** The leaves directly inside a box - what clicking that box opens, one level and no deeper. */

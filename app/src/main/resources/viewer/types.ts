@@ -18,7 +18,7 @@ export type Id = string;
 export type NodeType =
   | 'METHOD'
   | 'BASE' | 'LITERAL' | 'VARIABLE' | 'OBJ_VARIABLE' | 'BIN_OP' | 'FUNC_PARAM'
-  | 'RETURN' | 'EXTERNAL' | 'UNMODELLED';
+  | 'RETURN' | 'EXTERNAL' | 'UNMODELLED' | 'BOUNDARIES';
 
 export type EdgeKind = 'FLOW' | 'TRUE' | 'FALSE' | 'CONDITION' | 'ORDER';
 
@@ -36,6 +36,11 @@ export type PayloadNode = {
   source?: string;
   /** The enclosing box. Absent on the entry method, which is the one node with no parent. */
   parent?: Id;
+  /**
+   * The start of `label` drawn bold - `call` in `call fetch`. JsonExporter writes it only on a
+   * boundary call, so it is read as written and never found by matching the label's text.
+   */
+  lead?: string;
 };
 
 export type PayloadEdge = { source: Id; target: Id; kind: EdgeKind };

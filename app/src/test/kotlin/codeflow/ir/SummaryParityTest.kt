@@ -190,7 +190,9 @@ class SummaryParityTest {
         val PARAM = Regex("P\\d+")
 
         /** The boundary fixtures and the `--boundary` each is drawn with, as `InvariantsTest` draws them. */
-        val BOUNDARIES = mapOf("boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"))
+        val BOUNDARIES = mapOf(
+            "boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"), "boundaryRoots" to listOf("Store")
+        )
 
         /**
          * The builder's answer is wrong here. A root runs on no object (`build` opens it with an empty

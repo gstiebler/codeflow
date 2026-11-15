@@ -348,10 +348,21 @@ class WriteField(
 const val BOUNDARY_ORDER = "boundaries"
 
 /**
+ * What the token is captioned with in one entry point's drawing: `boundaries entrypoint`, after the
+ * simple name of the root being built - inlined callees' tokens included, since they are that root's
+ * chain. A caption only, like [BOUNDARY_ORDER]: the token's identity stays its holder and the name
+ * [BOUNDARY_ORDER], so several roots' chains still tie together and join as one static does.
+ */
+fun boundaryOrderCaption(rootName: String) = "$BOUNDARY_ORDER $rootName"
+
+/** The part of a boundary call's label drawn bold - `call` in `call fetch`. See [Call.lead]. */
+const val BOUNDARY_CALL_LEAD = "call"
+
+/**
  * A read of the boundary-order token, which a boundary call takes after its parameters.
  *
  * The token is a variable no source declares, threaded through every boundary call so that the
- * order they ran in is drawn: `boundaries -> call<f> -> boundaries -> call<g> -> ...`. It behaves as
+ * order they ran in is drawn: `boundaries -> call f -> boundaries -> call g -> ...`. It behaves as
  * a static field of the sources would - one per run, held by the builder rather than by a frame, so
  * inlining, forks and several roots treat it as they treat statics. Only [Lowering.Body.assumeBoundary]
  * emits it. The summarizer ignores it: it is order, not data.
@@ -391,7 +402,13 @@ class Call(
     val target: Element?,
     val receiver: Receiver,
     val args: List<Val>,
-    source: String
+    source: String,
+    /**
+     * The start of [name] a renderer draws bold, or null for a call drawn plain. Set only by
+     * [Lowering.Body.assumeBoundary], which builds [name] from it, so a renderer reads emphasis off
+     * this and never off the text: a source call that happens to be named `call ...` stays plain.
+     */
+    val lead: String? = null
 ) : Insn(source) {
     override val inputs get() = receiver.inputs + args
     override fun render() = "call $name on $receiver" + args.joinToString("") { " $it" }

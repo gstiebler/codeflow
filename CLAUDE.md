@@ -19,7 +19,7 @@ UPDATE_SNAPSHOTS=1 ./gradlew test    # rewrite the golden files
 ./gradlew run --args="path/to/java/dir --html"                 # interactive page, to stdout
 ./gradlew run --args="path/to/java/dir --from Report#total"    # root(s) other than main; repeatable
 ./gradlew run --args="path/to/java/dir --summaries"            # every method's summary, as JSON
-./gradlew run --args="path/to/java/dir --boundary Gateway"     # Gateway's methods not read: params → call<name> → result; repeatable
+./gradlew run --args="path/to/java/dir --boundary Gateway"     # Gateway's methods not read: params → call <name> → result; repeatable
 scripts/smoke.sh app/build/install/app/bin/app path/to/java/dir  # every method a root; fails on a crash or a skipped root
 
 npm test                             # typecheck, bundle freshness, viewer unit tests + corpus sweeps

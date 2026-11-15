@@ -4,6 +4,7 @@ import codeflow.graph.EdgeKind
 import codeflow.graph.Graph
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
+import codeflow.graph.NodeType
 import mu.KotlinLogging
 
 
@@ -11,9 +12,34 @@ class MermaidExporter() {
     private val logger = KotlinLogging.logger {}
     // The `n` prefix keeps a node id from ever being read as a subgraph id, which is prefixed `b`,
     // and makes both greppable in a snapshot.
-    private fun getNodeStr(node: GraphNode) = "n${node.serial}[${node.label}]:::${node.getType()}"
+    private fun getNodeStr(node: GraphNode) = "n${node.serial}[${caption(node)}]:::${node.getType()}"
 
-    private fun getClasses() = listOf(
+    /**
+     * The label as written, or - for a node with a [GraphNode.lead] - a Mermaid markdown string
+     * with the lead in bold: ``"`**call** fetch`"``. Markdown rather than `<b>`, because Mermaid
+     * renders a markdown string bold with HTML labels on or off, and `<b>` shows literally when
+     * they are off. In markdown a `_` pair turns italic and drops the underscores - `_private_`
+     * would read `private` - so the rest is escaped; a Java name has no other markdown character.
+     */
+    private fun caption(node: GraphNode): String {
+        val lead = node.lead ?: return node.label
+        val rest = node.label.removePrefix(lead).replace("_", "\\_")
+        return "\"`**$lead**$rest`\""
+    }
+
+    /**
+     * The token's class is written only into a flowchart that draws a token, as an ORDER edge's
+     * `linkStyle` is: a run without `--boundary` is the flowchart it was before there were boundaries.
+     */
+    private fun getClasses(roots: List<GraphBuilderBlock>) =
+        if (roots.any { drawsBoundaries(it) }) baseClasses() + "classDef BOUNDARIES fill:#7B1FA240"
+        else baseClasses()
+
+    private fun drawsBoundaries(block: GraphBuilderBlock): Boolean =
+        block.graph.getNodes().any { it.getType() == NodeType.BOUNDARIES } ||
+                block.calledMethods.any { drawsBoundaries(it) }
+
+    private fun baseClasses() = listOf(
         "classDef LITERAL fill:#00FF0030",
         "classDef VARIABLE fill:#80808030",
         "classDef BIN_OP fill:#80808080",
@@ -52,7 +78,7 @@ class MermaidExporter() {
         roots.forEach { processMethod(it, 2, writer, links, placed) }
         writeEdges(placed[TOP_LEVEL].orEmpty(), 2, writer, links)
         links.styles.forEach { writer(genSpaces(2) + it) }
-        getClasses().forEach { writer(genSpaces(2) + it) }
+        getClasses(roots).forEach { writer(genSpaces(2) + it) }
         writer("```")
     }
 

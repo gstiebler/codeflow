@@ -183,6 +183,13 @@ class GraphBuilderBlock(
         return newNode
     }
 
+    /** A box of the boundary-order token - see [NodeType.BOUNDARIES]. */
+    fun addBoundaryOrder(base: GraphNode.Base): GraphNode {
+        val newNode = graph.createGraphNode(NodeType.BOUNDARIES, base)
+        setLastNode(newNode)
+        return newNode
+    }
+
     fun addObjectVariable(base: GraphNode.Base): GraphNode {
         val newNode = graph.createGraphNode(NodeType.OBJ_VARIABLE, base)
         setLastNode(newNode)
@@ -260,9 +267,15 @@ class GraphBuilderBlock(
      * thing. A selection is an expression the source wrote, and its node stands for the value that
      * expression produced; this is a variable at a place in the program, and it exists whether or
      * not anything was written there.
+     *
+     * [type] is the variable's own, which only the boundary-order token's join overrides.
      */
-    fun addJoin(base: GraphNode.Base, inputs: List<Pair<GraphNode, EdgeKind>>, isPrimitive: Boolean): GraphNode {
-        val type = if (isPrimitive) NodeType.VARIABLE else NodeType.OBJ_VARIABLE
+    fun addJoin(
+        base: GraphNode.Base,
+        inputs: List<Pair<GraphNode, EdgeKind>>,
+        isPrimitive: Boolean,
+        type: NodeType = if (isPrimitive) NodeType.VARIABLE else NodeType.OBJ_VARIABLE
+    ): GraphNode {
         val phiNode = graph.createGraphNode(type, base)
         setLastNode(phiNode)
         inputs.forEach { (node, kind) -> node.addEdge(phiNode, kind) }

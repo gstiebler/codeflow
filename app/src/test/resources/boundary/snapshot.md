@@ -13,7 +13,7 @@ flowchart TD
     n47[if]:::BIN_OP
     n48[result2]:::VARIABLE
     n49[if]:::BIN_OP
-    n50[boundaries]:::VARIABLE
+    n50[boundaries entrypoint]:::BOUNDARIES
     n2[a]:::FUNC_PARAM --> n7[x]:::FUNC_PARAM
     n2[a]:::FUNC_PARAM --> n15[>]:::BIN_OP
     n2[a]:::FUNC_PARAM --> n19[y]:::FUNC_PARAM
@@ -33,39 +33,39 @@ flowchart TD
     n23[result2]:::VARIABLE --> n26[x]:::FUNC_PARAM
     n23[result2]:::VARIABLE -->|true| n47[if]:::BIN_OP
     n47[if]:::BIN_OP --> n48[result2]:::VARIABLE
-    n49[if]:::BIN_OP --> n50[boundaries]:::VARIABLE
+    n49[if]:::BIN_OP --> n50[boundaries entrypoint]:::BOUNDARIES
     n6[boundaryfunc1]:::RETURN --> n12[result1]:::VARIABLE
-    n10[boundaries]:::VARIABLE -. order .-> n20[callboundaryfunc2]:::EXTERNAL
-    n10[boundaries]:::VARIABLE -. order .-> n37[callboundaryfunc3]:::EXTERNAL
+    n10[boundaries entrypoint]:::BOUNDARIES -. order .-> n20["`**call** boundaryfunc2`"]:::EXTERNAL
+    n10[boundaries entrypoint]:::BOUNDARIES -. order .-> n37["`**call** boundaryfunc3`"]:::EXTERNAL
     n17[boundaryfunc2]:::RETURN --> n23[result2]:::VARIABLE
-    n21[boundaries]:::VARIABLE -. order .-> n29[callboundaryfunc3]:::EXTERNAL
-    n30[boundaries]:::VARIABLE -->|true| n49[if]:::BIN_OP
-    n38[boundaries]:::VARIABLE -. order .-> n44[callboundaryfunc2]:::EXTERNAL
-    n45[boundaries]:::VARIABLE -->|false| n49[if]:::BIN_OP
+    n21[boundaries entrypoint]:::BOUNDARIES -. order .-> n29["`**call** boundaryfunc3`"]:::EXTERNAL
+    n30[boundaries entrypoint]:::BOUNDARIES -->|true| n49[if]:::BIN_OP
+    n38[boundaries entrypoint]:::BOUNDARIES -. order .-> n44["`**call** boundaryfunc2`"]:::EXTERNAL
+    n45[boundaries entrypoint]:::BOUNDARIES -->|false| n49[if]:::BIN_OP
     subgraph b5["boundaryfunc1"]
       n6[boundaryfunc1]:::RETURN
       n7[x]:::FUNC_PARAM
-      n8[boundaries]:::VARIABLE
-      n9[callboundaryfunc1]:::EXTERNAL
-      n10[boundaries]:::VARIABLE
+      n8[boundaries entrypoint]:::BOUNDARIES
+      n9["`**call** boundaryfunc1`"]:::EXTERNAL
+      n10[boundaries entrypoint]:::BOUNDARIES
       n11[result]:::VARIABLE
-      n7[x]:::FUNC_PARAM --> n9[callboundaryfunc1]:::EXTERNAL
-      n8[boundaries]:::VARIABLE -. order .-> n9[callboundaryfunc1]:::EXTERNAL
-      n9[callboundaryfunc1]:::EXTERNAL -. order .-> n10[boundaries]:::VARIABLE
-      n9[callboundaryfunc1]:::EXTERNAL --> n11[result]:::VARIABLE
+      n7[x]:::FUNC_PARAM --> n9["`**call** boundaryfunc1`"]:::EXTERNAL
+      n8[boundaries entrypoint]:::BOUNDARIES -. order .-> n9["`**call** boundaryfunc1`"]:::EXTERNAL
+      n9["`**call** boundaryfunc1`"]:::EXTERNAL -. order .-> n10[boundaries entrypoint]:::BOUNDARIES
+      n9["`**call** boundaryfunc1`"]:::EXTERNAL --> n11[result]:::VARIABLE
       n11[result]:::VARIABLE --> n6[boundaryfunc1]:::RETURN
     end
     subgraph b16["boundaryfunc2"]
       n17[boundaryfunc2]:::RETURN
       n18[x]:::FUNC_PARAM
       n19[y]:::FUNC_PARAM
-      n20[callboundaryfunc2]:::EXTERNAL
-      n21[boundaries]:::VARIABLE
+      n20["`**call** boundaryfunc2`"]:::EXTERNAL
+      n21[boundaries entrypoint]:::BOUNDARIES
       n22[result]:::VARIABLE
-      n18[x]:::FUNC_PARAM --> n20[callboundaryfunc2]:::EXTERNAL
-      n19[y]:::FUNC_PARAM --> n20[callboundaryfunc2]:::EXTERNAL
-      n20[callboundaryfunc2]:::EXTERNAL -. order .-> n21[boundaries]:::VARIABLE
-      n20[callboundaryfunc2]:::EXTERNAL --> n22[result]:::VARIABLE
+      n18[x]:::FUNC_PARAM --> n20["`**call** boundaryfunc2`"]:::EXTERNAL
+      n19[y]:::FUNC_PARAM --> n20["`**call** boundaryfunc2`"]:::EXTERNAL
+      n20["`**call** boundaryfunc2`"]:::EXTERNAL -. order .-> n21[boundaries entrypoint]:::BOUNDARIES
+      n20["`**call** boundaryfunc2`"]:::EXTERNAL --> n22[result]:::VARIABLE
       n22[result]:::VARIABLE --> n17[boundaryfunc2]:::RETURN
     end
     subgraph b24["boundaryfunc3"]
@@ -73,14 +73,14 @@ flowchart TD
       n26[x]:::FUNC_PARAM
       n27[y]:::FUNC_PARAM
       n28[z]:::FUNC_PARAM
-      n29[callboundaryfunc3]:::EXTERNAL
-      n30[boundaries]:::VARIABLE
+      n29["`**call** boundaryfunc3`"]:::EXTERNAL
+      n30[boundaries entrypoint]:::BOUNDARIES
       n31[result]:::VARIABLE
-      n26[x]:::FUNC_PARAM --> n29[callboundaryfunc3]:::EXTERNAL
-      n27[y]:::FUNC_PARAM --> n29[callboundaryfunc3]:::EXTERNAL
-      n28[z]:::FUNC_PARAM --> n29[callboundaryfunc3]:::EXTERNAL
-      n29[callboundaryfunc3]:::EXTERNAL -. order .-> n30[boundaries]:::VARIABLE
-      n29[callboundaryfunc3]:::EXTERNAL --> n31[result]:::VARIABLE
+      n26[x]:::FUNC_PARAM --> n29["`**call** boundaryfunc3`"]:::EXTERNAL
+      n27[y]:::FUNC_PARAM --> n29["`**call** boundaryfunc3`"]:::EXTERNAL
+      n28[z]:::FUNC_PARAM --> n29["`**call** boundaryfunc3`"]:::EXTERNAL
+      n29["`**call** boundaryfunc3`"]:::EXTERNAL -. order .-> n30[boundaries entrypoint]:::BOUNDARIES
+      n29["`**call** boundaryfunc3`"]:::EXTERNAL --> n31[result]:::VARIABLE
       n31[result]:::VARIABLE --> n25[boundaryfunc3]:::RETURN
     end
     subgraph b32["boundaryfunc3"]
@@ -88,27 +88,27 @@ flowchart TD
       n34[x]:::FUNC_PARAM
       n35[y]:::FUNC_PARAM
       n36[z]:::FUNC_PARAM
-      n37[callboundaryfunc3]:::EXTERNAL
-      n38[boundaries]:::VARIABLE
+      n37["`**call** boundaryfunc3`"]:::EXTERNAL
+      n38[boundaries entrypoint]:::BOUNDARIES
       n39[result]:::VARIABLE
-      n34[x]:::FUNC_PARAM --> n37[callboundaryfunc3]:::EXTERNAL
-      n35[y]:::FUNC_PARAM --> n37[callboundaryfunc3]:::EXTERNAL
-      n36[z]:::FUNC_PARAM --> n37[callboundaryfunc3]:::EXTERNAL
-      n37[callboundaryfunc3]:::EXTERNAL -. order .-> n38[boundaries]:::VARIABLE
-      n37[callboundaryfunc3]:::EXTERNAL --> n39[result]:::VARIABLE
+      n34[x]:::FUNC_PARAM --> n37["`**call** boundaryfunc3`"]:::EXTERNAL
+      n35[y]:::FUNC_PARAM --> n37["`**call** boundaryfunc3`"]:::EXTERNAL
+      n36[z]:::FUNC_PARAM --> n37["`**call** boundaryfunc3`"]:::EXTERNAL
+      n37["`**call** boundaryfunc3`"]:::EXTERNAL -. order .-> n38[boundaries entrypoint]:::BOUNDARIES
+      n37["`**call** boundaryfunc3`"]:::EXTERNAL --> n39[result]:::VARIABLE
       n39[result]:::VARIABLE --> n33[boundaryfunc3]:::RETURN
     end
     subgraph b40["boundaryfunc2"]
       n41[boundaryfunc2]:::RETURN
       n42[x]:::FUNC_PARAM
       n43[y]:::FUNC_PARAM
-      n44[callboundaryfunc2]:::EXTERNAL
-      n45[boundaries]:::VARIABLE
+      n44["`**call** boundaryfunc2`"]:::EXTERNAL
+      n45[boundaries entrypoint]:::BOUNDARIES
       n46[result]:::VARIABLE
-      n42[x]:::FUNC_PARAM --> n44[callboundaryfunc2]:::EXTERNAL
-      n43[y]:::FUNC_PARAM --> n44[callboundaryfunc2]:::EXTERNAL
-      n44[callboundaryfunc2]:::EXTERNAL -. order .-> n45[boundaries]:::VARIABLE
-      n44[callboundaryfunc2]:::EXTERNAL --> n46[result]:::VARIABLE
+      n42[x]:::FUNC_PARAM --> n44["`**call** boundaryfunc2`"]:::EXTERNAL
+      n43[y]:::FUNC_PARAM --> n44["`**call** boundaryfunc2`"]:::EXTERNAL
+      n44["`**call** boundaryfunc2`"]:::EXTERNAL -. order .-> n45[boundaries entrypoint]:::BOUNDARIES
+      n44["`**call** boundaryfunc2`"]:::EXTERNAL --> n46[result]:::VARIABLE
       n46[result]:::VARIABLE --> n41[boundaryfunc2]:::RETURN
     end
   end
@@ -135,4 +135,5 @@ flowchart TD
   classDef RETURN fill:#FF808080
   classDef EXTERNAL fill:#FFA50040
   classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
+  classDef BOUNDARIES fill:#7B1FA240
 ```

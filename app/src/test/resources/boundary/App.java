@@ -1,6 +1,6 @@
 /*
  * Calls into a boundary class: `--boundary Boundary` says its methods are not to be read. Each call
- * is drawn as the assumed implementation - every parameter into one `call<name>` operation, that into
+ * is drawn as the assumed implementation - every parameter into one `call <name>` operation, that into
  * a local `result`, `result` returned - so nothing of Boundary.java's bodies may appear.
  */
 package boundary;

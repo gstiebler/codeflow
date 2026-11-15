@@ -27,6 +27,12 @@ data class ParamRoot(val i: Int) : Root
 /** The holder of [cls]'s static fields, which belongs to no instance - the builder's static holder. */
 data class StaticRoot(val cls: Element) : Root
 
+/**
+ * The object the method returns, as an output's name only: `RET.pkg.B.v` is a field of an object
+ * only the result leads to. Never an object a method runs on or reads through.
+ */
+data object RetRoot : Root
+
 /** An object a value can be. */
 sealed interface Obj
 
@@ -114,12 +120,12 @@ data class Summary(
  * Every `input -> output` pair, spelled as the output document spells them, sorted.
  *
  * A field of an object the method made is spelled through the field of the caller's that holds it,
- * `this.A.b.B.v` for `this.b = x; x.v = a`. One only the result leads to has no name yet: it is
- * kept for instantiation, where the caller's own path to it names it.
+ * `this.A.b.B.v` for `this.b = x; x.v = a`, and one the result leads to through `RET`:
+ * `RET.B.v` for `x.v = a; return x`.
  */
 fun Summary.pairs(): List<Pair<String, String>> {
     val out = LinkedHashSet<Pair<String, String>>()
-    val names = names(effects).names
+    val names = names(effects, ret.objs).names
     ret.flows.forEach { out.add(spell(it) to "RET") }
     for ((key, value) in effects) {
         val holders = (key.first as? PathObj)?.let { setOf(it) } ?: names[key.first] ?: continue
@@ -133,20 +139,22 @@ fun Summary.pairs(): List<Pair<String, String>> {
 }
 
 /**
- * What the caller can call each object [effects] leaves in one of its fields, and the objects it can
- * reach only past [Summarizer.DEPTH_CAP] - the name each was cut at.
+ * What the caller can call each object [effects] leaves in one of its fields or the result is, and
+ * the objects it can reach only past [Summarizer.DEPTH_CAP] - the name each was cut at.
  */
 class Names(val names: Map<Obj, Set<PathObj>>, val tooDeep: Map<Obj, PathObj>)
 
 /**
- * Follows the effects from the caller's paths into the objects they store, one field at a time.
+ * Follows the effects from the caller's paths, and from the result's objects [ret] as `RET`, into
+ * the objects they store, one field at a time.
  *
  * A name keeps the [PathObj] cap, so a field of it is still within [Summarizer.DEPTH_CAP] and
  * spelling one never needs a deeper path than a read could have made.
  */
-fun names(effects: Map<Pair<Obj, Element>, AbsVal>): Names {
+fun names(effects: Map<Pair<Obj, Element>, AbsVal>, ret: Set<Obj>): Names {
     val names = LinkedHashMap<Obj, LinkedHashSet<PathObj>>()
     val tooDeep = LinkedHashMap<Obj, PathObj>()
+    ret.forEach { if (it !is PathObj) names.getOrPut(it) { LinkedHashSet() }.add(PathObj(RetRoot)) }
     fun namesOf(obj: Obj): Set<PathObj> = if (obj is PathObj) setOf(obj) else names[obj] ?: emptySet()
     var changed = true
     while (changed) {
@@ -183,6 +191,7 @@ fun spell(obj: PathObj): String {
         This -> "this"
         is ParamRoot -> "P${obj.root.i}"
         is StaticRoot -> "static"
+        RetRoot -> "RET"
     }
     return root + obj.fields.joinToString("") { "." + qualifiedField(it) }
 }

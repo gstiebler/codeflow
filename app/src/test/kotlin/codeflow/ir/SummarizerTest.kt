@@ -130,6 +130,23 @@ class SummarizerTest {
             pairs("class B { int v; } class A { B b; void f(int a) { B x = new B(); x.v = a; this.b = x; } }", "A#f")
         )
 
+    /**
+     * An object only the result leads to is spelled through `RET`: the builder drawing `make` as a
+     * root draws `a -> v`, and a document that listed only `ext:B>RET` sent `P0` nowhere.
+     */
+    @Test
+    fun aFieldOfAnObjectOnlyTheResultReachesIsSpelledThroughRet() {
+        val src = "class B { int v; B next; } class A { " +
+            "static B make(int a) { B b = new B(); b.v = a; return b; } " +
+            "static B two(int a) { B b = new B(); B c = new B(); c.v = a; b.next = c; return b; } " +
+            "static B three(int a) { B b = new B(); B c = new B(); B d = new B(); d.v = a; c.next = d; b.next = c; return b; } }"
+        assertEquals(listOf("P0>RET.B.v", "ext:B@_>RET"), pairs(src, "A#make"))
+        assertEquals(listOf("P0>RET.B.next.B.v", "ext:B@_>RET", "ext:B@_>RET.B.next"), pairs(src, "A#two"))
+        val three = summarise(src, "A#three")
+        assertEquals(listOf("depth"), three.gaps.map { it.kind })
+        assertEquals("RET.B.next.B.next.B.v", three.gaps.single().detail)
+    }
+
     /** Reached only past the cap, the object's field cannot be spelled, and that is said. */
     @Test
     fun aFieldOfAnObjectMadeHereBeyondTheCapIsAGap() {

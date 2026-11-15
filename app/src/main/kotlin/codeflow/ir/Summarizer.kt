@@ -279,7 +279,7 @@ class Summarizer(
                 final.forEach { (key, value) -> if (key.first == obj) keep(value.objs) }
             }
             val effects = final.filter { (key, _) -> key.first is PathObj || key.first in kept }.toMap(LinkedHashMap())
-            val tooDeep = names(effects).tooDeep
+            val tooDeep = names(effects, ret.objs).tooDeep
             for ((key, at) in written) {
                 if (key.first is StandInObj && key !in effects) {
                     gaps.add(Gap("unmodelled", at, "${qualifiedField(key.second)} written on an object with no tracked origin"))
@@ -553,6 +553,7 @@ class Summarizer(
                         This -> receiver
                         is ParamRoot -> args.getOrNull(obj.root.i)?.objs ?: emptySet()
                         is StaticRoot -> setOf(PathObj(obj.root))
+                        RetRoot -> error("RET names an output, never an object a callee reads: $obj")
                     }
                     obj.fields.fold(root) { holders, f -> field(holders, f).objs }
                 }

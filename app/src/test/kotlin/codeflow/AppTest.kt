@@ -157,18 +157,23 @@ class AppTest {
         assertFailsWith<GraphException> { rawSummaries("funcCall", listOf("App#nope")) }
     }
 
-    /** The flag is accepted, and the document is what reaches stdout. */
+    /**
+     * The flag is accepted, and the document is what reaches stdout. Through [runCli], not `main`: a
+     * construct the fixture gains that nothing models makes the status 1, and `main` would exit the
+     * test JVM with it.
+     */
     @Test
     fun summariesIsAKnownFlag() {
         val out = java.io.ByteArrayOutputStream()
         val saved = System.out
         System.setOut(java.io.PrintStream(out, true))
-        try {
-            main(arrayOf(testResourcesPath.resolve("objectArgument").toString(), "--summaries"))
+        val status = try {
+            runCli(arrayOf(testResourcesPath.resolve("objectArgument").toString(), "--summaries"))
         } finally {
             System.setOut(saved)
         }
         assertEquals("codeflow-summaries", JsonParser.parseString(out.toString()).asJsonObject["format"].asString)
+        assertEquals(0, status)
     }
 
     private fun jsonNodes(doc: JsonObject) = doc.getAsJsonArray("nodes").map { it.asJsonObject }

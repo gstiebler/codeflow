@@ -207,13 +207,16 @@ class Summarizer(
         val arms = ArrayList<Map<Pair<Obj, Element>, Cell>>()
     }
 
-    /** What an [Interpretation] held when an instruction list began, for each pass to start from. */
+    /**
+     * What an [Interpretation] held when an instruction list began, for each pass to start from.
+     * Gaps are not in it: what any pass could not follow stays said, since a later pass that did
+     * not meet it does not make an earlier one's flow followed.
+     */
     private class State(
         val heap: Map<Pair<Obj, Element>, Cell>,
         val written: Map<Pair<Obj, Element>, String>,
         val ret: AbsVal,
-        val sinks: Map<String, AbsVal>,
-        val gaps: Set<Gap>
+        val sinks: Map<String, AbsVal>
     )
 
     /**
@@ -252,7 +255,7 @@ class Summarizer(
         private var base = 0
         private var ret = EMPTY
         private var sinks = LinkedHashMap<String, AbsVal>()
-        private var gaps = LinkedHashSet<Gap>()
+        private val gaps = LinkedHashSet<Gap>()
 
         fun run(lists: List<List<Insn>>): Summary {
             lists.forEach { execute(it) }
@@ -311,7 +314,7 @@ class Summarizer(
             val header = instructions.withIndex().firstOrNull { (index, insn) ->
                 insn is Phi && insn.paths.any { it.index >= index }
             }?.value
-            val start = State(LinkedHashMap(heap), LinkedHashMap(written), ret, LinkedHashMap(sinks), LinkedHashSet(gaps))
+            val start = State(LinkedHashMap(heap), LinkedHashMap(written), ret, LinkedHashMap(sinks))
             val values = Array(instructions.size) { EMPTY }
             val forks = HashMap<Int, Fork>()
             for (pass in 1..budget) {
@@ -319,7 +322,6 @@ class Summarizer(
                 written = LinkedHashMap(start.written)
                 ret = start.ret
                 sinks = LinkedHashMap(start.sinks)
-                gaps = LinkedHashSet(start.gaps)
                 val previous = values.copyOf()
                 instructions.forEachIndexed { index, insn -> values[index] = eval(insn, index, values, forks) }
                 if (header == null || values.contentEquals(previous)) break

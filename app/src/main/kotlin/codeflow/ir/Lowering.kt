@@ -555,9 +555,10 @@ class Lowering(private val symbols: Symbols) {
          * `super(...)` and `this(...)` are parsed as calls to a method literally named "super" or
          * "this", so no lookup by name could resolve them; attribution resolves both to the
          * constructor they delegate to, and the kind is what says which case this is. One of those
-         * is not in the source at all - a constructor that starts with neither gains a `super()` -
-         * and it always delegates outside the analysed sources, so requiring the target to be
-         * declared here drops the inserted one without having to detect it.
+         * is not in the source at all - a constructor that starts with neither gains a `super()`.
+         * Requiring the target to be declared here drops the inserted one when it delegates outside
+         * the analysed sources - to `Object()` or a library class. When the superclass is in the
+         * sources it is kept, and that constructor is run like a written `super()`.
          */
         override fun visitMethodInvocation(node: MethodInvocationTree, ctx: ProcessorContext): Val? {
             val target = symbols.element(node)

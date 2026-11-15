@@ -3,7 +3,6 @@
  */
 package codeflow
 
-import codeflow.ir.pairs
 import codeflow.java.AstReader
 import java.nio.file.FileVisitOption
 import java.nio.file.Files
@@ -53,6 +52,15 @@ private class Args(argv: Array<String>) {
 }
 
 fun main(argv: Array<String>) {
+    val status = runCli(argv)
+    if (status != 0) exitProcess(status)
+}
+
+/**
+ * The whole run, with its exit status returned rather than taken: `main` exits, a test that calls
+ * this does not take its JVM down when a fixture gains a construct nothing models.
+ */
+internal fun runCli(argv: Array<String>): Int {
     val args = Args(argv)
     val javaRootDir = args.directory ?: throw IllegalArgumentException("usage: codeflow <dir> [--from Class#method]")
     // Source paths come back from javac as absolute URIs, and AstReader relativizes them
@@ -62,14 +70,10 @@ fun main(argv: Array<String>) {
     val filesPaths = generateListOfJavaFilesFromDir(javaRootDirPath)
     val reader = AstReader(javaRootDirPath)
     if (args.flags.contains("--summaries")) {
-        val entries = reader.summarise(filesPaths, args.from)
-        println(SummariesExporter().export(entries))
-        System.err.println(
-            "codeflow: summarised ${entries.size} methods, ${entries.sumOf { it.second.pairs().size }} pairs, " +
-                    "${entries.sumOf { it.second.gaps.size }} gaps"
-        )
-        if (reader.unmodelled.isNotEmpty()) exitProcess(1)
-        return
+        val document = SummariesExporter().document(reader.summarise(filesPaths, args.from))
+        println(document.text)
+        System.err.println("codeflow: summarised ${document.methods} methods, ${document.pairs} pairs, ${document.gaps} gaps")
+        return if (reader.unmodelled.isNotEmpty()) 1 else 0
     }
     val roots = reader.process(filesPaths, args.from)
 
@@ -91,7 +95,7 @@ fun main(argv: Array<String>) {
     // The document is complete and usable, so it is written first and in full; the status is what
     // says whether everything in it was understood. A build that graphs a corpus can fail on this
     // and get the diagram anyway, which is the point of no longer throwing - see `codeflow.ir`.
-    if (reader.unmodelled.isNotEmpty()) exitProcess(1)
+    return if (reader.unmodelled.isNotEmpty()) 1 else 0
 }
 
 fun generateListOfJavaFilesFromDir(dir: Path): List<Path> {

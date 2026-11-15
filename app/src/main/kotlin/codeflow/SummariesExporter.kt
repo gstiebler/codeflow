@@ -20,14 +20,19 @@ import javax.lang.model.type.TypeVariable
  */
 class SummariesExporter {
 
-    fun export(entries: List<Pair<Method, Summary>>): String {
+    /** The document, and the totals `main` prints on stderr - counted from the rows it lists. */
+    class Document(val text: String, val methods: Int, val pairs: Int, val gaps: Int)
+
+    fun export(entries: List<Pair<Method, Summary>>): String = document(entries).text
+
+    fun document(entries: List<Pair<Method, Summary>>): Document {
         val rows = entries.map { (method, summary) -> Row(methodKey(method), method.ctx.location(method.name), summary) }
             .sortedWith(compareBy({ it.method }, { it.at }))
         val gapCounts = TreeMap<String, Int>()
         rows.forEach { row -> row.summary.gaps.forEach { gapCounts.merge(it.kind, 1, Int::plus) } }
-        val pairCount = rows.sumOf { it.summary.pairs().size }
+        val pairCount = rows.sumOf { it.pairs.size }
 
-        return buildString {
+        val text = buildString {
             appendLine("{")
             appendLine("""  "format": "codeflow-summaries",""")
             appendLine("""  "version": 1,""")
@@ -36,7 +41,7 @@ class SummariesExporter {
             }}},""")
             appendLine("""  "methods": [""")
             rows.forEachIndexed { index, row ->
-                val flows = row.summary.pairs().joinToString(", ") { """["${escape(it.first)}", "${escape(it.second)}"]""" }
+                val flows = row.pairs.joinToString(", ") { """["${escape(it.first)}", "${escape(it.second)}"]""" }
                 val gaps = row.summary.gaps.sortedWith(compareBy({ it.at }, { it.kind }, { it.detail }))
                     .joinToString(", ") {
                         """{"kind": "${escape(it.kind)}", "at": "${escape(it.at)}", "detail": "${escape(it.detail)}"}"""
@@ -49,9 +54,13 @@ class SummariesExporter {
             appendLine("  ]")
             append("}")
         }
+        return Document(text, rows.size, pairCount, gapCounts.values.sum())
     }
 
-    private class Row(val method: String, val at: String, val summary: Summary)
+    /** One method's line; its pairs are computed once, being the most expensive thing in it. */
+    private class Row(val method: String, val at: String, val summary: Summary) {
+        val pairs = summary.pairs()
+    }
 
     /** `pkg.Class#name(int,java.lang.String[])`: the class javac resolved, never text from the source. */
     private fun methodKey(method: Method): String {

@@ -1,0 +1,42 @@
+# codeflow on code nobody wrote for it: every method of one Fineract module graphed as a root.
+# The fixtures say the behaviour they were written for is unchanged; this says real input still
+# produces a document. See scripts/smoke.sh for what fails it and what is only reported.
+name: Real-corpus smoke
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned, so a change in the result is a change in codeflow and not in Fineract.
+  FINERACT_SHA: e048ee8b2b6a9f4a3b2dec2b79b4dd40ef480d99
+  FINERACT_MODULE: fineract-progressive-loan
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 25
+      uses: actions/setup-java@v4
+      with:
+        java-version: '25'
+        distribution: 'temurin'
+        cache: 'gradle'
+    - name: Build the CLI
+      run: ./gradlew installDist
+    # Only the one module, at the pinned commit: a full Fineract clone is most of a gigabyte.
+    - name: Fetch the corpus
+      run: |
+        git init -q fineract
+        cd fineract
+        git remote add origin https://github.com/apache/fineract.git
+        git sparse-checkout set "$FINERACT_MODULE"
+        git fetch -q --depth 1 --filter=blob:none origin "$FINERACT_SHA"
+        git checkout -q FETCH_HEAD
+    - name: Graph every method
+      run: scripts/smoke.sh app/build/install/app/bin/app "fineract/$FINERACT_MODULE/src/main/java" "$FINERACT_MODULE @ ${FINERACT_SHA::10}"

@@ -18,6 +18,7 @@ UPDATE_SNAPSHOTS=1 ./gradlew test    # rewrite the golden files
 ./gradlew run --args="path/to/java/dir"
 ./gradlew run --args="path/to/java/dir --html"                 # interactive page, to stdout
 ./gradlew run --args="path/to/java/dir --from Report#total"    # root(s) other than main; repeatable
+scripts/smoke.sh app/build/install/app/bin/app path/to/java/dir  # every method a root; fails on a crash or a skipped root
 
 npm test                             # typecheck, bundle freshness, viewer unit tests + corpus sweeps
 npm run test:browser                 # the exported page, in a real browser (Playwright)
@@ -30,6 +31,8 @@ npm run check:bundle                 # committed bundle matches its sources
   `Attr.visitYield` bug on real input. `jvmToolchain(25)` covers build, test and `run`; start Gradle
   with `JAVA_HOME` = a 25 too. The installed CLI (`./gradlew installDist`) uses whatever `JAVA_HOME`
   names. → `docs/decisions/toolchain.md`
+- `scripts/smoke.sh` is CI's real-corpus check (`.github/workflows/smoke.yml`, Fineract at a pinned SHA). It
+  needs `./gradlew installDist` first. Unmodelled counts are reported, not failed on.
 - `scripts/delombok.sh <src> [out]` preprocesses a Lombok corpus; codeflow parses with `-proc:none`
   and no classpath and never runs Lombok itself.
 - The viewer bundle (`app/src/main/resources/viewer/reactflow.bundle.js`) is **committed**; Gradle

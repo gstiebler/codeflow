@@ -23,18 +23,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    # Both, because the build needs both: it compiles to bytecode 21 (Kotlin 1.9 cannot target 25)
-    # and runs `test` and `run` on 25, whose javac does not have the `Attr.visitYield` assertion that
-    # 21's does. See the comments in app/build.gradle. setup-java exports JAVA_HOME_21_X64 and
-    # JAVA_HOME_25_X64, which is where Gradle's toolchain detection finds them - without the 25 here
-    # the test task has no launcher to resolve and the build fails rather than quietly using 21.
-    # 21 is listed last so it is the JAVA_HOME the daemon itself starts on.
-    - name: Set up JDK 25 and 21
+    # 25 only: its javac does not have the `Attr.visitYield` assertion that 21's does. See app/build.gradle.
+    - name: Set up JDK 25
       uses: actions/setup-java@v4
       with:
-        java-version: |
-          25
-          21
+        java-version: '25'
         distribution: 'temurin'
         cache: 'gradle'
     - name: Build with Gradle
@@ -55,13 +48,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    # Same two JDKs and the same reason as the build job: this one runs `test` too.
-    - name: Set up JDK 25 and 21
+    # Same JDK and the same reason as the build job: this one runs `test` too.
+    - name: Set up JDK 25
       uses: actions/setup-java@v4
       with:
-        java-version: |
-          25
-          21
+        java-version: '25'
         distribution: 'temurin'
         cache: 'gradle'
     # 26, matching what the viewer is developed on: `node --test` reads the .ts sources by stripping

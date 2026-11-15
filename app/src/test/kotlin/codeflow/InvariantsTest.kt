@@ -297,7 +297,7 @@ class InvariantsTest {
     private fun drawn(fixture: String): Drawn = cache.getOrPut(fixture) {
         val paths = Files.walk(testResourcesPath.resolve(fixture))
             .filter { it.toString().endsWith(".java") }.toList()
-        val analysis = AstReader(testResourcesPath).analyse(paths)
+        val analysis = AstReader(testResourcesPath).analyse(paths, BOUNDARIES[fixture] ?: emptyList())
         val builder = IrGraphBuilder(analysis.globalCtx)
         Drawn(fixture, builder.build(entry(analysis, fixture)), builder)
     }
@@ -314,7 +314,12 @@ class InvariantsTest {
             ?: analysis.globalCtx.mainMethods().first()
 
     private companion object {
-        val ENTRY_POINTS = mapOf("noMain" to "Report#total", "twoEntryPoints" to "Api#quote")
+        val ENTRY_POINTS = mapOf(
+            "noMain" to "Report#total", "twoEntryPoints" to "Api#quote", "boundary" to "App#entrypoint"
+        )
+
+        /** Drawn as the fixture's own test draws it, so the sweep checks the graph the golden holds. */
+        val BOUNDARIES = mapOf("boundary" to listOf("Boundary"))
 
         val cache = HashMap<String, Drawn>()
     }

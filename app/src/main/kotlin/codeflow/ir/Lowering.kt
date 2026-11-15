@@ -10,6 +10,7 @@ import codeflow.java.processors.GlobalContext
 import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
 import javax.lang.model.element.Modifier
+import javax.lang.model.type.TypeKind
 
 /**
  * One method's body, as instructions.
@@ -34,12 +35,15 @@ class MethodBody(val method: Method, val instructions: List<Insn>) {
  * The value each expression produces is returned as a [Val], which is an index into the list being
  * built. So an instruction never refers to a tree, only to earlier instructions.
  */
-class Lowering(private val symbols: Symbols) {
+class Lowering(private val symbols: Symbols, private val isBoundary: (Method) -> Boolean = { false }) {
 
     fun lower(method: Method): MethodBody {
         val body = Body(symbols, method.ctx)
-        body.declareParameters(method)
-        method.name.body?.accept(body, method.ctx)
+        val parameters = body.declareParameters(method)
+        // A boundary's body is not read at all: what it is assumed to do stands in for it, and
+        // everything downstream sees an ordinary method. See docs/decisions/calls-and-dispatch.md.
+        if (isBoundary(method)) body.assumeBoundary(method, parameters)
+        else method.name.body?.accept(body, method.ctx)
         body.finish()
         return MethodBody(method, body.instructions)
     }
@@ -175,8 +179,8 @@ class Lowering(private val symbols: Symbols) {
          * From the method's own element rather than looked up per declaration tree, because that is
          * what a use inside the body resolves to and what `GraphBuilderBlock` binds arguments to.
          */
-        fun declareParameters(method: Method) {
-            method.name.parameters.forEachIndexed { index, parameter ->
+        fun declareParameters(method: Method): List<Val> =
+            method.name.parameters.mapIndexed { index, parameter ->
                 val element = method.element.parameters.getOrNull(index)
                 val name = parameter.name.toString()
                 define(
@@ -186,6 +190,22 @@ class Lowering(private val symbols: Symbols) {
                     emit(Param(name, element, index, ctx.location(parameter)))
                 )
             }
+
+        /**
+         * A boundary method's assumed implementation, in place of its body:
+         * `T result = call<f>(p0, p1, ...); return result;`, and no return when it is `void`.
+         *
+         * The operation is a call javac resolved to nothing, on no object - the instruction an
+         * unresolved call already is - so the builder draws it `EXTERNAL` and the summarizer reads
+         * it as an opaque call, with no new instruction for either to learn.
+         */
+        fun assumeBoundary(method: Method, parameters: List<Val>) {
+            val source = ctx.location(method.name)
+            val call = emit(Call("call${method.name.name}", null, Receiver.TypeName, parameters, source))
+            val returnType = method.element.returnType.kind
+            if (returnType == TypeKind.VOID) return
+            val result = emit(WriteLocal("result", null, returnType.isPrimitive, call, source))
+            emit(Return(result, source))
         }
 
         /**

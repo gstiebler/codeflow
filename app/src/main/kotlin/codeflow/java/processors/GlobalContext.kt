@@ -47,6 +47,16 @@ class GlobalContext(val symbols: Symbols) {
 
     class SourceClass(val tree: ClassTree, val ctx: ProcessorContext)
 
+    /**
+     * The classes `--boundary` named. Their methods are not read: `Lowering` gives each one the
+     * assumed implementation instead - see `docs/decisions/calls-and-dispatch.md`.
+     */
+    var boundaries: Set<Element> = emptySet()
+
+    /** Whether [method] is a method (not a constructor) declared directly on a boundary class. */
+    fun isBoundary(method: Method): Boolean =
+        method.element.kind == ElementKind.METHOD && method.element.enclosingElement in boundaries
+
     /** See [unmodelledConstructs]. */
     fun recordUnmodelled(description: String) {
         unmodelledConstructs.add(description)
@@ -62,6 +72,9 @@ class GlobalContext(val symbols: Symbols) {
     fun addClass(element: Element, classTree: ClassTree, ctx: ProcessorContext) {
         classes[element] = SourceClass(classTree, ctx)
     }
+
+    /** Every class these sources declare, ordered by qualified name so a listing reads the same twice. */
+    fun sourceClasses(): List<Element> = classes.keys.sortedBy { it.toString() }
 
     /** Null for a class outside the analysed sources, whose members are not ours to walk. */
     fun findClass(element: Element?): SourceClass? = element?.let { classes[it] }

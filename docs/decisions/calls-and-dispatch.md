@@ -49,3 +49,31 @@ not, or a base class calling `super` inlines the subclass override and recurses 
 sources. `overriddenSuper` and `templateMethod` are the two halves of that assertion. `static` and
 `private` methods are not dispatched either, since neither can be overridden.
 
+
+## Boundaries: methods whose bodies are not read
+
+Some methods live outside what a reader wants to see - another team's package, a framework, a
+gateway - even when their source is in the directory. `--boundary <Class>` (repeatable) names such a
+class, matched as `--from` matches its class part: simple or qualified name, on the `Element`, never
+on a file name. A name that matches no class fails, listing the candidates, because a misspelt
+boundary would quietly read the very body it was meant to hide.
+
+Every method declared on that class (constructors and nested classes are not included) is given one
+**assumed implementation** in place of its body:
+
+```java
+T f(p0, p1, …) { T result = call<f>(p0, p1, …); return result; }   // void: the call, no return
+```
+
+`call<f>` is the instruction an unresolved call already is - a `Call` with no target, on no object -
+so the builder draws it `EXTERNAL` and the summarizer reads it as an opaque call
+(`ext:call<f>@…`), with no new instruction, node type or viewer change. A call to a boundary is drawn
+the same way every time, `args → params → call<f> → result → RETURN f → caller`, which says what
+went in without claiming anything about what happened inside.
+
+**Lowering replaces the body**, rather than the builder skipping the call, because what a method
+*means* is answered once per method and in Lowering. Everything after it - inlining per call site,
+dispatch, `--summaries` - sees an ordinary method and needs no case of its own; a skip in the builder
+would have had to be repeated in the summarizer, and two copies of that rule are two chances to
+disagree. `boundary` is the fixture; `aBoundaryBodyIsNotRead` checks the body's literals are absent
+with the flag and present without it.

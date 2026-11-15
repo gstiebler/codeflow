@@ -37,7 +37,7 @@ import javax.lang.model.element.Modifier
  */
 class IrGraphBuilder(val globalCtx: GlobalContext) {
 
-    private val lowering = Lowering(globalCtx.symbols)
+    private val lowering = Lowering(globalCtx.symbols, globalCtx::isBoundary)
 
     /** Which objects a name can point at; no nodes in it. */
     val heap = Heap(globalCtx.symbols)

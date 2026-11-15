@@ -19,6 +19,7 @@ UPDATE_SNAPSHOTS=1 ./gradlew test    # rewrite the golden files
 ./gradlew run --args="path/to/java/dir --html"                 # interactive page, to stdout
 ./gradlew run --args="path/to/java/dir --from Report#total"    # root(s) other than main; repeatable
 ./gradlew run --args="path/to/java/dir --summaries"            # every method's summary, as JSON
+./gradlew run --args="path/to/java/dir --boundary Gateway"     # Gateway's methods not read: params → call<name> → result; repeatable
 scripts/smoke.sh app/build/install/app/bin/app path/to/java/dir  # every method a root; fails on a crash or a skipped root
 
 npm test                             # typecheck, bundle freshness, viewer unit tests + corpus sweeps
@@ -115,7 +116,7 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
 | `docs/decisions/pipeline.md` | the pipeline split, entry points, exporters, Mermaid placement |
 | `docs/decisions/viewer.md` | model/renderer split, progressive reveal, badges, stubs, `openBoxes` |
 | `docs/decisions/attribution.md` | javac attribution without a classpath, kind checks, `Symbols` |
-| `docs/decisions/calls-and-dispatch.md` | per-call-site inlining, dispatch on the object |
+| `docs/decisions/calls-and-dispatch.md` | per-call-site inlining, dispatch on the object, `--boundary` |
 | `docs/decisions/identity-and-objects.md` | `serial` vs `JNodeId`, `MemPos` sets |
 | `docs/decisions/joins.md` | SSA, gated phis, guarded returns, edge kinds, loops, try |
 | `docs/decisions/constructs.md` | the `MODELLED_EXPRESSIONS` gate and why it is not a throw |

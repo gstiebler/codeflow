@@ -3,6 +3,7 @@ package codeflow.java
 import codeflow.graph.GraphException
 import codeflow.graph.Method
 import codeflow.java.processors.GlobalContext
+import javax.lang.model.element.Element
 import javax.tools.StandardJavaFileManager
 
 /**
@@ -60,9 +61,12 @@ object MethodSpec {
         val (className, methodName) = spec.split("#", limit = 2).takeIf { it.size == 2 }
             ?: throw GraphException("--from takes 'Class#method', not '$spec'")
         if (method.name.name.toString() != methodName) return false
-        val owner = method.element.enclosingElement
-        return owner.simpleName.toString() == className || owner.toString() == className
+        return matchesClass(method.element.enclosingElement, className)
     }
+
+    /** The class part on its own, which is also what `--boundary` names. */
+    fun matchesClass(owner: Element, className: String): Boolean =
+        owner.simpleName.toString() == className || owner.toString() == className
 
     fun of(method: Method) = "${method.element.enclosingElement.simpleName}#${method.name.name}"
 }

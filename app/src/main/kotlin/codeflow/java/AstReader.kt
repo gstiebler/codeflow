@@ -12,6 +12,7 @@ import com.sun.source.util.JavacTask
 import com.sun.source.util.SourcePositions
 import com.sun.source.util.Trees
 import java.nio.file.Path
+import javax.lang.model.element.Element
 import javax.tools.DiagnosticCollector
 import javax.tools.JavaFileObject
 import javax.tools.ToolProvider
@@ -38,8 +39,12 @@ class AstReader(private val basePath: Path) {
      * a question about the source and is asked once per method; which box a value is drawn as is a
      * question about a call site and is asked once per call site. See `codeflow.ir`.
      */
-    fun process(fileNames: List<Path>, entryPoints: List<String> = emptyList()): List<GraphBuilderBlock> {
-        val analysis = analyse(fileNames)
+    fun process(
+        fileNames: List<Path>,
+        entryPoints: List<String> = emptyList(),
+        boundaries: List<String> = emptyList()
+    ): List<GraphBuilderBlock> {
+        val analysis = analyse(fileNames, boundaries)
         val entries = if (entryPoints.isEmpty()) listOf(selectEntry(analysis.globalCtx, null))
         else entryPoints.map { selectEntry(analysis.globalCtx, it) }
         val root = IrGraphBuilder(analysis.globalCtx).build(entries)
@@ -56,8 +61,12 @@ class AstReader(private val basePath: Path) {
      * A spec that matches nothing fails as [selectEntry] does, listing the candidates; the filter
      * itself is [MethodSpec.matches], so what `--from` accepts means the same in both modes.
      */
-    fun summarise(fileNames: List<Path>, entryPoints: List<String> = emptyList()): List<Pair<Method, Summary>> {
-        val analysis = analyse(fileNames)
+    fun summarise(
+        fileNames: List<Path>,
+        entryPoints: List<String> = emptyList(),
+        boundaries: List<String> = emptyList()
+    ): List<Pair<Method, Summary>> {
+        val analysis = analyse(fileNames, boundaries)
         entryPoints.forEach { analysis.method(it) }
         val builder = IrGraphBuilder(analysis.globalCtx)
         val all = Summarizer(analysis.globalCtx, builder::bodyOf, builder::initializersOf).summariseAll()
@@ -76,8 +85,11 @@ class AstReader(private val basePath: Path) {
      * Split out from [process] because parse-and-attribute is the input to more than one thing: the
      * graph is one consumer, the lowering to IR (`codeflow.ir`) is another, and a test of what a
      * method *means* should not have to render a diagram to ask.
+     *
+     * [boundaries] are the classes `--boundary` names, whose methods are lowered as the assumed
+     * implementation rather than read - see [GlobalContext.isBoundary].
      */
-    fun analyse(fileNames: List<Path>): Analysis {
+    fun analyse(fileNames: List<Path>, boundaries: List<String> = emptyList()): Analysis {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
@@ -124,6 +136,7 @@ class AstReader(private val basePath: Path) {
             val ctx = getContext(compUnitTree, sourcePositions)
             compUnitTree.accept(AstProcessor(globalCtx), ctx)
         }
+        globalCtx.boundaries = boundaries.flatMapTo(LinkedHashSet()) { selectBoundary(globalCtx, it) }
         return Analysis(globalCtx, manager)
     }
 
@@ -173,6 +186,23 @@ class AstReader(private val basePath: Path) {
             )
         }
         return chosen
+    }
+
+    /**
+     * The classes one `--boundary` names, matched as `--from` matches its class part.
+     *
+     * A name that matches nothing fails, as an unknown `--from` does: a misspelt boundary would
+     * otherwise read the body it was meant to hide, and the diagram would give no sign of it. A
+     * simple name naming several classes makes every one of them a boundary, and each is reported.
+     */
+    private fun selectBoundary(globalCtx: GlobalContext, spec: String): List<Element> {
+        val candidates = globalCtx.sourceClasses()
+        val matches = candidates.filter { MethodSpec.matchesClass(it, spec) }
+        if (matches.isEmpty()) throw GraphException(
+            "No class matching '$spec' for --boundary in the analysed sources: ${candidates.joinToString(", ")}"
+        )
+        matches.forEach { System.err.println("codeflow: boundary '$it'") }
+        return matches
     }
 
     private fun getContext(compUnitTree: CompilationUnitTree, sourcePositions: SourcePositions): ProcessorContext {

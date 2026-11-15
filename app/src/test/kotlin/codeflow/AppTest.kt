@@ -30,9 +30,14 @@ class AppTest {
         .resolve("test")
         .resolve("resources")
 
-    private fun rootsOf(testDir: String, testFiles: List<String>, from: List<String> = emptyList()): List<GraphBuilderBlock> {
+    private fun rootsOf(
+        testDir: String,
+        testFiles: List<String>,
+        from: List<String> = emptyList(),
+        boundaries: List<String> = emptyList()
+    ): List<GraphBuilderBlock> {
         val testDirPath = testResourcesPath.resolve(testDir)
-        return AstReader(testResourcesPath).process(testFiles.map { testDirPath.resolve(it) }, from)
+        return AstReader(testResourcesPath).process(testFiles.map { testDirPath.resolve(it) }, from, boundaries)
     }
 
     private fun mermaid(roots: List<GraphBuilderBlock>): List<String> {
@@ -42,8 +47,12 @@ class AppTest {
         return result
     }
 
-    private fun buildGraph(testDir: String, testFiles: List<String>, from: List<String> = emptyList()): List<String> =
-        mermaid(rootsOf(testDir, testFiles, from))
+    private fun buildGraph(
+        testDir: String,
+        testFiles: List<String>,
+        from: List<String> = emptyList(),
+        boundaries: List<String> = emptyList()
+    ): List<String> = mermaid(rootsOf(testDir, testFiles, from, boundaries))
 
     /**
      * The GraphML rendering, parsed.
@@ -77,14 +86,14 @@ class AppTest {
     }
 
     /** The summaries document, as text. */
-    private fun rawSummaries(testDir: String, from: List<String> = emptyList()): String {
+    private fun rawSummaries(testDir: String, from: List<String> = emptyList(), boundaries: List<String> = emptyList()): String {
         val testDirPath = testResourcesPath.resolve(testDir)
         val files = Files.list(testDirPath).use { stream -> stream.filter { it.toString().endsWith(".java") }.sorted().toList() }
-        return SummariesExporter().export(AstReader(testResourcesPath).summarise(files, from))
+        return SummariesExporter().export(AstReader(testResourcesPath).summarise(files, from, boundaries))
     }
 
-    private fun buildSummaries(testDir: String, from: List<String> = emptyList()): JsonObject =
-        JsonParser.parseString(rawSummaries(testDir, from)).asJsonObject
+    private fun buildSummaries(testDir: String, from: List<String> = emptyList(), boundaries: List<String> = emptyList()): JsonObject =
+        JsonParser.parseString(rawSummaries(testDir, from, boundaries)).asJsonObject
 
     private fun summaryRows(doc: JsonObject) = doc.getAsJsonArray("methods").map { it.asJsonObject }
 
@@ -305,9 +314,14 @@ class AppTest {
         Files.writeString(testDirPath.resolve("graph.json"), payload)
     }
 
-    private fun codeflow(testDir: String, testFiles: List<String>, from: List<String> = emptyList()) {
+    private fun codeflow(
+        testDir: String,
+        testFiles: List<String>,
+        from: List<String> = emptyList(),
+        boundaries: List<String> = emptyList()
+    ) {
         val testDirPath = testResourcesPath.resolve(testDir)
-        val roots = rootsOf(testDir, testFiles, from)
+        val roots = rootsOf(testDir, testFiles, from, boundaries)
         val result = mermaid(roots)
         writePage(testDirPath, roots)
 
@@ -993,6 +1007,89 @@ class AppTest {
      *
      * This was the whole failure: `No method named 'main'`, and nothing about what to do next.
      */
+    private val boundaryFiles = listOf("App.java", "Boundary.java")
+
+    private fun boundaryGraph(boundaries: List<String> = listOf("Boundary")) =
+        buildGraph("boundary", boundaryFiles, from = listOf("App#entrypoint"), boundaries = boundaries)
+
+    /**
+     * A boundary method's body is not read: every literal it writes is missing with the boundary
+     * configured, and present without it - which is what says the test can see a body at all.
+     */
+    @Test
+    fun aBoundaryBodyIsNotRead() {
+        val without = nodeTypes(boundaryGraph(emptyList())).map { it.first }
+        assertTrue("9001" in without, "the fixture's body literal is not drawn even without a boundary: $without")
+        val with = nodeTypes(boundaryGraph()).map { it.first }
+        listOf("9001", "9002", "9003").forEach {
+            assertTrue(it !in with, "boundary body literal $it was drawn: $with")
+        }
+    }
+
+    /**
+     * Each call is the assumed implementation: parameters into `call<name>`, that into `result`,
+     * `result` out through the method's RETURN to the caller.
+     */
+    @Test
+    fun aBoundaryCallIsTheAssumedImplementation() {
+        val graph = boundaryGraph()
+        val types = nodeTypes(graph).toSet()
+        assertTrue("callboundaryfunc1" to "EXTERNAL" in types, "no EXTERNAL call node: $types")
+        assertTrue("result" to "VARIABLE" in types, "no result local: $types")
+        val edges = edgeLabels(graph)
+        assertTrue("x" to "callboundaryfunc1" in edges, "the parameter does not feed the call: $edges")
+        assertTrue("callboundaryfunc1" to "result" in edges, "the call does not feed result: $edges")
+    }
+
+    /** What the caller passes reaches the call it is passed to, in each arm of the `if`. */
+    @Test
+    fun argumentsReachTheBoundaryCallsTheyArePassedTo() {
+        val graph = boundaryGraph()
+        assertTrue(reaches(graph, "a", "callboundaryfunc1"), "a does not reach callboundaryfunc1")
+        assertTrue(reaches(graph, "callboundaryfunc1", "result1"), "the call's result does not reach result1")
+        assertTrue(reaches(graph, "result1", "callboundaryfunc2"), "result1 does not reach callboundaryfunc2")
+        assertTrue(reaches(graph, "result2", "callboundaryfunc3"), "result2 does not reach callboundaryfunc3")
+        assertTrue(reaches(graph, "b", "callboundaryfunc3"), "b does not reach callboundaryfunc3")
+        assertTrue(reaches(graph, "c", "callboundaryfunc3"), "c does not reach callboundaryfunc3")
+        // The negative paired with the positives above: `c` is passed to boundaryfunc3 only.
+        assertFalse(reaches(graph, "c", "callboundaryfunc2"), "c reaches callboundaryfunc2, which it is never passed to")
+    }
+
+    @Test
+    fun aBoundaryThatNamesNoClassFailsLoudly() {
+        val error = assertFailsWith<GraphException> { boundaryGraph(listOf("Nowhere")) }
+        val message = error.message ?: ""
+        assertTrue("Nowhere" in message, "error does not repeat what was asked for: $message")
+        assertTrue("boundary.Boundary" in message, "error does not name a real candidate: $message")
+    }
+
+    /** The summarizer reads the same lowered body, so a boundary summarises as one opaque call. */
+    @Test
+    fun aBoundarySummarisesAsItsAssumedImplementation() {
+        val doc = buildSummaries("boundary", boundaries = listOf("Boundary"))
+        val flows = flowsOf(doc, "boundary.Boundary#boundaryfunc2(int,int)")
+        val ext = Regex("""ext:callboundaryfunc2@[\w/]*Boundary\.java:\d+:\d+>RET""")
+        assertTrue(flows.any { it.startsWith("P0>ext-arg:callboundaryfunc2@") }, "P0 does not reach the call: $flows")
+        assertTrue(flows.any { it.startsWith("P1>ext-arg:callboundaryfunc2@") }, "P1 does not reach the call: $flows")
+        assertTrue(flows.any { ext.matches(it) }, "the call does not reach RET: $flows")
+    }
+
+    /** `--boundary` is a known flag, and what it hides is hidden on stdout too. */
+    @Test
+    fun boundaryIsAKnownFlag() {
+        val out = java.io.ByteArrayOutputStream()
+        val saved = System.out
+        System.setOut(java.io.PrintStream(out, true))
+        val status = try {
+            runCli(arrayOf(testResourcesPath.resolve("boundary").toString(), "--from", "App#entrypoint", "--boundary", "Boundary"))
+        } finally {
+            System.setOut(saved)
+        }
+        assertEquals(0, status)
+        assertTrue("callboundaryfunc1" in out.toString(), "the call is not drawn: $out")
+        assertTrue("9001" !in out.toString(), "the boundary body was drawn: $out")
+    }
+
     @Test
     fun noMainAndNoChoiceSaysHowToChoose() {
         val error = assertFailsWith<GraphException> { buildGraph("noMain", listOf("Report.java")) }
@@ -2097,6 +2194,10 @@ class AppTest {
     @Test fun twoEntryPoints() = codeflow("twoEntryPoints", listOf("Api.java"), from = listOf("Api#configure", "Api#quote"))
     @Test fun base() = codeflow("base", listOf("App.java"))
     @Test fun funcCall() = codeflow("funcCall", listOf("App.java"))
+
+    @Test fun boundary() = codeflow(
+        "boundary", boundaryFiles, from = listOf("App#entrypoint"), boundaries = listOf("Boundary")
+    )
     @Test fun member() = codeflow("member", listOf("App.java"))
     @Test fun files() = codeflow("files", listOf("App.java", "ClassX.java", "ClassY.java"))
     @Test fun constructor() = codeflow("constructor", listOf("App.java"))

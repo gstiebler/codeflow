@@ -10,7 +10,7 @@ import java.nio.file.Path
 import kotlin.system.exitProcess
 
 /**
- * `--from` takes a value and may be repeated, so the arguments cannot be read as "the one that is not a flag".
+ * `--from` and `--boundary` take a value and may be repeated, so the arguments cannot be read as "the one that is not a flag".
  *
  * `codeflow src --from App#run` would otherwise take `App#run` for the source directory - it does
  * not start with `--` - and fail on a path that was never meant to be one. Both spellings are
@@ -20,6 +20,7 @@ private class Args(argv: Array<String>) {
     var directory: String? = null
         private set
     val from = ArrayList<String>()
+    val boundaries = ArrayList<String>()
     val flags = HashSet<String>()
 
     init {
@@ -32,6 +33,11 @@ private class Args(argv: Array<String>) {
                     i++
                 }
                 arg.startsWith("--from=") -> from.add(arg.removePrefix("--from="))
+                arg == "--boundary" -> {
+                    boundaries.add(argv.getOrNull(i + 1) ?: throw IllegalArgumentException("--boundary needs a Class"))
+                    i++
+                }
+                arg.startsWith("--boundary=") -> boundaries.add(arg.removePrefix("--boundary="))
                 // An unknown flag is refused rather than ignored. The exporter chain ends in Mermaid,
                 // so a flag nobody recognises used to produce a complete, plausible document that is
                 // not the one asked for - a mistyped `--html`, or `--html-cytoscape` after the second
@@ -62,7 +68,7 @@ fun main(argv: Array<String>) {
  */
 internal fun runCli(argv: Array<String>): Int {
     val args = Args(argv)
-    val javaRootDir = args.directory ?: throw IllegalArgumentException("usage: codeflow <dir> [--from Class#method]")
+    val javaRootDir = args.directory ?: throw IllegalArgumentException("usage: codeflow <dir> [--from Class#method] [--boundary Class]")
     // Source paths come back from javac as absolute URIs, and AstReader relativizes them
     // against this one. Path.relativize throws if only one of the two is absolute.
     val javaRootDirPath = Path.of(javaRootDir).toAbsolutePath().normalize()
@@ -70,12 +76,12 @@ internal fun runCli(argv: Array<String>): Int {
     val filesPaths = generateListOfJavaFilesFromDir(javaRootDirPath)
     val reader = AstReader(javaRootDirPath)
     if (args.flags.contains("--summaries")) {
-        val document = SummariesExporter().document(reader.summarise(filesPaths, args.from))
+        val document = SummariesExporter().document(reader.summarise(filesPaths, args.from, args.boundaries))
         println(document.text)
         System.err.println("codeflow: summarised ${document.methods} methods, ${document.pairs} pairs, ${document.gaps} gaps")
         return if (reader.unmodelled.isNotEmpty()) 1 else 0
     }
-    val roots = reader.process(filesPaths, args.from)
+    val roots = reader.process(filesPaths, args.from, args.boundaries)
 
     val result = ArrayList<String>()
     // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on

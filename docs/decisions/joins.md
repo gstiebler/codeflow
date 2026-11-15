@@ -207,5 +207,14 @@ Known gaps, deliberately not closed:
 - **A write through a receiver with several holders is a strong update on each.** `(c ? a : b).x =
   v` overwrites `x` on both objects rather than possibly on either.
 
+**What it costs on real input.** On the Fineract smoke corpus the document grew 497 MB → 742 MB,
+nodes +28%, edges 2.2x, and the run took about twice as long. Most of the edges come from one method. `Memo.checkDependencyChangedAndUpdate`
+does `if (!isSame) dependencyHashCodes = new int[...]`. Every inlined call allocates a new array,
+and the join keeps the old array as well as the new one, so after k calls on one `Memo` the field
+can be any of k arrays. Each `dependencyHashCodes.length` read is then one box per array, which is
+quadratic: about 1.5M `length → length` edges. That is the correct answer under per-call-site
+allocation (an earlier array really can still be there), and the old strong update hid it.
+Naming objects by allocation site, or drawing each body once (plan B), is what would shrink it.
+
 `bothArmsOfAFieldWriteReachAReadBelowTheIf` and the tests beside it in `AppTest` are the assertions
 (fixtures `fieldIf`, `fieldSwitch`, `fieldTry`, `fieldLoop`); `LoweringTest` pins the markers.

@@ -28,7 +28,6 @@ import codeflow.ir.WriteLocal
 import codeflow.java.AstReader
 import codeflow.java.Analysis
 import java.nio.file.Files
-import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -59,8 +58,7 @@ import kotlin.test.assertTrue
  */
 class InvariantsTest {
 
-    private val testResourcesPath = System.getenv("CODEFLOW_CORPUS")?.let { Path.of(it) }
-        ?: Path.of(System.getProperty("user.dir")).resolve("src").resolve("test").resolve("resources")
+    private val testResourcesPath = TestFixtures.resources
 
     /**
      * One fixture drawn, with the instruction lists it was drawn from still in hand.
@@ -287,22 +285,7 @@ class InvariantsTest {
         assertTrue(checked > 100, "the sweep found almost no instructions to check: $checked")
     }
 
-    /**
-     * Every fixture directory, which is more than the goldens cover: `codemap` and `ls` have no test
-     * naming them at all.
-     *
-     * One exclusion, and it is a gap in the *program* rather than in codeflow: `unwrittenLocal` reads
-     * a local nothing has written, which javac rejects and attribution accepts, and refusing to draw
-     * it is what the fixture is for. Its own assertions are
-     * [codeflow.ir.LoweringTest.aLocalWithNoReachingDefinitionFailsWhereItIsRead] and
-     * [codeflow.ir.IrGraphBuilderTest.aReadWithNoReachingDefinitionStillFails].
-     */
-    private fun fixtures(): List<String> = Files.list(testResourcesPath)
-        .filter { Files.isDirectory(it) && Files.walk(it).anyMatch { f -> f.toString().endsWith(".java") } }
-        .map { it.fileName.toString() }
-        .filter { it != "unwrittenLocal" }
-        .sorted()
-        .toList()
+    private fun fixtures(): List<String> = TestFixtures.fixtures(testResourcesPath)
 
     /**
      * Analysed and drawn once per fixture, however many of these tests ask for it.

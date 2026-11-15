@@ -127,6 +127,31 @@ class AppTest {
         assertFailsWith<GraphException> { rawSummaries("abstractMethod", listOf("Source#read")) }
     }
 
+    /**
+     * A gap is the "no silently missing flow" guarantee: it has to arrive with its kind, a position and
+     * a detail, and `counts.gaps` has to say how many of each kind the rows hold.
+     */
+    @Test
+    fun aSummaryWithAGapSaysWhereAndCountsIt() {
+        val doc = buildSummaries("templateMethod")
+        val gaps = summaryRows(doc).flatMap { it.getAsJsonArray("gaps").map { gap -> gap.asJsonObject } }
+        assertEquals(listOf("dispatch"), gaps.map { it.get("kind").asString })
+        assertTrue(Regex("""[\w/]*App\.java:\d+:\d+""").matches(gaps.single().get("at").asString), gaps.single().toString())
+        assertEquals("Base#step on this", gaps.single().get("detail").asString)
+        assertEquals(gaps.size, doc.getAsJsonObject("counts").getAsJsonObject("gaps")["dispatch"].asInt)
+        assertEquals(setOf("dispatch"), doc.getAsJsonObject("counts").getAsJsonObject("gaps").keySet())
+    }
+
+    @Test
+    fun fromNarrowsTheSummariesToTheMethodsNamed() {
+        val all = buildSummaries("funcCall")
+        val one = buildSummaries("funcCall", listOf("App#methodA"))
+        assertEquals(listOf("test.App#methodA(int,int)"), summaryRows(one).map { it.get("method").asString })
+        assertEquals(1, one.getAsJsonObject("counts")["methods"].asInt)
+        assertEquals(flowsOf(all, "test.App#methodA(int,int)"), flowsOf(one, "test.App#methodA(int,int)"))
+        assertTrue(summaryRows(all).size > 1)
+    }
+
     @Test
     fun summariesRefuseAFromThatMatchesNothing() {
         assertFailsWith<GraphException> { rawSummaries("funcCall", listOf("App#nope")) }

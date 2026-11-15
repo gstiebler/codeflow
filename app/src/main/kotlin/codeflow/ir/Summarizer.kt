@@ -314,10 +314,10 @@ class Summarizer(
          *
          * `this` is the class this run was asked for, an allocation the class it was made as, and
          * anything else says nothing about its class. Where the sources override the method and the
-         * receiver is a parameter's or a field's object, nothing here can say which body runs: the
-         * call is opaque and a `dispatch` gap says why, rather than taking the declared body as the
-         * answer. `this` with no class known resolves statically, as the builder's untyped receiver
-         * does, and carries the gap too.
+         * receiver is a parameter's or a field's object, a stand-in, or nothing tracked at all,
+         * nothing here can say which body runs: the call is opaque and a `dispatch` gap says why,
+         * rather than taking the declared body as the answer. `this` with no class known resolves
+         * statically, as the builder's untyped receiver does, and carries the gap too.
          */
         private fun call(insn: Call, index: Int, values: Array<AbsVal>): AbsVal {
             val opaque = { opaqueCall(insn.name, insn.receiver.inputs + insn.args, insn, values) }
@@ -330,10 +330,12 @@ class Summarizer(
             val types = receiver.mapNotNull { typeOf(it) }.distinct()
             val virtual = Dispatch.isVirtual(insn.receiver, declared)
             if (virtual && overriddenInSources(declared)) {
-                val undecided = receiver.filter { it is PathObj && typeOf(it) == null }
-                if (undecided.isNotEmpty()) {
-                    gaps.add(Gap("dispatch", insn.source, "${label(declared)} on ${undecided.joinToString { spell(it as PathObj) }}"))
-                    if (undecided.any { it != PathObj(This) }) return opaque()
+                val undecided = receiver.filter { typeOf(it) == null }
+                if (undecided.isNotEmpty() || receiver.isEmpty()) {
+                    val on = if (receiver.isEmpty()) "an untracked receiver"
+                    else undecided.joinToString { if (it is PathObj) spell(it) else "an object with no tracked origin" }
+                    gaps.add(Gap("dispatch", insn.source, "${label(declared)} on $on"))
+                    if (receiver.isEmpty() || undecided.any { it != PathObj(This) }) return opaque()
                 }
             }
             val method = Dispatch.resolve(globalCtx, insn, types)

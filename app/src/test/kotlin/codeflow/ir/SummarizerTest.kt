@@ -298,6 +298,30 @@ class SummarizerTest {
         assertTrue("P1>RET" in s.pairs().map { "${it.first}>${it.second}" })
     }
 
+    /** A receiver from an opaque call says nothing about its class either, so the call is the same gap. */
+    @Test
+    fun dispatchOnAnUntrackedReceiverWithSeveralOverridesIsAGap() {
+        val s = summarise(
+            "class B { int g(int a) { return a; } } class C extends B { int g(int a) { return 0; } } " +
+                "class A { int f(java.util.List<B> l, int a) { B b = l.get(0); return b.g(a); } }",
+            "A#f"
+        )
+        assertEquals(listOf("dispatch"), s.gaps.map { it.kind })
+        assertTrue("P1>RET" in s.pairs().map { "${it.first}>${it.second}" }, "${s.pairs()}")
+    }
+
+    /** The same through a stand-in: the object a write gave the opaque result. */
+    @Test
+    fun dispatchOnAStandInReceiverWithSeveralOverridesIsAGap() {
+        val s = summarise(
+            "class B { int v; int g(int a) { return a; } } class C extends B { int g(int a) { return 0; } } " +
+                "class A { B b; int f(java.util.List<B> l, int a) { b = l.get(0); return b.g(a); } }",
+            "A#f"
+        )
+        assertEquals(listOf("dispatch"), s.gaps.map { it.kind })
+        assertTrue("P1>RET" in s.pairs().map { "${it.first}>${it.second}" }, "${s.pairs()}")
+    }
+
     @Test
     fun varargsCollapseLikeTheBuilder() =
         assertEquals(listOf("P0>RET", "P1>RET"), pairs("class A { int sum(int... v) { return v[0]; } int f(int a, int b) { return sum(a, b); } }", "A#f"))

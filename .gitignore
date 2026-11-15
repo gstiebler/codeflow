@@ -13,10 +13,10 @@ build
 result.md
 *.class
 # The lowered instruction list of each fixture, written next to its source on every test run so it
-# can be read alongside App.java and truth.md. Nothing asserts on it - see LoweringTest.write.
+# can be read alongside App.java and snapshot.md. Nothing asserts on it - see LoweringTest.write.
 app/src/test/resources/*/ir.txt
 # The same fixture as the interactive React Flow page, written on every test run beside the Mermaid
-# in truth.md. Nothing asserts on it either - see AppTest.writePage - and each one inlines its own
+# in snapshot.md. Nothing asserts on it either - see AppTest.writePage - and each one inlines its own
 # copy of the bundled libraries, so they are megabytes apiece and are not committed.
 app/src/test/resources/*/graph.html
 # The same payload as a file the viewer's Node tests can read, written beside graph.html on every

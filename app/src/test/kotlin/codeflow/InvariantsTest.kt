@@ -35,7 +35,7 @@ import kotlin.test.assertTrue
  *
  * These are `docs/if-written-again.md` §9's three, and the reason they are wanted is that the suite's
  * other two kinds of assertion can both pass on a graph that is wrong. A golden certifies
- * *unchanged*: `ternary/truth.md` was once written from a buggy run and passed happily while
+ * *unchanged*: `ternary/snapshot.md` was once written from a buggy run and passed happily while
  * encoding a graph with a branch missing. An `edgeLabels` assertion says two labels are adjacent and
  * nothing about where the value came from: `anInheritedMethodIsInlinedHoweverItIsReached` asserted
  * `offset -> +` while `super.shift` read a *fresh* `offset` with nothing flowing into it. And the
@@ -235,7 +235,7 @@ class InvariantsTest {
      * sides carry a position, so the claim becomes a correspondence.
      *
      * The first half is the one that catches a construct going missing, and the case it is written
-     * for is the most instructive failure in `docs/plans/codemap-port-findings.md`: `switch` used as
+     * for is the most instructive failure in `docs/archive/plans/codemap-port-findings.md`: `switch` used as
      * a statement had no visitor, so its selector was read, given a box, and left with no edge out of
      * it - the value deciding the whole branch drawn as unused, nothing declared, nothing failed, and
      * every test green. An instruction that draws nothing at all is that shape's other half, and this

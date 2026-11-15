@@ -48,7 +48,7 @@ class LoweringTest {
      * Not an assertion and not a golden file - `ir.txt` is gitignored, and nothing reads it back.
      * It is there to be looked at: the IR is what the lowering actually decided, and the only other
      * way to see it is to add a test that spells the whole list out. Reading `App.java`, `ir.txt`
-     * and `truth.md` side by side is source, meaning and diagram for the same fixture, which is
+     * and `snapshot.md` side by side is source, meaning and diagram for the same fixture, which is
      * what makes it possible to say which of the three a surprise came from.
      *
      * Written on every run rather than only when missing, for the opposite reason to

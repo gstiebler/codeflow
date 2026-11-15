@@ -1,6 +1,7 @@
 # Calls without source are boundaries — design (short)
 
 Status: approved (user request 2026-11-15, scope "calls only"; calls marked *call* are the controller's).
+Implementation: paused by the user 2026-11-15, nothing built yet.
 
 ## Intent
 A call into code we do not have — the JDK, a library, a name javac could not resolve — is drawn

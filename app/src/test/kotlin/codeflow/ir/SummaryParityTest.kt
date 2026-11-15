@@ -1,12 +1,17 @@
 package codeflow.ir
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
 import codeflow.TestFixtures
 import codeflow.graph.Method
 import codeflow.java.AstReader
 import java.nio.file.Files
+import java.nio.file.Path
 import javax.lang.model.element.ElementKind
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.type.TypeKind
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.slf4j.LoggerFactory
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -24,6 +29,9 @@ import kotlin.test.fail
  * each with its reason. The test fails on a difference the map does not name *and* on an entry
  * that no longer happens, so the map stays the record of where the two disagree rather than
  * growing into a list of excuses nobody rereads.
+ *
+ * [theCorpusInCodeflowParitySrcHasNoSilentlyMissingPair] runs the same comparison on a real corpus,
+ * by hand: `CODEFLOW_PARITY_SRC=<java dir> ./gradlew test --tests '*SummaryParityTest*'`.
  */
 class SummaryParityTest {
 
@@ -37,13 +45,20 @@ class SummaryParityTest {
         "fieldIf/App#calleeThatForks/P1>RET/extra" to ROOT_THIS,
     )
 
-    /** Methods compared and builder pairs seen, so a sweep that compared nothing cannot pass. */
+    /** Methods compared and pairs seen on each side, so a sweep that compared nothing cannot pass. */
     private var compared = 0
     private var pairsDrawn = 0
+    private var pairsSummarised = 0
+
+    /** One pair in one direction, and the gap kinds of the method it was found on. */
+    private data class Difference(val key: String, val missing: Boolean, val gaps: Set<String>)
 
     @Test
     fun everySummaryHasTheBuildersParameterToResultPairs() {
-        val found = TestFixtures.fixtures().flatMap { differences(it) }
+        val found = TestFixtures.fixtures().flatMap {
+            val dir = TestFixtures.resources.resolve(it)
+            differences(TestFixtures.resources, dir, it)
+        }.map { it.key }
         val unexplained = found.filter { it !in knownDifferences }
         val stale = knownDifferences.keys.filter { it !in found }
         assertTrue(compared > 40 && pairsDrawn > 25, "the sweep compared almost nothing: $compared methods, $pairsDrawn pairs")
@@ -57,11 +72,55 @@ class SummaryParityTest {
         }
     }
 
-    /** One fixture analysed once, and every method in it with a result compared. */
-    private fun differences(fixture: String): List<String> {
-        val paths = Files.walk(TestFixtures.resources.resolve(fixture))
-            .filter { it.toString().endsWith(".java") }.toList()
-        return AstReader(TestFixtures.resources).analyse(paths).use { analysis ->
+    /**
+     * The same comparison on a corpus nobody wrote for codeflow, run by hand and skipped otherwise:
+     * a corpus is not in the repository, and the numbers are a measurement, not a golden.
+     *
+     * What it fails on is the one difference the fixtures' map could never excuse on code nobody has
+     * read: a pair the builder draws and the summary lacks on a method with no gap to say so. Every
+     * other difference is reported - recall, precision, and each kind with a few examples - because
+     * an `extra` is an over-approximation, and a `missing` on a method with a gap is already named.
+     *
+     * The log is turned down to warnings while it runs: the builder logs every node at debug, about
+     * 300 MB of stderr for one Fineract root, and Gradle holds a test's output in memory until the
+     * daemon dies of it.
+     */
+    @Test
+    fun theCorpusInCodeflowParitySrcHasNoSilentlyMissingPair() {
+        val src = System.getenv("CODEFLOW_PARITY_SRC")
+        assumeTrue(src != null, "CODEFLOW_PARITY_SRC names no corpus")
+        val root = Path.of(src!!).toAbsolutePath().normalize()
+        val log = LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger
+        val level = log.level
+        log.level = Level.WARN
+        val found = try {
+            differences(root, root, root.fileName.toString())
+        } finally {
+            log.level = level
+        }
+        assertTrue(compared > 0, "nothing in $root has a result to compare")
+        val missing = found.count { it.missing }
+        val extra = found.size - missing
+        println("parity: $compared methods, $pairsDrawn pairs drawn, $pairsSummarised summarised")
+        println("parity: recall ${percent(pairsDrawn - missing, pairsDrawn)}, precision ${percent(pairsSummarised - extra, pairsSummarised)}")
+        found.groupBy { reason(it) }.toSortedMap().forEach { (reason, all) ->
+            println("parity: ${all.size} $reason")
+            all.take(5).forEach { println("parity:   ${it.key}") }
+        }
+        val silent = found.filter { it.missing && it.gaps.isEmpty() }
+        assertTrue(silent.isEmpty(), "pairs the builder draws and no gap explains:\n" + silent.joinToString("\n") { "  ${it.key}" })
+    }
+
+    private fun reason(d: Difference): String =
+        (if (d.missing) "missing" else "extra") +
+                (if (d.gaps.isEmpty()) ", no gap" else ", gaps ${d.gaps.sorted().joinToString(",")}")
+
+    private fun percent(part: Int, whole: Int) = if (whole == 0) "n/a" else "%.1f%%".format(100.0 * part / whole)
+
+    /** The sources under [dir] analysed once, relative to [root], and every method with a result compared. */
+    private fun differences(root: Path, dir: Path, name: String): List<Difference> {
+        val paths = Files.walk(dir).filter { it.toString().endsWith(".java") }.toList()
+        return AstReader(root).analyse(paths).use { analysis ->
             val builder = IrGraphBuilder(analysis.globalCtx)
             val summarizer = Summarizer(analysis.globalCtx, builder::bodyOf, builder::initializersOf)
             val methods = analysis.methods().filter { returnsAValue(it) }
@@ -72,10 +131,13 @@ class SummaryParityTest {
                 val summarised = summary.pairs()
                     .filter { it.second == "RET" && PARAM.matches(it.first) }
                     .map { "${it.first}>RET" }.toSet()
-                val at = "$fixture/${keys.getValue(method)}"
+                val at = "$name/${keys.getValue(method)}"
+                val gaps = summary.gaps.map { it.kind }.toSet()
                 compared++
                 pairsDrawn += drawn.size
-                (drawn - summarised).map { "$at/$it/missing" } + (summarised - drawn).map { "$at/$it/extra" }
+                pairsSummarised += summarised.size
+                (drawn - summarised).map { Difference("$at/$it/missing", true, gaps) } +
+                        (summarised - drawn).map { Difference("$at/$it/extra", false, gaps) }
             }
         }
     }

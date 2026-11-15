@@ -395,6 +395,29 @@ class SummarizerTest {
         assertEquals(listOf("alias"), s.gaps.map { it.kind }, "${s.gaps}")
     }
 
+    /**
+     * Two writes of one field through two parameters, passed one object: which the callee made
+     * last decides what the field holds, and the summary does not know the order. Joining both
+     * gives `[P0>RET, P1>RET]` where the builder, inlining, draws `P1>RET` only - so it is a gap.
+     */
+    @Test
+    fun twoWritesThroughTwoParametersOnOneObjectAreAnAliasGap() {
+        val s = summarise(
+            "class B { int v; } class A { void g(B p, B q, int a, int k) { q.v = a; p.v = k; } " +
+                "int f(int a, int k) { B b = new B(); g(b, b, a, k); return b.v; } }",
+            "A#f"
+        )
+        assertEquals(listOf("alias"), s.gaps.map { it.kind }, "${s.gaps}")
+        assertTrue(s.gaps.single().detail.contains("B.v"), "${s.gaps}")
+        val apart = summarise(
+            "class B { int v; } class A { void g(B p, B q, int a, int k) { q.v = a; p.v = k; } " +
+                "int f(int a, int k) { B b = new B(); B c = new B(); g(b, c, a, k); return b.v; } }",
+            "A#f"
+        )
+        assertEquals(emptyList(), apart.gaps.toList())
+        assertEquals(listOf("P1>RET"), apart.pairs().map { "${it.first}>${it.second}" })
+    }
+
     /** Two objects passed for two parameters do not alias: the same callee, no gap. */
     @Test
     fun twoObjectsForTwoParametersAreNoAliasGap() {

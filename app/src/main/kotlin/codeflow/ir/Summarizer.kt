@@ -518,6 +518,15 @@ class Summarizer(
          * other name has run. The summary cannot give that flow, and says so: `g(b, b)`, `o.g(o)`.
          * A path a summary names is followed off the entry heap, so each field it goes through is a
          * read too.
+         *
+         * Two writes of one field through two such paths are the same: an effect is a field's final
+         * value, and which of the two the callee made last - the one the field keeps - is not in
+         * it, so joining them would give a flow the builder does not draw (`g(b, b)` writing `q.v`
+         * then `p.v`).
+         *
+         * The check is order-insensitive, so it may over-report: a read that came after the write
+         * through the other name, or two writes on paths that never both run, is still a gap. Too
+         * many gaps is a summary that says it is unsure; too few is one that is silently wrong.
          */
         private fun aliases(callee: Summary, label: String, site: String, objs: (Obj) -> Set<Obj>) {
             val reads = LinkedHashSet<Pair<PathObj, Element>>()
@@ -535,6 +544,11 @@ class Summarizer(
             for ((read, f) in reads) for ((write, g) in writes) {
                 if (f != g || read == write || objs(read).none { it in objs(write) }) continue
                 gaps.add(Gap("alias", site, "$label reads ${spell(read, f)} and writes ${spell(write, f)}, which are one object here"))
+            }
+            for ((i, w) in writes.withIndex()) for ((other, g) in writes.drop(i + 1)) {
+                val (write, f) = w
+                if (f != g || write == other || objs(write).none { it in objs(other) }) continue
+                gaps.add(Gap("alias", site, "$label writes ${spell(write, f)} and ${spell(other, f)}, which are one object here"))
             }
         }
 

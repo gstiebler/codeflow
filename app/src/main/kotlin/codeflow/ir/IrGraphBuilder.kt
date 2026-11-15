@@ -26,6 +26,14 @@ import javax.lang.model.element.Modifier
  * A body is lowered once and instantiated per call site. That is the split the IR exists for, and
  * it is why the four satellite scanners are not needed: a second question about the same call site
  * is a second look at the same instruction list, not a second walk of the same trees.
+ *
+ * One thing is held across instructions rather than named by them: what each field holds. A local
+ * is joined by [Lowering] with a [Phi]; a field is heap state resolved per call site, so the
+ * builder keeps a journal of field writes while a [FieldFork] is open and merges them at the
+ * [FieldJoin] - see [journal]. Without it the last write in the flat list wins and an `if`'s other
+ * arm is drawn as a dead end. Known gaps, on `docs/decisions/joins.md`: no back edge for a field
+ * in a loop body, `?:`/`&&`/`||` arms are not forked, and a write through a receiver with several
+ * holders is a strong update on each.
  */
 class IrGraphBuilder(val globalCtx: GlobalContext) {
 
@@ -47,6 +55,113 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
     }
 
     fun fieldNode(owner: MemPos, id: GraphNodeId): GraphNode? = fields[owner.id]?.get(id)
+
+    /**
+     * Field writes since each open [FieldFork] began, with what each key held before - see
+     * [FieldFork].
+     *
+     * Only *fields* are journaled: a local or a [Bind] also goes through [record], but [Lowering]
+     * already joins those with a [Phi], and undoing or merging them here would draw the join twice.
+     * One list for the whole builder, because a callee runs nested inside the call that reached it,
+     * so its forks open and close inside the caller's and nest correctly with nothing more.
+     */
+    private val journal = ArrayList<Pair<FieldKey, FieldState?>>()
+    private val openForks = ArrayList<OpenFork>()
+
+    /** Whether a field write has to be journaled, which is only while some fork is open. */
+    val forking: Boolean get() = openForks.isNotEmpty()
+
+    /**
+     * What a field holds right now, everything a read of it would consult: the box, and the objects
+     * the value could be. Null when nothing has written (or read) it.
+     */
+    fun fieldState(key: FieldKey): FieldState? {
+        val node = if (key.owner != null) fields[key.owner]?.get(key.id) else key.block!!.getVariable(key.id)?.lastNode
+        return node?.let { FieldState(it, if (key.isPrimitive) emptySet() else heap.objectsOf(key.id)) }
+    }
+
+    /** Puts a field back to [state], or to holding nothing when it is null. Not journaled. */
+    private fun restore(key: FieldKey, state: FieldState?) {
+        if (key.owner != null) {
+            if (state == null) fields[key.owner]?.remove(key.id) else fields.getOrPut(key.owner) { HashMap() }[key.id] = state.node
+        } else {
+            key.block!!.rebindVariable(key.id, state?.node)
+        }
+        if (!key.isPrimitive) heap.setObjects(key.id, state?.objects ?: emptySet())
+    }
+
+    /**
+     * Sets a field to [state] as a write would, so that it is undone with the path that made it.
+     *
+     * [before] is what the field held, for the caller that drew a box registering itself as the
+     * field's last node on the way: asking again would find that box, and undoing would put it back.
+     */
+    fun setFieldState(key: FieldKey, state: FieldState, before: FieldState? = fieldState(key)) {
+        if (before != null && before.node === state.node && before.objects == state.objects) return
+        if (forking) journal.add(key to before)
+        restore(key, state)
+    }
+
+    /** Notes a field write just made, with what the field held before it. */
+    fun journalWrite(key: FieldKey, before: FieldState?) {
+        journal.add(key to before)
+    }
+
+    fun openFork(): OpenFork = OpenFork(journal.size).also { openForks.add(it) }
+
+    /**
+     * One path of [fork] has ended: set aside what its writes left, and put the fields back.
+     *
+     * [block] is the block the fork is being run in. A field with no holder is looked up through the
+     * block chain, and a write from a callee went to the callee's block - which nothing outside it
+     * can read - so those are undone like the rest and then dropped rather than merged.
+     */
+    fun endArm(fork: OpenFork, block: GraphBuilderBlock) {
+        val left = LinkedHashMap<FieldKey, FieldState>()
+        for (index in fork.mark until journal.size) {
+            val key = journal[index].first
+            if (key in left || (key.block != null && key.block !== block)) continue
+            fieldState(key)?.let { left[key] = it }
+        }
+        for (index in journal.size - 1 downTo fork.mark) {
+            val (key, before) = journal[index]
+            restore(key, before)
+            journal.removeAt(index)
+        }
+        fork.arms.add(left)
+    }
+
+    /**
+     * Every field any of [arms] wrote, with each distinct box that can arrive for it.
+     *
+     * Read before the fork is closed and the result applied after, so that what is written back is
+     * journaled into the fork enclosing this one, if there is one. A path that did not write a field
+     * arrives with what the fork held; so does the fork itself, when [withEntry]. A field nothing
+     * held yet arrives only from the paths that wrote it.
+     */
+    fun mergeFields(fork: OpenFork, arms: List<Int>, withEntry: Boolean, armNames: List<String>): List<FieldMerge> {
+        val keys = LinkedHashSet<FieldKey>()
+        arms.forEach { keys.addAll(fork.arms[it].keys) }
+        return keys.map { key ->
+            val entry = fieldState(key)
+            val arrived = ArrayList<Pair<FieldState, String?>>()
+            arms.forEachIndexed { position, arm ->
+                (fork.arms[arm][key] ?: entry)?.let { arrived.add(it to armNames.getOrNull(position)) }
+            }
+            if (withEntry && entry != null) arrived.add(entry to null)
+            val byBox = arrived.groupBy { it.first.node }
+            FieldMerge(key, byBox.values.map { paths ->
+                // The same rule as for locals: a value that came down exactly one named path is that
+                // arm's, and one that came down several is neither.
+                FieldMerge.Reaching(paths.first().first, paths.map { it.second }.singleOrNull())
+            })
+        }
+    }
+
+    fun closeFork(fork: OpenFork) {
+        check(openForks.lastOrNull() === fork) { "fields forked and joined out of order" }
+        openForks.removeAt(openForks.size - 1)
+    }
 
     /** Every static field's current node, as if nothing had been written before - see [forgetStatics]. */
     private fun staticWrites(): Map<GraphNodeId, GraphNode> =
@@ -108,6 +223,8 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
     }
 
     fun build(root: Method, firstSerial: Int = 0): GraphBuilderBlock {
+        journal.clear()
+        openForks.clear()
         val block = GraphBuilderBlock(
             null, root, PosStack(), emptySet(), root.ctx, root.ctx.location(root.name), firstSerial
         )
@@ -175,6 +292,9 @@ class Frame(
     private inner class Run {
         val values = ArrayList<Value?>()
 
+        /** The forks this list has opened and not yet closed, by the [Val] of their [FieldFork]. */
+        val forks = HashMap<Int, OpenFork>()
+
         /** Edges waiting on a value from further down the list - see [Phi.addPath]. */
         val backEdges = ArrayList<Pair<GraphNode, Val>>()
 
@@ -185,6 +305,9 @@ class Frame(
             ?: throw GraphException("Instruction ${v.index} produced no value in ${block.getMethodName()}")
 
         fun objects(v: Val): Set<MemPos> = values[v.index]?.objects ?: emptySet()
+
+        fun fork(v: Val): OpenFork = forks[v.index]
+            ?: throw GraphException("Instruction ${v.index} is no open fork in ${block.getMethodName()}")
 
         fun connectBackEdges() = backEdges.forEach { (phi, value) -> node(value).addEdge(phi) }
     }
@@ -240,7 +363,25 @@ class Frame(
 
         is WriteField -> {
             val holders = holderOf(insn.receiver, insn.element, insn, run)
-            write(insn.name, insn.element, insn.isPrimitive, holders, run.objects(insn.value), insn, run.node(insn.value))
+            write(
+                insn.name, insn.element, insn.isPrimitive, holders, run.objects(insn.value), insn,
+                run.node(insn.value), journal = true
+            )
+        }
+
+        is FieldFork -> {
+            run.forks[run.reached] = builder.openFork()
+            null
+        }
+
+        is FieldArm -> {
+            builder.endArm(run.fork(insn.fork), block)
+            null
+        }
+
+        is FieldJoin -> {
+            fieldJoin(insn, run)
+            null
         }
 
         is ThisRef -> thisValue(insn)
@@ -363,8 +504,10 @@ class Frame(
         insn: Insn
     ): Value {
         val id = JNodeId(stack, name, element, setOfNotNull(holder))
-        val node = holder?.let { builder.fieldNode(it, id) }
-            ?: block.getVariable(id)?.lastNode
+        // An object's field is the object's: the block chain is only for a field with no holder.
+        // Asking it for the other kind too would find the write a branch had undone, since a write
+        // registers itself in its block whether or not the builder still holds it.
+        val node = (if (holder != null) builder.fieldNode(holder, id) else block.getVariable(id)?.lastNode)
             ?: if (holder == null && written) {
                 block.addExternal(base(id, insn), emptyList())
             } else {
@@ -397,13 +540,16 @@ class Frame(
         holders: Set<MemPos>,
         valueObjects: Set<MemPos>,
         insn: Insn,
-        valueNode: GraphNode
+        valueNode: GraphNode,
+        journal: Boolean = false
     ): Value {
         val written = if (isPrimitive) emptySet()
         else valueObjects.ifEmpty { setOf(builder.heap.allocate(insn.source)) }
         val nodes = holders.ifEmpty { setOf(null) }.map { holder ->
             val owning = setOfNotNull(holder)
             val id = JNodeId(stack, name, element, owning)
+            val key = if (journal && builder.forking) FieldKey(holder?.id, id, block.takeIf { holder == null }, isPrimitive) else null
+            val before = key?.let { builder.fieldState(it) }
             val node = if (isPrimitive) {
                 builder.record(block.addPrimitiveVariable(base(id, insn)), owning)
             } else {
@@ -411,6 +557,7 @@ class Frame(
             }
             block.addAssignment(node, valueNode)
             if (!isPrimitive) builder.heap.setObjects(id, written)
+            key?.let { builder.journalWrite(it, before) }
             node
         }
         return Value(nodes.first(), written)
@@ -488,6 +635,56 @@ class Frame(
         // of the paths did or the loop's own contribution arrives at the wrong box.
         pending.forEach { run.backEdges.add((chosen ?: node) to it) }
         return Value(node, arrived.flatMapTo(HashSet()) { run.objects(it) })
+    }
+
+    /**
+     * The fields where paths meet: each one the paths disagree about is a box taking the value from
+     * each, and one they agree about is not drawn - see [FieldJoin].
+     *
+     * Drawn like [phi], gated or not, and for the same reasons: the choosing is one box taking the
+     * paths and the gate, captioned with the construct and keyed by it *and* the field - one `if`
+     * decides several, and the key is `(position, label)` - and what comes out of it is the field,
+     * which is what a read below the join arrives at. The field's own box is keyed by its
+     * declaration and holder like any write, so that `record` files it where a read looks.
+     *
+     * Nothing here is a back edge: a read inside a loop body does not see the body's later write.
+     */
+    private fun fieldJoin(insn: FieldJoin, run: Run) {
+        val fork = run.fork(insn.fork)
+        val merges = builder.mergeFields(fork, insn.arms, insn.withEntry, insn.armNames)
+        // Closed before the result goes back, so that it is journaled into the fork around this one
+        // when there is one, and into nothing when there is not.
+        if (insn.closes) builder.closeFork(fork)
+        for (merge in merges) {
+            val key = merge.key
+            val before = builder.fieldState(key)
+            val single = merge.reaching.singleOrNull()
+            if (single != null) {
+                builder.setFieldState(key, single.state, before)
+                continue
+            }
+            val gate = insn.gate
+            val paths = merge.reaching.map { it.state.node to (if (gate == null) EdgeKind.FLOW else armKind(it.arm)) }
+            val chosen = gate?.let {
+                block.addSelection(
+                    base(labelId("${it.label} ${key.id.label}", insn), insn, it.label),
+                    paths + (run.node(it.value) to EdgeKind.CONDITION)
+                )
+            }
+            val node = block.addJoin(
+                base(key.id, insn),
+                chosen?.let { listOf(it to EdgeKind.FLOW) } ?: paths,
+                key.isPrimitive
+            )
+            val objects = if (key.isPrimitive) emptySet() else merge.reaching.flatMapTo(HashSet()) { it.state.objects }
+            builder.setFieldState(key, FieldState(node, objects), before)
+        }
+    }
+
+    private fun armKind(arm: String?) = when (arm) {
+        "true" -> EdgeKind.TRUE
+        "false" -> EdgeKind.FALSE
+        else -> EdgeKind.FLOW
     }
 
     /**

@@ -160,6 +160,12 @@ drawn rather than as its own pass over the IR, so it still has no observable but
 still have no element model; and a phi's back edge contributes no objects, because the value it
 names has not been drawn when the phi is.
 
+**Fields at joins are done, in the builder rather than in SSA.** A field is heap state, so
+`Lowering` cannot phi it; it marks where the paths of an `if`, `switch`, `try` or loop begin and end
+(`FieldFork`, `FieldArm`, `FieldJoin`) and the builder journals field writes and merges them at the
+join - `docs/decisions/joins.md`. That is the mechanism a points-to pass would replace; it keeps
+the builder's per-call-site resolution and none of it moves a golden.
+
 The alias state now lives in `ir/Heap.kt` and holds no graph nodes (the fields an object holds are
 a map in `IrGraphBuilder`), so it can be built and asserted on without drawing - `HeapTest`. It is
 still filled in while drawing, not by a separate pass.

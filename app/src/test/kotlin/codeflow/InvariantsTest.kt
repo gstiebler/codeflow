@@ -8,6 +8,9 @@ import codeflow.ir.Bind
 import codeflow.ir.Call
 import codeflow.ir.Const
 import codeflow.ir.Delegate
+import codeflow.ir.FieldArm
+import codeflow.ir.FieldFork
+import codeflow.ir.FieldJoin
 import codeflow.ir.Insn
 import codeflow.ir.IrGraphBuilder
 import codeflow.ir.New
@@ -132,6 +135,9 @@ class InvariantsTest {
         is Opaque -> insn.label
         is Unmodelled -> insn.kind
         is ReadField, is Return, is ThisRef, is Delegate -> null
+        // Markers, not values. A fork and an arm draw nothing, and a join draws a box per *field the
+        // paths disagree about* - none when they agree - so no one box can be asked of it.
+        is FieldFork, is FieldArm, is FieldJoin -> null
     }
 
     /**

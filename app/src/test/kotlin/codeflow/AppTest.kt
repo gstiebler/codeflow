@@ -2006,7 +2006,130 @@ class AppTest {
     @Test fun objectArgument() = codeflow("objectArgument", listOf("App.java"))
     @Test fun returnedObject() = codeflow("returnedObject", listOf("App.java"))
     @Test fun unassignedField() = codeflow("unassignedField", listOf("App.java"))
-    @Test fun enumConstant() = codeflow("enumConstant", listOf("App.java"))
+    /** An edge of a given kind, which [edgeLabels] ignores: `n3[x]:::VARIABLE -->|true| n9[if]:::BIN_OP`. */
+    private fun hasEdge(graph: List<String>, from: String, kind: String, to: String): Boolean {
+        val edge = Regex("""n\d+\[${Regex.escape(from)}]:::\w+ -->\|$kind\| n\d+\[${Regex.escape(to)}]""")
+        return graph.any { edge.containsMatchIn(it) }
+    }
+
+    private fun assertAllReach(graph: List<String>, to: String, vararg from: String) {
+        from.forEach { assertTrue(reaches(graph, it, to), "'$it' does not reach '$to'") }
+    }
+
+    /**
+     * A field written on both sides of an `if` can hold either value below it.
+     *
+     * The builder walked the instructions in order, so the arm written last won: `a` in `pick` was
+     * drawn as a dead end and `x` held only `b`. Locals were never affected, because `Lowering` gives
+     * them a phi; a field is heap state the builder owns, so the join has to be made there.
+     * `a` and `b` are parameters so that the claim is about the field and not about a literal.
+     */
+    @Test
+    fun bothArmsOfAFieldWriteReachAReadBelowTheIf() {
+        val graph = buildGraph("fieldIf", listOf("App.java"))
+        assertAllReach(graph, "pick", "a", "b")
+        assertAllReach(graph, "picked", "101", "102")
+    }
+
+    /**
+     * What decided is an input to the field's join, drawn the way an `if` over a local is: the
+     * choosing is a box captioned `if` that takes each value with the arm it came down and the
+     * condition, and the variable `x` comes out of it.
+     */
+    @Test
+    fun theConditionOfAnIfReachesTheFieldItDecides() {
+        val graph = buildGraph("fieldIf", listOf("App.java"))
+        assertTrue(hasEdge(graph, "pickFlag", "if", "if"), "the condition does not reach the join")
+        assertTrue(hasEdge(graph, "x", "true", "if"), "the true arm is not marked")
+        assertTrue(hasEdge(graph, "x", "false", "if"), "the false arm is not marked")
+        assertTrue("if" to "x" in edgeLabels(graph), "the join does not come out as the field")
+    }
+
+    /** One arm writes and there is no `else`: the value from above the `if` arrives down the other side. */
+    @Test
+    fun aFieldWrittenInOneArmOfAnIfStillHoldsWhatItHeldBefore() {
+        val graph = buildGraph("fieldIf", listOf("App.java"))
+        assertAllReach(graph, "kept", "111", "122")
+        assertTrue(hasEdge(graph, "y", "false", "if"), "the value from before the if is not the false path")
+        assertTrue(hasEdge(graph, "y", "true", "if"), "the value the arm wrote is not the true path")
+    }
+
+    /** The inner `if` is joined first, and that join is one of the two paths of the outer. */
+    @Test
+    fun nestedBranchesOnAFieldJoinInsideOut() {
+        val graph = buildGraph("fieldIf", listOf("App.java"))
+        assertAllReach(graph, "nestedSeen", "131", "132", "133")
+        assertTrue(hasEdge(graph, "inner", "if", "if"), "the inner condition does not reach its join")
+        assertTrue(hasEdge(graph, "outer", "if", "if"), "the outer condition does not reach its join")
+    }
+
+    /**
+     * An arm that returns still wrote the field, and a caller reading it afterwards may see that.
+     *
+     * Deliberately over-approximate: fields join over every arm, including the ones that return,
+     * throw or break, because the object outlives the method. Dropping such an arm would be the
+     * same silent claim in the other direction, and a field read after the call is the usual way the
+     * value of a guard clause is ever observed.
+     */
+    @Test
+    fun anArmThatReturnsStillContributesItsFieldWrite() {
+        val graph = buildGraph("fieldIf", listOf("App.java"))
+        assertAllReach(graph, "errSeen", "141", "142")
+        assertAllReach(graph, "quietSeen", "151")
+    }
+
+    @Test
+    fun aCalleeWritingInEachArmIsJoinedInTheCaller() {
+        val graph = buildGraph("fieldIf", listOf("App.java"))
+        assertAllReach(graph, "calleeSeen", "161", "162")
+    }
+
+    /** A callee that forks while its caller's fork is open: both levels join. */
+    @Test
+    fun aCalleeThatForksInsideAnArmIsJoinedWithTheOtherArm() {
+        val graph = buildGraph("fieldIf", listOf("App.java"))
+        assertAllReach(graph, "forkedSeen", "171", "172", "173")
+    }
+
+    /** With no `default` the value from above reaches the bottom, and with one it does not. */
+    @Test
+    fun everyArmOfASwitchOnAFieldReachesAReadBelowIt() {
+        val graph = buildGraph("fieldSwitch", listOf("App.java"))
+        assertAllReach(graph, "openSeen", "201", "202", "203")
+        assertAllReach(graph, "closedSeen", "212", "213")
+        assertFalse(reaches(graph, "211", "closedSeen"), "a default overwrites the value from above")
+        assertAllReach(graph, "arrowSeen", "231", "232", "233")
+        assertAllReach(graph, "expressionSeen", "241", "242")
+    }
+
+    /** `case 2:` below a `break`-less `case 1:` starts from the two joined. */
+    @Test
+    fun aFallingThroughSwitchArmStartsFromBothWaysItIsReached() {
+        val graph = buildGraph("fieldSwitch", listOf("App.java"))
+        assertAllReach(graph, "throughSeen", "221", "222")
+        assertAllReach(graph, "otherSeen", "223", "224")
+    }
+
+    /** The handler and the `try` both reach below, and a throw can land in the handler from the start. */
+    @Test
+    fun aTryAndItsHandlerBothReachAFieldReadAfterThem() {
+        val graph = buildGraph("fieldTry", listOf("App.java"))
+        assertAllReach(graph, "parsedSeen", "301", "parseInt")
+        assertAllReach(graph, "beforeSeen", "311", "parseInt")
+        assertAllReach(graph, "cleanSeen", "321")
+    }
+
+    /** A loop runs zero times or more, so the value from before it reaches below as well. */
+    @Test
+    fun aFieldWrittenInALoopBodyJoinsWithTheValueFromBeforeTheLoop() {
+        val graph = buildGraph("fieldLoop", listOf("App.java"))
+        assertAllReach(graph, "totalSeen", "401", "402")
+        assertAllReach(graph, "lastSeen", "411", "412")
+        assertAllReach(graph, "eachSeen", "421", "422")
+        assertAllReach(graph, "againSeen", "431", "432")
+    }
+
+    @Test fun enumConstant() =codeflow("enumConstant", listOf("App.java"))
     @Test fun lambda() = codeflow("lambda", listOf("App.java"))
     @Test fun statementLambda() = codeflow("statementLambda", listOf("App.java"))
     @Test fun enhancedFor() = codeflow("enhancedFor", listOf("App.java"))
@@ -2045,4 +2168,8 @@ class AppTest {
     @Test fun unsupported() = codeflow("unsupported", listOf("App.java"))
     @Test fun unsupportedAssignment() = codeflow("unsupportedAssignment", listOf("App.java"))
     @Test fun unmodelledReceiver() = codeflow("unmodelledReceiver", listOf("App.java"))
+    @Test fun fieldIf() = codeflow("fieldIf", listOf("App.java"))
+    @Test fun fieldSwitch() = codeflow("fieldSwitch", listOf("App.java"))
+    @Test fun fieldTry() = codeflow("fieldTry", listOf("App.java"))
+    @Test fun fieldLoop() = codeflow("fieldLoop", listOf("App.java"))
 }

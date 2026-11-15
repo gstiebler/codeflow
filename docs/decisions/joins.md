@@ -144,3 +144,68 @@ codeflow has lost as one arriving from nowhere, which is indistinguishable from 
 silent wrongness the gate exists to prevent, with the loud failure removed.
 `aLocalWithNoReachingDefinitionFailsWhereItIsRead` and `aLocalWithNoValueStillFails` guard it.
 
+
+## Fields join too, and the builder does it
+
+A local is joined by `Lowering`, which knows by name which variables two paths disagree about. A
+field cannot be: `this.x` and `other.x` are the same place or not depending on which objects the
+receivers are *at this call site*, and only `IrGraphBuilder` knows that. So the builder used to walk
+the flat instruction list and let the last write win - `if (c) this.x = a; else this.x = b; return
+this.x;` drew `a -> x` as a dead end and only `b -> x -> RETURN`. Silently wrong, in the
+direction this project is arranged against.
+
+`Lowering` marks the paths and the builder does the joining. Three instructions, none of them in
+`MODELLED_EXPRESSIONS` (they are not expressions) and none drawing a box of their own:
+
+- `FieldFork` opens a fork. The builder pushes a mark on its field-write journal.
+- `FieldArm(fork)` ends one path: the writes since the mark are kept as that arm's, then **undone**,
+  so the next path starts from the state the fork began with.
+- `FieldJoin(fork, arms, withEntry, gate, armNames, closes)` merges the named arms, plus the state
+  from before the fork if `withEntry`.
+
+`Lowering` emits them where its `definitions` forks: `if` (arms true/false, no entry, gated by the
+condition, an absent `else` is an empty arm), a `switch` statement (one fall-through join before
+each arm reached by falling, ungated; the bottom join takes the arms that leave the `switch` and has
+the entry when there is no `default`; an arm that falls into the next is not one of them), a `switch`
+expression (no fall-through, no entry), a `try` with handlers (each handler is entered through a
+join of the before and after states, and the end joins every path, ungated), and a loop (one arm
+plus the entry - zero iterations - ungated, `do` included). A `try` with only a `finally` is one
+path and emits nothing. The end of a construct is `closes`: it pops the fork, and the merged state is
+written *after* that so an enclosing fork journals it as its own arm's write.
+
+**Only field writes are journaled, and only while a fork is open.** Locals and `Bind` also pass
+through `record`, but they already have a phi, and journaling them would draw the join twice. Outside
+a fork the journal is off, so straight-line code costs nothing. The state is one map per run, so a
+callee's forks open and close inside its caller's and nest with no extra bookkeeping.
+
+**Merging draws like `Frame.phi`.** One distinct value: no box, the field just holds it. Several: a
+gated join draws the choosing (`addSelection`, keyed `"<gate label> <field>"`, captioned with the
+gate label) taking each value with TRUE/FALSE where exactly one arm brought it, and the gate value
+as a CONDITION; the field's own box (`addJoin`) comes out of it, over the union of the objects. An
+ungated join (`try`, loop, fall-through) is FLOW edges into the variable. An arm that did not write
+contributes the entry value; **with no entry value and a single writing arm the arm's value is
+carried across** - a field nothing wrote holds its default, which the diagram does not draw at
+every join.
+
+Fields join over **all** arms, including those that return, throw or `break`. That is deliberate and
+over-approximate: the object outlives the method, so what a guard clause wrote is what a caller
+reads afterwards, and dropping such an arm is the same silent wrongness the other way. Locals do
+the opposite (`completesNormally`) because a local dies with the frame.
+
+Owner-less fields (a receiver nothing can track) are looked up through the block-parent chain, not
+the object's fields. Their key carries the block, a write in another block (a nested callee) is
+dropped at the arm's end, and `readFrom` only falls back to the chain for them: otherwise an *undone*
+owned write would still be found through it. `GraphBuilderBlock.rebindVariable` puts a variable back.
+
+Known gaps, deliberately not closed:
+
+- **No back edge for fields in a loop body.** A local gets a header phi taking what the body left
+  for the next iteration; a field read at the top of the body sees only the state before the loop,
+  so `x = x + 1` in a loop does not flow into itself. The join *after* the loop is right.
+- **`?:`, `&&` and `||` are not forked.** Their arms are expressions and a field write inside one is
+  rare; each write lands in sequence, last wins.
+- **A write through a receiver with several holders is a strong update on each.** `(c ? a : b).x =
+  v` overwrites `x` on both objects rather than possibly on either.
+
+`bothArmsOfAFieldWriteReachAReadBelowTheIf` and the tests beside it in `AppTest` are the assertions
+(fixtures `fieldIf`, `fieldSwitch`, `fieldTry`, `fieldLoop`); `LoweringTest` pins the markers.

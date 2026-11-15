@@ -100,6 +100,22 @@ class GraphBuilderBlock(
     }
 
     /**
+     * Points [id] at [node] in this block, or forgets it here when [node] is null.
+     *
+     * Only for putting a field back where a branch found it, or setting it to what two branches
+     * left - see [codeflow.ir.FieldFork]. A node made by the `add...` calls registers itself, and
+     * that is still how every ordinary write happens.
+     */
+    fun rebindVariable(id: GraphNodeId, node: GraphNode?) {
+        val existing = nodeIdToVariable[id]
+        when {
+            node == null -> nodeIdToVariable.remove(id)
+            existing == null -> nodeIdToVariable[id] = Variable(node)
+            else -> existing.lastNode = node
+        }
+    }
+
+    /**
      * A return is not a variable and has no declaration to be keyed by, so it uses the plain
      * label-and-stack key. The stack is this block's, which is unique to this invocation, and
      * nothing looks the node up: whatever returns a value reaches it through [addReturnNode].

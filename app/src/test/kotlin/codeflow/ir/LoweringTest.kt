@@ -392,23 +392,117 @@ class LoweringTest {
                 "3: write b <- 2",
                 "4: const 7",
                 "5: binOp == 3 4",
-                "6: const 13",
-                "7: write b <- 6",
-                "8: const 17",
-                "9: write a <- 8",
-                "10: phi a 2 9 ? 5",
-                "11: phi b 7 3 ? 5",
-                "12: write c <- 11",
-                "13: write d <- 10"
+                "6: fieldFork",
+                "7: const 13",
+                "8: write b <- 7",
+                "9: fieldArm 6",
+                "10: const 17",
+                "11: write a <- 10",
+                "12: fieldArm 6",
+                "13: phi a 2 11 ? 5",
+                "14: phi b 8 3 ? 5",
+                "15: fieldJoin 6 arms=[0, 1] if ? 5 [true, false] close",
+                "16: write c <- 14",
+                "17: write d <- 13"
             ),
             lower("if1", listOf("App.java"), "App#main")
         )
     }
 
     /**
+     * The paths of a branch are marked for the fields they write, which a local needs no marker for.
+     *
+     * A local is joined by a `phi` because `Lowering` knows which names the paths disagree about; a
+     * field is heap state resolved per call site, so all it can say is where the paths begin
+     * (`fieldFork`), where each ends (`fieldArm`) and what joins them (`fieldJoin`). A `switch` with
+     * a `default` has no `+entry`, one without has it, and `case 2:` below a `break`-less `case 1:`
+     * is reached by the fall-through as well - joined before it, ungated, with arm 0 left out of the
+     * bottom join because it ends by falling into arm 1 rather than out of the `switch`. A handler
+     * starts from the join of the state before the `try` and after it; a loop is one path plus the
+     * way round it. An arm that returns is still an arm.
+     */
+    @Test
+    fun theArmsOfABranchAreMarkedForTheFieldsTheyWrite() {
+        assertEquals(
+            listOf(
+                "0: param k",
+                "1: const 221",
+                "2: writeField this.through <- 1",
+                "3: fieldFork",
+                "4: const 1",
+                "5: binOp == 0 4",
+                "6: const 222",
+                "7: writeField this.through <- 6",
+                "8: fieldArm 3",
+                "9: fieldJoin 3 arms=[0] +entry",
+                "10: const 2",
+                "11: binOp == 0 10",
+                "12: const 223",
+                "13: writeField this.other <- 12",
+                "14: fieldArm 3",
+                "15: const 224",
+                "16: writeField this.other <- 15",
+                "17: fieldArm 3",
+                "18: fieldJoin 3 arms=[1, 2] switch ? 0 close"
+            ),
+            lower("fieldSwitch", listOf("App.java"), "App#fall")
+        )
+        assertEquals(
+            listOf(
+                "0: param text",
+                "1: const 311",
+                "2: writeField this.before <- 1",
+                "3: fieldFork",
+                "4: call parseInt on static 0",
+                "5: writeField this.before <- 4",
+                "6: fieldArm 3",
+                "7: fieldJoin 3 arms=[0] +entry",
+                "8: bind failure",
+                "9: call length on 0",
+                "10: fieldArm 3",
+                "11: fieldJoin 3 arms=[0, 1] close"
+            ),
+            lower("fieldTry", listOf("App.java"), "App#quiet")
+        )
+        assertEquals(
+            listOf(
+                "0: param n",
+                "1: const 401",
+                "2: writeField this.total <- 1",
+                "3: const 0",
+                "4: write i <- 3",
+                "5: phi i 4 10",
+                "6: fieldFork",
+                "7: binOp < 5 0",
+                "8: const 402",
+                "9: writeField this.total <- 8",
+                "10: unOp postInc 5",
+                "11: fieldArm 6",
+                "12: fieldJoin 6 arms=[0] +entry close"
+            ),
+            lower("fieldLoop", listOf("App.java"), "App#counted")
+        )
+        assertEquals(
+            listOf(
+                "0: param bad",
+                "1: fieldFork",
+                "2: const 141",
+                "3: writeField this.err <- 2",
+                "4: return",
+                "5: fieldArm 1",
+                "6: const 142",
+                "7: writeField this.err <- 6",
+                "8: fieldArm 1",
+                "9: fieldJoin 1 arms=[0, 1] if ? 0 [true, false] close"
+            ),
+            lower("fieldIf", listOf("App.java"), "App#guarded")
+        )
+    }
+
+    /**
      * A loop's header holds what the body left behind, which is produced after it.
      *
-     * `phi y 4 11` at instruction 7 names instruction 11, which is the `y = 7` inside the body -
+     * `phi y 4 12` at instruction 7 names instruction 12, which is the `y = 7` inside the body -
      * the only place the instruction list points forwards, and the reason a [Val] is an index
      * rather than a reference to an instruction. The header has to exist before the body is
      * lowered, since every use inside the body resolves to it; what the body leaves behind is only
@@ -428,16 +522,19 @@ class LoweringTest {
                 "4: write y <- 3",
                 "5: const 0",
                 "6: write i <- 5",
-                "7: phi y 4 11",
-                "8: phi i 6 12",
-                "9: binOp < 8 2",
-                "10: const 7",
-                "11: write y <- 10",
-                "12: unOp postInc 8",
-                "13: write z <- 7",
-                "14: const 1",
-                "15: binOp += 7 14",
-                "16: write y <- 15"
+                "7: phi y 4 12",
+                "8: phi i 6 13",
+                "9: fieldFork",
+                "10: binOp < 8 2",
+                "11: const 7",
+                "12: write y <- 11",
+                "13: unOp postInc 8",
+                "14: fieldArm 9",
+                "15: fieldJoin 9 arms=[0] +entry close",
+                "16: write z <- 7",
+                "17: const 1",
+                "18: binOp += 7 17",
+                "19: write y <- 18"
             ),
             lower("forLoop", listOf("App.java"), "App#main")
         )
@@ -507,12 +604,16 @@ class LoweringTest {
             listOf(
                 "0: param args",
                 "1: write value <- 0",
-                "2: bind text <- 1",
-                "3: readField static.out",
-                "4: call println on 3 2",
-                "5: readField static.out",
-                "6: const \"none\"",
-                "7: call println on 5 6"
+                "2: fieldFork",
+                "3: bind text <- 1",
+                "4: readField static.out",
+                "5: call println on 4 3",
+                "6: fieldArm 2",
+                "7: readField static.out",
+                "8: const \"none\"",
+                "9: call println on 7 8",
+                "10: fieldArm 2",
+                "11: fieldJoin 2 arms=[0, 1] switch ? 1 close"
             ),
             lower("unboundLocal", listOf("App.java"), "App#main")
         )

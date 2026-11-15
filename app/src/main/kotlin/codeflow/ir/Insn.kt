@@ -151,6 +151,75 @@ class Phi(
             (gate?.let { " ? ${it.value}" } ?: "")
 }
 
+/**
+ * Opens a join point for *fields*, which a [Phi] cannot do.
+ *
+ * A local is resolved by [Lowering] while the tree is in hand, so it can keep a `definitions` map,
+ * fork it per path and join it with a phi. A field cannot: which object `a.f` lands on is a fact of
+ * the call site (aliasing, dispatch, which callee wrote it), and lowering runs once per method. So
+ * the builder holds the fields' state, and the lowering only says where paths part and meet:
+ * [FieldFork], [FieldArm] and [FieldJoin]. They are control markers and draw no box of their own.
+ * Drawn straight through, both arms of an `if` ran in sequence and the last write won - `a` in
+ * `if (c) this.x = a; else this.x = b;` was a dead end.
+ *
+ * Its own [Val] is the handle that the arms and joins of this fork name. It produces no value.
+ */
+class FieldFork(source: String) : Insn(source) {
+    override val inputs get() = emptyList<Val>()
+    override fun render() = "fieldFork"
+}
+
+/**
+ * One path out of [fork] ends here: what its field writes left behind is set aside, and the fields
+ * go back to what they held at the fork, so the next path starts from the same place.
+ *
+ * Emitted for *every* path, including one that cannot complete normally (`return`, `throw`,
+ * `break`). That is the deliberate difference from locals: a returning arm contributes nothing to
+ * the join below it, but its field writes are still visible to the caller after the call - `if (bad)
+ * { this.err = 1; return; }` - and last-write-wins used to keep them. Excluding the arm would be a new
+ * miss; merging a value that cannot arrive is the lesser wrong, the same argument `completesNormally`
+ * makes for locals.
+ */
+class FieldArm(val fork: Val, source: String) : Insn(source) {
+    override val inputs get() = emptyList<Val>()
+    override fun render() = "fieldArm $fork"
+}
+
+/**
+ * Where paths of [fork] meet: every field any of the selected arms wrote is merged.
+ *
+ * [arms] are indices into the arms [FieldArm] has captured for this fork, in order. [withEntry]
+ * adds the state at the fork as one more way to arrive - the loop that ran zero times, the `switch`
+ * with no `default`, the handler a throw reached from the top of the `try`, the `case` reached
+ * directly as well as by falling through. A field one path wrote and nothing before the fork did has
+ * no entry value, and is carried across as it stands, as a local only one side knows is.
+ *
+ * Fields that end up holding one value are not drawn. Several are one box: gated by [gate] when
+ * something chose (an `if`, a `switch`), with a TRUE/FALSE edge per value that arrived down exactly one
+ * of the paths named in [armNames] - which runs parallel to [arms] and is empty where nothing is
+ * named - and ungated otherwise, as plain flow.
+ *
+ * [closes] is false for a join in the middle of a fork (a `switch` arm falling into the next, a
+ * handler starting from the `try` and what came before it) and true for the one that ends it, which
+ * is what lets the builder know when to stop recording writes.
+ *
+ * Its inputs are the gate only: the fork is a handle, not a value that flows.
+ */
+class FieldJoin(
+    val fork: Val,
+    val arms: List<Int>,
+    val withEntry: Boolean,
+    val gate: Gate?,
+    val armNames: List<String>,
+    val closes: Boolean,
+    source: String
+) : Insn(source) {
+    override val inputs get() = listOfNotNull(gate?.value)
+    override fun render() = "fieldJoin $fork arms=$arms" + (if (withEntry) " +entry" else "") +
+            (gate?.let { " ${it.label} ? ${it.value}" } ?: "") +
+            (if (armNames.isEmpty()) "" else " $armNames") + (if (closes) " close" else "")
+}
+
 /** `a + b`. [label] is already the display form, since `/` cannot be drawn as itself - see below. */
 class BinOp(val label: String, val left: Val, val right: Val, source: String) : Insn(source) {
     override val inputs get() = listOf(left, right)

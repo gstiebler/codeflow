@@ -426,10 +426,14 @@ class Lowering(private val symbols: Symbols) {
             val condition = evaluate(node.condition, ctx)
             val before = LinkedHashMap(definitions)
             val source = ctx.location(node)
+            // Fields are joined by the builder, which knows what they alias - see [FieldFork]. An
+            // absent `else` is an empty arm, so the value from before the `if` arrives down "false".
+            val fork = emit(FieldFork(source))
             // A branch that leaves the method is claimed here rather than at the join, because it is
             // not at the join: that is the whole reason a guarded exit had nothing gating it.
             val beforeThen = exits.size
             scan(node.thenStatement, ctx)
+            emit(FieldArm(fork, source))
             guard(beforeThen, condition, "true", source)
             val fromThen = if (completesNormally(node.thenStatement)) LinkedHashMap(definitions) else null
             definitions.clear()
@@ -437,6 +441,7 @@ class Lowering(private val symbols: Symbols) {
             val otherwise = node.elseStatement
             val beforeElse = exits.size
             otherwise?.let { scan(it, ctx) }
+            emit(FieldArm(fork, source))
             guard(beforeElse, condition, "false", source)
             val fromElse = if (otherwise == null || completesNormally(otherwise)) {
                 LinkedHashMap(definitions)
@@ -448,6 +453,9 @@ class Lowering(private val symbols: Symbols) {
             // false one.
             val paths = listOfNotNull(fromThen?.to("true"), fromElse?.to("false"))
             join(paths.map { it.first }, source, Gate("if", condition), paths.map { it.second })
+            // Both arms, whether or not they complete: unlike a local, a field written by an arm
+            // that returns is still there for the caller - see [FieldArm].
+            emit(FieldJoin(fork, listOf(0, 1), false, Gate("if", condition), listOf("true", "false"), true, source))
             return null
         }
 
@@ -741,6 +749,7 @@ class Lowering(private val symbols: Symbols) {
             val entry = LinkedHashMap(definitions)
             val exits = ArrayList<Map<Any, Definition>>()
             val alternatives = ArrayList<Val>()
+            val fork = emit(FieldFork(ctx.location(node)))
             node.cases.forEach { case ->
                 definitions.clear()
                 definitions.putAll(entry)
@@ -752,8 +761,15 @@ class Lowering(private val symbols: Symbols) {
                 // colon, has to complete abruptly, so a `yield` is the only way out of the bottom.
                 val last = case.body ?: case.statements?.lastOrNull()
                 if (last !is StatementTree || completesNormally(last)) exits.add(LinkedHashMap(definitions))
+                emit(FieldArm(fork, ctx.location(case)))
             }
             join(exits, ctx.location(node), Gate("switch", selector))
+            emit(
+                FieldJoin(
+                    fork, node.cases.indices.toList(), false, Gate("switch", selector), emptyList(), true,
+                    ctx.location(node)
+                )
+            )
             return emit(Select("switch", listOf(selector) + alternatives, ctx.location(node),
                 alternatives = alternatives, condition = selector))
         }
@@ -816,9 +832,14 @@ class Lowering(private val symbols: Symbols) {
             val exits = ArrayList<Map<Any, Definition>>()
             var fellThrough = false
             var hasDefault = false
-            node.cases.forEach { case ->
+            val fork = emit(FieldFork(ctx.location(node)))
+            // The arms of the fork that end at the bottom of the `switch`, which is not the ones that
+            // fall into the next: that arm's writes arrive through the arm below it.
+            val bottom = ArrayList<Int>()
+            node.cases.forEachIndexed { position, case ->
                 if (fellThrough) {
                     join(listOf(LinkedHashMap(definitions), entry), ctx.location(case), Gate("switch", selector))
+                    emit(FieldJoin(fork, listOf(position - 1), true, null, emptyList(), false, ctx.location(case)))
                 } else {
                     definitions.clear()
                     definitions.putAll(entry)
@@ -838,12 +859,17 @@ class Lowering(private val symbols: Symbols) {
                     else -> last is BreakTree
                 }
                 if (reachesTheBottom) exits.add(LinkedHashMap(definitions))
+                emit(FieldArm(fork, ctx.location(case)))
+                if (!(fellThrough && case !== node.cases.last())) bottom.add(position)
             }
             if (!hasDefault) exits.add(entry)
             // The selector, not each arm's `==`: which arm ran is decided by the one value, and
             // naming the comparisons instead would need the case labels threaded through to say
             // which of them belongs to which path.
             join(exits, ctx.location(node), Gate("switch", selector))
+            // Every arm that ends at the bottom, including one that returns or throws - see [FieldArm]
+            // - and the state before the `switch` too when no `default` can have caught everything.
+            emit(FieldJoin(fork, bottom, !hasDefault, Gate("switch", selector), emptyList(), true, ctx.location(node)))
             return null
         }
 
@@ -924,7 +950,11 @@ class Lowering(private val symbols: Symbols) {
                 key to Definition(before.name, before.element, before.isPrimitive, emit(phi)) to phi
             }
             headers.forEach { (entry, _) -> definitions[entry.first] = entry.second }
+            val fork = emit(FieldFork(source))
             body()
+            // What the body wrote and what was there before it: the loop may have run zero times.
+            emit(FieldArm(fork, source))
+            emit(FieldJoin(fork, listOf(0), true, null, emptyList(), true, source))
             headers.forEach { (entry, phi) ->
                 phi.addPath(definitions.getValue(entry.first).value)
                 definitions[entry.first] = entry.second
@@ -982,16 +1012,28 @@ class Lowering(private val symbols: Symbols) {
         override fun visitTry(node: TryTree, ctx: ProcessorContext): Val? {
             node.resources.forEach { scan(it, ctx) }
             val entry = LinkedHashMap(definitions)
+            // Without a handler there is one path and nothing to join.
+            val fork = if (node.catches.isEmpty()) null else emit(FieldFork(ctx.location(node)))
             scan(node.block, ctx)
+            fork?.let { emit(FieldArm(it, ctx.location(node))) }
             val afterTry = LinkedHashMap(definitions)
             val exits = ArrayList<Map<Any, Definition>>()
             if (completesNormally(node.block)) exits.add(afterTry)
             node.catches.forEach { handler ->
                 join(listOf(entry, afterTry), ctx.location(handler))
+                // A throw can land here from anywhere inside the `try`: what it wrote, and what was
+                // there before it.
+                fork?.let { emit(FieldJoin(it, listOf(0), true, null, emptyList(), false, ctx.location(handler))) }
                 scan(handler, ctx)
+                fork?.let { emit(FieldArm(it, ctx.location(handler))) }
                 if (completesNormally(handler.block)) exits.add(LinkedHashMap(definitions))
             }
             join(exits, ctx.location(node))
+            fork?.let {
+                emit(
+                    FieldJoin(it, (0..node.catches.size).toList(), false, null, emptyList(), true, ctx.location(node))
+                )
+            }
             node.finallyBlock?.let { scan(it, ctx) }
             return null
         }

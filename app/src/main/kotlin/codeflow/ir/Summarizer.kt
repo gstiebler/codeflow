@@ -149,7 +149,9 @@ class Summarizer(
                 is WriteField -> {
                     val stored = stored(v(insn.value), insn.isPrimitive, insn)
                     val element = insn.element
-                    if (element != null) holders(insn.receiver, element, values).forEach { write(it to element, stored) }
+                    val holders = element?.let { holders(insn.receiver, it, values) } ?: emptySet()
+                    if (holders.isEmpty()) untracked(insn, insn.name, element)
+                    holders.forEach { write(it to element!!, stored) }
                     stored
                 }
                 is FieldFork -> EMPTY.also { forks[index] = Fork(journal.size).also { openForks.add(it) } }
@@ -232,15 +234,30 @@ class Summarizer(
         /**
          * A field read, on every object the receiver can be.
          *
-         * An enum constant is its own declaration and brings nothing in, as in the builder. A field
-         * with no holder this can name is a field of an object from outside, and brings nothing in
-         * either - the builder draws it as an EXTERNAL with no inputs.
+         * An enum constant is its own declaration and brings nothing in, as in the builder. So does
+         * a static field of a class outside the sources, named through its type: it is the
+         * builder's EXTERNAL with no inputs, a value from outside rather than one lost here. Any
+         * other read with no holder is - see [untracked].
          */
         private fun readField(insn: ReadField, values: Array<AbsVal>): AbsVal {
-            val element = insn.element ?: return EMPTY
-            if (element.kind == ElementKind.ENUM_CONSTANT) return EMPTY
-            return holders(insn.receiver, element, values)
-                .fold(EMPTY) { acc, holder -> acc + read(holder to element, insn) }
+            val element = insn.element
+            if (element?.kind == ElementKind.ENUM_CONSTANT) return EMPTY
+            val holders = element?.let { holders(insn.receiver, it, values) } ?: emptySet()
+            if (holders.isEmpty()) {
+                if (insn.receiver != Receiver.TypeName) untracked(insn, insn.name, element)
+                return EMPTY
+            }
+            return holders.fold(EMPTY) { acc, holder -> acc + read(holder to element!!, insn) }
+        }
+
+        /**
+         * A field access on an object nothing here can name - a receiver from an opaque call, or a
+         * field javac did not resolve. What flows through it is not followed, so the summary says
+         * where it stopped instead of leaving the read empty or the write gone without a trace.
+         */
+        private fun untracked(insn: Insn, name: String, element: Element?) {
+            val what = if (element == null) "unresolved field $name" else "field $name on an untracked receiver"
+            gaps.add(Gap("unmodelled", insn.source, what))
         }
 
         /**
@@ -251,21 +268,28 @@ class Summarizer(
          * at most [DEPTH_CAP] fields deep; an object reached at the cap is not followed further, and
          * says so with a `depth` gap rather than leaving the reads off it silently empty.
          */
-        private fun read(key: Pair<Obj, Element>, insn: ReadField): AbsVal {
-            heap[key]?.let { return it.value }
+        private fun read(key: Pair<Obj, Element>, insn: ReadField): AbsVal =
+            (heap[key] ?: entry(key, insn.isPrimitive, insn.source)).value
+
+        /**
+         * What [key] held when the method began, recorded as its box without journaling it.
+         *
+         * A [PathObj]'s field is the caller's and held something before the call, so it is an input.
+         * An object this method allocated starts with nothing in its fields.
+         */
+        private fun entry(key: Pair<Obj, Element>, isPrimitive: Boolean, at: String): Cell {
             val (holder, field) = key
             val value = if (holder is PathObj) {
                 val objs: Set<Obj> = when {
-                    insn.isPrimitive -> emptySet()
+                    isPrimitive -> emptySet()
                     holder.fields.size + 1 < DEPTH_CAP -> setOf(PathObj(holder.root, holder.fields + field))
-                    else -> emptySet<Obj>().also { gaps.add(Gap("depth", insn.source, spell(holder, field))) }
+                    else -> emptySet<Obj>().also { gaps.add(Gap("depth", at, spell(holder, field))) }
                 }
                 AbsVal(setOf(FieldAtom(holder, field)), objs)
             } else {
                 EMPTY
             }
-            heap[key] = Cell(value)
-            return value
+            return Cell(value).also { heap[key] = it }
         }
 
         /** A strong update, journaled while a fork is open so the arm that made it can undo it. */
@@ -302,14 +326,23 @@ class Summarizer(
          * and the gate when something chose.
          *
          * Merged before the fork closes and applied after, so the result is journaled into the fork
-         * around this one. A field nothing held before the fork arrives only from the arms that wrote
-         * it - the builder has no entry box for it, and neither does this.
+         * around this one.
+         *
+         * A field of the caller's that nothing here touched before the fork still held something:
+         * the arm that did not write it arrives with that, so it is the entry. This is where a summary
+         * parts from the builder drawing the method as a root, which has no box for it and lets the
+         * one arm's write stand alone - a summary is read in a caller, where the field may well hold
+         * a value. A field of an object allocated here has no entry, and arrives only from the arms.
          */
         private fun fieldJoin(insn: FieldJoin, fork: Fork, values: Array<AbsVal>) {
             val keys = LinkedHashSet<Pair<Obj, Element>>()
             insn.arms.forEach { keys.addAll(fork.arms[it].keys) }
             val merges = keys.map { key ->
-                val entry = heap[key]
+                val entry = heap[key] ?: if (key.first is PathObj) {
+                    entry(key, key.second.asType().kind.isPrimitive, insn.source)
+                } else {
+                    null
+                }
                 val arrived = LinkedHashSet<Cell>()
                 insn.arms.forEach { arm -> (fork.arms[arm][key] ?: entry)?.let { arrived.add(it) } }
                 if (insn.withEntry && entry != null) arrived.add(entry)

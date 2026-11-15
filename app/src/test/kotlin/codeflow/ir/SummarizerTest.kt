@@ -74,6 +74,43 @@ class SummarizerTest {
             )
         )
 
+    /**
+     * The arm that did not write arrives with what the caller's field held, so the old value is
+     * still an output of its own. Here the summary parts from the builder drawing `f` as a root,
+     * which has no box for a field nothing wrote and lets the one write stand alone.
+     */
+    @Test
+    fun aFieldWrittenOnSomePathsKeepsItsEntryValue() =
+        assertEquals(
+            listOf("P0>this.A.x", "P1>this.A.x", "this.A.x>this.A.x"),
+            pairs("class A { int x; void f(boolean c, int a) { if (c) x = a; } }", "A#f")
+        )
+
+    /**
+     * A fresh object's field starts empty: there is no caller's value for the other arm to keep, so
+     * one box arrives and, as in the builder, the join takes no gate.
+     */
+    @Test
+    fun aFieldOfAnObjectAllocatedHereHasNoEntryValue() =
+        assertEquals(
+            listOf("P1>RET"),
+            pairs("class B { int v; } class A { int f(boolean c, int a) { B b = new B(); if (c) b.v = a; return b.v; } }", "A#f")
+                .filter { !it.contains("ext") }
+        )
+
+    /** A receiver from an opaque call is no object this can name, and the summary says so. */
+    @Test
+    fun aFieldThroughAnUntrackedReceiverIsAGap() {
+        val src = "class B { int v; } class A { " +
+            "int read(java.util.List<B> l) { return l.get(0).v; } " +
+            "void write(java.util.List<B> l, int a) { l.get(0).v = a; } }"
+        for (method in listOf("A#read", "A#write")) {
+            val gaps = summarise(src, method).gaps
+            assertEquals(listOf("unmodelled"), gaps.map { it.kind }, method)
+            assertTrue(gaps.single().detail.contains("v"), "$gaps")
+        }
+    }
+
     /** Two constants and nothing else, so the only way `c` arrives is as the phi's gate. */
     @Test
     fun aGatedPhiCarriesItsCondition() =

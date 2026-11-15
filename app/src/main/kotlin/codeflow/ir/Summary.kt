@@ -99,7 +99,7 @@ data class AbsVal(val flows: Set<Atom> = emptySet(), val objs: Set<Obj> = emptyS
 /**
  * Where a summary is incomplete, and why - so that "complete except through ..." can be said.
  *
- * [kind] is one of `dispatch`, `fixpoint`, `depth`, `unmodelled`, `body`, `alias`; [at] is `file:line:col`.
+ * [kind] is one of `dispatch`, `fixpoint`, `depth`, `unmodelled`, `body`, `alias`, `escape`; [at] is `file:line:col`.
  */
 data class Gap(val kind: String, val at: String, val detail: String)
 

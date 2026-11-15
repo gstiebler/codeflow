@@ -40,6 +40,12 @@ class SummarizerTest {
         }
     }
 
+    /**
+     * The gaps but `escape`: an object a caller makes and lets die is one, at each field it set
+     * ([anObjectThatEscapesWithItsFieldsIsAnEscapeGap]), and a test about another kind asserts the rest.
+     */
+    private fun Summary.besidesEscape() = gaps.filter { it.kind != "escape" }
+
     private fun Summary.spelled() = pairs().map { "${it.first}>${it.second}".replace(SITE, "@_") }
 
     private fun pairs(source: String, method: String) =
@@ -145,6 +151,24 @@ class SummarizerTest {
         val three = summarise(src, "A#three")
         assertEquals(listOf("depth"), three.gaps.map { it.kind })
         assertEquals("RET.B.next.B.next.B.v", three.gaps.single().detail)
+    }
+
+    /**
+     * An object handed to an opaque call, or thrown, leaves with its fields, and no output spells
+     * them: `a` reaches nothing. Not followed, so said - one `escape` gap at the write.
+     */
+    @Test
+    fun anObjectThatEscapesWithItsFieldsIsAnEscapeGap() {
+        val src = "class E { int amount; } class MyEx extends RuntimeException { int code; MyEx(int c) { code = c; } } " +
+            "class A { java.util.List<E> repo; " +
+            "void persist(int a) { E e = new E(); e.amount = a; repo.add(e); } " +
+            "static void thrower(int a) { throw new MyEx(a); } }"
+        val persist = summarise(src, "A#persist")
+        assertEquals(listOf("escape"), persist.gaps.map { it.kind }, "${persist.gaps}")
+        assertTrue(persist.gaps.single().detail.startsWith("E.amount"), "${persist.gaps}")
+        val thrower = summarise(src, "A#thrower")
+        assertEquals(listOf("escape"), thrower.gaps.map { it.kind }, "${thrower.gaps}")
+        assertTrue(thrower.gaps.single().detail.startsWith("MyEx.code"), "${thrower.gaps}")
     }
 
     /** Reached only past the cap, the object's field cannot be spelled, and that is said. */
@@ -407,8 +431,8 @@ class SummarizerTest {
     @Test
     fun oneObjectForTwoParametersIsAnAliasGap() {
         val s = summarise("class B { int v; } class A { int g(B p, B q, int a) { q.v = a; return p.v; } int f(int a) { B b = new B(); return g(b, b, a); } }", "A#f")
-        assertEquals(listOf("alias"), s.gaps.map { it.kind }, "${s.gaps}")
-        assertTrue(s.gaps.single().detail.contains("B.v"), "${s.gaps}")
+        assertEquals(listOf("alias"), s.besidesEscape().map { it.kind }, "${s.gaps}")
+        assertTrue(s.besidesEscape().single().detail.contains("B.v"), "${s.gaps}")
     }
 
     /** The same through `this` and a parameter: `o.g(o, a)` writes `o.x` as `P0` and reads it as `this`. */
@@ -430,14 +454,14 @@ class SummarizerTest {
                 "int f(int a, int k) { B b = new B(); g(b, b, a, k); return b.v; } }",
             "A#f"
         )
-        assertEquals(listOf("alias"), s.gaps.map { it.kind }, "${s.gaps}")
-        assertTrue(s.gaps.single().detail.contains("B.v"), "${s.gaps}")
+        assertEquals(listOf("alias"), s.besidesEscape().map { it.kind }, "${s.gaps}")
+        assertTrue(s.besidesEscape().single().detail.contains("B.v"), "${s.gaps}")
         val apart = summarise(
             "class B { int v; } class A { void g(B p, B q, int a, int k) { q.v = a; p.v = k; } " +
                 "int f(int a, int k) { B b = new B(); B c = new B(); g(b, c, a, k); return b.v; } }",
             "A#f"
         )
-        assertEquals(emptyList(), apart.gaps.toList())
+        assertEquals(emptyList(), apart.besidesEscape())
         assertEquals(listOf("P1>RET"), apart.pairs().map { "${it.first}>${it.second}" })
     }
 
@@ -445,7 +469,7 @@ class SummarizerTest {
     @Test
     fun twoObjectsForTwoParametersAreNoAliasGap() {
         val s = summarise("class B { int v; } class A { int g(B p, B q, int a) { q.v = a; return p.v; } int f(int a) { B b = new B(); B c = new B(); return g(b, c, a); } }", "A#f")
-        assertEquals(emptyList(), s.gaps.toList())
+        assertEquals(emptyList(), s.besidesEscape())
     }
 
     /**
@@ -577,7 +601,7 @@ class SummarizerTest {
             "int top(int a, int k) { return mid(a, k).y.v; } }"
         val s = summariseInOrder(src, listOf("A#make", "A#outer", "A#top"))
         assertEquals(listOf("P1>RET"), s.getValue("A#top").spelled())
-        assertEquals(emptyList(), s.getValue("A#top").gaps.toList())
+        assertEquals(emptyList(), s.getValue("A#top").besidesEscape())
         val made = s.getValue("A#make").ret.objs.single() as AllocObj
         val outer = s.getValue("A#outer").ret.objs.single() as AllocObj
         assertEquals(2, outer.site.size)
@@ -596,7 +620,7 @@ class SummarizerTest {
             "Q mid(int a, int k) { Q q = new Q(); q.l = make(a); q.r = make(k); return q; } " +
             "int top(int a, int k) { return mid(a, k).r.v; } }"
         val s = summarise(src, "A#top")
-        assertEquals(listOf("depth"), s.gaps.map { it.kind })
+        assertEquals(listOf("depth"), s.besidesEscape().map { it.kind })
         assertTrue("P1>RET" in s.spelled(), "${s.spelled()}")
         assertEquals(emptyList(), summarise(src, "A#mid").gaps.toList())
     }

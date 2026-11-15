@@ -263,9 +263,11 @@ class Summarizer(
          * The final value of every field written on an object the caller can reach: a [PathObj], or
          * an object made here that the result or such a field leads to. The rest died with the method.
          *
-         * What died is said where it was a flow lost rather than a dead store: a write on a
-         * [StandInObj] was to an object from outside, and an object the caller reaches only past
-         * the depth cap cannot be spelled.
+         * What died is said, since nothing here can tell a dead store from a flow lost: a write on a
+         * [StandInObj] was to an object from outside, one on an object made here may have left with
+         * it - handed to an opaque call, or thrown, which is not lowered at all - and an object the
+         * caller reaches only past the depth cap cannot be spelled. So a field the method set on its
+         * own local object and read back is a gap too: noise, where the other way is silence.
          */
         private fun effects(): Map<Pair<Obj, Element>, AbsVal> {
             val final = written.keys.mapNotNull { key -> heap[key]?.let { key to it.value } }
@@ -283,6 +285,9 @@ class Summarizer(
             for ((key, at) in written) {
                 if (key.first is StandInObj && key !in effects) {
                     gaps.add(Gap("unmodelled", at, "${qualifiedField(key.second)} written on an object with no tracked origin"))
+                }
+                if (key.first is AllocObj && key !in effects) {
+                    gaps.add(Gap("escape", at, "${qualifiedField(key.second)} written on an object no output reaches"))
                 }
                 val cut = tooDeep[key.first]
                 if (cut != null && key in effects) gaps.add(Gap("depth", at, spell(cut, key.second)))

@@ -253,6 +253,12 @@ class AppTest {
      */
     private val arrow = """ (?:-->(?:\|\w+\|)?|-\. \w+ \.->) """
 
+    /**
+     * [arrow] without `-. order .->`: the boundary-order token's edges say a call ran first, not that
+     * a value went there - see [EdgeKind.ORDER] - so a walk asking where a value goes does not cross them.
+     */
+    private val dataArrow = """ (?:-->(?:\|\w+\|)?|-\. shared \.->) """
+
     /** The graph's edges as (source label, target label) pairs, ignoring the generated ids. */
     private fun edgeLabels(graph: List<String>): List<Pair<String, String>> {
         val edge = Regex("""n\d+\[([^]]*)]:::\w+${arrow}n\d+\[([^]]*)]""")
@@ -266,9 +272,10 @@ class AppTest {
      *
      * Labels alone cannot answer this when two distinct variables share a name, which is exactly
      * the case worth testing, so this walks the ids and only uses labels for the two endpoints.
+     * Data only, as [TestFixtures.reaches] is: see [dataArrow].
      */
     private fun reaches(graph: List<String>, fromLabel: String, toLabel: String): Boolean {
-        val edge = Regex("""(n\d+)\[([^]]*)]:::\w+${arrow}(n\d+)\[([^]]*)]""")
+        val edge = Regex("""(n\d+)\[([^]]*)]:::\w+${dataArrow}(n\d+)\[([^]]*)]""")
         val edges = graph.mapNotNull { edge.find(it) }
         val outgoing = edges.groupBy({ it.groupValues[1] }, { it.groupValues[3] })
         val labelOf = HashMap<String, String>()
@@ -361,15 +368,15 @@ class AppTest {
      * and the writing ever disagree - which is the only way this can go wrong.
      */
     private fun assertLinkStylesAddressTheEdgesTheyMean(testDir: String, graph: List<String>) {
-        val strokes = mapOf("true" to "#2e7d32", "false" to "#c62828", "if" to "#6a6a6a")
-        val edge = Regex("""n\d+\[[^]]*]:::\w+ (?:-->(?:\|(\w+)\|)?|-\. \w+ \.->) n\d+\[""")
+        val strokes = mapOf("true" to "#2e7d32", "false" to "#c62828", "if" to "#6a6a6a", "order" to "#7b1fa2")
+        val edge = Regex("""n\d+\[[^]]*]:::\w+ (?:-->(?:\|(\w+)\|)?|-\. (\w+) \.->) n\d+\[""")
         val style = Regex("""^\s*linkStyle (\d+) stroke:(#\w+)""")
         val wanted = HashMap<Int, String>()
         val found = HashMap<Int, String>()
         var index = 0
         for (line in graph) {
             edge.find(line)?.let { match ->
-                strokes[match.groupValues[1]]?.let { wanted[index] = it }
+                strokes[match.groupValues[1].ifEmpty { match.groupValues[2] }]?.let { wanted[index] = it }
                 index++
                 return@let
             }
@@ -1054,9 +1061,10 @@ class AppTest {
         assertTrue(reaches(graph, "result2", "callboundaryfunc3"), "result2 does not reach callboundaryfunc3")
         assertTrue(reaches(graph, "b", "callboundaryfunc3"), "b does not reach callboundaryfunc3")
         assertTrue(reaches(graph, "c", "callboundaryfunc3"), "c does not reach callboundaryfunc3")
-        // The negative paired with the positives above: `c` is passed to boundaryfunc3 only, and
-        // boundaryfunc1 runs before it. (It does reach boundaryfunc2 now, through the order chain:
-        // the known cost of drawing order as plain flow - see docs/decisions/calls-and-dispatch.md.)
+        // The negatives paired with the positives above: `c` is passed to boundaryfunc3 only, and
+        // boundaryfunc3 returns nothing. boundaryfunc2 runs after it in the else-arm, which is order
+        // and not data - the order chain's edges are ORDER, and a value does not cross them.
+        assertFalse(reaches(graph, "c", "callboundaryfunc2"), "c reaches callboundaryfunc2, which it is never passed to")
         assertFalse(reaches(graph, "c", "callboundaryfunc1"), "c reaches callboundaryfunc1, which runs before it is passed anywhere")
     }
 
@@ -1130,13 +1138,13 @@ class AppTest {
             listOf(then2, then3, else3, else2).map { it.label })
         assertTrue(orderAfter(roots, then2) === orderBefore(roots, then3), "then-arm: 2 does not hand the token to 3")
         assertTrue(orderAfter(roots, else3) === orderBefore(roots, else2), "else-arm: 3 does not hand the token to 2")
-        assertTrue(TestFixtures.reaches(then2, then3), "then-arm: callboundaryfunc2 does not reach callboundaryfunc3")
-        assertFalse(TestFixtures.reaches(then3, then2), "then-arm: callboundaryfunc3 reaches callboundaryfunc2, the order reversed")
-        assertTrue(TestFixtures.reaches(else3, else2), "else-arm: callboundaryfunc3 does not reach callboundaryfunc2")
-        assertFalse(TestFixtures.reaches(else2, else3), "else-arm: callboundaryfunc2 reaches callboundaryfunc3, the order reversed")
+        assertTrue(TestFixtures.ordered(then2, then3), "then-arm: callboundaryfunc2 does not run before callboundaryfunc3")
+        assertFalse(TestFixtures.ordered(then3, then2), "then-arm: callboundaryfunc3 runs before callboundaryfunc2, the order reversed")
+        assertTrue(TestFixtures.ordered(else3, else2), "else-arm: callboundaryfunc3 does not run before callboundaryfunc2")
+        assertFalse(TestFixtures.ordered(else2, else3), "else-arm: callboundaryfunc2 runs before callboundaryfunc3, the order reversed")
         for (a in listOf(then2, then3)) for (b in listOf(else3, else2)) {
-            assertFalse(TestFixtures.reaches(a, b), "the then-arm's ${a.label} runs before the else-arm's ${b.label}")
-            assertFalse(TestFixtures.reaches(b, a), "the else-arm's ${b.label} runs before the then-arm's ${a.label}")
+            assertFalse(TestFixtures.ordered(a, b), "the then-arm's ${a.label} runs before the else-arm's ${b.label}")
+            assertFalse(TestFixtures.ordered(b, a), "the else-arm's ${b.label} runs before the then-arm's ${a.label}")
         }
     }
 
@@ -1163,6 +1171,47 @@ class AppTest {
     }
 
     /**
+     * The token's two edges at each boundary call are [EdgeKind.ORDER], and no other edge is: not the
+     * call's value going to `result`, not the join where the arms meet, not the sources' own field
+     * called `boundaries` in `boundaryOrder`. A token is a `boundaries` box written in the boundary
+     * class; the field's is in App.java.
+     */
+    @Test
+    fun theOrderChainsEdgesAreOrderAndNoOthers() {
+        for ((roots, calls) in listOf(boundaryRoots() to 5, boundaryOrderRoots() to 4)) {
+            val edges = edgesOf(roots)
+            fun token(n: GraphNode) = n.label == "boundaries" && "App.java" !in n.source
+            fun call(n: GraphNode) = n.getType() == NodeType.EXTERNAL && n.label.startsWith("call")
+            val chain = edges.filter { (from, _, to) -> (token(from) && call(to)) || (call(from) && token(to)) }
+            assertEquals(2 * calls, chain.size, "not one token in and one out per boundary call: $chain")
+            assertEquals(listOf(EdgeKind.ORDER), chain.map { it.second }.distinct(), "a chain edge is not ORDER")
+            val others = edges.filter { it !in chain && it.second == EdgeKind.ORDER }
+            assertTrue(others.isEmpty(), "edges off the chain are ORDER: ${others.map { "${it.first.label} -> ${it.third.label}" }}")
+            assertTrue(edges.any { call(it.first) && it.third.label == "result" && it.second == EdgeKind.FLOW },
+                "the call's value does not reach result as plain flow")
+        }
+    }
+
+    /**
+     * boundaryfunc1 runs before the else-arm's boundaryfunc2, and nothing it is given reaches that
+     * call: its parameter's value goes on as `result1`, which only the then-arm uses. Order without
+     * data is what ORDER keeps apart - drawn as flow, the parameter would reach every later call.
+     */
+    @Test
+    fun aBoundaryCallRunsBeforeALaterOneItsArgumentsDoNotReach() {
+        val roots = boundaryRoots()
+        val func1 = callAt(roots, 10)
+        val else2 = callAt(roots, 17)
+        val then2 = callAt(roots, 13)
+        val x = edgesOf(roots).single { it.third === func1 && it.first.getType() == NodeType.FUNC_PARAM }.first
+        assertTrue(TestFixtures.ordered(func1, else2), "callboundaryfunc1 does not run before the else-arm's callboundaryfunc2")
+        assertFalse(TestFixtures.reaches(x, else2), "boundaryfunc1's argument reaches the else-arm's callboundaryfunc2")
+        // The pair: the same argument does reach the then-arm's call, through result1 - real data.
+        assertTrue(TestFixtures.reaches(x, then2), "boundaryfunc1's argument does not reach the then-arm's callboundaryfunc2 through result1")
+        assertFalse(TestFixtures.ordered(else2, func1), "the else-arm's callboundaryfunc2 runs before callboundaryfunc1")
+    }
+
+    /**
      * A source method between two boundary calls - `helper`, calling two more - is inlined, and the
      * chain runs through it in source order: open, fetch, log, close. `log` and `close` are void.
      */
@@ -1174,7 +1223,8 @@ class AppTest {
             assertTrue(orderAfter(roots, before) === orderBefore(roots, after), "${before.label} does not hand the token to ${after.label}")
         }
         calls.zipWithNext().forEach { (before, after) ->
-            assertFalse(TestFixtures.reaches(after, before), "${after.label} reaches ${before.label}, the order reversed")
+            assertTrue(TestFixtures.ordered(before, after), "${before.label} does not run before ${after.label}")
+            assertFalse(TestFixtures.ordered(after, before), "${after.label} runs before ${before.label}, the order reversed")
         }
     }
 

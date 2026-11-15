@@ -17,7 +17,7 @@ import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { opening, screen, tap } from './model.ts';
 import { elkGraph, positions, NODE_HEIGHT, TITLE_HEIGHT, type Positioned } from './layout.ts';
-import { PALETTE, NODE_DEFAULT, EDGE_COLOURS, EDGE_DEFAULT } from './theme.ts';
+import { PALETTE, NODE_DEFAULT, edgeStyle } from './theme.ts';
 import type { Id, Payload, View, ViewNode } from './types.ts';
 
 /** The stylesheet arrives as text so the page stays one file. */
@@ -63,15 +63,13 @@ const NODE_TYPES = { leaf: LeafNode, box: BoxNode };
 
 function edgesOf(view: View): Edge[] {
   return view.edges.filter((edge) => edge.visible).map((edge) => {
-    const colour = EDGE_COLOURS[edge.kind] ?? EDGE_DEFAULT;
+    const { colour, label, dashed } = edgeStyle(edge.kind);
     return {
       id: `${edge.source}->${edge.target}`,
       source: edge.source,
       target: edge.target,
-      // CONDITION reads `if` rather than `condition`, and is dashed, exactly as the Mermaid document
-      // draws it. FLOW is unlabelled: it is nearly every edge.
-      label: edge.kind === 'CONDITION' ? 'if' : (edge.kind === 'FLOW' ? undefined : edge.kind.toLowerCase()),
-      style: { stroke: colour, strokeWidth: 1.5, ...(edge.kind === 'CONDITION' ? { strokeDasharray: '4 3' } : {}) },
+      label,
+      style: { stroke: colour, strokeWidth: 1.5, ...(dashed ? { strokeDasharray: '4 3' } : {}) },
       markerEnd: { type: MarkerType.ArrowClosed, color: colour },
     };
   });

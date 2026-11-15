@@ -1,6 +1,8 @@
 package codeflow
 
+import codeflow.graph.EdgeKind
 import codeflow.graph.GraphNode
+import codeflow.graph.NodeType
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -29,20 +31,37 @@ object TestFixtures {
         .toList()
 
     /**
-     * Whether [from] reaches [to] along edges of every kind - the walk `AppTest.reaches` does over a
-     * Mermaid document's ids, done over the drawn nodes themselves.
+     * Whether a value at [from] reaches [to] - the walk `AppTest.reaches` does over a Mermaid
+     * document's ids, done over the drawn nodes themselves.
+     *
+     * Data only: an [EdgeKind.ORDER] edge says a boundary call ran before another, not that anything
+     * flowed into it, and crossing it would make every argument of a boundary call reach every later
+     * one. [ordered] is the walk that follows it.
      *
      * An edge into a callee's block is an edge to one of its nodes, so nested blocks need nothing
      * of their own. Nodes are compared by serial, which is which box, never by label.
      */
-    fun reaches(from: GraphNode, to: GraphNode): Boolean {
+    fun reaches(from: GraphNode, to: GraphNode): Boolean =
+        walk(from, to) { _, edge -> edge.kind != EdgeKind.ORDER }
+
+    /**
+     * Whether boundary call [from] runs before [to]: along the order chain, which leaves a call by
+     * its [EdgeKind.ORDER] edge only - its other edges are its value - and leaves a token or the
+     * join of one by every edge but [EdgeKind.SHARED], which says "if another root ran first".
+     */
+    fun ordered(from: GraphNode, to: GraphNode): Boolean =
+        walk(from, to) { node, edge ->
+            if (node.getType() == NodeType.EXTERNAL) edge.kind == EdgeKind.ORDER else edge.kind != EdgeKind.SHARED
+        }
+
+    private fun walk(from: GraphNode, to: GraphNode, follows: (GraphNode, GraphNode.Edge) -> Boolean): Boolean {
         val seen = HashSet<GraphNode>()
         val queue = ArrayDeque(listOf(from))
         while (queue.isNotEmpty()) {
             val node = queue.removeFirst()
             if (!seen.add(node)) continue
             if (node == to && node != from) return true
-            node.edgesIterator().forEach { queue.addLast(it.target) }
+            node.edgesIterator().forEach { if (follows(node, it)) queue.addLast(it.target) }
         }
         return false
     }

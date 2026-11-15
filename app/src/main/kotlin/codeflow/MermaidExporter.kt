@@ -33,7 +33,8 @@ class MermaidExporter() {
     private val strokes = mapOf(
         EdgeKind.TRUE to "#2e7d32",
         EdgeKind.FALSE to "#c62828",
-        EdgeKind.CONDITION to "#6a6a6a"
+        EdgeKind.CONDITION to "#6a6a6a",
+        EdgeKind.ORDER to "#7b1fa2"
     )
 
     private fun genSpaces(n: Int) = " ".repeat(n)
@@ -145,6 +146,8 @@ class MermaidExporter() {
             val arrow = when (edge.kind) {
                 // Dashed: it is not a value flowing within one run but one run leaving a value for another.
                 EdgeKind.SHARED -> "-. shared .->"
+                // Dashed too: it says which boundary call ran first, not that a value went there.
+                EdgeKind.ORDER -> "-. order .->"
                 else -> edge.kind.label?.let { "-->|$it|" } ?: "-->"
             }
             strokes[edge.kind]?.let {

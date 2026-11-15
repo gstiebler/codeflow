@@ -47,6 +47,7 @@ class SummaryParityTest {
 
     /** Methods compared and pairs seen on each side, so a sweep that compared nothing cannot pass. */
     private var compared = 0
+    private var boundedCompared = 0
     private var pairsDrawn = 0
     private var pairsSummarised = 0
 
@@ -55,10 +56,17 @@ class SummaryParityTest {
 
     @Test
     fun everySummaryHasTheBuildersParameterToResultPairs() {
-        val found = TestFixtures.fixtures().flatMap {
-            val dir = TestFixtures.resources.resolve(it)
-            differences(TestFixtures.resources, dir, it)
-        }.map { it.key }
+        val plain = TestFixtures.fixtures().flatMap {
+            differences(TestFixtures.resources, TestFixtures.resources.resolve(it), it)
+        }
+        // And again with each boundary fixture's `--boundary`, so parity is checked with the order
+        // chain drawn: the builder's walk must not cross its ORDER edges, and the summarizer ignores it.
+        val bounded = BOUNDARIES.flatMap { (fixture, boundaries) ->
+            val name = "$fixture[--boundary ${boundaries.joinToString(",")}]"
+            differences(TestFixtures.resources, TestFixtures.resources.resolve(fixture), name, boundaries)
+        }
+        assertTrue(boundedCompared > 0, "the boundary sweep compared nothing")
+        val found = (plain + bounded).map { it.key }
         val unexplained = found.filter { it !in knownDifferences }
         val stale = knownDifferences.keys.filter { it !in found }
         assertTrue(compared > 40 && pairsDrawn > 25, "the sweep compared almost nothing: $compared methods, $pairsDrawn pairs")
@@ -118,9 +126,9 @@ class SummaryParityTest {
     private fun percent(part: Int, whole: Int) = if (whole == 0) "n/a" else "%.1f%%".format(100.0 * part / whole)
 
     /** The sources under [dir] analysed once, relative to [root], and every method with a result compared. */
-    private fun differences(root: Path, dir: Path, name: String): List<Difference> {
+    private fun differences(root: Path, dir: Path, name: String, boundaries: List<String> = emptyList()): List<Difference> {
         val paths = Files.walk(dir).filter { it.toString().endsWith(".java") }.toList()
-        return AstReader(root).analyse(paths).use { analysis ->
+        return AstReader(root).analyse(paths, boundaries).use { analysis ->
             val builder = IrGraphBuilder(analysis.globalCtx)
             val summarizer = Summarizer(analysis.globalCtx, builder::bodyOf, builder::initializersOf)
             val methods = analysis.methods().filter { returnsAValue(it) }
@@ -134,6 +142,7 @@ class SummaryParityTest {
                 val at = "$name/${keys.getValue(method)}"
                 val gaps = summary.gaps.map { it.kind }.toSet()
                 compared++
+                if (boundaries.isNotEmpty()) boundedCompared++
                 pairsDrawn += drawn.size
                 pairsSummarised += summarised.size
                 (drawn - summarised).map { Difference("$at/$it/missing", true, gaps) } +
@@ -179,6 +188,9 @@ class SummaryParityTest {
 
     private companion object {
         val PARAM = Regex("P\\d+")
+
+        /** The boundary fixtures and the `--boundary` each is drawn with, as `InvariantsTest` draws them. */
+        val BOUNDARIES = mapOf("boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"))
 
         /**
          * The builder's answer is wrong here. A root runs on no object (`build` opens it with an empty

@@ -20,7 +20,7 @@ export type NodeType =
   | 'BASE' | 'LITERAL' | 'VARIABLE' | 'OBJ_VARIABLE' | 'BIN_OP' | 'FUNC_PARAM'
   | 'RETURN' | 'EXTERNAL' | 'UNMODELLED';
 
-export type EdgeKind = 'FLOW' | 'TRUE' | 'FALSE' | 'CONDITION';
+export type EdgeKind = 'FLOW' | 'TRUE' | 'FALSE' | 'CONDITION' | 'ORDER';
 
 export type PayloadNode = {
   id: Id;

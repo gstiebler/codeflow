@@ -87,8 +87,13 @@ of its own in `Heap` (`boundaryOrderHolder`, listed in `staticHolders`), read an
 rules give it, with no case of its own: a start with nothing flowing in; one chain across inlined
 callees; a gated phi where `if` arms leave it different; no back edge in loops; and `SHARED` edges
 between roots. The token is recognised by that holder, never by its name, so a field the sources call
-`boundaries` stays their own. The summarizer ignores it, and `--summaries` is unchanged. **Known cost:**
-the chain uses plain `FLOW` edges, so every argument of a boundary call now *reaches* every later
-boundary call through the token, and `reaches()`-style questions across boundary calls over-approximate.
-An `ORDER` edge kind would tell order from data; it was left out until asked for. Fixture:
-`boundaryOrder`.
+`boundaries` stays their own. The summarizer ignores it, and `--summaries` is unchanged. **The
+token's two edges at each call are `ORDER`**, not `FLOW` - `boundaries → call<f>` and
+`call<f> → boundaries`, nothing else: drawn as flow, every argument of a boundary call *reached* every
+later one through the token. The kind is decided where the edge is made, from the instruction - the
+builder's `Run.orderReads` marks a `ReadBoundaryOrder`'s value, and a call taking one draws that input
+as `ORDER`; `WriteBoundaryOrder` writes with `ORDER` - never from the box's name. `call<f> → result`
+stays `FLOW`, and the token's gated join and `SHARED` edges keep their kinds: between two `ORDER`
+edges they carry no data anywhere. Drawn dashed (`-. order .->`, purple `#7b1fa2`) in Mermaid and
+the viewer. The tests' `reaches()` walks follow data only; `TestFixtures.ordered` follows the chain.
+Fixture: `boundaryOrder`.

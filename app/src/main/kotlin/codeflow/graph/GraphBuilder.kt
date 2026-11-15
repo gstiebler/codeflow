@@ -269,8 +269,8 @@ class GraphBuilderBlock(
         return phiNode
     }
 
-    fun addAssignment(lhsNode: GraphNode, rhsNode: GraphNode) {
-        rhsNode.addEdge(lhsNode)
+    fun addAssignment(lhsNode: GraphNode, rhsNode: GraphNode, kind: EdgeKind = EdgeKind.FLOW) {
+        rhsNode.addEdge(lhsNode, kind)
     }
 
     fun addReturnNode(newReturnNode: GraphNode, returned: Set<MemPos> = emptySet()) {

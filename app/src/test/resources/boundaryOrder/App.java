@@ -24,4 +24,13 @@ public class App {
         Gateway.log(y);
         return y;
     }
+
+    /*
+     * Not called from entrypoint, so not in the golden: SummaryParityTest's case. `key` goes to open
+     * only, and fetch runs after open - order, not data - so `key` must not reach the result.
+     */
+    static int openThenFetch(int key, int other) {
+        Gateway.open(key);
+        return Gateway.fetch(other);
+    }
 }

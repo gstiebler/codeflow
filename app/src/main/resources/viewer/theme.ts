@@ -37,7 +37,25 @@ export const EDGE_COLOURS: Partial<Record<EdgeKind, string>> = {
   TRUE:      '#2e7d32',
   FALSE:     '#c62828',
   CONDITION: '#6a6a6a',
+  // The boundary-order token in and out of a boundary call: which ran first, not a value.
+  ORDER:     '#7b1fa2',
 };
 
 /** The grey every FLOW edge keeps, which is nearly every edge on the page. */
 export const EDGE_DEFAULT = '#999';
+
+/**
+ * How an edge of [kind] is drawn: its colour, its caption, and whether it is dashed.
+ *
+ * Here rather than in the renderer so that it is a pure function `node --test` can load - the
+ * renderer imports React Flow and elkjs, which it cannot. CONDITION reads `if` rather than
+ * `condition`, and is dashed, as the Mermaid document draws it; ORDER is dashed for the reason the
+ * Mermaid `-. order .->` is - it is not a value arriving. FLOW is unlabelled: it is nearly every edge.
+ */
+export function edgeStyle(kind: EdgeKind): { colour: string; label: string | undefined; dashed: boolean } {
+  return {
+    colour: EDGE_COLOURS[kind] ?? EDGE_DEFAULT,
+    label: kind === 'CONDITION' ? 'if' : (kind === 'FLOW' ? undefined : kind.toLowerCase()),
+    dashed: kind === 'CONDITION' || kind === 'ORDER',
+  };
+}

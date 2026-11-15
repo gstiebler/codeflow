@@ -89,14 +89,17 @@ through and the older exit is what the younger one is gated against.
 interchangeable — the value if the test held, the value if it did not, and the test — and three
 identical arrows say only "one of these reached it", which is most of what the gate was added to
 stop. So an edge is a `GraphNode.Edge` carrying an `EdgeKind`: `TRUE`, `FALSE`, `CONDITION`, or
-`FLOW`, which is nearly every edge and renders unchanged. `Gate.arms` and `Select.arms` are where the
+`FLOW`, which is nearly every edge and renders unchanged. Two more are not about joins: `SHARED`
+(a static leaving one root for another) and `ORDER` (the boundary-order token into and out of a
+boundary call - see `calls-and-dispatch.md`), both dashed, since neither is a value within one run. `Gate.arms` and `Select.arms` are where the
 names come from, and they are a `Map<Val, String>` rather than a list parallel to the paths because
 `join` collapses the reaching values with `distinct` — a value both branches leave behind gets no
 arm at all, which is the honest answer. Only a `?:` and an `if` have arms: a two-case `switch`
 expression also has two alternatives and a condition, and calling those true and false would be a
 label the source never wrote.
 
-All four exporters render the kind, and the colours (`#2e7d32`, `#c62828`, `#6a6a6a`) are repeated
+All four exporters render the kind, and the colours (`#2e7d32`, `#c62828`, `#6a6a6a`, and `ORDER`'s
+`#7b1fa2`) are repeated
 in `MermaidExporter` and the viewer's `theme.ts` so one graph does not change meaning between the two
 renderings. The Mermaid side has a trap: `linkStyle` indexes links **globally across the whole
 flowchart** in declaration order, so the index of an edge is only settled once every nested block

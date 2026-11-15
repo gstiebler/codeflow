@@ -298,6 +298,13 @@ class Frame(
         /** Edges waiting on a value from further down the list - see [Phi.addPath]. */
         val backEdges = ArrayList<Pair<GraphNode, Val>>()
 
+        /**
+         * The [Val]s that are a [ReadBoundaryOrder]: what a call taking one of them takes is the
+         * order token, and that edge is [EdgeKind.ORDER] - decided by the instruction that produced
+         * the input, not by what its box is called.
+         */
+        val orderReads = HashSet<Int>()
+
         /** How far the run has got, which is what makes a [Val] a back reference or not. */
         val reached get() = values.size
 
@@ -369,13 +376,14 @@ class Frame(
             )
         }
 
-        is ReadBoundaryOrder -> readBoundaryOrder(insn)
+        // Drawn before it is added, so the index it is about to take is how far the run has got.
+        is ReadBoundaryOrder -> readBoundaryOrder(insn).also { run.orderReads.add(run.reached) }
 
         // Journaled like a static field's write, so an arm's calls are undone with the arm and the
-        // join draws the order each arm left.
+        // join draws the order each arm left. The call leaving the token is order, not data.
         is WriteBoundaryOrder -> write(
             BOUNDARY_ORDER, null, true, setOf(builder.heap.boundaryOrderHolder()), emptySet(), insn,
-            run.node(insn.value), journal = true
+            run.node(insn.value), journal = true, kind = EdgeKind.ORDER
         )
 
         is FieldFork -> {
@@ -568,7 +576,8 @@ class Frame(
         valueObjects: Set<MemPos>,
         insn: Insn,
         valueNode: GraphNode,
-        journal: Boolean = false
+        journal: Boolean = false,
+        kind: EdgeKind = EdgeKind.FLOW
     ): Value {
         val written = if (isPrimitive) emptySet()
         else valueObjects.ifEmpty { setOf(builder.heap.allocate(insn.source)) }
@@ -582,7 +591,7 @@ class Frame(
             } else {
                 builder.record(block.addObjectVariable(base(id, insn)), owning)
             }
-            block.addAssignment(node, valueNode)
+            block.addAssignment(node, valueNode, kind)
             if (!isPrimitive) builder.heap.setObjects(id, written)
             key?.let { builder.journalWrite(it, before) }
             node
@@ -785,8 +794,12 @@ class Frame(
         val method = resolve(insn, receiverMemPos)
         if (method == null || isBeingInlined(method)) {
             val receiverNode = (insn.receiver as? Receiver.Value)?.let { run.node(it.value) }
-            val inputs = listOfNotNull(receiverNode) + insn.args.map { run.node(it) }
-            return Value(block.addExternal(base(labelId(insn.name, insn), insn), inputs))
+            // The order token a boundary call takes is not an argument any value flows through.
+            val (order, data) = insn.args.partition { it.index in run.orderReads }
+            val inputs = listOfNotNull(receiverNode) + data.map { run.node(it) }
+            val external = block.addExternal(base(labelId(insn.name, insn), insn), inputs)
+            order.forEach { run.node(it).addEdge(external, EdgeKind.ORDER) }
+            return Value(external)
         }
         val child = enter(method, receiverMemPos, insn)
         child.invoke(insn.args.map { run.node(it) }, insn.args.map { run.objects(it) })

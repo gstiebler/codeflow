@@ -67,7 +67,7 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
   `JNodeId` = which variable (per declaration × object). **Never derive a rendered id by hashing
   attributes.** A variable points at a *set* of `MemPos`. → `docs/decisions/identity-and-objects.md`
 - **Joins are phis; `if`/`switch` phis are gated** by what chose, and the gate is not in
-  `Phi.paths`. Edges carry an `EdgeKind` (`TRUE`, `FALSE`, `CONDITION`, `FLOW`); colours are
+  `Phi.paths`. Edges carry an `EdgeKind` (`TRUE`, `FALSE`, `CONDITION`, `FLOW`, `SHARED`, `ORDER`); colours are
   repeated in `MermaidExporter` and `theme.ts` and must match. → `docs/decisions/joins.md`
 - **A local with no reaching definition fails loudly** at the read. A field or enum constant with
   no write is a value with nothing flowing in. Do not widen either gate.

@@ -27,7 +27,16 @@ enum class EdgeKind(val label: String?) {
      * A static field's value leaving one entry point and arriving at another's read of it. The
      * entry points can run in either order, so this says "if that one ran first", not "then".
      */
-    SHARED("shared")
+    SHARED("shared"),
+
+    /**
+     * The boundary-order token going into a boundary call or coming out of one - see
+     * [codeflow.ir.ReadBoundaryOrder]. It says the call ran after what left the token and before
+     * what takes it next, not that any value reached it: drawn as flow, every argument of a boundary
+     * call would appear to reach every later boundary call. Exactly those two edges per boundary
+     * call; the join of the token where `if` arms meet keeps the join's kinds.
+     */
+    ORDER("order")
 }
 
 /**

@@ -127,7 +127,7 @@ every helper, and cannot tell you which occurrences carry the ratio.
 
 ## Running it
 
-Requires JDK **25** at runtime — see *Two JDK numbers* in `CLAUDE.md`. `./gradlew run` pins it
+Requires JDK **25** at runtime — see *Two JDK numbers* in `docs/decisions/toolchain.md`. `./gradlew run` pins it
 already; the installed CLI takes whatever `JAVA_HOME` names.
 
 ```shell

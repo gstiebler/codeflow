@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROGRAM, condensed, condensedOpening, groupOf, hoverText, tapCondensed,
+  PROGRAM, condensed, condensedCaption, condensedOpening, groupOf, hoverText, tapCondensed,
 } from '../../../main/resources/viewer/condensed.ts';
 import type { CondensedView, EdgeKind, Payload, PayloadNode } from '../../../main/resources/viewer/types.ts';
 
@@ -188,4 +188,11 @@ test('a group\'s and an edge\'s hover list the first ten entries, then how many 
   assert.equal(fan.length, 11);
   assert.equal(fan[9], 'App#m10  App.java:20');
   assert.equal(fan[10], '+2 more');
+});
+
+// A group says how many it stands for, so a click that takes members out visibly shrinks it; a leaf
+// is its label, with nothing added.
+test('a group is captioned with its member count, a leaf with its label', () => {
+  assert.equal(condensedCaption({ id: PROGRAM, label: PROGRAM, type: 'GROUP', members: 3 }), 'program (3)');
+  assert.equal(condensedCaption({ id: 'n1', label: 'total', type: 'VARIABLE' }), 'total');
 });

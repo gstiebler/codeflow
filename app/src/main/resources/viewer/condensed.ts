@@ -145,6 +145,14 @@ export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
   return { nodes, edges: [...drawn.values()] };
 }
 
+/**
+ * What a display node is captioned: a leaf its label, a group its label and how many it stands for -
+ * `program (42)` - so a click that takes members out visibly changes the group too.
+ */
+export function condensedCaption(node: CondensedNode): string {
+  return node.type === 'GROUP' ? `${node.label} (${node.members})` : node.label;
+}
+
 /** The payload edges a drawn edge stands for. */
 function underlying(payload: Payload, revealed: Set<Id>, [source, target, kind]: [Id, Id, EdgeKind]): PayloadEdge[] {
   const shown = shownAs(index(payload), revealed);

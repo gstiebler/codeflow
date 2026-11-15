@@ -8,7 +8,7 @@
  *
  * No imports beyond types, no DOM, no library: `node --test` reads this file directly.
  */
-import type { Id, View } from './types.ts';
+import type { CondensedNode, CondensedView, Id, View } from './types.ts';
 
 /** How much of a box's top belongs to its caption rather than to what is inside it. */
 export const TITLE_HEIGHT = 22;
@@ -103,7 +103,35 @@ export function elkGraph(view: View): ElkNode {
   };
 }
 
-export type Positioned = { id: Id; x: number; y: number; width: number; height: number; parent?: Id };
+/**
+ * The condensed view, for ELK: one level, no boxes. Group and leaf alike are sized from the caption
+ * they are drawn with, which the caller passes so that the two cannot drift - and so that this file
+ * keeps importing nothing but types.
+ *
+ * The hierarchy options are left out because there is no hierarchy; the spacing is the boxed view's,
+ * so switching views does not change how dense the page reads.
+ */
+const FLAT_OPTIONS: Record<string, string> = {
+  algorithm: 'layered',
+  'elk.direction': 'DOWN',
+  'elk.layered.spacing.nodeNodeBetweenLayers': ELK_OPTIONS['elk.layered.spacing.nodeNodeBetweenLayers'],
+  'elk.spacing.nodeNode': ELK_OPTIONS['elk.spacing.nodeNode'],
+};
+
+/** With the kind: the condensed view draws one edge per (source, target, kind), so the pair is not unique. */
+export const flatEdgeId = (edge: { source: Id; target: Id; kind: string }) =>
+  `${edge.source}->${edge.target}:${edge.kind}`;
+
+export function flatElkGraph(view: CondensedView, caption: (node: CondensedNode) => string): ElkNode {
+  return {
+    id: 'root',
+    layoutOptions: FLAT_OPTIONS,
+    children: view.nodes.map((node) => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT })),
+    edges: view.edges.map((edge) => ({ id: flatEdgeId(edge), sources: [edge.source], targets: [edge.target] })),
+  };
+}
+
+export type Positioned ={ id: Id; x: number; y: number; width: number; height: number; parent?: Id };
 
 /**
  * The laid-out tree, flattened, each node remembering which box it came out of.

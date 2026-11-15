@@ -68,7 +68,7 @@ export const boxLabels = (page: Page) => page.evaluate(() =>
  * nodes it should have hidden would hang here instead of failing an assertion - which is exactly
  * what happened when that mutation was tried.
  */
-const drewAgain = async (page: Page, gesture: () => Promise<void>) => {
+export const drewAgain = async (page: Page, gesture: () => Promise<void>) => {
   const before = await page.evaluate(() => window.drawn ?? 0);
   await gesture();
   await page.waitForFunction((was) => (window.drawn ?? 0) > was, before);

@@ -33,6 +33,13 @@ export const PALETTE: Partial<Record<NodeType, string>> = {
 /** What a node with no colour of its own is filled with. */
 export const NODE_DEFAULT = '#ddd';
 
+/**
+ * A condensed-view group's outline: `program` grey, a boundary method's group in the boundaries
+ * purple - the same purple as the token and the ORDER edges, since all three are the boundary.
+ */
+export const GROUP_OUTLINE = '#999';
+export const BOUNDARY_OUTLINE = '#7b1fa2';
+
 // The same strokes MermaidExporter uses, so one graph does not change colour between the two
 // renderings. FLOW is absent on purpose - it keeps the default grey, and it is nearly every edge.
 export const EDGE_COLOURS: Partial<Record<EdgeKind, string>> = {

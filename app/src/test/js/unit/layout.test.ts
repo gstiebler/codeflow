@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { elkGraph, positions, TITLE_HEIGHT, type ElkNode } from '../../../main/resources/viewer/layout.ts';
+import { elkGraph, flatElkGraph, nodeWidth, positions, TITLE_HEIGHT, type ElkNode } from '../../../main/resources/viewer/layout.ts';
 import type { View } from '../../../main/resources/viewer/types.ts';
 
 // main { main, x, f { f, a } }. `a` is off screen and so is the edge reaching it.
@@ -100,4 +100,26 @@ test('positions flattens the laid-out tree, keeping each parent', () => {
     { id: 'm', x: 0, y: 0, width: 200, height: 100, parent: undefined },
     { id: 'x', x: 10, y: 20, width: 90, height: 30, parent: 'm' },
   ]);
+});
+
+// The condensed view has no boxes: one level, every node sized from the caption it is drawn with,
+// and an edge id per (source, target, kind) - two kinds onto one pair are two edges.
+test('the condensed layout is flat, sized from the captions, one edge per kind', () => {
+  const root = flatElkGraph({
+    nodes: [
+      { id: 'program', label: 'program', type: 'GROUP', members: 12 },
+      { id: 'x', label: 'x', type: 'VARIABLE' },
+    ],
+    edges: [
+      { source: 'x', target: 'program', kind: 'FLOW', count: 2 },
+      { source: 'x', target: 'program', kind: 'ORDER', count: 1 },
+    ],
+  }, (node) => (node.type === 'GROUP' ? `${node.label} (${node.members})` : node.label));
+  assert.deepEqual(root.children!.map((c) => [c.id, c.width, c.children]), [
+    ['program', nodeWidth('program (12)'), undefined],
+    ['x', nodeWidth('x'), undefined],
+  ]);
+  assert.deepEqual(root.edges!.map((e) => e.id), ['x->program:FLOW', 'x->program:ORDER']);
+  for (const value of Object.values(root.layoutOptions!)) assert.equal(typeof value, 'string');
+  assert.equal(root.layoutOptions!['elk.hierarchyHandling'], undefined);
 });

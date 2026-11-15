@@ -106,7 +106,8 @@ can be:
 - **Objects**:
   - `Path(root, fields)`: an object reached through the method's interface.
   - `Alloc(site)`: an object allocated inside the method or a callee. Its name is the chain of call
-    sites that led to the allocation, bounded so a fixpoint terminates.
+    sites that led to the allocation, bounded so a fixpoint terminates: past 2 sites it keeps the
+    outermost call site and the allocation site, and drops the ones between.
 - **A summary** has:
   - `ret`: an abstract value.
   - `effects`: the final value of every field written on a `Path` object or on a kept `Alloc`
@@ -177,7 +178,12 @@ builder draws, the summarizer treats as a flow.
   - `depth`: a field path was cut at the cap, so reads deeper than 2 are not distinguished.
   - `unmodelled`: an `Unmodelled` instruction.
   - `body`: lowering threw for this method. Its callers see an opaque call plus this gap.
-  - A caller inherits its callees' gaps, as references and not as copies, so the output says
+  - `alias`: two distinct callee roots or paths (`P<i>`, `P<j>`, `this.a`, `this.b`) are one
+    object in the caller, and the callee reads a field through one and writes it through the
+    other, or writes one field through both. The summary was computed as if they were distinct,
+    so the instantiated flow would be wrong. Context-insensitive by design, so it may over-report:
+    noise, not silence.
+  - A caller copies its callees' gaps, each keeping the callee's own position, so the output says
     "complete except through …" for every root.
 
 ### Output (`--summaries`)
@@ -198,7 +204,8 @@ document to stdout. `Args` still refuses unknown flags.
 - **Every method in the sources is listed**, sorted by `method`, with pairs sorted, so the
   document is byte-stable and diffs are clean.
   - `--from` narrows the list to the methods named. It does not change what is analysed.
-  - Counters go to stderr.
+  - Counters go to stderr. `counts` and the stderr totals count emitted rows, so an inherited gap
+    counts once for every caller that lists it.
 - **Atom spellings:**
   - `P<i>`
   - `this.<qualified field>[.<qualified field>]`
@@ -206,6 +213,7 @@ document to stdout. `Args` still refuses unknown flags.
   - `static.<qualified field>`
   - `ext:<label>@<file:line:col>`
   - Outputs add `RET`, the same field spellings, and `ext-arg:<label>@<file:line:col>`.
+  - An array's length is a field of the array, spelled `P<i>.Array.length`.
 
 ### Tests
 
@@ -270,7 +278,7 @@ These are marked as the builder's call. A sensible builder settles each without 
 built:
 
 - Whether the lowering cache moves out of `IrGraphBuilder` or the summarizer borrows it.
-- The bound on `Alloc` call-site chains: k-limit 2, collapsing in a recursive SCC.
+- The bound on `Alloc` call-site chains: k-limit 2 (built: outermost call site and allocation site).
 - The iteration budgets.
 - The exact atom spellings for nested classes. Use `Element`-derived binary names consistently.
 - Gap de-duplication and how callee gaps are referenced in the output, as long as every root's gaps
@@ -284,3 +292,20 @@ built:
    `if-written-again.md` §2 status).
 2. Measure on Fineract: time, pairs, gaps, and the parity on its roots, run once by hand.
 3. Phase 2 plan, then Phase 3.
+
+## Changes during implementation
+
+The design above has been edited in place to match what was built. What changed:
+
+1. **`alias` gap kind.** Added (see Gaps). Summaries are context-insensitive, so two callee roots or
+   paths that are one object in the caller cannot be instantiated exactly; that is a gap, not a
+   guess.
+2. **The k-limit keeps [outermost call site, allocation site].** Keeping the 2 newest lost the
+   allocation site and merged distinct objects. A `depth` gap is recorded only when the truncation
+   actually merges two distinct chains.
+3. **Callee gaps are copied into the caller**, each keeping the callee's position, replacing "as
+   references, not copies". Copies are what the exporter prints.
+4. **Array length is spelled `P<i>.Array.length`**, which the atom list did not have.
+5. **Counts are per emitted row**, so an inherited gap counts once per caller.
+
+The reasoning and the Fineract numbers are in `docs/decisions/summaries.md`.

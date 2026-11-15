@@ -18,6 +18,7 @@ UPDATE_SNAPSHOTS=1 ./gradlew test    # rewrite the golden files
 ./gradlew run --args="path/to/java/dir"
 ./gradlew run --args="path/to/java/dir --html"                 # interactive page, to stdout
 ./gradlew run --args="path/to/java/dir --from Report#total"    # root(s) other than main; repeatable
+./gradlew run --args="path/to/java/dir --summaries"            # every method's summary, as JSON
 scripts/smoke.sh app/build/install/app/bin/app path/to/java/dir  # every method a root; fails on a crash or a skipped root
 
 npm test                             # typecheck, bundle freshness, viewer unit tests + corpus sweeps
@@ -46,6 +47,7 @@ npm run check:bundle                 # committed bundle matches its sources
 graph, **once per call site**, from the entry point) → an exporter (Mermaid default, `--graphml`,
 `--json`, `--html`). Keep the Lowering / IrGraphBuilder split: what a name means is per method,
 which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
+`ir.Summarizer` reads the same instructions into a summary **once per method**, behind `--summaries`. → `docs/decisions/summaries.md`
 
 ## Rules
 
@@ -118,4 +120,5 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
 | `docs/decisions/joins.md` | SSA, gated phis, guarded returns, edge kinds, loops, try |
 | `docs/decisions/constructs.md` | the `MODELLED_EXPRESSIONS` gate and why it is not a throw |
 | `docs/decisions/testing.md` | goldens vs behaviour tests vs invariants, viewer test traps |
+| `docs/decisions/summaries.md` | method summaries, atoms, gap kinds, parity with the builder |
 | `docs/if-written-again.md` | what a rewrite would change, and how much of it has landed |

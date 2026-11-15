@@ -17,8 +17,8 @@ import javax.lang.model.element.VariableElement
  * rules are the builder's, read off `IrGraphBuilder`, and whatever edge the builder draws is a flow
  * here. Where the builder has a known gap (`docs/decisions/joins.md`: no back edge for a field in a
  * loop body, `?:`/`&&`/`||` not forked, a strong update through several holders) this has the same
- * one, so the two disagree only where a summary is meant to differ - which the parity test Task 6
- * adds will record.
+ * one, so the two disagree only where a summary is meant to differ - which `SummaryParityTest`
+ * records. The reasoning, the atoms and the gap kinds are in `docs/decisions/summaries.md`.
  *
  * Interpreting a method is a pure function of the method and what it is given, so it can be run
  * again. A call to a source method instantiates the callee's summary at the call site

@@ -8,6 +8,7 @@ build
 .idea
 # Eclipse's own project metadata, alongside .idea and .vscode above
 .project
+.classpath
 .settings
 result.md
 *.class

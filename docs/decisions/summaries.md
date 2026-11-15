@@ -26,8 +26,9 @@ allocated is renamed by the call site. So `f(a)` and `f(b)` stay apart, as inlin
 Dispatch is the builder's own rule, shared in `ir.Dispatch` so the two interpreters cannot drift.
 
 The builder's known imprecisions are kept, not fixed here (`joins.md`): no back edge for a field
-in a loop, `?:`/`&&`/`||` not forked, and a strong update on each of several holders. A field
-written on only some paths joins with its entry value, because the caller may already hold one.
+in a loop, `?:`/`&&`/`||` not forked, and a strong update on each of several holders — the last
+also said, with an `alias` gap, since it drops the other objects' old values. A field written on
+only some paths joins with its entry value, because the caller may already hold one.
 A summary that quietly did better than the builder would be a second truth; the parity test is
 where the two are held together.
 
@@ -45,16 +46,22 @@ Spelled from `Element`s, never from text. `<qfield>` is the declaring class's qu
 | Inputs | Outputs |
 |---|---|
 | `P<i>` | `RET` |
-| `this.<qfield>[.<qfield>]`, `P<i>.<qfield>…`, `static.<qfield>` | the same field spellings |
+| `this.<qfield>[.<qfield>]`, `P<i>.<qfield>…`, `static.<qfield>` | the same field spellings, and `RET.<qfield>[.<qfield>]` |
 | `ext:<label>@<file:line:col>` — an opaque call's result | `ext-arg:<label>@<file:line:col>` — its arguments and receiver |
 
 - A field path stops at **2** fields. Deeper is a `depth` gap, not a longer name.
 - An array's length is a field of the array: `P0.Array.length`.
 - A field of an object the method made is spelled through the caller's field that holds it:
-  `this.A.b.B.v` for `this.b = x; x.v = a`.
+  `this.A.b.B.v` for `this.b = x; x.v = a` — or through the result, `RET.B.v` for
+  `x.v = a; return x`. Without `RET` a factory's document listed `ext:B>RET` alone and sent its
+  parameter nowhere, though instantiation, which reads the objects, had it right.
 - An allocated object is named by its chain of call sites. Past 2 it keeps the **outermost call
   site and the allocation site**, and drops the ones between. Keeping the 2 newest lost the
   allocation site and merged distinct objects; the outermost keeps two calls in this method apart.
+- A call site in a chain is its position **and its instruction's index**. A call's position is
+  where its tree starts, so `m.with(a).with(w)` is two calls at one position; named by that alone,
+  the two `new M()` were one object, the second write of `v` overwrote the first, and the summary
+  said `P2>RET` for the builder's `P1>RET`, with no gap.
 
 ## Gaps are named, not guessed
 
@@ -67,7 +74,8 @@ summary cannot follow becomes a gap with a kind, a `file:line:col` and a detail.
   call on `this` is specialised instead: the summary is keyed by `(method, receiver class)`.
 - **`fixpoint`**: the budget ran out. The last approximation is kept and may be short.
 - **`depth`**: a field path was cut at 2, or two allocation chains were merged by the call-site
-  limit. Two objects became one, so their fields join.
+  limit, or a call made an object under a name the method already holds. Two objects became one,
+  so their fields join.
 - **`unmodelled`**: an `Unmodelled` instruction, or a field read or written through an object with
   no tracked origin (a foreach element, a catch parameter), or a callee's effect on an object this
   method has no name for. An `Unmodelled` instruction is also recorded where the builder records
@@ -77,12 +85,32 @@ summary cannot follow becomes a gap with a kind, a `file:line:col` and a detail.
   were distinct objects. When two of its paths (`P0` and `P1`, `this.a` and `this.b`) are one
   object at the call site, and it reads a field through one that it writes through the other, or
   writes one field through both, the instantiated flow would be wrong. The check ignores order, so
-  it may over-report. Too many gaps is a summary that says it is unsure; too few is silent.
+  it may over-report. Too many gaps is a summary that says it is unsure; too few is silent. A write
+  through a receiver that is one of several objects is the same kind: one name, several objects, a
+  strong update on each (the builder's, `joins.md`), so the others' old values are lost.
+- **`escape`**: a field written on an object made here (or by a callee) that no output reaches —
+  not a `RET`, `this`, `P<i>` or `static` path. The object may have left with its fields: handed to
+  an opaque call (`repo.add(e)`), or thrown, and `throw` is not lowered at all. Nothing tells that
+  from a dead store, so both are gaps, as is a local object the method set and read back
+  (`make(a).v`): noise, where the other way was silence. The gap is at the write.
 
-A caller **copies** its callees' gaps, each keeping the callee's position. Every method's row says
-"complete except through …" by itself, with no reference to follow. `counts.gaps` and the stderr
+A caller **copies** its callees' gaps, each keeping the callee's position, so a row lists every gap
+that touched it with no reference to follow. That does not make a gap-free row complete: the cases
+in [What is still silent](#what-is-still-silent) are not gaps yet. `counts.gaps` and the stderr
 total count emitted rows, so an inherited gap counts once for every caller that lists it. Large
 totals are mostly that.
+
+### What is still silent
+
+Known flows a summary drops or adds with no gap, all shared with the builder, so parity cannot see
+them; each is a follow-up, not fixed on this branch:
+
+- **`ROOT_THIS`, and root parameters.** A root runs on no object, so a callee's write to `this` is
+  filed on nothing; `p.f(a, b, c); return p.x` with `p` a parameter is drawn `EXTERNAL`.
+- **A guarded return, then a straight-line rewrite.** `if (c) { this.x = a; return; } this.x = b;`
+  drops `a`.
+- **`new Sub()` through an inserted default constructor** skips the superclass constructor and its
+  initializers.
 
 ## Parity with the builder
 
@@ -102,7 +130,11 @@ callee's write to `this` is filed on nothing and the root's later read never fin
 draws a silently wrong graph there today. Fixing it makes the entries stale, which fails the test
 by design.
 
-Only `P<i> → RET` is compared; field outputs and `ext-arg` sinks are not.
+**Only `P<i> → RET` is compared**; field outputs, `RET.<qfield>` and `ext-arg` sinks are not. That
+is why two bugs got past it. A factory's `RET.B.v` was never written (the parity reads the result's
+parameters, not its fields), and `m.with(a).with(w)` is not in any fixture, so the merged objects
+were never compared. The 100% on Fineract below says nothing about either.
+Behaviour tests cover both now; widening the comparison is Phase 2.
 
 `CODEFLOW_PARITY_SRC=<java dir>` runs the same comparison on a real corpus, by hand. It is skipped
 otherwise. It fails only on a silently missing pair; the rest is reported.
@@ -113,13 +145,17 @@ progressive-loan at `e048ee8b2b`, 2026-11-15.
 
 | | Graph (`--json`, every method a root) | `--summaries` |
 |---|---|---|
-| Time | 70 s, 658 of 658 roots | 5 s, 687 methods |
-| Document | 742 MB | 240 MB |
-| Pairs | | 858,893 |
-| Gap rows | | 29,745: 19,194 `unmodelled`, 9,135 `depth`, 864 `dispatch`, 552 `alias` |
-| Distinct gaps | | 1,898: 1,233 `unmodelled`, 518 `depth`, 87 `dispatch`, 60 `alias` |
+| Time | 70 s, 658 of 658 roots | 4–5 s, 687 methods |
+| Document | 742 MB | 242 MB |
+| Pairs | | 859,155, of which 262 to a `RET.<qfield>` |
+| Gap rows | | 35,935: 19,194 `unmodelled`, 9,135 `depth`, 5,440 `escape`, 1,302 `alias`, 864 `dispatch` |
+| Distinct gaps | | 2,378: 1,233 `unmodelled`, 518 `depth`, 460 `escape`, 87 `dispatch`, 80 `alias` |
 
-- No `fixpoint` or `body` gap. 476 of the 687 methods have no gap at all.
+- No `fixpoint` or `body` gap. 469 of the 687 methods have no gap at all.
+- Against the first measurement (before the fix wave): the 262 `RET.<qfield>` pairs are new and
+  every other pair is unchanged; `escape` is new, and 750 of the 1,302 `alias` rows (20 distinct)
+  are writes on several holders. Chained calls named apart changed no Fineract pair and added no
+  `depth` gap.
 - 658 against 687: the smoke passes `Class#method` names to `--from`, and overloads share one.
 - The 22 `TYPE_CAST` the graph run reports unmodelled are 22 of the `unmodelled` gaps.
   `--summaries` reports them on stderr too, and exits 1, as the graph run does.

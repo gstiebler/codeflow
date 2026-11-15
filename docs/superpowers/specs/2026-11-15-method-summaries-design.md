@@ -107,7 +107,9 @@ can be:
   - `Path(root, fields)`: an object reached through the method's interface.
   - `Alloc(site)`: an object allocated inside the method or a callee. Its name is the chain of call
     sites that led to the allocation, bounded so a fixpoint terminates: past 2 sites it keeps the
-    outermost call site and the allocation site, and drops the ones between.
+    outermost call site and the allocation site, and drops the ones between. A call site in the
+    chain is the call's position plus its instruction's index, since chained calls `a(x).b(y)`
+    share a start position.
 - **A summary** has:
   - `ret`: an abstract value.
   - `effects`: the final value of every field written on a `Path` object or on a kept `Alloc`
@@ -116,7 +118,8 @@ can be:
     receiver.
   - `gaps`.
 
-A pair of a summary is `input atom → output`. The outputs are `RET`, a field written on a path, or
+A pair of a summary is `input atom → output`. The outputs are `RET`, a field written on a path, a
+field written on an object only the result leads to (`RET.<qfield>[.<qfield>]`), or
 `ExtArg(site)`. Field names are written as the declaring class's qualified name plus the field name,
 taken from the `Element`, never from text.
 
@@ -137,7 +140,7 @@ builder draws, the summarizer treats as a flow.
   (`docs/decisions/joins.md`, "Fields join too"). A write journals; an arm undoes; the join merges
   every arm, including those that return or throw.
   - The builder's known gaps carry over as they are: no loop back edge for fields, `?:`/`&&`/`||`
-    not forked, strong update through several holders.
+    not forked, strong update through several holders (the last also an `alias` gap).
   - The summarizer does not quietly do better or worse than the builder. Divergence shows up in the
     parity test.
 - **Calls.** These are resolved by the builder's own dispatch rule, extracted into one shared
@@ -182,9 +185,14 @@ builder draws, the summarizer treats as a flow.
     object in the caller, and the callee reads a field through one and writes it through the
     other, or writes one field through both. The summary was computed as if they were distinct,
     so the instantiated flow would be wrong. Context-insensitive by design, so it may over-report:
-    noise, not silence.
+    noise, not silence. Also a write through a receiver that is one of several objects, a strong
+    update on each.
+  - `escape`: a field written on an object made here or by a callee that no output reaches. It may
+    have left with its fields (an opaque call's argument, a `throw`, which is not lowered), and
+    nothing tells that from a dead store, so both are gaps.
   - A caller copies its callees' gaps, each keeping the callee's own position, so the output says
-    "complete except through …" for every root.
+    "complete except through …" for every root — as far as the gaps go: the silent cases the
+    builder shares are listed in `docs/decisions/summaries.md`.
 
 ### Output (`--summaries`)
 
@@ -201,8 +209,9 @@ document to stdout. `Args` still refuses unknown flags.
  "counts": {"methods": 677, "pairs": 0, "gaps": {"dispatch": 0}}}
 ```
 
-- **Every method in the sources is listed**, sorted by `method`, with pairs sorted, so the
-  document is byte-stable and diffs are clean.
+- **Every method with a body that `sourceMethods` holds is listed** (not abstract methods, nor an
+  anonymous class's), sorted by `method`, with pairs sorted, so the document is byte-stable and
+  diffs are clean.
   - `--from` narrows the list to the methods named. It does not change what is analysed.
   - Counters go to stderr. `counts` and the stderr totals count emitted rows, so an inherited gap
     counts once for every caller that lists it.
@@ -212,7 +221,8 @@ document to stdout. `Args` still refuses unknown flags.
   - `P<i>.<qualified field>…`
   - `static.<qualified field>`
   - `ext:<label>@<file:line:col>`
-  - Outputs add `RET`, the same field spellings, and `ext-arg:<label>@<file:line:col>`.
+  - Outputs add `RET`, the same field spellings, `RET.<qualified field>[.<qualified field>]`, and
+    `ext-arg:<label>@<file:line:col>`.
   - An array's length is a field of the array, spelled `P<i>.Array.length`.
 
 ### Tests
@@ -307,5 +317,17 @@ The design above has been edited in place to match what was built. What changed:
    references, not copies". Copies are what the exporter prints.
 4. **Array length is spelled `P<i>.Array.length`**, which the atom list did not have.
 5. **Counts are per emitted row**, so an inherited gap counts once per caller.
+6. **`RET.<qfield>` outputs.** A field written on an object only the result leads to had no name,
+   so a factory's document sent its parameter nowhere. It is spelled through `RET` now, with the
+   same depth cap.
+7. **A call site in an allocation chain is its position plus its instruction's index.** Chained
+   calls share a start position, and named by it alone their objects were one.
+8. **`escape` gap kind.** An object made here with a field written and no output reaching it may
+   have left through an opaque call or a `throw`; that is a gap, dead stores included.
+9. **A write on several holders is an `alias` gap**, not only a carried-over imprecision.
+10. **The listing is every method with a body that `sourceMethods` holds**, not every method in the
+    sources: abstract methods and anonymous classes' methods are not listed.
+11. **Parity compares `P<i> → RET` only**, which is why 6 and 7 got past it; behaviour tests cover
+    them.
 
 The reasoning and the Fineract numbers are in `docs/decisions/summaries.md`.

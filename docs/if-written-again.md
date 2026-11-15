@@ -128,11 +128,14 @@ the same result when instantiated; what changes is that it is computed once and 
 instead of computed many times.
 
 **Status: Phase 1 has landed; bodies drawn once (Phase 2) is next.** `ir.Summarizer` reads every
-method into a summary once, behind `--summaries`, with recursion solved by fixpoint and every place
-it cannot follow named as a gap. On Fineract progressive-loan it summarises 687 methods in 5 s
-(240 MB), against 70 s and 742 MB for graphing the 658 roots. Held to the builder on its 421
-methods with a result, `P<i> → RET` recall and precision are both 100%. The graph is still drawn per call site:
-Phase 2 draws each body once, with call boxes wired from the callee's summary.
+method into a summary once, behind `--summaries`, with recursion solved by fixpoint and the places
+it knows it cannot follow named as gaps. Not every place: a few silent cases the builder shares
+(a root's `this` and parameters, a guarded return then a rewrite, an inserted default constructor)
+are follow-ups, listed in the decision record. On Fineract progressive-loan it summarises 687
+methods in 4–5 s (242 MB), against 70 s and 742 MB for graphing the 658 roots. Held to the builder
+on its 421 methods with a result, `P<i> → RET` recall and precision are both 100% — only that pair
+kind is compared. The graph is still drawn per call site: Phase 2 draws each body once, with call
+boxes wired from the callee's summary.
 → `docs/decisions/summaries.md`
 
 ## 3. Points-to as a named analysis, not `MemPos` accumulated along the way

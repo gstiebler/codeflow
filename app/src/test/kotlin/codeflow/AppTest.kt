@@ -76,6 +76,76 @@ class AppTest {
         return JsonParser.parseString(text.toString()).asJsonObject
     }
 
+    /** The summaries document, as text. */
+    private fun rawSummaries(testDir: String, from: List<String> = emptyList()): String {
+        val testDirPath = testResourcesPath.resolve(testDir)
+        val files = Files.list(testDirPath).use { stream -> stream.filter { it.toString().endsWith(".java") }.sorted().toList() }
+        return SummariesExporter().export(AstReader(testResourcesPath).summarise(files, from))
+    }
+
+    private fun buildSummaries(testDir: String, from: List<String> = emptyList()): JsonObject =
+        JsonParser.parseString(rawSummaries(testDir, from)).asJsonObject
+
+    private fun summaryRows(doc: JsonObject) = doc.getAsJsonArray("methods").map { it.asJsonObject }
+
+    private fun flowsOf(doc: JsonObject, method: String) = summaryRows(doc).single { it.get("method").asString == method }
+        .getAsJsonArray("flows").map { it.asJsonArray.let { pair -> "${pair[0].asString}>${pair[1].asString}" } }
+
+    @Test
+    fun summariesListEveryMethodWithItsFlows() {
+        val doc = buildSummaries("funcCall")
+        assertEquals("codeflow-summaries", doc["format"].asString)
+        val names = summaryRows(doc).map { it.get("method").asString }
+        assertEquals(
+            listOf(
+                "test.App#main(java.lang.String[])", "test.App#methodA(int,int)", "test.App#methodB()",
+                "test.App#methodC(int)"
+            ),
+            names
+        )
+        assertEquals(listOf("P0>RET"), flowsOf(doc, "test.App#methodC(int)"))
+        assertEquals(listOf("P0>RET", "P1>RET"), flowsOf(doc, "test.App#methodA(int,int)"))
+        assertEquals(names.size, doc.getAsJsonObject("counts")["methods"].asInt)
+    }
+
+    @Test
+    fun summariesAreByteStableAcrossRuns() =
+        assertEquals(rawSummaries("objectArgument"), rawSummaries("objectArgument"))
+
+    /**
+     * `Source#read` has no body, so it is not a source method and cannot be a root; a caller going
+     * through it must still summarise, with the dispatch resolved on the object.
+     */
+    @Test
+    fun summariesOfAnAbstractMethodAreEmptyNotACrash() {
+        val doc = buildSummaries("abstractMethod")
+        assertEquals(
+            listOf("abstractMethod.App#main(java.lang.String[])", "abstractMethod.Doubling#read(int)"),
+            summaryRows(doc).map { it.get("method").asString }
+        )
+        assertEquals(listOf("P0>RET"), flowsOf(doc, "abstractMethod.Doubling#read(int)"))
+        assertFailsWith<GraphException> { rawSummaries("abstractMethod", listOf("Source#read")) }
+    }
+
+    @Test
+    fun summariesRefuseAFromThatMatchesNothing() {
+        assertFailsWith<GraphException> { rawSummaries("funcCall", listOf("App#nope")) }
+    }
+
+    /** The flag is accepted, and the document is what reaches stdout. */
+    @Test
+    fun summariesIsAKnownFlag() {
+        val out = java.io.ByteArrayOutputStream()
+        val saved = System.out
+        System.setOut(java.io.PrintStream(out, true))
+        try {
+            main(arrayOf(testResourcesPath.resolve("objectArgument").toString(), "--summaries"))
+        } finally {
+            System.setOut(saved)
+        }
+        assertEquals("codeflow-summaries", JsonParser.parseString(out.toString()).asJsonObject["format"].asString)
+    }
+
     private fun jsonNodes(doc: JsonObject) = doc.getAsJsonArray("nodes").map { it.asJsonObject }
 
     private fun jsonLabel(node: JsonObject) = node.get("label").asString

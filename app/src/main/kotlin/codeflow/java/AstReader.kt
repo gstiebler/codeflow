@@ -4,6 +4,8 @@ import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphException
 import codeflow.graph.Method
 import codeflow.ir.IrGraphBuilder
+import codeflow.ir.Summarizer
+import codeflow.ir.Summary
 import codeflow.java.processors.*
 import com.sun.source.tree.CompilationUnitTree
 import com.sun.source.util.JavacTask
@@ -45,6 +47,27 @@ class AstReader(private val basePath: Path) {
         reportUnmodelled()
         analysis.close()
         return root
+    }
+
+    /**
+     * Every method's summary, or those `--from` names. No graph is built: the builder is only asked
+     * for the bodies the summarizer reads.
+     *
+     * A spec that matches nothing fails as [selectEntry] does, listing the candidates; the filter
+     * itself is [MethodSpec.matches], so what `--from` accepts means the same in both modes.
+     */
+    fun summarise(fileNames: List<Path>, entryPoints: List<String> = emptyList()): List<Pair<Method, Summary>> {
+        val analysis = analyse(fileNames)
+        entryPoints.forEach { analysis.method(it) }
+        val builder = IrGraphBuilder(analysis.globalCtx)
+        val all = Summarizer(analysis.globalCtx, builder::bodyOf, builder::initializersOf).summariseAll()
+        val chosen = all.entries
+            .filter { (method, _) -> entryPoints.isEmpty() || entryPoints.any { MethodSpec.matches(method, it) } }
+            .map { it.key to it.value }
+        unmodelled = analysis.globalCtx.unmodelled()
+        reportUnmodelled()
+        analysis.close()
+        return chosen
     }
 
     /**

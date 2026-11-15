@@ -3,6 +3,7 @@
  */
 package codeflow
 
+import codeflow.ir.pairs
 import codeflow.java.AstReader
 import java.nio.file.FileVisitOption
 import java.nio.file.Files
@@ -47,7 +48,7 @@ private class Args(argv: Array<String>) {
     }
 
     companion object {
-        val FORMATS = setOf("--html", "--json", "--graphml")
+        val FORMATS = setOf("--html", "--json", "--graphml", "--summaries")
     }
 }
 
@@ -60,6 +61,16 @@ fun main(argv: Array<String>) {
 
     val filesPaths = generateListOfJavaFilesFromDir(javaRootDirPath)
     val reader = AstReader(javaRootDirPath)
+    if (args.flags.contains("--summaries")) {
+        val entries = reader.summarise(filesPaths, args.from)
+        println(SummariesExporter().export(entries))
+        System.err.println(
+            "codeflow: summarised ${entries.size} methods, ${entries.sumOf { it.second.pairs().size }} pairs, " +
+                    "${entries.sumOf { it.second.gaps.size }} gaps"
+        )
+        if (reader.unmodelled.isNotEmpty()) exitProcess(1)
+        return
+    }
     val roots = reader.process(filesPaths, args.from)
 
     val result = ArrayList<String>()

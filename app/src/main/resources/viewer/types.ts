@@ -18,7 +18,7 @@ export type Id = string;
 export type NodeType =
   | 'METHOD'
   | 'BASE' | 'LITERAL' | 'VARIABLE' | 'OBJ_VARIABLE' | 'BIN_OP' | 'FUNC_PARAM'
-  | 'RETURN' | 'MEM_SPACE' | 'EXTERNAL' | 'UNMODELLED';
+  | 'RETURN' | 'EXTERNAL' | 'UNMODELLED';
 
 export type EdgeKind = 'FLOW' | 'TRUE' | 'FALSE' | 'CONDITION';
 

@@ -3,7 +3,7 @@ package codeflow.graph
 import mu.KotlinLogging
 
 enum class NodeType {
-    BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, MEM_SPACE, EXTERNAL, UNMODELLED
+    BASE, LITERAL, VARIABLE, OBJ_VARIABLE, BIN_OP, FUNC_PARAM, RETURN, EXTERNAL, UNMODELLED
 }
 
 /**
@@ -117,7 +117,6 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
                 NodeType.OBJ_VARIABLE -> ObjVariable(base, serial)
                 NodeType.BIN_OP -> BinOp(base, serial)
                 NodeType.FUNC_PARAM -> FuncParam(base, serial)
-                NodeType.MEM_SPACE -> MemSpace(base, serial)
                 NodeType.RETURN -> MethodReturn(base, serial)
                 NodeType.EXTERNAL -> External(base, serial)
                 NodeType.UNMODELLED -> Unmodelled(base, serial)
@@ -141,9 +140,6 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
     }
     class FuncParam(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.FUNC_PARAM
-    }
-    class MemSpace(base: Base, serial: Int) : GraphNode(base, serial) {
-        override fun getType() = NodeType.MEM_SPACE
     }
     /** Something from outside the analysed sources: a call with no body to inline, or a value
      *  such as an enum constant, that we can only treat as opaque. */

@@ -14,8 +14,8 @@ import type { NodeType, EdgeKind } from './types.ts';
  * does in Mermaid, where it has no classDef either.
  */
 export const PALETTE: Partial<Record<NodeType, string>> = {
-  // The Mermaid classDef colours, as rgba. OBJ_VARIABLE and MEM_SPACE have no classDef today and
-  // render unstyled there; they get explicit colours here rather than silently sharing one.
+  // The Mermaid classDef colours, as rgba. OBJ_VARIABLE has no classDef today and
+  // renders unstyled there; it gets an explicit colour here rather than silently sharing one.
   LITERAL:      'rgba(0, 255, 0, 0.19)',
   VARIABLE:     'rgba(128, 128, 128, 0.19)',
   OBJ_VARIABLE: 'rgba(128, 200, 128, 0.25)',
@@ -23,7 +23,6 @@ export const PALETTE: Partial<Record<NodeType, string>> = {
   FUNC_PARAM:   'rgba(128, 128, 255, 0.19)',
   RETURN:       'rgba(255, 128, 128, 0.50)',
   EXTERNAL:     'rgba(255, 165, 0, 0.25)',
-  MEM_SPACE:    'rgba(200, 200, 128, 0.25)',
   // Where codeflow stopped rather than something the code does - see GraphNode.Unmodelled.
   UNMODELLED:   'rgba(255, 0, 0, 0.19)',
   METHOD:       'rgba(240, 240, 240, 0.60)',

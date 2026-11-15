@@ -466,9 +466,35 @@ class SummarizerTest {
      */
     @Test fun anAccumulatorLoopIsAFixpoint() =
         assertEquals(listOf("P1>RET"), pairs("class A { int f(int n, int a) { int t = 0; for (int i = 0; i < n; i++) t = t + a; return t; } }", "A#f"))
+    /** It terminates because the call-site limit makes every level past the first one object, which is a `depth` gap. */
     @Test fun aRecursiveFactoryTerminates() {
         val s = summarise("class N { N next; } class A { N f(int n) { N x = new N(); if (n > 0) x.next = f(n - 1); return x; } }", "A#f")
         assertTrue(s.gaps.none { it.kind == "fixpoint" }, "${s.gaps}")
+        assertTrue(s.gaps.any { it.kind == "depth" && it.detail.contains("two objects one") }, "${s.gaps}")
+    }
+
+    /**
+     * `m.with(a).with(w)`: both calls start where `m` does, so a call site named by its position
+     * alone made the two `new M()` one object, and the second call's write of `v` overwrote the
+     * first's - `P2>RET` drawn and `P1>RET` lost. The builder draws `a -> v -> RET`.
+     */
+    @Test
+    fun twoChainedCallsMakeTwoObjects() {
+        val src = "class M { int v; M prev; M with(int x) { M n = new M(); n.v = x; n.prev = this; return n; } } " +
+            "class A { int f(M m, int a, int w) { M r = m.with(a).with(w); return r.prev.v; } }"
+        assertEquals(listOf("P1>RET"), summarise(src, "A#f").spelled().filter { it.endsWith(">RET") })
+    }
+
+    /** The same through a factory and a callee that stores another of its objects: `B.of(a).link(w)`. */
+    @Test
+    fun aChainedFactoryAndCallKeepTheirObjectsApart() {
+        val src = "class B { int v; B next; static B of(int v) { B b = new B(); b.v = v; return b; } " +
+            "B link(int w) { this.next = of(w); return this; } } " +
+            "class A { int chained(int a, int w) { B r = B.of(a).link(w); return r.v; } " +
+            "int split(int a, int w) { B r = B.of(a); r = r.link(w); return r.v; } }"
+        for (method in listOf("A#chained", "A#split")) {
+            assertEquals(listOf("P0>RET"), summarise(src, method).spelled().filter { it.endsWith(">RET") }, method)
+        }
     }
 
     /**

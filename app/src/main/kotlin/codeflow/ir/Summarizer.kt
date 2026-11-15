@@ -508,12 +508,14 @@ class Summarizer(
          * here. That is what keeps the caller's own value of a field the callee wrote on only some
          * paths - its effect carries the entry, which is this value.
          *
-         * An object the callee made is renamed by this call site, so two calls make two objects - and
-         * a name longer than [K_LIMIT] keeps its outermost call site and its allocation site and drops
-         * the ones between, or a recursive factory would name a new object on every pass. Kept, those
-         * two still tell apart objects made through different calls here and objects allocated at
-         * different sites. Two the callee told apart only by a dropped middle site are one object
-         * here, which joins their fields: that is a `depth` gap, as a path cut at [DEPTH_CAP] is. A
+         * An object the callee made is renamed by this call - its position and its index in the run,
+         * since the calls of a chain `a(x).b(y)` all start at one position - so two calls make two
+         * objects. A name longer than [K_LIMIT] keeps its outermost call site and its allocation site
+         * and drops the ones between, or a recursive factory would name a new object on every pass.
+         * Kept, those two still tell apart objects made through different calls here and objects
+         * allocated at different sites. Two the callee told apart only by a dropped middle site are
+         * one object here, which joins their fields: that is a `depth` gap, as a path cut at
+         * [DEPTH_CAP] is - and so is a name this run already holds, which nothing should make. A
          * value the callee stored that has no object here - an argument from an opaque call - gets a
          * stand-in per call site *and* field it was stored in, as the builder's `write` gives one per
          * write: one per call site would make two unrelated objects one.
@@ -528,15 +530,21 @@ class Summarizer(
          */
         private fun instantiate(callee: Summary, label: String, receiver: Set<Obj>, args: List<AbsVal>, insn: Insn, index: Int): AbsVal {
             val site = insn.source
+            // The call's own link in a name: its position is where the call *starts*, which every
+            // call of a chain `a(x).b(y)` shares, so the instruction's index is what tells them apart.
+            val link = "$site#${base + index}"
             fun field(holders: Set<Obj>, field: Element): AbsVal =
                 holders.fold(EMPTY) { acc, holder -> acc + read(holder to field, field.asType().kind.isPrimitive, site) }
             val paths = HashMap<PathObj, Set<Obj>>()
             val names = HashMap<Obj, Obj>()
-            fun chain(sites: List<String>) = (listOf(site) + sites).let { if (it.size <= K_LIMIT) it else it.take(K_LIMIT - 1) + it.last() }
+            val live = heap.flatMapTo(HashSet()) { (key, cell) -> cell.value.objs + key.first } + ret.objs
+            fun chain(sites: List<String>) = (listOf(link) + sites).let { if (it.size <= K_LIMIT) it else it.take(K_LIMIT - 1) + it.last() }
             fun renamed(obj: Obj, name: Obj): Obj = name.also {
                 val first = names.putIfAbsent(name, obj)
                 if (first != null && first != obj) {
                     gaps.add(Gap("depth", site, "$label makes two objects one past $K_LIMIT call sites: $first and $obj"))
+                } else if (first == null && name in live) {
+                    gaps.add(Gap("depth", site, "$label makes an object this method already holds: $name"))
                 }
             }
             fun objs(obj: Obj): Set<Obj> = when (obj) {
@@ -579,7 +587,7 @@ class Summarizer(
                 val written = when {
                     f.asType().kind.isPrimitive -> AbsVal(mapped.flows)
                     mapped.objs.isNotEmpty() -> mapped
-                    else -> AbsVal(mapped.flows, setOf(StandInObj(listOf(site, effectName(key))).also { standInsMadeAt.putIfAbsent(it, base + index) }))
+                    else -> AbsVal(mapped.flows, setOf(StandInObj(listOf(link, effectName(key))).also { standInsMadeAt.putIfAbsent(it, base + index) }))
                 }
                 for (target in holders) {
                     val k = target to f

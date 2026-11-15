@@ -14,11 +14,9 @@ flowchart TD
     n8["isText"]:::VARIABLE
     n9["size"]:::VARIABLE
   end
-  n0 -->|if| n9
   n1 --> n6
   n2 --> n8
   n3 --> n0
-  n3 -->|if| n6
   n4 --> n9
   n5 --> n7
   n6 --> n4

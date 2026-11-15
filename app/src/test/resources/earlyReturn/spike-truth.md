@@ -23,8 +23,6 @@ flowchart TD
   end
   n0 --> n10
   n1 -->|if| n10
-  n1 -->|if| n11
-  n1 -->|if| n12
   n10 --> n14
   n11 --> n0
   n12 --> n0

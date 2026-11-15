@@ -6,24 +6,26 @@ flowchart TD
     n0["indexAccess"]:::BIN_OP
     n1["parseInt"]:::EXTERNAL
     n2["args"]:::FUNC_PARAM
-    n3["0"]:::LITERAL
-    n4["1"]:::LITERAL
-    n5["Integer"]:::OBJ_VARIABLE
-    n6["attempts"]:::VARIABLE
-    n7["reported"]:::VARIABLE
-    n8["result"]:::VARIABLE
+    n3["if"]:::BIN_OP
+    n4["0"]:::LITERAL
+    n5["1"]:::LITERAL
+    n6["Integer"]:::OBJ_VARIABLE
+    n7["attempts"]:::VARIABLE
+    n8["reported"]:::VARIABLE
     n9["result"]:::VARIABLE
+    n10["result"]:::VARIABLE
   end
   n0 --> n1
-  n1 --> n8
-  n1 -->|if| n9
+  n1 --> n9
+  n1 -->|if| n3
+  n10 --> n3
   n2 --> n0
-  n3 --> n0
-  n4 --> n6
-  n5 --> n1
-  n6 --> n9
-  n8 --> n7
-  n9 --> n7
+  n3 --> n8
+  n4 --> n0
+  n5 --> n7
+  n6 --> n1
+  n7 --> n10
+  n9 --> n3
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

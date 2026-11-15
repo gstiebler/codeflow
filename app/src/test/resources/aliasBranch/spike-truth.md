@@ -11,27 +11,30 @@ flowchart TD
     n3["App$Holder"]:::EXTERNAL
     n4["App$Holder"]:::EXTERNAL
     n5["args"]:::FUNC_PARAM
-    n6["0"]:::LITERAL
-    n7["11"]:::LITERAL
-    n8["22"]:::LITERAL
-    n9["chosen"]:::OBJ_VARIABLE
+    n6["if"]:::BIN_OP
+    n7["0"]:::LITERAL
+    n8["11"]:::LITERAL
+    n9["22"]:::LITERAL
     n10["chosen"]:::OBJ_VARIABLE
-    n11["total"]:::VARIABLE
+    n11["chosen"]:::OBJ_VARIABLE
+    n12["total"]:::VARIABLE
   end
-  n12["amount"]:::VARIABLE
-  n0 --> n12
-  n1 -->|if| n10
-  n1 -->|if| n9
-  n10 --> n12
-  n12 --> n11
+  n13["amount"]:::VARIABLE
+  n0 --> n13
+  n1 -->|if| n6
+  n10 --> n13
+  n10 --> n6
+  n11 --> n13
+  n11 --> n6
+  n13 --> n12
   n2 --> n1
-  n3 --> n9
-  n4 --> n10
+  n3 --> n10
+  n4 --> n11
   n5 --> n2
-  n6 --> n1
-  n7 --> n0
+  n6 --> n13
+  n7 --> n1
   n8 --> n0
-  n9 --> n12
+  n9 --> n0
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

@@ -4,49 +4,49 @@
 flowchart TD
   subgraph m0["main"]
     n0["+"]:::BIN_OP
-    n1["0"]:::LITERAL
-    n2["100"]:::LITERAL
-    n3["10"]:::LITERAL
-    n4["200"]:::LITERAL
-    n5["20"]:::LITERAL
-    n6["300"]:::LITERAL
-    n7["30"]:::LITERAL
-    n8["3"]:::LITERAL
-    n9["500"]:::LITERAL
-    n10["chosen"]:::VARIABLE
-    n11["chosen"]:::VARIABLE
+    n1["if"]:::BIN_OP
+    n2["if"]:::BIN_OP
+    n3["0"]:::LITERAL
+    n4["100"]:::LITERAL
+    n5["10"]:::LITERAL
+    n6["200"]:::LITERAL
+    n7["20"]:::LITERAL
+    n8["300"]:::LITERAL
+    n9["30"]:::LITERAL
+    n10["3"]:::LITERAL
+    n11["500"]:::LITERAL
     n12["chosen"]:::VARIABLE
     n13["chosen"]:::VARIABLE
     n14["chosen"]:::VARIABLE
-    n15["out"]:::VARIABLE
-    n16["selector"]:::VARIABLE
-    n17["selector"]:::VARIABLE
-    n18["side"]:::VARIABLE
-    n19["side"]:::VARIABLE
+    n15["chosen"]:::VARIABLE
+    n16["chosen"]:::VARIABLE
+    n17["out"]:::VARIABLE
+    n18["selector"]:::VARIABLE
+    n19["selector"]:::VARIABLE
     n20["side"]:::VARIABLE
+    n21["side"]:::VARIABLE
+    n22["side"]:::VARIABLE
   end
-  n0 --> n15
-  n1 --> n10
-  n11 --> n0
-  n13 --> n0
-  n14 --> n0
-  n16 -->|if| n11
-  n16 -->|if| n12
-  n16 -->|if| n13
-  n16 -->|if| n14
-  n16 -->|if| n19
-  n16 -->|if| n20
-  n18 --> n0
-  n19 --> n0
-  n2 --> n14
-  n20 --> n0
-  n3 --> n11
-  n4 --> n18
-  n5 --> n12
-  n6 --> n19
-  n7 --> n13
-  n8 --> n17
-  n9 --> n20
+  n0 --> n17
+  n1 --> n0
+  n10 --> n19
+  n11 --> n22
+  n13 --> n2
+  n15 --> n2
+  n16 --> n2
+  n18 -->|if| n1
+  n18 -->|if| n2
+  n2 --> n0
+  n20 --> n1
+  n21 --> n1
+  n22 --> n1
+  n3 --> n12
+  n4 --> n16
+  n5 --> n13
+  n6 --> n20
+  n7 --> n14
+  n8 --> n21
+  n9 --> n15
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

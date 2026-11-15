@@ -6,27 +6,28 @@ flowchart TD
     n0["+"]:::BIN_OP
     n1["rounding"]:::EXTERNAL
     n2["rounding"]:::EXTERNAL
-    n3["0"]:::LITERAL
-    n4["1"]:::LITERAL
-    n5["2"]:::LITERAL
-    n6["Config"]:::OBJ_VARIABLE
-    n7["fromExpression"]:::VARIABLE
-    n8["fromStatement"]:::VARIABLE
+    n3["if"]:::BIN_OP
+    n4["0"]:::LITERAL
+    n5["1"]:::LITERAL
+    n6["2"]:::LITERAL
+    n7["Config"]:::OBJ_VARIABLE
+    n8["fromExpression"]:::VARIABLE
     n9["fromStatement"]:::VARIABLE
     n10["fromStatement"]:::VARIABLE
-    n11["out"]:::VARIABLE
+    n11["fromStatement"]:::VARIABLE
+    n12["out"]:::VARIABLE
   end
-  n0 --> n11
-  n1 -->|if| n10
-  n1 -->|if| n9
-  n10 --> n0
-  n3 --> n8
+  n0 --> n12
+  n1 -->|if| n3
+  n10 --> n3
+  n11 --> n3
+  n3 --> n0
   n4 --> n9
   n5 --> n10
-  n6 --> n1
-  n6 --> n2
-  n7 --> n0
-  n9 --> n0
+  n6 --> n11
+  n7 --> n1
+  n7 --> n2
+  n8 --> n0
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

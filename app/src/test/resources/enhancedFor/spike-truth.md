@@ -9,32 +9,34 @@ flowchart TD
     n3["length"]:::EXTERNAL
     n4["next"]:::EXTERNAL
     n5["of"]:::EXTERNAL
-    n6["#quot;a#quot;"]:::LITERAL
-    n7["0"]:::LITERAL
-    n8["$iterLocal0"]:::OBJ_VARIABLE
-    n9["names"]:::OBJ_VARIABLE
-    n10["name"]:::OBJ_VARIABLE
-    n11["size"]:::VARIABLE
-    n12["total"]:::VARIABLE
-    n13["total"]:::VARIABLE
+    n6["if"]:::BIN_OP
+    n7["if"]:::BIN_OP
+    n8["#quot;a#quot;"]:::LITERAL
+    n9["0"]:::LITERAL
+    n10["$iterLocal0"]:::OBJ_VARIABLE
+    n11["names"]:::OBJ_VARIABLE
+    n12["name"]:::OBJ_VARIABLE
+    n13["size"]:::VARIABLE
+    n14["total"]:::VARIABLE
+    n15["total"]:::VARIABLE
   end
-  n0 --> n12
-  n1 -->|if| n10
-  n1 -->|if| n11
-  n1 -->|if| n12
-  n10 --> n3
-  n11 --> n0
-  n12 --> n0
+  n0 --> n14
+  n1 -->|if| n6
+  n10 --> n7
+  n11 --> n2
+  n12 --> n3
   n13 --> n0
-  n2 --> n8
-  n3 --> n11
-  n4 --> n10
-  n5 --> n9
-  n6 --> n5
-  n7 --> n13
-  n8 --> n1
-  n8 --> n4
-  n9 --> n2
+  n14 --> n6
+  n15 --> n6
+  n2 --> n10
+  n3 --> n13
+  n4 --> n12
+  n5 --> n11
+  n6 --> n0
+  n7 --> n1
+  n7 --> n4
+  n8 --> n5
+  n9 --> n15
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

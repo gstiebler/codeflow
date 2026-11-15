@@ -69,7 +69,7 @@ test('contraction through dropped nodes keeps flows and invents none', () => {
   ]);
 });
 
-test('a guard to a read is dropped; to an assignment target or a RETURN it is kept', () => {
+test('a guard to a read is dropped; to a RETURN it is kept; to a local that meets no join it is dropped', () => {
   const nodes = [
     node('cond', 'CALL', 'x > 0', { name: '<operator>.greaterThan', col: 1 }),
     node('read', 'IDENTIFIER', 'r', { typeFullName: 'int', col: 2 }),
@@ -87,7 +87,6 @@ test('a guard to a read is dropped; to an assignment target or a RETURN it is ke
   check(m);
   assert.deepEqual(condense(m).edges.map((e) => `${e.from}>${e.to}|${e.label}`).sort(), [
     'A.f|BIN_OP|>|1:1>A.f|RETURN|if',
-    'A.f|BIN_OP|>|1:1>A.f|VARIABLE|y|1:4|if',
   ]);
 });
 
@@ -138,6 +137,75 @@ test('each assignment of a local is its own node; reads are contracted into the 
     'A.f|LITERAL|1|2:1>A.f|VARIABLE|r|2:2',
     'A.f|VARIABLE|r|2:2>A.f|RETURN',
   ]);
+});
+
+const local = (from: string, to: string) => ({ from, to, carrier: '', kind: 'local' as const });
+const guardTo = (to: string, from = 'cond') => ({ from, to, carrier: '', kind: 'guard' as const });
+const mk = (nodes: NodeFact[], edges: unknown[]) => ({
+  byId: new Map(nodes.map((n) => [n.id, n])), methodByFullName: new Map(), edges,
+}) as unknown as Model;
+const twoDefs = () => [
+  node('l1', 'LITERAL', '1', { col: 1 }),
+  node('x1', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 2 }),
+  node('a1', 'CALL', 'x = 1', { name: '<operator>.assignment', args: ['', 'x1', 'l1'] }),
+  node('l2', 'LITERAL', '2', { col: 3 }),
+  node('x2', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 4 }),
+  node('a2', 'CALL', 'x = 2', { name: '<operator>.assignment', args: ['', 'x2', 'l2'] }),
+  node('cond', 'CALL', 'c > 0', { name: '<operator>.greaterThan', col: 5 }),
+];
+
+test('two definitions reaching one read meet in an if join; a guard to a definition points at the join', () => {
+  const nodes = [
+    ...twoDefs(),
+    node('rd', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 6 }),
+    node('y', 'IDENTIFIER', 'y', { typeFullName: 'int', col: 7 }),
+    node('ay', 'CALL', 'y = x', { name: '<operator>.assignment', args: ['', 'y', 'rd'] }),
+  ];
+  const m = mk(nodes, [local('l1', 'x1'), local('l2', 'x2'), local('x1', 'rd'), local('x2', 'rd'), local('rd', 'ay'), local('ay', 'y'), guardTo('a2')]);
+  check(m);
+  const c = condense(m);
+  assert.deepEqual(c.nodes.filter((n) => n.label === 'if').map((n) => [n.key, n.kind]), [['A.f|JOIN|x1,x2', 'BIN_OP']]);
+  assert.deepEqual(c.edges.map((e) => `${e.from}>${e.to}|${e.label}`).sort(), [
+    'A.f|BIN_OP|>|1:5>A.f|JOIN|x1,x2|if',
+    'A.f|JOIN|x1,x2>A.f|VARIABLE|y|1:7|',
+    'A.f|LITERAL|1|1:1>A.f|VARIABLE|x|1:2|',
+    'A.f|LITERAL|2|1:3>A.f|VARIABLE|x|1:4|',
+    'A.f|VARIABLE|x|1:2>A.f|JOIN|x1,x2|',
+    'A.f|VARIABLE|x|1:4>A.f|JOIN|x1,x2|',
+  ]);
+});
+
+test('two reads of the same merge share one join', () => {
+  const nodes = [
+    ...twoDefs(),
+    node('rd1', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 6 }),
+    node('rd2', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 7 }),
+    node('ret', 'RETURN', 'return x + x'),
+  ];
+  const m = mk(nodes, [local('x1', 'rd1'), local('x2', 'rd1'), local('x1', 'rd2'), local('x2', 'rd2'), local('rd1', 'ret'), local('rd2', 'ret')]);
+  check(m);
+  assert.equal(condense(m).nodes.filter((n) => n.label === 'if').length, 1);
+});
+
+test('a guard to a definition that reaches no join is dropped', () => {
+  const nodes = [...twoDefs(), node('rd', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 6 }), node('ret', 'RETURN', 'return x')];
+  const m = mk(nodes, [local('x2', 'rd'), local('rd', 'ret'), guardTo('a2'), guardTo('x1')]);
+  check(m);
+  const c = condense(m);
+  assert.equal(c.nodes.filter((n) => n.label === 'if').length, 0);
+  assert.deepEqual(c.edges.map((e) => `${e.from}>${e.to}|${e.label}`), ['A.f|VARIABLE|x|1:4>A.f|RETURN|']);
+});
+
+test('a guard to a definition reaches the join through a plain read identifier', () => {
+  const nodes = [
+    ...twoDefs(),
+    node('rcv', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 8 }),
+    node('rd', 'IDENTIFIER', 'x', { typeFullName: 'int', col: 6 }),
+    node('ret', 'RETURN', 'return x'),
+  ];
+  const m = mk(nodes, [local('x1', 'rd'), local('x2', 'rcv'), local('rcv', 'rd'), local('rd', 'ret'), guardTo('a2')]);
+  check(m);
+  assert.ok(condense(m).edges.some((e) => e.label === 'if' && e.from.includes('BIN_OP') && e.to.includes('JOIN')));
 });
 
 const resources = new URL('../../app/src/test/resources/', import.meta.url);

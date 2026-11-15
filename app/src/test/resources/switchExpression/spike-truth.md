@@ -10,21 +10,21 @@ flowchart TD
     n4["#lt;init#gt;"]:::EXTERNAL
     n5["ANY"]:::EXTERNAL
     n6["args"]:::FUNC_PARAM
-    n7["#quot;unsupported#quot;"]:::LITERAL
-    n8["0"]:::LITERAL
-    n9["11"]:::LITERAL
-    n10["13"]:::LITERAL
-    n11["2"]:::LITERAL
-    n12["41"]:::LITERAL
-    n13["7"]:::LITERAL
-    n14["$obj0"]:::OBJ_VARIABLE
-    n15["base"]:::VARIABLE
-    n16["bonus"]:::VARIABLE
+    n7["if"]:::BIN_OP
+    n8["#quot;unsupported#quot;"]:::LITERAL
+    n9["0"]:::LITERAL
+    n10["11"]:::LITERAL
+    n11["13"]:::LITERAL
+    n12["2"]:::LITERAL
+    n13["41"]:::LITERAL
+    n14["7"]:::LITERAL
+    n15["$obj0"]:::OBJ_VARIABLE
+    n16["base"]:::VARIABLE
     n17["bonus"]:::VARIABLE
-    n18["doubled"]:::VARIABLE
-    n19["fallback"]:::VARIABLE
+    n18["bonus"]:::VARIABLE
+    n19["doubled"]:::VARIABLE
     n20["fallback"]:::VARIABLE
-    n21["kind"]:::VARIABLE
+    n21["fallback"]:::VARIABLE
     n22["kind"]:::VARIABLE
     n23["note"]:::VARIABLE
     n24["note"]:::VARIABLE
@@ -32,26 +32,26 @@ flowchart TD
     n26["out"]:::VARIABLE
     n27["total"]:::VARIABLE
   end
-  n0 --> n18
+  n0 --> n19
   n1 --> n26
-  n10 --> n20
-  n11 --> n0
-  n12 --> n25
-  n13 --> n15
-  n14 --> n4
-  n16 --> n0
-  n19 --> n2
-  n21 -->|if| n14
-  n23 --> n1
+  n10 --> n18
+  n11 --> n21
+  n12 --> n0
+  n13 --> n25
+  n14 --> n16
+  n15 --> n4
+  n17 --> n0
+  n20 --> n2
   n23 --> n2
-  n24 --> n1
+  n23 --> n7
+  n24 --> n7
   n27 --> n1
   n3 --> n22
-  n5 --> n14
+  n5 --> n15
   n6 --> n3
-  n7 --> n4
-  n8 --> n24
-  n9 --> n17
+  n7 --> n1
+  n8 --> n4
+  n9 --> n24
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

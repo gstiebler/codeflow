@@ -4,29 +4,33 @@
 flowchart TD
   subgraph m0["main"]
     n0["=="]:::BIN_OP
-    n1["13"]:::LITERAL
-    n2["17"]:::LITERAL
-    n3["5"]:::LITERAL
-    n4["7"]:::LITERAL
-    n5["a"]:::VARIABLE
-    n6["a"]:::VARIABLE
-    n7["b"]:::VARIABLE
-    n8["b"]:::VARIABLE
-    n9["c"]:::VARIABLE
-    n10["d"]:::VARIABLE
+    n1["if"]:::BIN_OP
+    n2["if"]:::BIN_OP
+    n3["13"]:::LITERAL
+    n4["17"]:::LITERAL
+    n5["5"]:::LITERAL
+    n6["7"]:::LITERAL
+    n7["a"]:::VARIABLE
+    n8["a"]:::VARIABLE
+    n9["b"]:::VARIABLE
+    n10["b"]:::VARIABLE
+    n11["c"]:::VARIABLE
+    n12["d"]:::VARIABLE
   end
-  n0 -->|if| n5
-  n0 -->|if| n7
-  n1 --> n7
-  n2 --> n5
-  n3 --> n6
-  n4 --> n0
-  n5 --> n10
-  n6 --> n10
-  n6 --> n8
-  n7 --> n9
-  n8 --> n0
-  n8 --> n9
+  n0 -->|if| n1
+  n0 -->|if| n2
+  n1 --> n12
+  n10 --> n0
+  n10 --> n2
+  n2 --> n11
+  n3 --> n9
+  n4 --> n7
+  n5 --> n8
+  n6 --> n0
+  n7 --> n1
+  n8 --> n1
+  n8 --> n10
+  n9 --> n2
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

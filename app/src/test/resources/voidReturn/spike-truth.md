@@ -19,7 +19,6 @@ flowchart TD
   n1 --> n5
   n2 --> n8
   n4 -->|if| n7
-  n4 -->|if| n8
   n5 --> n4
   n5 --> n8
   n6 --> n4

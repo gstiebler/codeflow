@@ -6,35 +6,39 @@ flowchart TD
     n0["++"]:::BIN_OP
     n1["+="]:::BIN_OP
     n2["#lt;"]:::BIN_OP
-    n3["0"]:::LITERAL
-    n4["0"]:::LITERAL
-    n5["1"]:::LITERAL
-    n6["5"]:::LITERAL
-    n7["7"]:::LITERAL
-    n8["i"]:::VARIABLE
-    n9["i"]:::VARIABLE
-    n10["x"]:::VARIABLE
-    n11["y"]:::VARIABLE
-    n12["y"]:::VARIABLE
+    n3["if"]:::BIN_OP
+    n4["if"]:::BIN_OP
+    n5["0"]:::LITERAL
+    n6["0"]:::LITERAL
+    n7["1"]:::LITERAL
+    n8["5"]:::LITERAL
+    n9["7"]:::LITERAL
+    n10["i"]:::VARIABLE
+    n11["i"]:::VARIABLE
+    n12["x"]:::VARIABLE
     n13["y"]:::VARIABLE
-    n14["z"]:::VARIABLE
+    n14["y"]:::VARIABLE
+    n15["y"]:::VARIABLE
+    n16["z"]:::VARIABLE
   end
-  n10 --> n2
-  n11 --> n13
-  n11 --> n14
-  n12 --> n13
-  n12 --> n14
-  n13 --> n1
-  n2 -->|if| n12
-  n3 --> n11
-  n4 --> n8
-  n5 --> n1
+  n10 --> n4
+  n11 --> n0
+  n11 --> n4
+  n12 --> n2
+  n13 --> n3
+  n14 --> n3
+  n15 --> n1
+  n2 -->|if| n3
+  n2 -->|if| n4
+  n3 --> n15
+  n3 --> n16
+  n4 --> n11
+  n4 --> n2
+  n5 --> n13
   n6 --> n10
-  n7 --> n12
-  n8 --> n2
-  n8 --> n9
-  n9 --> n0
-  n9 --> n2
+  n7 --> n1
+  n8 --> n12
+  n9 --> n14
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

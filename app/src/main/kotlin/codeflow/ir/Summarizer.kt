@@ -1,11 +1,14 @@
 package codeflow.ir
 
+import codeflow.graph.GraphException
 import codeflow.graph.Method
 import codeflow.ir.AbsVal.Companion.EMPTY
 import codeflow.java.processors.GlobalContext
 import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
+import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.Modifier
+import javax.lang.model.element.VariableElement
 
 /**
  * Every source method read into a [Summary], by walking the same instructions the builder draws.
@@ -18,16 +21,98 @@ import javax.lang.model.element.Modifier
  * adds will record.
  *
  * Interpreting a method is a pure function of the method and what it is given, so it can be run
- * again. Calls are opaque for now ([opaqueCall]), each one an [ExtResult] and a sink.
+ * again. A call to a source method instantiates the callee's summary at the call site
+ * ([Interpretation.instantiate]); a call to anything else is opaque ([Interpretation.opaqueCall]),
+ * an [ExtResult] and a sink, as the builder's EXTERNAL is.
  */
 class Summarizer(
     private val globalCtx: GlobalContext,
     private val bodyOf: (Method) -> MethodBody,
     private val initializersOf: (Element?) -> List<Insn>
 ) {
-    private val summaries = LinkedHashMap<Element, Summary>()
+    /** Keyed by `(method, receiver class)`, or by [Initializers] - see [solve]. */
+    private val summaries = LinkedHashMap<Any, Summary>()
+    private val inProgress = HashSet<Any>()
 
-    fun summary(method: Method): Summary = summaries.getOrPut(method.element) { Interpretation(method).run() }
+    /** Methods whose lowering threw: a call to one is opaque, and inherits the `body` gap that says why. */
+    private val unlowerable = HashSet<Element>()
+    private val overridden = HashMap<Element, Boolean>()
+
+    /**
+     * What [method] does when it runs on an object of class [receiverType].
+     *
+     * The class matters only to a virtual call on `this`, which it decides - a template method
+     * summarised for `I` runs `I.step`. Null means nobody said: such a call resolves statically, as
+     * the builder does for an untyped receiver, and carries a `dispatch` gap where the sources
+     * override it.
+     */
+    fun summary(method: Method, receiverType: Element? = null): Summary =
+        summaryAt(method, receiverType, method.ctx.location(method.name))
+
+    private fun summaryAt(method: Method, receiverType: Element?, at: String): Summary =
+        solve(method.element to receiverType, at, label(method.element)) { summarise(method, receiverType) }
+
+    /** A class's field initializers, summarised as a body of their own for a `new` with no constructor to run them. */
+    private data class Initializers(val cls: Element)
+
+    /**
+     * Every summary is computed here, and this is where recursion is met: one asked for while it is
+     * being computed is a cycle. For now it contributes nothing, and says so with a `fixpoint` gap
+     * at the call - which every summary on the cycle then carries. A fixpoint replaces this.
+     */
+    private fun solve(key: Any, at: String, label: String, compute: () -> Summary): Summary {
+        summaries[key]?.let { return it }
+        if (!inProgress.add(key)) {
+            return Summary(EMPTY, emptyMap(), emptyMap(), setOf(Gap("fixpoint", at, "recursive call to $label, taken as doing nothing")))
+        }
+        val summary = compute()
+        inProgress.remove(key)
+        summaries[key] = summary
+        return summary
+    }
+
+    /**
+     * The lists a method runs, then the run. A constructor runs its class's initializers first,
+     * unless it delegates to `this(...)`, which runs them - the builder's `invoke`.
+     *
+     * Lowering is the one thing caught: a method it cannot read is a `body` gap with no flows, not
+     * a run that takes the whole summarizer down with it.
+     */
+    private fun summarise(method: Method, receiverType: Element?): Summary {
+        val element = method.element
+        val lists = try {
+            val body = bodyOf(method).instructions
+            val delegates = body.any { it is Delegate && it.target.enclosingElement == element.enclosingElement }
+            if (element.kind == ElementKind.CONSTRUCTOR && !delegates) listOf(initializersOf(element.enclosingElement), body)
+            else listOf(body)
+        } catch (e: GraphException) {
+            unlowerable.add(element)
+            return unlowered(method.ctx.location(method.name), e)
+        }
+        val thisObjs: Set<Obj> = if (Modifier.STATIC in element.modifiers) emptySet() else setOf(PathObj(This))
+        return Interpretation(thisObjs, element.parameters, receiverType).run(lists)
+    }
+
+    /** Null for a class outside the sources, which has none. */
+    private fun initializers(cls: Element?, at: String): Summary? {
+        val declaring = globalCtx.findClass(cls) ?: return null
+        return solve(Initializers(cls!!), at, "${cls.simpleName} initializers") {
+            val lists = try {
+                listOf(initializersOf(cls))
+            } catch (e: GraphException) {
+                return@solve unlowered(declaring.ctx.location(declaring.tree), e)
+            }
+            Interpretation(setOf(PathObj(This)), emptyList(), cls).run(lists)
+        }
+    }
+
+    private fun unlowered(at: String, e: GraphException) =
+        Summary(EMPTY, emptyMap(), emptyMap(), setOf(Gap("body", at, e.message ?: "lowering failed")))
+
+    private fun overriddenInSources(declared: ExecutableElement): Boolean =
+        overridden.getOrPut(declared) { Dispatch.overriddenInSources(globalCtx, declared) }
+
+    private fun label(element: Element) = "${element.enclosingElement.simpleName}#${element.simpleName}"
 
     /** Every method in the sources, in [GlobalContext.sourceMethods] order. */
     fun summariseAll(): Map<Method, Summary> =
@@ -45,8 +130,8 @@ class Summarizer(
 
     /**
      * The builder's [OpenFork]: where its journal starts, and what each finished arm left. [index]
-     * is the fork's instruction, so a join can tell an object from before the fork from one made
-     * inside it.
+     * is the fork's position in the run (see [Interpretation.base]), so a join can tell an object
+     * from before the fork from one made inside it.
      */
     private class Fork(val mark: Int, val index: Int) {
         val arms = ArrayList<Map<Pair<Obj, Element>, Cell>>()
@@ -61,12 +146,18 @@ class Summarizer(
         val gaps: Set<Gap>
     )
 
-    /** One run of one method: its abstract heap, and what it has returned, written and called. */
-    private inner class Interpretation(private val method: Method) {
-        private val thisObjs: Set<Obj> =
-            if (Modifier.STATIC in method.element.modifiers) emptySet() else setOf(PathObj(This))
-
-        private val params: List<AbsVal> = method.element.parameters.mapIndexed { i, parameter ->
+    /**
+     * One run of one method: its abstract heap, and what it has returned, written and called.
+     *
+     * [thisObjs] is empty for a static method; [receiverType] is the class `this` is known to be,
+     * which only a virtual call on it asks.
+     */
+    private inner class Interpretation(
+        private val thisObjs: Set<Obj>,
+        parameters: List<VariableElement>,
+        private val receiverType: Element?
+    ) {
+        private val params: List<AbsVal> = parameters.mapIndexed { i, parameter ->
             val objs: Set<Obj> = if (parameter.asType().kind.isPrimitive) emptySet() else setOf(PathObj(ParamRoot(i)))
             AbsVal(setOf(ParamAtom(i)), objs)
         }
@@ -80,24 +171,23 @@ class Summarizer(
 
         /** Every field a write touched, with where it was first written: the heap also holds fields only read. */
         private var written = LinkedHashMap<Pair<Obj, Element>, String>()
-        /** The instruction each [StandInObj] was made at - the same on every pass. */
+        /** The position each [StandInObj] was made at - the same on every pass. */
         private val standInsMadeAt = HashMap<Obj, Int>()
+
+        /**
+         * Where the current list starts in the run, so a position is an index into every list run so
+         * far: a constructor's initializers come before its body, and a stand-in one of them made is
+         * older than every fork in the body. An index into one list alone would compare the two.
+         */
+        private var base = 0
         private var ret = EMPTY
         private var sinks = LinkedHashMap<String, AbsVal>()
         private var gaps = LinkedHashSet<Gap>()
 
-        fun run(): Summary {
-            val element = method.element
-            if (element.kind == ElementKind.CONSTRUCTOR && !delegatesToSameClass()) {
-                execute(initializersOf(element.enclosingElement))
-            }
-            execute(bodyOf(method).instructions)
+        fun run(lists: List<List<Insn>>): Summary {
+            lists.forEach { execute(it) }
             return Summary(ret, effects(), sinks, gaps)
         }
-
-        /** The builder's rule: `this(...)` runs the initializers in the constructor it delegates to. */
-        private fun delegatesToSameClass(): Boolean = bodyOf(method).instructions
-            .any { it is Delegate && it.target.enclosingElement == method.element.enclosingElement }
 
         /**
          * The final value of every field written on an object the caller can reach: a [PathObj], or
@@ -156,6 +246,7 @@ class Summarizer(
                 instructions.forEachIndexed { index, insn -> values[index] = eval(insn, index, values, forks) }
                 if (!hasBackEdges || values.contentEquals(previous)) break
             }
+            base += instructions.size
         }
 
         private fun eval(insn: Insn, index: Int, values: Array<AbsVal>, forks: HashMap<Int, Fork>): AbsVal {
@@ -164,7 +255,16 @@ class Summarizer(
             return when (insn) {
                 is Const -> EMPTY
                 is Param -> params[insn.index]
-                is WriteLocal -> stored(v(insn.value), insn.isPrimitive, insn, index)
+                is WriteLocal -> {
+                    val stored = stored(v(insn.value), insn.isPrimitive, insn, index)
+                    // A field initializer is lowered as the declaration it is, but what it declares
+                    // is a field of the object being built - the builder writes it onto `owner`.
+                    val element = insn.element
+                    if (element?.kind == ElementKind.FIELD) {
+                        holders(Receiver.Enclosing, element, values).forEach { write(it to element, stored, insn.source) }
+                    }
+                    stored
+                }
                 is ReadField -> readField(insn, values)
                 is WriteField -> {
                     val stored = stored(v(insn.value), insn.isPrimitive, insn, index)
@@ -174,7 +274,7 @@ class Summarizer(
                     holders.forEach { write(it to element!!, stored, insn.source) }
                     stored
                 }
-                is FieldFork -> EMPTY.also { forks[index] = Fork(journal.size, index).also { openForks.add(it) } }
+                is FieldFork -> EMPTY.also { forks[index] = Fork(journal.size, base + index).also { openForks.add(it) } }
                 is FieldArm -> EMPTY.also { endArm(forks.getValue(insn.fork.index)) }
                 is FieldJoin -> EMPTY.also { fieldJoin(insn, forks.getValue(insn.fork.index), values) }
                 is ThisRef -> AbsVal(objs = thisObjs.ifEmpty { error("`this` in a static method at ${insn.source}") })
@@ -203,21 +303,201 @@ class Summarizer(
                 is Opaque -> flows(insn.inputs)
                 is Unmodelled -> flows(insn.inputs).also { gaps.add(Gap("unmodelled", insn.source, insn.kind)) }
                 is Return -> EMPTY.also { insn.value?.let { ret += v(it) } }
-                is Call -> opaqueCall(insn.name, insn.receiver.inputs + insn.args, insn, values)
-                is New -> AbsVal(
-                    opaqueCall(insn.typeName, insn.args, insn, values).flows,
-                    setOf(AllocObj(listOf(insn.source), insn.constructor?.enclosingElement))
-                )
-                is Delegate -> opaqueCall(insn.target.enclosingElement.simpleName.toString(), insn.args, insn, values)
+                is Call -> call(insn, index, values)
+                is New -> construct(insn, index, values)
+                is Delegate -> delegate(insn, index, values)
             }
+        }
+
+        /**
+         * A call, which runs the body the receiver's class picks - [Dispatch], the builder's rule.
+         *
+         * `this` is the class this run was asked for, an allocation the class it was made as, and
+         * anything else says nothing about its class. Where the sources override the method and the
+         * receiver is a parameter's or a field's object, nothing here can say which body runs: the
+         * call is opaque and a `dispatch` gap says why, rather than taking the declared body as the
+         * answer. `this` with no class known resolves statically, as the builder's untyped receiver
+         * does, and carries the gap too.
+         */
+        private fun call(insn: Call, index: Int, values: Array<AbsVal>): AbsVal {
+            val opaque = { opaqueCall(insn.name, insn.receiver.inputs + insn.args, insn, values) }
+            val declared = insn.target as? ExecutableElement ?: return opaque()
+            val receiver: Set<Obj> = when (insn.receiver) {
+                Receiver.Enclosing, Receiver.Super -> if (Modifier.STATIC in declared.modifiers) emptySet() else thisObjs
+                Receiver.TypeName -> emptySet()
+                is Receiver.Value -> values[insn.receiver.value.index].objs
+            }
+            val types = receiver.mapNotNull { typeOf(it) }.distinct()
+            val virtual = Dispatch.isVirtual(insn.receiver, declared)
+            if (virtual && overriddenInSources(declared)) {
+                val undecided = receiver.filter { it is PathObj && typeOf(it) == null }
+                if (undecided.isNotEmpty()) {
+                    gaps.add(Gap("dispatch", insn.source, "${label(declared)} on ${undecided.joinToString { spell(it as PathObj) }}"))
+                    if (undecided.any { it != PathObj(This) }) return opaque()
+                }
+            }
+            val method = Dispatch.resolve(globalCtx, insn, types)
+            if (method == null) {
+                if (virtual && types.map { globalCtx.implementation(declared, it) }.distinct().size > 1) {
+                    gaps.add(Gap("dispatch", insn.source, "${label(declared)} has several implementations on ${types.joinToString { it.simpleName }}"))
+                }
+                return opaque()
+            }
+            val receiverType = if (Modifier.STATIC in method.element.modifiers) null else types.singleOrNull()
+            return enter(method, receiverType, receiver, insn.args.map { values[it.index] }, insn, index) ?: opaque()
+        }
+
+        /** The class [obj] was constructed as, when that is known here. */
+        private fun typeOf(obj: Obj): Element? = when (obj) {
+            is AllocObj -> obj.type
+            is PathObj -> receiverType.takeIf { obj == PathObj(This) }
+            is StandInObj -> null
+        }
+
+        /**
+         * `new X(...)`, the builder's `construct`: a constructor in the sources runs on the new
+         * object, and one that is not - outside the sources, or the one attribution inserted - is
+         * opaque, with the class's initializers still run on the new object, since they are code
+         * somebody wrote. The value is the object; nothing flows out of a constructor's return.
+         */
+        private fun construct(insn: New, index: Int, values: Array<AbsVal>): AbsVal {
+            val cls = insn.constructor?.enclosingElement
+            val created = setOf<Obj>(AllocObj(listOf(insn.source), cls))
+            val constructor = globalCtx.findMethod(insn.constructor)
+            if (constructor != null) {
+                enter(constructor, cls, created, insn.args.map { values[it.index] }, insn, index)?.let { return AbsVal(it.flows, created) }
+            } else {
+                initializers(cls, insn.source)?.let { instantiate(it, "${cls!!.simpleName} initializers", created, emptyList(), insn, index) }
+            }
+            return AbsVal(opaqueCall(insn.typeName, insn.args, insn, values).flows, created)
+        }
+
+        /**
+         * `super(...)` or `this(...)`, the builder's `delegate`: the constructor runs on this run's own
+         * object, so what it writes is this object's.
+         *
+         * One outside the sources is a sink here, where the builder draws nothing: the arguments
+         * still went somewhere, and a summary says where its inputs go.
+         */
+        private fun delegate(insn: Delegate, index: Int, values: Array<AbsVal>): AbsVal {
+            val label = insn.target.enclosingElement.simpleName.toString()
+            val constructor = globalCtx.findMethod(insn.target)
+            val run = constructor?.let { enter(it, receiverType, thisObjs, insn.args.map { values[it.index] }, insn, index) }
+            if (run == null) opaqueCall(label, insn.args, insn, values)
+            return EMPTY
+        }
+
+        /**
+         * A source method run at this call site on [receiver], or null when its body could not be
+         * lowered - then the call is opaque, and the `body` gap is inherited to say why.
+         */
+        private fun enter(method: Method, receiverType: Element?, receiver: Set<Obj>, args: List<AbsVal>, insn: Insn, index: Int): AbsVal? {
+            val callee = summaryAt(method, receiverType, insn.source)
+            if (method.element in unlowerable) {
+                gaps.addAll(callee.gaps)
+                return null
+            }
+            return instantiate(callee, label(method.element), receiver, bind(method, args, insn.source), insn, index)
+        }
+
+        /**
+         * The builder's `invoke` and `connectParameters`: each argument's objects go to its own
+         * parameter, and every argument from the last parameter on flows into it when it is varargs.
+         * Any other count mismatch is the analysis having gone wrong, and says so.
+         */
+        private fun bind(method: Method, args: List<AbsVal>, at: String): List<AbsVal> {
+            val element = method.element
+            val n = element.parameters.size
+            if (args.size > n && !(element.isVarArgs && n > 0)) {
+                throw GraphException("${args.size} arguments for $n parameters of '${method.displayName()}' at $at")
+            }
+            return List(n) { i ->
+                val flows = if (element.isVarArgs && i == n - 1) args.drop(i).flatMapTo(LinkedHashSet()) { it.flows }
+                else args.getOrNull(i)?.flows ?: emptySet()
+                AbsVal(flows, args.getOrNull(i)?.objs ?: emptySet())
+            }
+        }
+
+        /**
+         * [callee]'s summary read at this call site, with [receiver] as its `this` and [args] as its
+         * parameters.
+         *
+         * Everything the callee names, it names as it was when it began, so everything is read off
+         * this run's heap *before* any effect is applied: a path is followed field by field from
+         * what its root is here, and a field the callee read at entry is what that field holds
+         * here. That is what keeps the caller's own value of a field the callee wrote on only some
+         * paths - its effect carries the entry, which is this value.
+         *
+         * An object the callee made is renamed by this call site, so two calls make two objects. An
+         * effect on one object is a strong update; on either of several - a receiver a join left
+         * pointing at two - it is weak, since the call wrote one of them and the other keeps what
+         * it had. Two effects landing on one field - the same object passed twice - are both
+         * possible, since nothing here says which the callee wrote last.
+         *
+         * A path the caller has no object for - an argument from an opaque call - cannot carry a
+         * read or a write, and says so rather than dropping it.
+         */
+        private fun instantiate(callee: Summary, label: String, receiver: Set<Obj>, args: List<AbsVal>, insn: Insn, index: Int): AbsVal {
+            val site = insn.source
+            fun field(holders: Set<Obj>, field: Element): AbsVal =
+                holders.fold(EMPTY) { acc, holder -> acc + read(holder to field, field.asType().kind.isPrimitive, site) }
+            val paths = HashMap<PathObj, Set<Obj>>()
+            fun objs(obj: Obj): Set<Obj> = when (obj) {
+                is PathObj -> paths.getOrPut(obj) {
+                    val root: Set<Obj> = when (obj.root) {
+                        This -> receiver
+                        is ParamRoot -> args.getOrNull(obj.root.i)?.objs ?: emptySet()
+                        is StaticRoot -> setOf(PathObj(obj.root))
+                    }
+                    obj.fields.fold(root) { holders, f -> field(holders, f).objs }
+                }
+                is AllocObj -> setOf(AllocObj(listOf(site) + obj.site, obj.type))
+                is StandInObj -> setOf(StandInObj(listOf(site) + obj.site).also { standInsMadeAt.putIfAbsent(it, base + index) })
+            }
+            fun lost(what: String) = gaps.add(Gap("unmodelled", site, "$what by $label on no object this can name"))
+            fun value(v: AbsVal) = AbsVal(
+                v.flows.flatMapTo(LinkedHashSet()) { atom ->
+                    when (atom) {
+                        is ParamAtom -> args.getOrNull(atom.i)?.flows ?: emptySet()
+                        is FieldAtom -> {
+                            val holders = objs(atom.obj)
+                            if (holders.isEmpty()) lost("${spell(atom.obj, atom.field)} read")
+                            field(holders, atom.field).flows
+                        }
+                        is ExtResult -> setOf(atom)
+                    }
+                },
+                v.objs.flatMapTo(LinkedHashSet()) { objs(it) }
+            )
+
+            val result = value(callee.ret)
+            val calleeSinks = callee.sinks.mapValues { value(it.value) }
+            val updates = LinkedHashMap<Pair<Obj, Element>, AbsVal>()
+            val weak = LinkedHashSet<Pair<Obj, Element>>()
+            for ((key, effect) in callee.effects) {
+                val (holder, f) = key
+                val holders = objs(holder)
+                if (holders.isEmpty()) lost("${if (holder is PathObj) spell(holder, f) else qualifiedField(f)} written")
+                val written = stored(value(effect), f.asType().kind.isPrimitive, insn, index)
+                for (target in holders) {
+                    val k = target to f
+                    updates[k] = updates[k]?.plus(written) ?: written
+                    if (holders.size > 1) weak.add(k)
+                }
+            }
+            val before = weak.associateWith { k -> (heap[k] ?: entry(k, k.second.asType().kind.isPrimitive, site)).value }
+
+            calleeSinks.forEach { (k, v) -> sinks[k] = (sinks[k] ?: EMPTY) + v }
+            gaps.addAll(callee.gaps)
+            for ((k, v) in updates) write(k, before[k]?.plus(v) ?: v, site)
+            return result
         }
 
         /**
          * A call whose body is not followed: its result is what the call returned plus everything
          * that went in, and everything that went in is a sink.
          *
-         * That is the reachability the builder's EXTERNAL node gives. The one place calls are
-         * handled, so instantiating a callee's summary replaces this and nothing else.
+         * That is the reachability the builder's EXTERNAL node gives.
          */
         private fun opaqueCall(label: String, inputs: List<Val>, insn: Insn, values: Array<AbsVal>): AbsVal {
             val inFlows = inputs.flatMapTo(LinkedHashSet()) { values[it.index].flows }
@@ -235,7 +515,7 @@ class Summarizer(
             else AbsVal(value.flows, value.objs.ifEmpty { setOf(standIn(insn, index)) })
 
         private fun standIn(insn: Insn, index: Int): StandInObj =
-            StandInObj(listOf(insn.source)).also { standInsMadeAt.putIfAbsent(it, index) }
+            StandInObj(listOf(insn.source)).also { standInsMadeAt.putIfAbsent(it, base + index) }
 
         /**
          * The objects an access happens on - the builder's `holderOf`. A static field is held by its
@@ -270,7 +550,7 @@ class Summarizer(
                 if (insn.receiver != Receiver.TypeName) untracked(insn, insn.name, element)
                 return EMPTY
             }
-            return holders.fold(EMPTY) { acc, holder -> acc + read(holder to element!!, insn) }
+            return holders.fold(EMPTY) { acc, holder -> acc + read(holder to element!!, insn.isPrimitive, insn.source) }
         }
 
         /**
@@ -291,8 +571,8 @@ class Summarizer(
          * at most [DEPTH_CAP] fields deep; an object reached at the cap is not followed further, and
          * says so with a `depth` gap rather than leaving the reads off it silently empty.
          */
-        private fun read(key: Pair<Obj, Element>, insn: ReadField): AbsVal =
-            (heap[key] ?: entry(key, insn.isPrimitive, insn.source)).value
+        private fun read(key: Pair<Obj, Element>, isPrimitive: Boolean, at: String): AbsVal =
+            (heap[key] ?: entry(key, isPrimitive, at)).value
 
         /**
          * What [key] held when the method began, recorded as its box without journaling it.

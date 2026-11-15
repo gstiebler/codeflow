@@ -152,7 +152,8 @@ fun names(effects: Map<Pair<Obj, Element>, AbsVal>): Names {
     while (changed) {
         changed = false
         for ((key, value) in effects) {
-            for (base in namesOf(key.first)) {
+            // A copy: the set being walked can be the one a name is added to.
+            for (base in namesOf(key.first).toList()) {
                 val name = PathObj(base.root, base.fields + key.second)
                 for (obj in value.objs) {
                     if (obj is PathObj) continue

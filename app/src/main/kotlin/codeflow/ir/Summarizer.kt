@@ -505,9 +505,11 @@ class Summarizer(
          * paths - its effect carries the entry, which is this value.
          *
          * An object the callee made is renamed by this call site, so two calls make two objects - and
-         * only the [K_LIMIT] newest sites are kept, or a recursive factory would name a new object on
-         * every pass. Two the callee told apart only by a site that was dropped are one object here,
-         * which joins their fields: that is a `depth` gap, as a path cut at [DEPTH_CAP] is. A
+         * a name longer than [K_LIMIT] keeps its outermost call site and its allocation site and drops
+         * the ones between, or a recursive factory would name a new object on every pass. Kept, those
+         * two still tell apart objects made through different calls here and objects allocated at
+         * different sites. Two the callee told apart only by a dropped middle site are one object
+         * here, which joins their fields: that is a `depth` gap, as a path cut at [DEPTH_CAP] is. A
          * value the callee stored that has no object here - an argument from an opaque call - gets a
          * stand-in per call site *and* field it was stored in, as the builder's `write` gives one per
          * write: one per call site would make two unrelated objects one.
@@ -526,7 +528,7 @@ class Summarizer(
                 holders.fold(EMPTY) { acc, holder -> acc + read(holder to field, field.asType().kind.isPrimitive, site) }
             val paths = HashMap<PathObj, Set<Obj>>()
             val names = HashMap<Obj, Obj>()
-            fun chain(sites: List<String>) = (listOf(site) + sites).take(K_LIMIT)
+            fun chain(sites: List<String>) = (listOf(site) + sites).let { if (it.size <= K_LIMIT) it else it.take(K_LIMIT - 1) + it.last() }
             fun renamed(obj: Obj, name: Obj): Obj = name.also {
                 val first = names.putIfAbsent(name, obj)
                 if (first != null && first != obj) {
@@ -831,8 +833,8 @@ class Summarizer(
         const val DEPTH_CAP = 2
 
         /**
-         * How many call sites name an object a callee made: `[outer, inner]`, the oldest dropped.
-         * Recursion would otherwise name a new object on every pass, and never settle.
+         * How many sites name an object a callee made: `[outermost call, allocation]`, the call sites
+         * between dropped. Recursion would otherwise name a new object on every pass, and never settle.
          */
         const val K_LIMIT = 2
 

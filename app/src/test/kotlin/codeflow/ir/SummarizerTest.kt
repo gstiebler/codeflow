@@ -521,17 +521,39 @@ class SummarizerTest {
     }
 
     /**
-     * Three calls deep, two objects one call made are named by the same two outer call sites once
-     * the chain is cut at [Summarizer.K_LIMIT]: they are one object in the caller, which joins
-     * their fields - `P0>RET` the builder does not draw - so it says so.
+     * Three calls deep, an object is still named by where it was allocated: the cut drops the
+     * middle call site, not the allocation, so `make`'s two `new B()` stay two objects in `top` and
+     * `top` draws `P1>RET` alone, as the builder does. Dropping the allocation site instead would
+     * join their fields into a `P0>RET` the builder does not draw.
      */
     @Test
-    fun twoObjectsOneAllocationChainCutMakesOneAreADepthGap() {
+    fun threeCallsDeepAnObjectKeepsItsAllocationSite() {
         val src = "class B { int v; } class P { B x; B y; } class A { " +
             "P make(int a, int k) { P p = new P(); B x = new B(); B y = new B(); x.v = a; y.v = k; p.x = x; p.y = y; return p; } " +
-            "P mid(int a, int k) { return make(a, k); } int top(int a, int k) { return mid(a, k).y.v; } }"
+            "P mid(int a, int k) { return make(a, k); } P outer(int a, int k) { return mid(a, k); } " +
+            "int top(int a, int k) { return mid(a, k).y.v; } }"
+        val s = summariseInOrder(src, listOf("A#make", "A#outer", "A#top"))
+        assertEquals(listOf("P1>RET"), s.getValue("A#top").spelled())
+        assertEquals(emptyList(), s.getValue("A#top").gaps.toList())
+        val made = s.getValue("A#make").ret.objs.single() as AllocObj
+        val outer = s.getValue("A#outer").ret.objs.single() as AllocObj
+        assertEquals(2, outer.site.size)
+        assertEquals(made.site.single(), outer.site.last())
+    }
+
+    /**
+     * Two calls to one factory in the middle method are two objects there, told apart only by the
+     * middle call sites - which the cut drops one call further out. They are one object in the
+     * caller, which joins their fields - `P0>RET` the builder does not draw - so it says so.
+     */
+    @Test
+    fun twoCallsInTheMiddleOneObjectPastTheCutAreADepthGap() {
+        val src = "class B { int v; } class Q { B l; B r; } class A { " +
+            "B make(int a) { B b = new B(); b.v = a; return b; } " +
+            "Q mid(int a, int k) { Q q = new Q(); q.l = make(a); q.r = make(k); return q; } " +
+            "int top(int a, int k) { return mid(a, k).r.v; } }"
         val s = summarise(src, "A#top")
-        assertTrue(s.gaps.any { it.kind == "depth" }, "${s.gaps}")
+        assertEquals(listOf("depth"), s.gaps.map { it.kind })
         assertTrue("P1>RET" in s.spelled(), "${s.spelled()}")
         assertEquals(emptyList(), summarise(src, "A#mid").gaps.toList())
     }

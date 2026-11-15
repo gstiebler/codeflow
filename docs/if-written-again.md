@@ -106,6 +106,11 @@ in-progress set. Two things follow.
 a line of Java. It exits 1, so it is at least loud — but the message tells the reader nothing about
 their own code, and a five-line factorial is not an exotic input.
 
+**Status: the crash is fixed; the cost is not.** `Frame.isBeingInlined` stops at a method already
+open further up the chain and draws the recursive call as `EXTERNAL`, so `fact` now renders with
+its own call as an opaque box rather than taking the run down. That is a cut, not an answer: what
+the recursive call returns is not modelled.
+
 **Node count scales with call sites rather than with source size.** The entire progressive-reveal
 viewer — a payload format, a vendored Cytoscape, ELK layout, a revealed-set model, a browser test
 suite — exists to make that survivable. That is a great deal of machinery paying interest on an
@@ -303,12 +308,10 @@ whole callee off the diagram unnoticed.
 
 ## Housekeeping the rewrite makes moot
 
-Recorded so it is not rediscovered: `graph/ObjVariable.kt` is never referenced and is a copy of
-`graph/Variable.kt`; `NodeType.MEM_SPACE` and `GraphNode.MemSpace` are never constructed;
-`GlobalContext.getMemPos` — the throwing variant — exists only to be caught and swallowed one line
-later in `AstMemPosProcessor`; `MemPos.counter` is a JVM-global mutable counter, the same
+Recorded so it is not rediscovered. Done: `graph/ObjVariable.kt`, `NodeType.MEM_SPACE` /
+`GraphNode.MemSpace` and the throwing `GlobalContext.getMemPos` are deleted; the golden count is no
+longer written down anywhere. Still open: `MemPos.counter` is a JVM-global mutable counter, the same
 non-determinism `serial` was changed to avoid, still present for anything that prints a `MemPos`.
-CLAUDE.md says 33 goldens; there are 44.
 
 ## The order it would actually be done in
 

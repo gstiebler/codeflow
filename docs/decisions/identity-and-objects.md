@@ -30,6 +30,12 @@ another method all find each other — the block-parent chain does not span sibl
 fields only, since locals are resolved by then. `MemPos` has no
 `equals`, so two instances are two objects, which is what identity should mean here.
 
+`MemPos.hashCode` is its run-local id, so a `Set<MemPos>` iterates in allocation order. With the
+identity hash it iterated in whatever order the JVM had happened to number objects, and that order
+reaches the document: a write or read through several holders visits them in set order, which
+decides which box gets the lower serial. Deleting an unrelated logger field reordered the Fineract
+smoke output with every node and edge unchanged. Equality stays identity.
+
 A *name*, though, is not one object: a variable points at a **set** of them. `if (c) p = i1; else p
 = i2;` leaves `p` standing for either, so `Frame.Value.objects`, `Frame.owner`, `holderOf` and
 `Heap.objectsOf` are all sets, and `Frame.phi` unions what each path left behind. Holding

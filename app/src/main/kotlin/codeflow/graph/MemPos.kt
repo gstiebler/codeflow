@@ -19,6 +19,14 @@ import javax.lang.model.element.Element
  */
 class MemPos(val id: Int, private val label: String, val type: Element? = null) {
 
+    /**
+     * The run-local id, so a `HashSet<MemPos>` iterates in allocation order. Without this it
+     * iterates by identity hash, and which object a multi-holder write or read visits first - so
+     * which box gets the lower serial - depended on what else the JVM had hashed before: removing
+     * a logger field reordered the document. Equality stays identity; one [Heap] never reuses an id.
+     */
+    override fun hashCode() = id
+
     override fun toString(): String {
         return "MemPos($id, '$label')"
     }

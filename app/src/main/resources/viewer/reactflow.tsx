@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { createRoot } from 'react-dom/client';
 import {
   Background, Handle, MarkerType, Position, ReactFlow,
-  type Edge, type Node, type NodeProps, type ReactFlowInstance,
+  type Edge, type Node, type NodeProps, type ReactFlowInstance, type Rect,
 } from '@xyflow/react';
 import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
@@ -20,7 +20,12 @@ import { condensed, condensedCaption, condensedOpening, hoverText, tapCondensed 
 import {
   elkGraph, flatEdgeId, flatElkGraph, positions, NODE_HEIGHT, TITLE_HEIGHT, type Point, type Positioned,
 } from './layout.ts';
-import { PALETTE, NODE_DEFAULT, BOUNDARY_OUTLINE, GROUP_OUTLINE, edgeStyle } from './theme.ts';
+import {
+  PALETTE, NODE_DEFAULT, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, edgeStyle,
+} from './theme.ts';
+import {
+  absolute, diffViews, easeOut, frame, HIGHLIGHT_MS, MOTION_CUTOFF, MOVE_MS, type Drawn,
+} from './transition.ts';
 import type {
   CondensedNode, CondensedTarget, CondensedView, EdgeKind, Id, Payload, View, ViewNode,
 } from './types.ts';
@@ -46,7 +51,16 @@ function installStyles() {
     .cf-tooltip { position: fixed; z-index: 20; pointer-events: none; background: #fff;
                   border: 1px solid #999; border-radius: 4px; padding: 4px 8px;
                   font: 11px ui-monospace, monospace; white-space: pre; box-shadow: 0 1px 4px #0003; }
-    .react-flow__handle { opacity: 0; }`;
+    .react-flow__handle { opacity: 0; }
+    .react-flow__node.cf-new > * { animation: cf-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
+    .react-flow__edge.cf-new .react-flow__edge-path { animation: cf-edge-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
+    @keyframes cf-ring { from { box-shadow: 0 0 0 4px ${NEW_RING}; } to { box-shadow: 0 0 0 4px transparent; } }
+    @keyframes cf-edge-ring { from { filter: drop-shadow(0 0 3px ${NEW_RING}); } to { filter: none; } }
+    .react-flow__node.cf-clicked > * { outline: 2px solid ${CLICKED_OUTLINE}; outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      .react-flow__node.cf-new > * { animation: none; box-shadow: 0 0 0 4px ${NEW_RING}; }
+      .react-flow__edge.cf-new .react-flow__edge-path { animation: none; filter: drop-shadow(0 0 3px ${NEW_RING}); }
+    }`;
   document.head.appendChild(style);
 }
 
@@ -116,21 +130,187 @@ function nodesOf(view: View, laid: Positioned[]): Node[] {
         type: node.type === 'METHOD' ? 'box' : 'leaf',
         position: { x: p.x, y: p.y },
         data: node as unknown as Record<string, unknown>,
-        ...(node.parent ? { parentId: node.parent, extent: 'parent' as const } : {}),
+        // No `extent: 'parent'`: nothing is draggable, and React Flow clamps a child to its parent's
+        // *measured* size, which a box that has just been resized does not have yet - every frame of
+        // a move would put its children in its corner.
+        ...(node.parent ? { parentId: node.parent } : {}),
         style: { width: p.width, height: p.height || NODE_HEIGHT },
         draggable: false,
       };
     });
 }
 
+/** A drawing as React Flow takes it: what a layout landed on, or a frame on the way there. */
+type Drawing = { nodes: Node[]; edges: Edge[] };
+
+/**
+ * What the click a drawing answers was on: a node, or `{}` for an edge, which has no place for the
+ * new nodes to grow out of. No click at all (the reset key) is `undefined`.
+ */
+type Click = { id?: Id };
+
+/** A layout that has landed, and the click that asked for it. */
+type Target = { drawing: Drawing; click?: Click };
+
+const placed = (nodes: Node[]): Drawn =>
+  new Map(nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y, parent: n.parentId }]));
+const size = (n: Node) => ({ width: n.style!.width as number, height: n.style!.height as number });
+const lerp = (a: number, b: number, e: number) => a + (b - a) * e;
+const classes = (...names: (string | false)[]) => names.filter(Boolean).join(' ') || undefined;
+
+/** The browser tests' layout counter - see `useMotion`. */
+function countDrawn() {
+  const w = window as unknown as { drawn?: number };
+  w.drawn = (w.drawn ?? 0) + 1;
+}
+
+/**
+ * From the drawing on screen to the next one, for both views: kept nodes glide, new ones grow out of
+ * the clicked node and fade in, gone ones fade out where they were, and the viewport holds the clicked
+ * node still on screen. transition.ts decides where each node is at each moment; this paints it.
+ *
+ * Then it refits, but only if something new landed off screen - refitting after every click is what
+ * made each one feel like a different graph - and only then counts the drawing: `window.drawn` is for
+ * the browser tests, which have no other way to know a click has finished. It counts *layouts*, not
+ * renders or frames, on purpose - a probe that waited for the page to agree with its own `view` would
+ * be asking the renderer whether the renderer is right. A transition cut short by the next layout is
+ * not counted, and the next one starts from wherever it left the nodes. Nothing in the page reads it.
+ *
+ * The first drawing, reduced motion, a zero duration (`window.cfAnimationMs`, for tests) and a next
+ * drawing past MOTION_CUTOFF all jump straight to the end; the rings are kept.
+ */
+function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
+  const [drawing, setDrawing] = useState<Drawing>({ nodes: [], edges: [] });
+  const [moving, setMoving] = useState(false);
+  const shown = useRef<Drawing | null>(null);
+  const outlined = useRef<Id | undefined>(undefined);
+  const committed = useRef<(() => void) | undefined>(undefined);
+
+  // `then` runs once the drawing is on the page, not merely asked for.
+  const paint = (next: Drawing, then?: () => void) => {
+    shown.current = next;
+    committed.current = then;
+    setDrawing(next);
+  };
+  useEffect(() => {
+    const then = committed.current;
+    committed.current = undefined;
+    then?.();
+  }, [drawing]);
+
+  useEffect(() => {
+    if (flow === null || target === null) return;
+    let cancelled = false;
+    let raf = 0;
+    let timer = 0;
+    const prev = shown.current;
+    const next = target.drawing;
+    if (target.click) outlined.current = target.click.id;
+    const clicked = target.click?.id;
+
+    const before: Drawn = prev ? placed(prev.nodes) : new Map();
+    const after = placed(next.nodes);
+    const diff = diffViews(before, after, clicked);
+    const nextById = new Map(next.nodes.map((n) => [n.id, n]));
+    const fresh = new Set(prev ? diff.added : []);
+    const oldEdges = new Set(prev?.edges.map((e) => e.id));
+    const freshEdges = new Set(prev ? next.edges.filter((e) => !oldEdges.has(e.id)).map((e) => e.id) : []);
+    const ringed = (ring: boolean): Drawing => ({
+      nodes: next.nodes.map((n) => ({
+        ...n, className: classes(ring && fresh.has(n.id) && 'cf-new', n.id === outlined.current && 'cf-clicked'),
+      })),
+      edges: next.edges.map((e) => ({ ...e, className: classes(ring && freshEdges.has(e.id) && 'cf-new') })),
+    });
+    const settled = ringed(true);
+
+    // The clicked node kept where it is on screen: the viewport moves against it.
+    const v0 = flow.getViewport();
+    const from = clicked !== undefined && before.has(clicked) && after.has(clicked) ? absolute(before, clicked) : undefined;
+    const anchor = (at: Drawn) => {
+      if (from === undefined) return;
+      const p = absolute(at, clicked!);
+      void flow.setViewport({ x: v0.x - (p.x - from.x) * v0.zoom, y: v0.y - (p.y - from.y) * v0.zoom, zoom: v0.zoom });
+    };
+
+    const rectOf = (id: Id): Rect => ({ ...absolute(after, id), ...size(nextById.get(id)!) });
+    const offScreen = () => {
+      const box = document.querySelector('.react-flow')!.getBoundingClientRect();
+      return diff.added.some((id) => {
+        const r = rectOf(id);
+        const a = flow.flowToScreenPosition({ x: r.x, y: r.y });
+        const b = flow.flowToScreenPosition({ x: r.x + r.width, y: r.y + r.height });
+        return a.x < box.left || a.y < box.top || b.x > box.right || b.y > box.bottom;
+      });
+    };
+    const land = async (duration: number) => {
+      if (prev === null || offScreen()) {
+        const rects = next.nodes.map((n) => rectOf(n.id));
+        const x = Math.min(...rects.map((r) => r.x));
+        const y = Math.min(...rects.map((r) => r.y));
+        const width = Math.max(...rects.map((r) => r.x + r.width)) - x;
+        const height = Math.max(...rects.map((r) => r.y + r.height)) - y;
+        await flow.fitBounds({ x, y, width, height }, { duration });
+      }
+      if (cancelled) return;
+      countDrawn();
+      timer = window.setTimeout(() => paint(ringed(false)), HIGHLIGHT_MS);
+    };
+
+    const ms = (window as unknown as { cfAnimationMs?: number }).cfAnimationMs ?? MOVE_MS;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prev === null || still || ms <= 0 || next.nodes.length > MOTION_CUTOFF) {
+      anchor(after);
+      paint(settled, () => void land(0));
+    } else {
+      const prevById = new Map(prev.nodes.map((n) => [n.id, n]));
+      const going = prev.nodes.filter((n) => !after.has(n.id)).map((n) => ({ ...n, className: undefined }));
+      const t0 = performance.now();
+      setMoving(true);
+      const step = (now: number) => {
+        if (cancelled) return;
+        const t = Math.min(1, (now - t0) / ms);
+        const e = easeOut(t);
+        const at = frame(diff, after, t);
+        const nodes = settled.nodes.map((n) => {
+          const was = prevById.get(n.id);
+          const style = was
+            ? { ...n.style, width: lerp(size(was).width, size(n).width, e), height: lerp(size(was).height, size(n).height, e) }
+            : { ...n.style, opacity: e };
+          return { ...n, position: at.get(n.id)!, style };
+        });
+        paint({
+          nodes: [...nodes, ...going.map((n) => ({ ...n, style: { ...n.style, opacity: 1 - e } }))],
+          edges: settled.edges.map((edge) => (freshEdges.has(edge.id) ? { ...edge, style: { ...edge.style, opacity: e } } : edge)),
+        });
+        anchor(at);
+        if (t < 1) raf = requestAnimationFrame(step);
+        else {
+          setMoving(false);
+          paint(settled, () => void land(ms));
+        }
+      };
+      raf = requestAnimationFrame(step);
+    }
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+      setMoving(false);
+    };
+  }, [flow, target]);
+
+  return { drawing, moving };
+}
+
 /** What a view is handed by the page: the payload and its own `revealed`, which the page keeps. */
 type Revealing = { payload: Payload; revealed: Set<Id>; setRevealed: Dispatch<SetStateAction<Set<Id>>> };
 
 function Graph({ payload, revealed, setRevealed }: Revealing) {
-  const [laid, setLaid] = useState<Positioned[]>([]);
+  const [target, setTarget] = useState<Target | null>(null);
   const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
   const view = useMemo(() => screen(payload, revealed), [payload, revealed]);
   const previous = useRef<Map<Id, Point>>(undefined);
+  const click = useRef<Click | undefined>(undefined);
 
   useEffect(() => {
     let current = true;
@@ -144,42 +324,30 @@ function Graph({ payload, revealed, setRevealed }: Revealing) {
       if (!current) return;
       const laid = positions(result);
       previous.current = new Map(laid.map((p) => [p.id, { x: p.x, y: p.y }]));
-      setLaid(laid);
+      setTarget({ drawing: { nodes: nodesOf(view, laid), edges: edgesOf(view) }, click: click.current });
+      click.current = undefined;
     });
     return () => { current = false; };
   }, [view]);
 
-  // Refit after every layout. `fitView` on the component alone fits the first drawing only, and
-  // opening a box makes the graph several times bigger, so without this a click puts what it
-  // revealed off the edge of the screen. A reveal the reader cannot see is the one thing progressive
-  // reveal cannot afford.
-  //
-  // The counter is for the browser tests, which have no other way to know a click has finished:
-  // the view changes at once and the drawing a layout later. It counts *layouts* and not renders
-  // on purpose - a probe that waited for the page to agree with its own `view` would be asking the
-  // renderer whether the renderer is right, and a page drawing every node would hang rather than
-  // fail. Nothing in the page reads it.
-  useEffect(() => {
-    flow?.fitView();
-    const w = window as unknown as { drawn?: number };
-    w.drawn = (w.drawn ?? 0) + 1;
-  }, [flow, laid]);
+  // The old drawing stays on screen until the new one has a layout, then moves into it. A reveal
+  // the reader cannot see is the one thing progressive reveal cannot afford, so it refits when
+  // something new would land off screen.
+  const { drawing, moving } = useMotion(flow, target);
 
-  const onNodeClick = useCallback(
-    (_: unknown, node: Node) => setRevealed((was) => tap(payload, was, node.id)),
-    [payload, setRevealed],
-  );
-
-  const nodes = useMemo(() => nodesOf(view, laid), [view, laid]);
-  const edges = useMemo(() => edgesOf(view), [view]);
+  const onNodeClick = useCallback((_: unknown, node: Node) => {
+    click.current = { id: node.id };
+    setRevealed((was) => tap(payload, was, node.id));
+  }, [payload, setRevealed]);
 
   // Something to inspect from the console when a page looks wrong. The browser tests deliberately do
   // not read it: a page whose view is right and whose drawing is not is exactly what they are for.
   (window as unknown as { view: View }).view = view;
 
   return (
-    <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES} onNodeClick={onNodeClick}
-               onInit={setFlow} fitView minZoom={0.05} proOptions={{ hideAttribution: true }}>
+    <ReactFlow nodes={drawing.nodes} edges={drawing.edges} nodeTypes={NODE_TYPES} onNodeClick={onNodeClick}
+               className={moving ? 'cf-moving' : undefined}
+               onInit={setFlow} minZoom={0.05} proOptions={{ hideAttribution: true }}>
       <Background />
     </ReactFlow>
   );
@@ -242,13 +410,14 @@ type Hover = { target: CondensedTarget; x: number; y: number };
  * have said where a node lives. Every decision is condensed.ts's; this writes it out.
  */
 function CondensedGraph({ payload, revealed, setRevealed }: Revealing) {
-  // Null until ELK first answers, so that the layout counter below counts only real layouts: a probe
+  // Null until ELK first answers, so that the layout counter counts only real layouts: a probe
   // waiting for the condensed view to be drawn must not be satisfied by the empty first render.
-  const [laid, setLaid] = useState<Positioned[] | null>(null);
+  const [target, setTarget] = useState<Target | null>(null);
   const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
   const [hover, setHover] = useState<Hover | null>(null);
   const view = useMemo(() => condensed(payload, revealed), [payload, revealed]);
   const previous = useRef<Map<Id, Point>>(undefined);
+  const click = useRef<Click | undefined>(undefined);
 
   useEffect(() => {
     let current = true;
@@ -256,42 +425,37 @@ function CondensedGraph({ payload, revealed, setRevealed }: Revealing) {
       if (!current) return;
       const laid = positions(result);
       previous.current = new Map(laid.map((p) => [p.id, { x: p.x, y: p.y }]));
-      setLaid(laid);
+      setTarget({ drawing: { nodes: condensedNodesOf(view, laid), edges: condensedEdgesOf(view) }, click: click.current });
+      click.current = undefined;
     });
     return () => { current = false; };
   }, [view]);
 
-  // The boxed view's refit and layout counter - see Graph.
-  useEffect(() => {
-    if (laid === null) return;
-    flow?.fitView();
-    const w = window as unknown as { drawn?: number };
-    w.drawn = (w.drawn ?? 0) + 1;
-  }, [flow, laid]);
+  // The boxed view's motion, refit and layout counter - see useMotion.
+  const { drawing, moving } = useMotion(flow, target);
 
   // A click changes what is under the pointer, so the tooltip it was showing may describe something
   // gone; it comes back on the next hover.
-  const tapOn = useCallback((target: CondensedTarget) => {
+  const tapOn = useCallback((on: CondensedTarget) => {
     setHover(null);
-    setRevealed((was) => tapCondensed(payload, was, target));
+    click.current = 'node' in on ? { id: on.node } : {};
+    setRevealed((was) => tapCondensed(payload, was, on));
   }, [payload, setRevealed]);
 
   const edgeTarget = (edge: Edge): CondensedTarget =>
     ({ edge: [edge.source, edge.target, (edge.data as { kind: EdgeKind }).kind] });
 
-  const nodes = useMemo(() => condensedNodesOf(view, laid ?? []), [view, laid]);
-  const edges = useMemo(() => condensedEdgesOf(view), [view]);
-
   return (
     <>
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={CONDENSED_TYPES}
+      <ReactFlow nodes={drawing.nodes} edges={drawing.edges} nodeTypes={CONDENSED_TYPES}
+                 className={moving ? 'cf-moving' : undefined}
                  onNodeClick={(_, node) => tapOn({ node: node.id })}
                  onEdgeClick={(_, edge) => tapOn(edgeTarget(edge))}
                  onNodeMouseEnter={(event, node) => setHover({ target: { node: node.id }, x: event.clientX, y: event.clientY })}
                  onNodeMouseLeave={() => setHover(null)}
                  onEdgeMouseEnter={(event, edge) => setHover({ target: edgeTarget(edge), x: event.clientX, y: event.clientY })}
                  onEdgeMouseLeave={() => setHover(null)}
-                 onInit={setFlow} fitView minZoom={0.05} proOptions={{ hideAttribution: true }}>
+                 onInit={setFlow} minZoom={0.05} proOptions={{ hideAttribution: true }}>
         <Background />
       </ReactFlow>
       {hover && (

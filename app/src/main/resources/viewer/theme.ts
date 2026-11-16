@@ -40,6 +40,13 @@ export const NODE_DEFAULT = '#ddd';
 export const GROUP_OUTLINE = '#999';
 export const BOUNDARY_OUTLINE = '#7b1fa2';
 
+/**
+ * After a click: the ring that fades off what just appeared, in a blue nothing else on the page uses,
+ * and the steady outline on the node that was clicked, until the next click.
+ */
+export const NEW_RING = '#1e88e5';
+export const CLICKED_OUTLINE = '#212121';
+
 // The same strokes MermaidExporter uses, so one graph does not change colour between the two
 // renderings. FLOW is absent on purpose - it keeps the default grey, and it is nearly every edge.
 export const EDGE_COLOURS: Partial<Record<EdgeKind, string>> = {

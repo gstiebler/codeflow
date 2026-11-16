@@ -24,8 +24,8 @@ export const open = (fixture: string) => async ({ page }: { page: Page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(at(fixture));
-  // A node in the DOM, not a layout counted: the page counts its first layout before ELK has been
-  // asked anything, so the counter cannot say whether the opening view is on screen yet.
+  // A node in the DOM, not a layout counted: there is no count from before the page loaded to
+  // compare against, so the counter cannot say whether the opening view is on screen yet.
   await page.waitForSelector('.react-flow__node');
   expect(errors, 'the page threw while loading').toEqual([]);
 };

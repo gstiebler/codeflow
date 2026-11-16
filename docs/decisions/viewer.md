@@ -22,7 +22,7 @@ and drawing is the point:
 |---|---|
 | `model.ts` | every decision about what is on screen — `opening`, `tap`, `screen` — as pure functions of `(payload, revealed)`, no DOM and no library |
 | `condensed.ts` | the same for the condensed view — `condensed`, `tapCondensed`, `hoverText` — see [The condensed view](#the-condensed-view) |
-| `layout.ts` | the layout posed as a value: `elkGraph(view)`, `flatElkGraph(view)` and `positions(laidOut)`, seeded from the last drawing by `stabilise` |
+| `layout.ts` | the layout posed as a value: `elkGraph(view)`, `flatElkGraph(view)` and `positions(laidOut)`, seeded from the last drawing by `stabilise`; the condensed lines' `routes(laidOut)`, `captionAt`, `roundedPath` |
 | `transition.ts` | how one drawing becomes the next — `diffViews`, `frame` — by node id, pure; see [Expanding without losing your place](#expanding-without-losing-your-place) |
 | `types.ts`, `theme.ts` | the payload and view types, and the colours the page paints with |
 | `reactflow.tsx` | the renderer, and what `--html` emits |
@@ -245,6 +245,29 @@ word, on the page's white (`LABEL_BG`). The hover starts with the kinds and coun
 order (`flow ×1, false ×1`). Condensed spacing is its own (70 px between layers, 40 between nodes,
 against the boxed view's 40 / 25). A group whose last member came out is not drawn. The layout is
 flat (`flatElkGraph`, no compound nodes); an edge's id is its pair.
+
+**Lines follow ELK's routes** (spec: `docs/superpowers/specs/2026-11-15-routed-lines-design.md`).
+React Flow draws an edge as a curve from a fixed handle on one node to a fixed handle on the other,
+and knows nothing of what lies between: on `boundary`'s opening, 7 of the 12 lines ran through a
+node box, 12 crossings in all, and a line going back up looped through its own ends. ELK has
+already placed every node and, asked for `elk.edgeRouting: ORTHOGONAL`, routes every edge around
+them; so the condensed view draws that route (`routes(laidOut)` in `layout.ts`, a `routed` edge type in the renderer: the polyline
+with ~6 px rounded corners, the arrow at its end, `×N` at the middle of its longest segment).
+Orthogonal over splines because right angles are the easiest to follow from one end to the other.
+A flat graph's routes come back in the frame of its nodes, so nothing is re-based. An edge ELK gave
+no section, or more than one, **throws** - a straight line drawn instead would be a guess through
+whatever lies between its ends, with nothing on the page to say so. The fit includes the routes.
+`routes-sweep.test.ts` lays out every condensed view of the corpus click-walk, seeded as the page
+seeds it, and holds that every line has one route, at right angles, through no node box. Boxes still
+draws handle-to-handle curves: its coordinates nest per box, and routing it is a separate step.
+
+**During a move the lines are curves again.** A route is laid out for where the nodes will be, so
+drawn while they glide it would not meet them. While `moving`, the condensed view strips the routes
+and each line follows its two ends as before; when the move ends the routes come back on the same
+frame as the settled nodes. A jump (first drawing, reduced motion, `MOTION_CUTOFF`, zero duration)
+draws routes straight away. `window.drawn` is unchanged: it counts after the move, so a test waiting
+on it reads routed lines. Side effect: a line can now run where a clicked node was, so the pointer
+left there hovers it (`condensed.spec.ts` moves the pointer away before asserting no tooltip).
 
 **Hover is an approximation, on purpose.** A leaf shows the method of its nearest box and its line
 with the text; a group, its count and each method's line range, capped at ten then `+N more`; an

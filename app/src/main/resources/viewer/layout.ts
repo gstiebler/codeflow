@@ -13,7 +13,10 @@ import type { CondensedNode, CondensedView, Id, View } from './types.ts';
 /** How much of a box's top belongs to its caption rather than to what is inside it. */
 export const TITLE_HEIGHT = 22;
 
-export type ElkEdge = { id: string; sources: string[]; targets: string[] };
+/** One stretch of a routed edge, as ELK returns it: in the frame of the graph the edge is declared in. */
+export type ElkSection = { id: string; startPoint: Point; endPoint: Point; bendPoints?: Point[] };
+
+export type ElkEdge = { id: string; sources: string[]; targets: string[]; sections?: ElkSection[] };
 
 export type ElkNode = {
   id: string;
@@ -112,12 +115,18 @@ export function elkGraph(view: View, previous?: Map<Id, Point>): ElkNode {
  * The hierarchy options are left out because there is no hierarchy. The spacing is wider than the
  * boxed view's: a few nodes with long edges between them, each perhaps captioned `×N`, read as a
  * tangle packed into the boxed view's 40 px between layers.
+ *
+ * Orthogonal routes, which the page draws instead of React Flow's handle-to-handle curves: ELK
+ * routes around the nodes it placed, so a line never crosses a node, and a line going back up runs
+ * down the side rather than looping off the page. Orthogonal over splines because right angles are
+ * the easiest to follow by eye from one end to the other.
  */
 const FLAT_OPTIONS: Record<string, string> = {
   algorithm: 'layered',
   'elk.direction': 'DOWN',
   'elk.layered.spacing.nodeNodeBetweenLayers': '70',
   'elk.spacing.nodeNode': '40',
+  'elk.edgeRouting': 'ORTHOGONAL',
 };
 
 /** The condensed view draws one edge per ordered pair of display nodes, so the pair is its id. */
@@ -214,4 +223,70 @@ export function positions(laidOut: ElkNode, parent?: Id, into: Positioned[] = []
     positions(child, child.id, into);
   }
   return into;
+}
+
+/**
+ * Every root edge's route, by edge id: start, each bend in order, end - in the frame of the root,
+ * which for the flat condensed graph is the frame its nodes come back in, so nothing is re-based.
+ *
+ * An edge with no section, or with more than one, is an error rather than a straight line. A simple
+ * edge in a flat layered graph always comes back as exactly one section; anything else means the
+ * request or ELK changed, and a line drawn from a guess is the line through a node this is here to
+ * prevent - drawn with nothing on the page to say it was guessed.
+ */
+export function routes(laidOut: ElkNode): Map<string, Point[]> {
+  const into = new Map<string, Point[]>();
+  for (const edge of laidOut.edges ?? []) {
+    const sections = edge.sections ?? [];
+    if (sections.length !== 1) {
+      throw new Error(`ELK returned ${sections.length} sections for edge ${edge.id}, expected exactly one`);
+    }
+    const [only] = sections;
+    into.set(edge.id, [only.startPoint, ...(only.bendPoints ?? []), only.endPoint].map(({ x, y }) => ({ x, y })));
+  }
+  return into;
+}
+
+/**
+ * Where a route's caption goes: the middle of its longest segment, which is the stretch with the most
+ * room beside it and the one least likely to sit on a corner or against a node.
+ */
+export function captionAt(route: Point[]): Point {
+  let best = 0;
+  let at: Point = route[0];
+  for (let i = 1; i < route.length; i++) {
+    const [a, b] = [route[i - 1], route[i]];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    if (length > best) {
+      best = length;
+      at = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+  }
+  return at;
+}
+
+/**
+ * An SVG path through every point of a route, each bend rounded off with a quadratic curve of at most
+ * `radius`. A corner never takes more than half of either segment beside it, so two corners on one
+ * short segment meet rather than overlap.
+ */
+export function roundedPath(route: Point[], radius: number): string {
+  const parts = [`M ${route[0].x} ${route[0].y}`];
+  for (let i = 1; i < route.length - 1; i++) {
+    const [a, b, c] = [route[i - 1], route[i], route[i + 1]];
+    const into = Math.hypot(b.x - a.x, b.y - a.y);
+    const out = Math.hypot(c.x - b.x, c.y - b.y);
+    const r = Math.min(radius, into / 2, out / 2);
+    // A repeated point has no direction to round off along.
+    if (r === 0) {
+      parts.push(`L ${b.x} ${b.y}`);
+      continue;
+    }
+    const before = { x: b.x - ((b.x - a.x) / into) * r, y: b.y - ((b.y - a.y) / into) * r };
+    const after = { x: b.x + ((c.x - b.x) / out) * r, y: b.y + ((c.y - b.y) / out) * r };
+    parts.push(`L ${before.x} ${before.y}`, `Q ${b.x} ${b.y} ${after.x} ${after.y}`);
+  }
+  const last = route[route.length - 1];
+  parts.push(`L ${last.x} ${last.y}`);
+  return parts.join(' ');
 }

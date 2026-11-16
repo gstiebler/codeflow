@@ -65,6 +65,9 @@ test.describe('boundary, condensed', () => {
   test('hovering a leaf shows the method it was created in and its line', async ({ page }) => {
     await condense(page);
     await tapGroup(page, 'program');
+    // Off the drawing first: the pointer is still where `program` was clicked, and a line routed
+    // through that spot after the move is hovered there, as it should be.
+    await page.mouse.move(1, 1);
     await expect(page.locator('.cf-tooltip')).toHaveCount(0);
     await page.locator(LEAF).first().hover();
     const tooltip = page.locator('.cf-tooltip');

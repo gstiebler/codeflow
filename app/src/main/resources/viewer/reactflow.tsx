@@ -10,15 +10,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  Background, Handle, MarkerType, Position, ReactFlow,
-  type Edge, type Node, type NodeProps, type ReactFlowInstance, type Rect,
+  Background, BaseEdge, getBezierPath, Handle, MarkerType, Position, ReactFlow,
+  type Edge, type EdgeProps, type Node, type NodeProps, type ReactFlowInstance, type Rect,
 } from '@xyflow/react';
 import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { captionParts, opening, screen, tap } from './model.ts';
 import { condensed, condensedCaption, condensedOpening, hoverText, tapCondensed } from './condensed.ts';
 import {
-  elkGraph, flatEdgeId, flatElkGraph, positions, NODE_HEIGHT, TITLE_HEIGHT, type Point, type Positioned,
+  captionAt, elkGraph, flatEdgeId, flatElkGraph, positions, roundedPath, routes, NODE_HEIGHT, TITLE_HEIGHT,
+  type Point, type Positioned,
 } from './layout.ts';
 import {
   PALETTE, NODE_DEFAULT, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, edgeStyle,
@@ -159,6 +160,8 @@ const placed = (nodes: Node[]): Drawn =>
   new Map(nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y, parent: n.parentId }]));
 const size = (n: Node) => ({ width: n.style!.width as number, height: n.style!.height as number });
 const lerp = (a: number, b: number, e: number) => a + (b - a) * e;
+/** The route ELK computed for a condensed edge, which the fit must keep on screen as well as the nodes. */
+const routeOf = (edge: Edge) => (edge.data as { route?: Point[] } | undefined)?.route;
 const classes = (...names: (string | false)[]) => names.filter(Boolean).join(' ') || undefined;
 
 /** The browser tests' layout counter - see `useMotion`. */
@@ -253,7 +256,9 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
     const land = async (duration: number) => {
       // No click (Reset): nothing anchors the reader, and what is left may be anywhere - fit it all.
       if (prev === null || target.click === undefined || offScreen()) {
-        const rects = next.nodes.map((n) => rectOf(n.id));
+        // A route can run beside the nodes rather than between them, so it is fitted too.
+        const bends = next.edges.flatMap((e) => routeOf(e) ?? []).map((p) => ({ ...p, width: 0, height: 0 }));
+        const rects = [...next.nodes.map((n) => rectOf(n.id)), ...bends];
         const x = Math.min(...rects.map((r) => r.x));
         const y = Math.min(...rects.map((r) => r.y));
         const width = Math.max(...rects.map((r) => r.x + r.width)) - x;
@@ -397,12 +402,56 @@ function condensedNodesOf(view: CondensedView, laid: Positioned[]): Node[] {
   });
 }
 
-/** One line per ordered pair, styled by condensedEdgeStyle; the caption on the page's white. */
-function condensedEdgesOf(view: CondensedView): Edge[] {
+/** How far a routed line's corner is rounded off, in pixels. */
+const CORNER = 6;
+
+/**
+ * A condensed line, drawn along the route ELK computed - which keeps clear of every node - rather than
+ * from one fixed handle to another. Its `×N` sits on the middle of the route's longest stretch.
+ *
+ * Without a route it is the curve React Flow draws by default. That is only for the move: a route
+ * laid out for where the nodes will be does not meet them while they glide, so the page takes the
+ * routes away until the move ends (CondensedGraph). Every settled drawing has one for every line,
+ * or condensedEdgesOf has already thrown.
+ */
+function RoutedEdge({
+  id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data,
+  style, markerEnd, label, labelStyle, labelBgStyle, labelBgPadding,
+}: EdgeProps) {
+  const route = (data as { route?: Point[] } | undefined)?.route;
+  let path: string;
+  let at: Point;
+  if (route) {
+    path = roundedPath(route, CORNER);
+    at = captionAt(route);
+  } else {
+    const [curve, x, y] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+    path = curve;
+    at = { x, y };
+  }
+  return (
+    <BaseEdge id={id} path={path} labelX={at.x} labelY={at.y} label={label} labelStyle={labelStyle}
+              labelBgStyle={labelBgStyle} labelBgPadding={labelBgPadding} style={style} markerEnd={markerEnd} />
+  );
+}
+
+const CONDENSED_EDGE_TYPES = { routed: RoutedEdge };
+
+/**
+ * One line per ordered pair, styled by condensedEdgeStyle; the caption on the page's white; drawn
+ * along its route. A line ELK did not route is an error: drawn without one it would be a straight
+ * guess through whatever lies between its ends.
+ */
+function condensedEdgesOf(view: CondensedView, routed: Map<string, Point[]>): Edge[] {
   return view.edges.map((edge) => {
     const { colour, label, dashed } = condensedEdgeStyle(edge);
+    const id = flatEdgeId(edge);
+    const route = routed.get(id);
+    if (route === undefined) throw new Error(`ELK returned no route for edge ${id}`);
     return {
-      id: flatEdgeId(edge),
+      id,
+      type: 'routed',
+      data: { route },
       source: edge.source,
       target: edge.target,
       ...(label === undefined ? {} : { label, labelBgStyle: { fill: LABEL_BG }, labelBgPadding: [4, 2] as [number, number] }),
@@ -434,7 +483,8 @@ function CondensedGraph({ payload, revealed, setRevealed }: Revealing) {
       if (!current) return;
       const laid = positions(result);
       previous.current = new Map(laid.map((p) => [p.id, { x: p.x, y: p.y }]));
-      setTarget({ drawing: { nodes: condensedNodesOf(view, laid), edges: condensedEdgesOf(view) }, click: click.current });
+      const drawing = { nodes: condensedNodesOf(view, laid), edges: condensedEdgesOf(view, routes(result)) };
+      setTarget({ drawing, click: click.current });
       click.current = undefined;
     });
     return () => { current = false; };
@@ -442,6 +492,12 @@ function CondensedGraph({ payload, revealed, setRevealed }: Revealing) {
 
   // The boxed view's motion, refit and layout counter - see useMotion.
   const { drawing, moving } = useMotion(flow, target);
+  // While the nodes glide, each line follows its two ends (RoutedEdge without a route); the routes,
+  // laid out for where the nodes are going, come back when the move ends.
+  const edges = useMemo(
+    () => (moving ? drawing.edges.map((edge) => ({ ...edge, data: { ...edge.data, route: undefined } })) : drawing.edges),
+    [drawing, moving],
+  );
 
   // A click changes what is under the pointer, so the tooltip it was showing may describe something
   // gone; it comes back on the next hover.
@@ -455,7 +511,7 @@ function CondensedGraph({ payload, revealed, setRevealed }: Revealing) {
 
   return (
     <>
-      <ReactFlow nodes={drawing.nodes} edges={drawing.edges} nodeTypes={CONDENSED_TYPES}
+      <ReactFlow nodes={drawing.nodes} edges={edges} nodeTypes={CONDENSED_TYPES} edgeTypes={CONDENSED_EDGE_TYPES}
                  className={moving ? 'cf-moving' : undefined}
                  onNodeClick={(_, node) => tapOn({ node: node.id })}
                  onEdgeClick={(_, edge) => tapOn(edgeTarget(edge))}

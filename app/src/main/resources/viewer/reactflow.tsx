@@ -169,8 +169,9 @@ function countDrawn() {
  * the clicked node and fade in, gone ones fade out where they were, and the viewport holds the clicked
  * node still on screen. transition.ts decides where each node is at each moment; this paints it.
  *
- * Then it refits, but only if something new landed off screen - refitting after every click is what
- * made each one feel like a different graph - and only then counts the drawing: `window.drawn` is for
+ * Then it refits, but only if something new landed off screen or no click asked for the drawing
+ * (Reset) - refitting after every click is what made each one feel like a different graph - and only
+ * then counts the drawing: `window.drawn` is for
  * the browser tests, which have no other way to know a click has finished. It counts *layouts*, not
  * renders or frames, on purpose - a probe that waited for the page to agree with its own `view` would
  * be asking the renderer whether the renderer is right. A transition cut short by the next layout is
@@ -183,6 +184,7 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
   const [drawing, setDrawing] = useState<Drawing>({ nodes: [], edges: [] });
   const [moving, setMoving] = useState(false);
   const shown = useRef<Drawing | null>(null);
+  const fading = useRef<Set<Id>>(new Set());
   const outlined = useRef<Id | undefined>(undefined);
   const committed = useRef<(() => void) | undefined>(undefined);
 
@@ -203,7 +205,10 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
     let cancelled = false;
     let raf = 0;
     let timer = 0;
-    const prev = shown.current;
+    // A move cut short leaves its fading-out nodes on screen; they are gone already, and starting
+    // from them would draw them whole again and fade them a second time.
+    const prev = shown.current && { ...shown.current, nodes: shown.current.nodes.filter((n) => !fading.current.has(n.id)) };
+    fading.current = new Set();
     const next = target.drawing;
     if (target.click) outlined.current = target.click.id;
     const clicked = target.click?.id;
@@ -243,7 +248,8 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
       });
     };
     const land = async (duration: number) => {
-      if (prev === null || offScreen()) {
+      // No click (Reset): nothing anchors the reader, and what is left may be anywhere - fit it all.
+      if (prev === null || target.click === undefined || offScreen()) {
         const rects = next.nodes.map((n) => rectOf(n.id));
         const x = Math.min(...rects.map((r) => r.x));
         const y = Math.min(...rects.map((r) => r.y));
@@ -264,6 +270,7 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
     } else {
       const prevById = new Map(prev.nodes.map((n) => [n.id, n]));
       const going = prev.nodes.filter((n) => !after.has(n.id)).map((n) => ({ ...n, className: undefined }));
+      fading.current = new Set(going.map((n) => n.id));
       const t0 = performance.now();
       setMoving(true);
       const step = (now: number) => {
@@ -286,6 +293,7 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
         if (t < 1) raf = requestAnimationFrame(step);
         else {
           setMoving(false);
+          fading.current = new Set();
           paint(settled, () => void land(ms));
         }
       };

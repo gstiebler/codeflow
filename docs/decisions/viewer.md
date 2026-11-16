@@ -270,8 +270,11 @@ on screen until the new layout lands; then kept nodes glide (and boxes resize) o
 new nodes grow out of the clicked node's old place *on the page* (made relative to their own box's
 start) and fade in; gone nodes fade out where they were and are dropped when the move ends. The
 viewport moves against the clicked node every frame, so it holds still on screen; afterwards the page
-refits only if something new is off screen. A second click mid-move starts from the positions on
-screen. Positions are renderer state: `model.ts` and `condensed.ts` decide what is on screen and know
+refits only if something new is off screen, or if no click asked for the drawing (Reset: nothing
+anchors the reader, who may have panned anywhere). An edge click has no anchor either but keeps the
+off-screen rule. A second click mid-move starts from the positions on screen, minus the nodes that
+were fading out - they are gone already, and starting from them would draw them whole and fade them
+again. Positions are renderer state: `model.ts` and `condensed.ts` decide what is on screen and know
 nothing of motion, and `transition.ts` compares two drawings by node id (payload ids, `program`,
 `boundary:<method>`, all stable across clicks) with no DOM, so `node --test` covers the arithmetic.
 

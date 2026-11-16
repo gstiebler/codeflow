@@ -135,3 +135,37 @@ test.describe('funcCall, a click not animated', () => {
     await expect(ring).not.toHaveCSS('box-shadow', 'none');
   });
 });
+
+/** Drawn nodes whose box is not wholly inside the page's graph area. */
+const outside = (page: Page) => page.evaluate(() => {
+  const box = document.querySelector('.react-flow')!.getBoundingClientRect();
+  return [...document.querySelectorAll('.react-flow__node')].filter((n) => {
+    const r = n.getBoundingClientRect();
+    return r.left < box.left || r.top < box.top || r.right > box.right || r.bottom > box.bottom;
+  }).length;
+});
+
+// Reset answers no click, so nothing anchors the reader and nothing is necessarily new: without its
+// own refit, a reader who had panned away comes back to an empty screen.
+test.describe('boundary, condensed, reset', () => {
+  test.beforeEach(open('boundary'));
+
+  test('Reset fits what is left on screen, wherever the reader had panned to', async ({ page }) => {
+    await drewAgain(page, () => page.getByRole('button', { name: 'Condensed', exact: true }).click());
+    await drewAgain(page, () => page.locator('.react-flow__node .cf-group').filter({ hasText: /^program \(/ }).click());
+    const grown = await page.locator('.react-flow__node').count();
+    expect(grown).toBeGreaterThan(4);
+
+    // Drag the pane from its bottom-right corner far up and left: the drawing goes with it.
+    const box = (await page.locator('.react-flow').boundingBox())!;
+    await page.mouse.move(box.x + box.width - 10, box.y + box.height - 10);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 10, box.y + 10, { steps: 10 });
+    await page.mouse.up();
+    expect(await outside(page)).toBeGreaterThan(0);
+
+    await drewAgain(page, () => page.getByRole('button', { name: 'Reset', exact: true }).click());
+    await expect(page.locator('.react-flow__node')).toHaveCount(4);
+    expect(await outside(page)).toBe(0);
+  });
+});

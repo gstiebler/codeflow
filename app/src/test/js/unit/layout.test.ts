@@ -103,23 +103,28 @@ test('positions flattens the laid-out tree, keeping each parent', () => {
 });
 
 // The condensed view has no boxes: one level, every node sized from the caption it is drawn with,
-// and an edge id per (source, target, kind) - two kinds onto one pair are two edges.
-test('the condensed layout is flat, sized from the captions, one edge per kind', () => {
+// an edge id per ordered pair, and more room than the boxed view.
+test('the condensed layout is flat, sized from the captions, one edge per ordered pair', () => {
   const root = flatElkGraph({
     nodes: [
       { id: 'program', label: 'program', type: 'GROUP', members: 12 },
       { id: 'x', label: 'x', type: 'VARIABLE' },
     ],
     edges: [
-      { source: 'x', target: 'program', kind: 'FLOW', count: 2 },
-      { source: 'x', target: 'program', kind: 'ORDER', count: 1 },
+      { source: 'x', target: 'program', kinds: { FLOW: 2, ORDER: 1 }, count: 3 },
+      { source: 'program', target: 'x', kinds: { FLOW: 1 }, count: 1 },
     ],
   }, (node) => (node.type === 'GROUP' ? `${node.label} (${node.members})` : node.label));
   assert.deepEqual(root.children!.map((c) => [c.id, c.width, c.children]), [
     ['program', nodeWidth('program (12)'), undefined],
     ['x', nodeWidth('x'), undefined],
   ]);
-  assert.deepEqual(root.edges!.map((e) => e.id), ['x->program:FLOW', 'x->program:ORDER']);
+  assert.deepEqual(root.edges!.map((e) => e.id), ['x->program', 'program->x']);
+  assert.equal(root.layoutOptions!['elk.layered.spacing.nodeNodeBetweenLayers'], '70');
+  assert.equal(root.layoutOptions!['elk.spacing.nodeNode'], '40');
+  // The pair: the boxed view keeps its own, tighter spacing.
+  assert.equal(elkGraph(view).layoutOptions!['elk.layered.spacing.nodeNodeBetweenLayers'], '40');
+  assert.equal(elkGraph(view).layoutOptions!['elk.spacing.nodeNode'], '25');
   for (const value of Object.values(root.layoutOptions!)) assert.equal(typeof value, 'string');
   assert.equal(root.layoutOptions!['elk.hierarchyHandling'], undefined);
 });

@@ -21,6 +21,11 @@ export const PROGRAM = 'program';
 /** How many entries a group's or an edge's hover lists before `+N more`. */
 export const HOVER_CAP = 10;
 
+/** The order an edge's hover lists its kinds in: `EdgeKind`'s, the compiler holding it to every kind. */
+const KIND_ORDER = Object.keys({
+  FLOW: 0, TRUE: 0, FALSE: 0, CONDITION: 0, ORDER: 0, SHARED: 0, EVENT: 0,
+} satisfies Record<EdgeKind, 0>) as EdgeKind[];
+
 type Index = {
   byId: Map<Id, PayloadNode>;
   /** Every leaf, in payload order. */
@@ -110,8 +115,8 @@ function shownAs(ix: Index, revealed: Set<Id>) {
  *
  * Each payload edge `u -> v` is drawn between `shown(u)` and `shown(v)`, and dropped when both land
  * on one display node - an edge inside a group says nothing the group does not. Several onto one
- * pair are one edge per kind with a count, kinds kept apart so the ORDER/TRUE/FALSE colours still
- * mean something.
+ * ordered pair are one edge, whatever their kinds, with a count per kind: one line per kind made the
+ * opening a tangle of captions, and the kinds are one hover away.
  */
 export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
   const ix = index(payload);
@@ -139,10 +144,12 @@ export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
     const source = shown(edge.source);
     const target = shown(edge.target);
     if (source === target) continue;
-    const key = `${source}\u0000${target}\u0000${edge.kind}`;
+    const key = `${source}\u0000${target}`;
     const was = drawn.get(key);
-    if (was) was.count += 1;
-    else drawn.set(key, { source, target, kind: edge.kind, count: 1 });
+    if (was) {
+      was.count += 1;
+      was.kinds[edge.kind] = (was.kinds[edge.kind] ?? 0) + 1;
+    } else drawn.set(key, { source, target, kinds: { [edge.kind]: 1 }, count: 1 });
   }
 
   return { nodes, edges: [...drawn.values()] };
@@ -156,10 +163,10 @@ export function condensedCaption(node: CondensedNode): string {
   return node.type === 'GROUP' ? `${node.label} (${node.members})` : node.label;
 }
 
-/** The payload edges a drawn edge stands for. */
-function underlying(payload: Payload, revealed: Set<Id>, [source, target, kind]: [Id, Id, EdgeKind]): PayloadEdge[] {
+/** The payload edges a drawn edge stands for, of every kind. */
+function underlying(payload: Payload, revealed: Set<Id>, [source, target]: [Id, Id]): PayloadEdge[] {
   const shown = shownAs(index(payload), revealed);
-  return payload.edges.filter((e) => e.kind === kind && shown(e.source) === source && shown(e.target) === target);
+  return payload.edges.filter((e) => shown(e.source) === source && shown(e.target) === target);
 }
 
 /**
@@ -168,7 +175,7 @@ function underlying(payload: Payload, revealed: Set<Id>, [source, target, kind]:
  * - a leaf: its direct neighbours, in and out;
  * - a group: its frontier - members with an edge to something drawn outside the group - or, when it
  *   has none, every member, so that a click on a group always does something;
- * - a drawn edge: the endpoints of every payload edge it stands for.
+ * - a drawn edge: the endpoints of every payload edge it stands for, of every kind.
  */
 export function tapCondensed(payload: Payload, revealed: Set<Id>, target: CondensedTarget): Set<Id> {
   const ix = index(payload);
@@ -238,20 +245,25 @@ const capped = (entries: string[]) => entries.length <= HOVER_CAP
  * - a leaf: the method it was created in (`Class#method`) and its line with the text;
  * - a group: its member count, then each method its members come from with the range of their
  *   lines, first [HOVER_CAP] then `+N more`;
- * - a drawn edge: where the value arrives - its target's method and line - one entry per distinct
- *   line of the edges it stands for, capped the same way. The target is an approximation, allowed
- *   by the spec: for a phi or a call it is where the value lands, not the expression that moved it.
+ * - a drawn edge: the kinds it stands for with their counts (`flow ×3, order ×2`, in KIND_ORDER),
+ *   since the line itself names none; then where the value arrives - its target's method and line -
+ *   one entry per distinct line of the edges it stands for, capped the same way. The target is an
+ *   approximation, allowed by the spec: for a phi or a call it is where the value lands, not the
+ *   expression that moved it.
  */
 export function hoverText(payload: Payload, revealed: Set<Id>, target: CondensedTarget): string[] {
   const ix = index(payload);
 
   if ('edge' in target) {
     const entries = new Set<string>();
+    const kinds = new Map<EdgeKind, number>();
     for (const edge of underlying(payload, revealed, target.edge)) {
+      kinds.set(edge.kind, (kinds.get(edge.kind) ?? 0) + 1);
       const leaf = ix.byId.get(edge.target)!;
       entries.add([methodOf(ix, leaf), lineOf(payload, leaf.source)].filter((s) => s !== null).join('  '));
     }
-    return capped([...entries]);
+    const counts = KIND_ORDER.filter((k) => kinds.has(k)).map((k) => `${k.toLowerCase()} ×${kinds.get(k)}`);
+    return [counts.join(', '), ...capped([...entries])];
   }
 
   const members = ix.members.get(target.node);

@@ -4,6 +4,7 @@ import {
   PROGRAM, condensed, condensedCaption, condensedOpening, groupOf, hoverText, tapCondensed,
 } from '../../../main/resources/viewer/condensed.ts';
 import type { CondensedView, EdgeKind, Payload, PayloadNode } from '../../../main/resources/viewer/types.ts';
+import { loadCorpus } from './corpus.ts';
 
 const FETCH = 'boundary:p.Gw#fetch(int)';
 const SAVE = 'boundary:p.Gw#save(int)';
@@ -51,9 +52,13 @@ const PAYLOAD: Payload = {
   },
 };
 
+/** `FLOW1+TRUE1x2`: the kinds a drawn edge stands for, each with its count, then the total. */
+const kindsOf = (e: CondensedView['edges'][number]) =>
+  `${Object.entries(e.kinds).sort().map(([k, n]) => `${k}${n}`).join('+')}x${e.count}`;
+
 const sorted = (view: CondensedView) => ({
   nodes: [...view.nodes].sort((a, b) => a.id.localeCompare(b.id)),
-  edges: view.edges.map((e) => `${e.source}->${e.target}:${e.kind}x${e.count}`).sort(),
+  edges: view.edges.map((e) => `${e.source}->${e.target}:${kindsOf(e)}`).sort(),
 });
 
 // One group per boundary method however many call sites it has - three blocks of `fetch`, one nested
@@ -78,20 +83,46 @@ test('a leaf belongs to the group of its nearest enclosing box', () => {
 // Inside `fetch`: n4->n5, n5->n6, n7->n8 and the ORDER n5->n8. None drawn; every crossing one is.
 test('an edge between two members of one group is not drawn, and every crossing edge is', () => {
   assert.deepEqual(sorted(condensed(PAYLOAD, new Set())).edges, [
-    `${FETCH}->${PROGRAM}:FLOWx1`,
-    `${FETCH}->${PROGRAM}:TRUEx1`,
-    `${FETCH}->${SAVE}:ORDERx1`,
-    `${PROGRAM}->${FETCH}:FLOWx3`,
-    `${PROGRAM}->${SAVE}:FLOWx1`,
+    `${FETCH}->${PROGRAM}:FLOW1+TRUE1x2`,
+    `${FETCH}->${SAVE}:ORDER1x1`,
+    `${PROGRAM}->${FETCH}:FLOW3x3`,
+    `${PROGRAM}->${SAVE}:FLOW1x1`,
   ].sort());
 });
 
-// fetch -> program is a FLOW (n6->n2) and a TRUE (n8->n2): two drawn edges, not one counted twice.
-test('edges onto one pair of display nodes are one drawn edge per kind, with a count', () => {
-  const edges = condensed(PAYLOAD, new Set()).edges.filter((e) => e.source === FETCH && e.target === PROGRAM);
-  assert.deepEqual(edges.map((e) => [e.kind, e.count]).sort(), [['FLOW', 1], ['TRUE', 1]]);
-  const into = condensed(PAYLOAD, new Set()).edges.filter((e) => e.source === PROGRAM && e.target === FETCH);
-  assert.deepEqual(into.map((e) => [e.kind, e.count]), [['FLOW', 3]]);
+// fetch -> program is a FLOW (n6->n2) and a TRUE (n8->n2): one drawn edge standing for both, with
+// each kind's count kept for the hover. program -> fetch, the other direction, is its own edge.
+test('edges onto one ordered pair of display nodes are one drawn edge, whatever their kinds', () => {
+  const view = condensed(PAYLOAD, new Set());
+  const out = view.edges.filter((e) => e.source === FETCH && e.target === PROGRAM);
+  assert.deepEqual(out.map((e) => [e.kinds, e.count]), [[{ FLOW: 1, TRUE: 1 }, 2]]);
+  const into = view.edges.filter((e) => e.source === PROGRAM && e.target === FETCH);
+  assert.deepEqual(into.map((e) => [e.kinds, e.count]), [[{ FLOW: 3 }, 3]]);
+});
+
+/** Every ordered pair drawn more than once - what the opening must not have. */
+const repeated = (view: CondensedView) => {
+  const pairs = view.edges.map((e) => `${e.source}->${e.target}`);
+  return pairs.filter((p, i) => pairs.indexOf(p) !== i);
+};
+
+// `boundary` is the page that read as a tangle: its event and its three boundary groups trade flow,
+// order and event edges, one drawn edge per kind before. Now each ordered pair is drawn once, and
+// together they still stand for every payload edge that crosses between two display nodes.
+test('no two drawn edges share an ordered pair, on the hand-written payload and on boundary\'s opening', () => {
+  assert.deepEqual(repeated(condensed(PAYLOAD, new Set())), []);
+  const { payload } = loadCorpus().find((c) => c.name === 'boundary')!;
+  const opening = condensed(payload, condensedOpening(payload));
+  assert.deepEqual(repeated(opening), []);
+  // The pair: merging lost nothing - the counts add up to the crossing edges, kind by kind.
+  const groups = groupOf(payload);
+  const shown = (id: string) => (condensedOpening(payload).has(id) ? id : groups.get(id)!);
+  const crossing = payload.edges.filter((e) => shown(e.source) !== shown(e.target));
+  assert.ok(opening.edges.some((e) => Object.keys(e.kinds).length > 1), 'boundary\'s opening has no mixed pair');
+  assert.equal(opening.edges.reduce((sum, e) => sum + e.count, 0), crossing.length);
+  for (const e of opening.edges) {
+    assert.equal(Object.values(e.kinds).reduce((a, b) => a + b, 0), e.count, `${e.source}->${e.target}`);
+  }
 });
 
 // `b` has two edges in (n6, n8) and one out (n9); `n5`, two hops away, stays in its group.
@@ -112,12 +143,17 @@ test('clicking a group with no frontier takes out every member', () => {
   assert.deepEqual([...after].sort(), ['n1', 'n10', 'n11', 'n2', 'n3']);
 });
 
-// The FLOW program->fetch stands for a->x twice and h->x; b's FLOW into save is another edge.
-test('clicking a drawn edge takes out the endpoints of the edges it stands for, of its kind only', () => {
-  const flow = tapCondensed(PAYLOAD, new Set(), { edge: [PROGRAM, FETCH, 'FLOW'] });
+// program->fetch stands for a->x twice and h->x; b's FLOW into save is another edge.
+test('clicking a drawn edge takes out the endpoints of the edges it stands for', () => {
+  const flow = tapCondensed(PAYLOAD, new Set(), { edge: [PROGRAM, FETCH] });
   assert.deepEqual([...flow].sort(), ['n1', 'n11', 'n12', 'n4', 'n7']);
-  const branch = tapCondensed(PAYLOAD, new Set(), { edge: [FETCH, PROGRAM, 'TRUE'] });
-  assert.deepEqual([...branch].sort(), ['n2', 'n8']);
+});
+
+// fetch->program is the FLOW result->b and the TRUE `call fetch`->b. Clicked per kind they took out
+// {n6, n2} and {n8, n2}; the one merged edge takes out their union, every kind's endpoints.
+test('clicking a merged edge takes out the endpoints of every kind it stands for', () => {
+  const merged = tapCondensed(PAYLOAD, new Set(), { edge: [FETCH, PROGRAM] });
+  assert.deepEqual([...merged].sort(), ['n2', 'n6', 'n8']);
 });
 
 // `save` has one member; once it is out the group is gone and its edges land on the leaf.
@@ -125,8 +161,8 @@ test('a group whose last member came out is gone, and its edges arrive at the me
   const view = sorted(condensed(PAYLOAD, new Set(['n9'])));
   assert.deepEqual(view.nodes.map((n) => n.id), [FETCH, 'n9', PROGRAM].sort((a, b) => a.localeCompare(b)));
   assert.deepEqual(view.nodes.find((n) => n.id === 'n9'), { id: 'n9', label: 'x', type: 'FUNC_PARAM' });
-  assert.ok(view.edges.includes(`${FETCH}->n9:ORDERx1`));
-  assert.ok(view.edges.includes(`${PROGRAM}->n9:FLOWx1`));
+  assert.ok(view.edges.includes(`${FETCH}->n9:ORDER1x1`));
+  assert.ok(view.edges.includes(`${PROGRAM}->n9:FLOW1x1`));
 });
 
 test('a revealed leaf keeps its lead', () => {
@@ -163,7 +199,7 @@ test('the condensed view opens with every entry point\'s event on its own, and R
     `${id}:${id.startsWith('e') ? 'EVENT' : 'GROUP'}`).sort());
   // The pair: the event's targets stay in their group, which the event points into.
   assert.ok(!view.nodes.some((n) => n.id === 'n1' || n.id === 'n13'));
-  assert.ok(view.edges.includes(`e1->${PROGRAM}:EVENTx2`), view.edges.join(' '));
+  assert.ok(view.edges.includes(`e1->${PROGRAM}:EVENT2x2`), view.edges.join(' '));
 
   let revealed = tapCondensed(events, opening, { node: PROGRAM });
   assert.notDeepEqual(condensed(events, revealed), condensed(events, opening));
@@ -188,11 +224,23 @@ test('hovering a group shows its member count and its members\' methods and line
 });
 
 // Three edges stand for program->fetch, all arriving on line 3 of Gw.java: one entry, not three.
-test('hovering a drawn edge lists the distinct lines its values arrive on', () => {
-  assert.deepEqual(hoverText(PAYLOAD, new Set(), { edge: [PROGRAM, FETCH, 'FLOW'] }),
-    ['Gw#fetch  Gw.java:3  static int fetch(int x) {']);
-  assert.deepEqual(hoverText(PAYLOAD, new Set(), { edge: [FETCH, PROGRAM, 'TRUE'] }),
-    ['App#main  App.java:6  int b = fetch(a);']);
+test('hovering a drawn edge lists the distinct lines its values arrive on, after its kinds', () => {
+  assert.deepEqual(hoverText(PAYLOAD, new Set(), { edge: [PROGRAM, FETCH] }),
+    ['flow ×3', 'Gw#fetch  Gw.java:3  static int fetch(int x) {']);
+  assert.deepEqual(hoverText(PAYLOAD, new Set(), { edge: [FETCH, PROGRAM] }),
+    ['flow ×1, true ×1', 'App#main  App.java:6  int b = fetch(a);']);
+});
+
+// The line carries no kind words any more, so the hover says them - in EdgeKind's order, not the
+// order the payload happens to list the edges in: here the ORDER edge comes first.
+test('hovering a merged edge starts with its kinds and their counts, in a fixed order', () => {
+  const mixed: Payload = {
+    nodes: [leaf('a', 'a', undefined, 'p/App.java:1:1'), leaf('b', 'b', undefined, 'p/App.java:2:1'),
+      leaf('c', 'c', undefined, 'p/App.java:3:1')],
+    edges: [edge('a', 'c', 'ORDER'), edge('b', 'c', 'EVENT'), edge('a', 'c'), edge('b', 'c', 'TRUE'), edge('a', 'c')],
+  };
+  const revealed = new Set(['c']);
+  assert.deepEqual(hoverText(mixed, revealed, { edge: [PROGRAM, 'c'] }), ['flow ×2, true ×1, order ×1, event ×1', 'App.java:3']);
 });
 
 /** Twelve methods with one leaf each, every leaf fed from one source: twelve of everything. */
@@ -213,10 +261,11 @@ test('a group\'s and an edge\'s hover list the first ten entries, then how many 
   assert.equal(group[10], 'App#m9  App.java:19');
   assert.equal(group[11], '+3 more');
 
-  const fan = hoverText(wide(), new Set(['s']), { edge: ['s', PROGRAM, 'FLOW'] });
-  assert.equal(fan.length, 11);
-  assert.equal(fan[9], 'App#m10  App.java:20');
-  assert.equal(fan[10], '+2 more');
+  const fan = hoverText(wide(), new Set(['s']), { edge: ['s', PROGRAM] });
+  assert.equal(fan.length, 12);
+  assert.equal(fan[0], 'flow ×12');
+  assert.equal(fan[10], 'App#m10  App.java:20');
+  assert.equal(fan[11], '+2 more');
 });
 
 // A group says how many it stands for, so a click that takes members out visibly shrinks it; a leaf

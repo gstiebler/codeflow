@@ -7,7 +7,7 @@
  * because it is Kotlin. That duplication is documented in CLAUDE.md; a third copy inside the page
  * would not be.
  */
-import type { NodeType, EdgeKind } from './types.ts';
+import type { CondensedEdge, NodeType, EdgeKind } from './types.ts';
 
 /**
  * Partial, and deliberately: BASE has no colour of its own and takes NODE_DEFAULT, the same as it
@@ -65,6 +65,13 @@ export const EDGE_COLOURS: Partial<Record<EdgeKind, string>> = {
 export const EDGE_DEFAULT = '#999';
 
 /**
+ * What an edge caption sits on: the page's own white, so a caption crossing another line reads as
+ * text rather than as a knot. The page has one, light, theme; React Flow's default is the same white,
+ * written out here so that it stays one definition.
+ */
+export const LABEL_BG = '#fff';
+
+/**
  * How an edge of [kind] is drawn: its colour, its caption, and whether it is dashed.
  *
  * Here rather than in the renderer so that it is a pure function `node --test` can load - the
@@ -78,4 +85,17 @@ export function edgeStyle(kind: EdgeKind): { colour: string; label: string | und
     label: kind === 'CONDITION' ? 'if' : (kind === 'FLOW' ? undefined : kind.toLowerCase()),
     dashed: kind === 'CONDITION' || kind === 'ORDER' || kind === 'EVENT',
   };
+}
+
+/**
+ * How a condensed edge is drawn. It stands for every payload edge between its two display nodes, so
+ * it keeps a kind's colour and dash only when that one kind is all it stands for; mixed, it is drawn
+ * as FLOW is - grey, solid - since no one kind's look would be true of it. The caption is the count,
+ * `×N`, when there are several, and never a kind's word: colour says the kind when there is one, and
+ * the hover lists them all.
+ */
+export function condensedEdgeStyle(edge: CondensedEdge): { colour: string; label: string | undefined; dashed: boolean } {
+  const kinds = Object.keys(edge.kinds) as EdgeKind[];
+  const { colour, dashed } = edgeStyle(kinds.length === 1 ? kinds[0] : 'FLOW');
+  return { colour, label: edge.count > 1 ? `×${edge.count}` : undefined, dashed };
 }

@@ -108,13 +108,16 @@ export type CondensedNode = {
   lead?: string;
 };
 
-/** Every payload edge of one kind between one pair of display nodes, drawn once. */
-export type CondensedEdge = { source: Id; target: Id; kind: EdgeKind; count: number };
+/**
+ * Every payload edge between one ordered pair of display nodes, whatever its kind, drawn once:
+ * `count` of them in all, `kinds` how many of each.
+ */
+export type CondensedEdge = { source: Id; target: Id; kinds: Partial<Record<EdgeKind, number>>; count: number };
 
 export type CondensedView = { nodes: CondensedNode[]; edges: CondensedEdge[] };
 
 /** What a click or a hover in the condensed view lands on: a display node, or a drawn edge. */
-export type CondensedTarget = { node: Id } | { edge: [Id, Id, EdgeKind] };
+export type CondensedTarget = { node: Id } | { edge: [Id, Id] };
 
 export type View = {
   /** Leaves on screen: everything revealed, plus one stub per offered callee. */

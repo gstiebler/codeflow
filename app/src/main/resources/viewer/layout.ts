@@ -109,19 +109,19 @@ export function elkGraph(view: View, previous?: Map<Id, Point>): ElkNode {
  * they are drawn with, which the caller passes so that the two cannot drift - and so that this file
  * keeps importing nothing but types.
  *
- * The hierarchy options are left out because there is no hierarchy; the spacing is the boxed view's,
- * so switching views does not change how dense the page reads.
+ * The hierarchy options are left out because there is no hierarchy. The spacing is wider than the
+ * boxed view's: a few nodes with long edges between them, each perhaps captioned `×N`, read as a
+ * tangle packed into the boxed view's 40 px between layers.
  */
 const FLAT_OPTIONS: Record<string, string> = {
   algorithm: 'layered',
   'elk.direction': 'DOWN',
-  'elk.layered.spacing.nodeNodeBetweenLayers': ELK_OPTIONS['elk.layered.spacing.nodeNodeBetweenLayers'],
-  'elk.spacing.nodeNode': ELK_OPTIONS['elk.spacing.nodeNode'],
+  'elk.layered.spacing.nodeNodeBetweenLayers': '70',
+  'elk.spacing.nodeNode': '40',
 };
 
-/** With the kind: the condensed view draws one edge per (source, target, kind), so the pair is not unique. */
-export const flatEdgeId = (edge: { source: Id; target: Id; kind: string }) =>
-  `${edge.source}->${edge.target}:${edge.kind}`;
+/** The condensed view draws one edge per ordered pair of display nodes, so the pair is its id. */
+export const flatEdgeId = (edge: { source: Id; target: Id }) => `${edge.source}->${edge.target}`;
 
 export function flatElkGraph(
   view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>,

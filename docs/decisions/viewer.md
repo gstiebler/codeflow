@@ -208,7 +208,7 @@ switching away and back returns to what was open. `R` and the `Reset` button res
 payload's `EVENT` leaves - one per root, see `calls-and-dispatch.md` - so the first page is one
 group per boundary method, each root's event on its own, and `program` (`boundary`: five nodes).
 Reset asks for the opening again, so it returns to the same set. The event is a leaf like any other:
-its edges into the groups are deduplicated per kind with a count, and clicking it reveals what it
+its edges into a group are one drawn edge with a count, and clicking it reveals what it
 starts. In Boxes it is a leaf of the root's box, and Boxes edges take no pointer events
 (`.cf-boxes`): they answer no click, and the event's edge into a closed callee's stub crosses the
 box's title. **The event is not a hub.** `tap` follows an `EVENT` edge only from the clicked node:
@@ -230,13 +230,21 @@ leaf is ever dropped, and the corpus sweep holds that at every step of a click-e
 - a group → its *frontier*, the members with an edge to something drawn outside the group; with no
   frontier, every member, so a group click always does something — without that fallback the walk
   stalls on a group with no outside edge;
-- a drawn edge → the endpoints of the payload edges it stands for, of its kind only.
+- a drawn edge → the endpoints of every payload edge it stands for, of every kind.
 
-**Edges.** Each payload edge is drawn between `shown(u)` and `shown(v)` (the leaf if revealed, else
-its group), dropped when both land on one display node, and deduplicated per (source, target,
-**kind**) with a count — kinds kept apart so ORDER/TRUE/FALSE colours still mean something. A group
-whose last member came out is not drawn. The layout is flat (`flatElkGraph`, no compound nodes);
-edge ids carry the kind, since the pair alone is not unique.
+**Edges: one per ordered pair.** Each payload edge is drawn between `shown(u)` and `shown(v)` (the
+leaf if revealed, else its group) and dropped when both land on one display node. Every edge onto
+one ordered pair is **one** drawn edge, whatever its kinds (`A→B` and `B→A` stay two), carrying a
+count per kind (`CondensedEdge.kinds`). Spec: `docs/superpowers/specs/2026-11-15-calmer-condensed-design.md`.
+Why: one line per kind, each captioned with its kind, made the five-node opening of `boundary` a
+tangle - 13 lines, 10 captions; now 12 lines, 4 captions, all counts. The kinds are not lost, they
+moved one hover away. `condensedEdgeStyle` (`theme.ts`): a single-kind edge keeps that kind's colour
+and dash, so colour still says the kind when there is one; a mixed edge is drawn as FLOW (grey,
+solid), since no one kind's look would be true of it. The caption is `×N` when N > 1, never a kind
+word, on the page's white (`LABEL_BG`). The hover starts with the kinds and counts in `EdgeKind`
+order (`flow ×1, false ×1`). Condensed spacing is its own (70 px between layers, 40 between nodes,
+against the boxed view's 40 / 25). A group whose last member came out is not drawn. The layout is
+flat (`flatElkGraph`, no compound nodes); an edge's id is its pair.
 
 **Hover is an approximation, on purpose.** A leaf shows the method of its nearest box and its line
 with the text; a group, its count and each method's line range, capped at ten then `+N more`; an

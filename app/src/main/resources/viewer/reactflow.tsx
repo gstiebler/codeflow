@@ -21,13 +21,13 @@ import {
   elkGraph, flatEdgeId, flatElkGraph, positions, NODE_HEIGHT, TITLE_HEIGHT, type Point, type Positioned,
 } from './layout.ts';
 import {
-  PALETTE, NODE_DEFAULT, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, edgeStyle,
+  PALETTE, NODE_DEFAULT, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, edgeStyle,
 } from './theme.ts';
 import {
   absolute, diffViews, easeOut, frame, HIGHLIGHT_MS, MOTION_CUTOFF, MOVE_MS, type Drawn,
 } from './transition.ts';
 import type {
-  CondensedNode, CondensedTarget, CondensedView, EdgeKind, Id, Payload, View, ViewNode,
+  CondensedNode, CondensedTarget, CondensedView, Id, Payload, View, ViewNode,
 } from './types.ts';
 
 /** The stylesheet arrives as text so the page stays one file. */
@@ -397,17 +397,15 @@ function condensedNodesOf(view: CondensedView, laid: Positioned[]): Node[] {
   });
 }
 
-/** As the boxed view draws an edge, with `×N` after the kind's caption when it stands for several. */
+/** One line per ordered pair, styled by condensedEdgeStyle; the caption on the page's white. */
 function condensedEdgesOf(view: CondensedView): Edge[] {
   return view.edges.map((edge) => {
-    const { colour, label, dashed } = edgeStyle(edge.kind);
-    const caption = [label, edge.count > 1 ? `×${edge.count}` : undefined].filter((s) => s !== undefined).join(' ');
+    const { colour, label, dashed } = condensedEdgeStyle(edge);
     return {
       id: flatEdgeId(edge),
       source: edge.source,
       target: edge.target,
-      data: { kind: edge.kind },
-      ...(caption === '' ? {} : { label: caption }),
+      ...(label === undefined ? {} : { label, labelBgStyle: { fill: LABEL_BG }, labelBgPadding: [4, 2] as [number, number] }),
       style: { stroke: colour, strokeWidth: 1.5, ...(dashed ? { strokeDasharray: '4 3' } : {}) },
       markerEnd: { type: MarkerType.ArrowClosed, color: colour },
     };
@@ -453,8 +451,7 @@ function CondensedGraph({ payload, revealed, setRevealed }: Revealing) {
     setRevealed((was) => tapCondensed(payload, was, on));
   }, [payload, setRevealed]);
 
-  const edgeTarget = (edge: Edge): CondensedTarget =>
-    ({ edge: [edge.source, edge.target, (edge.data as { kind: EdgeKind }).kind] });
+  const edgeTarget = (edge: Edge): CondensedTarget => ({ edge: [edge.source, edge.target] });
 
   return (
     <>

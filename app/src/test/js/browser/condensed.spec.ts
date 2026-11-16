@@ -83,6 +83,42 @@ test.describe('boundary, condensed', () => {
     expect(await groupLabels(page)).toEqual(expect.arrayContaining(BOUNDARY_GROUPS));
   });
 
+  // The opening used to draw 13 lines - one per kind per pair, ten of them captioned with a kind -
+  // packed into 40 px between layers. Each ordered pair is now one line, captioned only by a count.
+  test('the opening draws one line per ordered pair, captioned only with counts', async ({ page }) => {
+    await condense(page);
+    await expect(page.locator(NODE)).toHaveCount(5);
+    const ids = await page.evaluate(() =>
+      [...document.querySelectorAll('.react-flow__edge')].map((e) => e.getAttribute('aria-label')));
+    expect(ids.length).toBe(12);
+    expect(new Set(ids).size).toBe(ids.length);
+    const captions = await page.locator('.react-flow__edge-text').allTextContents();
+    // The pair: there are captions, and every one is a count.
+    expect(captions.length).toBeGreaterThan(0);
+    for (const caption of captions) expect(caption).toMatch(/^×\d+$/);
+  });
+
+  // boundaryfunc2 -> program is a FLOW and a FALSE: one grey, solid line whose hover names both kinds.
+  test('a merged edge is neutral, and its hover shows the kinds it stands for with counts', async ({ page }) => {
+    await condense(page);
+    const edge = (from: string, to: string) => page.locator('.react-flow__edge')
+      .filter({ has: page.locator(`xpath=self::*[contains(@aria-label, "#${from}(") and contains(@aria-label, "to ${to}")]`) });
+    const mixed = edge('boundaryfunc2', 'program');
+    await expect(mixed).toHaveCount(1);
+    await expect(mixed.locator('.react-flow__edge-path')).toHaveCSS('stroke', 'rgb(153, 153, 153)');
+    await expect(mixed.locator('.react-flow__edge-path')).toHaveCSS('stroke-dasharray', 'none');
+    // The pair: a line of one kind keeps that kind's purple and dash.
+    const order = edge('boundaryfunc1', 'boundary:boundary.Boundary#boundaryfunc2');
+    await expect(order.locator('.react-flow__edge-path')).toHaveCSS('stroke', 'rgb(123, 31, 162)');
+    await expect(order.locator('.react-flow__edge-path')).not.toHaveCSS('stroke-dasharray', 'none');
+
+    await expect(page.locator('.cf-tooltip')).toHaveCount(0);
+    await mixed.locator('.react-flow__edge-textwrapper').hover();
+    const lines = page.locator('.cf-tooltip > div');
+    await expect(lines.first()).toHaveText('flow ×1, false ×1');
+    await expect(page.locator('.cf-tooltip')).toContainText('App#entrypoint');
+  });
+
   test('Reset returns the condensed view to its opening', async ({ page }) => {
     await condense(page);
     await tapGroup(page, 'program');

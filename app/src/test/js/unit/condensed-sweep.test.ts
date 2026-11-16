@@ -72,7 +72,7 @@ test('every leaf is in exactly one display node at every step of a click-everyth
 });
 
 // At the end nothing is grouped, so the view is the graph itself: every leaf on its own and every
-// payload edge drawn, each (source, target, kind) once with its multiplicity as the count.
+// payload edge drawn, each (source, target, kind) once with its multiplicity as that kind's count.
 test('the walk ends with every leaf on its own and every payload edge drawn once', () => {
   const short = [];
   for (const { name, payload } of corpus) {
@@ -82,7 +82,7 @@ test('the walk ends with every leaf on its own and every payload edge drawn once
     const drawn = view.nodes.map((n) => n.id).sort();
     const want = new Map<string, number>();
     for (const e of payload.edges) want.set(`${e.source}>${e.target}:${e.kind}`, (want.get(`${e.source}>${e.target}:${e.kind}`) ?? 0) + 1);
-    const got = new Map(view.edges.map((e) => [`${e.source}>${e.target}:${e.kind}`, e.count]));
+    const got = new Map(view.edges.flatMap((e) => Object.entries(e.kinds).map(([kind, n]) => [`${e.source}>${e.target}:${kind}`, n])));
     if (JSON.stringify(drawn) !== JSON.stringify(leaves)) short.push(`${name}: ${drawn.length} of ${leaves.length} leaves on their own`);
     else if (JSON.stringify([...got].sort()) !== JSON.stringify([...want].sort())) short.push(`${name}: edges differ`);
   }

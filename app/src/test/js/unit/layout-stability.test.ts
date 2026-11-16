@@ -5,7 +5,7 @@ import { flatElkGraph, positions, stabilise, type ElkNode, type Point } from '..
 import type { CondensedNode, CondensedView } from '../../../main/resources/viewer/types.ts';
 
 const leaf = (id: string): CondensedNode => ({ id, label: id, type: 'VARIABLE' });
-const flow = (source: string, target: string) => ({ source, target, kind: 'FLOW' as const, count: 1 });
+const flow = (source: string, target: string) => ({ source, target, kinds: { FLOW: 1 }, count: 1 });
 const caption = (node: CondensedNode) => node.label;
 
 const lay = async (problem: ElkNode) =>

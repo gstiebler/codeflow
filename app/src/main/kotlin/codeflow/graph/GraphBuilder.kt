@@ -64,6 +64,15 @@ class GraphBuilderBlock(
     /** The subgraph's own id, from the same counter and for the same reason. */
     val serial = nextSerial()
 
+    /**
+     * The root's [NodeType.EVENT] - `event entrypoint` - or null below the root. Created before any
+     * other node so that it has the root's lowest serial and is drawn at the top of its box; its
+     * edges are added once the root is built, see `IrGraphBuilder.build`.
+     */
+    val event: GraphNode? = if (parent != null) null else graph.createGraphNode(
+        NodeType.EVENT, GraphNode.Base(GraphNodeId(stack, "event ${method.displayName()}"), openedAt)
+    )
+
     val calledMethods = ArrayList<GraphBuilderBlock>()
     var returnNode = createReturnNode(stack)
 

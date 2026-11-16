@@ -286,7 +286,8 @@ class InvariantsTest {
                 block.graph.getNodes().forEach { node ->
                     // The block's own RETURN node stands for the method rather than for any one
                     // `return`, of which there may be several or none, so it sits at the declaration.
-                    if (node === block.returnNode) return@forEach
+                    // So does the root's event, which is the builder's and no instruction's.
+                    if (node === block.returnNode || node === block.event) return@forEach
                     assertTrue(
                         node.source in positions,
                         "$fixture ${block.getMethodName()}: ${node.label} is drawn at ${node.source}, " +
@@ -296,6 +297,26 @@ class InvariantsTest {
             }
         }
         assertTrue(checked > 100, "the sweep found almost no instructions to check: $checked")
+    }
+
+    /**
+     * Each root has exactly one EVENT node, its own, and every other node it drew has something
+     * arriving - the event, when nothing else does. A node with nothing in is a value from nowhere,
+     * and the event is what says where: the entry point set it going.
+     */
+    @Test
+    fun everyNodeButTheRootsOneEventHasSomethingArriving() {
+        var checked = 0
+        fixtures().forEach { fixture ->
+            val drawn = drawn(fixture)
+            val event = drawn.root.event
+            assertEquals(listOf(event), drawn.nodes.filter { it.getType() == NodeType.EVENT }, "$fixture: not exactly the root's one event")
+            drawn.nodes.filter { it != event }.forEach { node ->
+                checked++
+                assertTrue(node.serial in drawn.arrivedAt, "$fixture: ${node.label} at ${node.source} has nothing arriving")
+            }
+        }
+        assertTrue(checked > 100, "the sweep found almost no nodes to check: $checked")
     }
 
     private fun fixtures(): List<String> = TestFixtures.fixtures(testResourcesPath)

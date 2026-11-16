@@ -1,27 +1,38 @@
 ```mermaid
 flowchart TD
   subgraph b0["main"]
-    n1[main]:::RETURN
-    n2[args]:::FUNC_PARAM
-    n3[5L]:::LITERAL
-    n4[id]:::OBJ_VARIABLE
-    n5[LOGGED]:::EXTERNAL
-    n12[report]:::OBJ_VARIABLE
-    n3[5L]:::LITERAL --> n4[id]:::OBJ_VARIABLE
-    n4[id]:::OBJ_VARIABLE --> n9[id]:::FUNC_PARAM
-    n5[LOGGED]:::EXTERNAL --> n8[reason]:::FUNC_PARAM
-    n7[<init>]:::RETURN --> n12[report]:::OBJ_VARIABLE
-    subgraph b6["Report.constructor"]
-      n7[<init>]:::RETURN
-      n8[reason]:::FUNC_PARAM
-      n9[id]:::FUNC_PARAM
-      n10[code]:::EXTERNAL
-      n11[super]:::EXTERNAL
-      n8[reason]:::FUNC_PARAM --> n10[code]:::EXTERNAL
-      n9[id]:::FUNC_PARAM --> n11[super]:::EXTERNAL
-      n10[code]:::EXTERNAL --> n11[super]:::EXTERNAL
+    n1[event main]:::EVENT
+    n2[main]:::RETURN
+    n3[args]:::FUNC_PARAM
+    n4[5L]:::LITERAL
+    n5[id]:::OBJ_VARIABLE
+    n6[LOGGED]:::EXTERNAL
+    n13[report]:::OBJ_VARIABLE
+    n1[event main]:::EVENT -. event .-> n2[main]:::RETURN
+    n1[event main]:::EVENT -. event .-> n3[args]:::FUNC_PARAM
+    n1[event main]:::EVENT -. event .-> n4[5L]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n6[LOGGED]:::EXTERNAL
+    n1[event main]:::EVENT -. event .-> n8[<init>]:::RETURN
+    n4[5L]:::LITERAL --> n5[id]:::OBJ_VARIABLE
+    n5[id]:::OBJ_VARIABLE --> n10[id]:::FUNC_PARAM
+    n6[LOGGED]:::EXTERNAL --> n9[reason]:::FUNC_PARAM
+    n8[<init>]:::RETURN --> n13[report]:::OBJ_VARIABLE
+    subgraph b7["Report.constructor"]
+      n8[<init>]:::RETURN
+      n9[reason]:::FUNC_PARAM
+      n10[id]:::FUNC_PARAM
+      n11[code]:::EXTERNAL
+      n12[super]:::EXTERNAL
+      n9[reason]:::FUNC_PARAM --> n11[code]:::EXTERNAL
+      n10[id]:::FUNC_PARAM --> n12[super]:::EXTERNAL
+      n11[code]:::EXTERNAL --> n12[super]:::EXTERNAL
     end
   end
+  linkStyle 0 stroke:#00897b,color:#00897b
+  linkStyle 1 stroke:#00897b,color:#00897b
+  linkStyle 2 stroke:#00897b,color:#00897b
+  linkStyle 3 stroke:#00897b,color:#00897b
+  linkStyle 4 stroke:#00897b,color:#00897b
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080
@@ -29,4 +40,5 @@ flowchart TD
   classDef RETURN fill:#FF808080
   classDef EXTERNAL fill:#FFA50040
   classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
+  classDef EVENT fill:#00897B40
 ```

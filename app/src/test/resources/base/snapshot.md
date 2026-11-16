@@ -1,24 +1,33 @@
 ```mermaid
 flowchart TD
   subgraph b0["main"]
-    n1[main]:::RETURN
-    n2[args]:::FUNC_PARAM
-    n3[5]:::LITERAL
-    n4[a]:::VARIABLE
-    n5[b]:::VARIABLE
-    n6[8]:::LITERAL
-    n7[+]:::BIN_OP
-    n8[c]:::VARIABLE
-    n9[d]:::VARIABLE
-    n10[e]:::VARIABLE
-    n3[5]:::LITERAL --> n4[a]:::VARIABLE
-    n4[a]:::VARIABLE --> n5[b]:::VARIABLE
-    n5[b]:::VARIABLE --> n7[+]:::BIN_OP
-    n5[b]:::VARIABLE --> n9[d]:::VARIABLE
-    n6[8]:::LITERAL --> n7[+]:::BIN_OP
-    n7[+]:::BIN_OP --> n8[c]:::VARIABLE
-    n9[d]:::VARIABLE --> n10[e]:::VARIABLE
+    n1[event main]:::EVENT
+    n2[main]:::RETURN
+    n3[args]:::FUNC_PARAM
+    n4[5]:::LITERAL
+    n5[a]:::VARIABLE
+    n6[b]:::VARIABLE
+    n7[8]:::LITERAL
+    n8[+]:::BIN_OP
+    n9[c]:::VARIABLE
+    n10[d]:::VARIABLE
+    n11[e]:::VARIABLE
+    n1[event main]:::EVENT -. event .-> n2[main]:::RETURN
+    n1[event main]:::EVENT -. event .-> n3[args]:::FUNC_PARAM
+    n1[event main]:::EVENT -. event .-> n4[5]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n7[8]:::LITERAL
+    n4[5]:::LITERAL --> n5[a]:::VARIABLE
+    n5[a]:::VARIABLE --> n6[b]:::VARIABLE
+    n6[b]:::VARIABLE --> n8[+]:::BIN_OP
+    n6[b]:::VARIABLE --> n10[d]:::VARIABLE
+    n7[8]:::LITERAL --> n8[+]:::BIN_OP
+    n8[+]:::BIN_OP --> n9[c]:::VARIABLE
+    n10[d]:::VARIABLE --> n11[e]:::VARIABLE
   end
+  linkStyle 0 stroke:#00897b,color:#00897b
+  linkStyle 1 stroke:#00897b,color:#00897b
+  linkStyle 2 stroke:#00897b,color:#00897b
+  linkStyle 3 stroke:#00897b,color:#00897b
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080
@@ -26,4 +35,5 @@ flowchart TD
   classDef RETURN fill:#FF808080
   classDef EXTERNAL fill:#FFA50040
   classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
+  classDef EVENT fill:#00897B40
 ```

@@ -1,30 +1,45 @@
 ```mermaid
 flowchart TD
   subgraph b0["main"]
-    n1[main]:::RETURN
-    n2[args]:::FUNC_PARAM
-    n3[ClassX]:::EXTERNAL
-    n4[x]:::OBJ_VARIABLE
-    n5[ClassY]:::EXTERNAL
-    n6[y]:::OBJ_VARIABLE
-    n7[ClassX]:::EXTERNAL
-    n8[zClass]:::OBJ_VARIABLE
-    n9[6]:::LITERAL
-    n10[memberX]:::VARIABLE
-    n11[5]:::LITERAL
-    n12[memberX]:::VARIABLE
-    n13[memberY]:::VARIABLE
-    n14[y2]:::OBJ_VARIABLE
-    n15[z]:::VARIABLE
-    n3[ClassX]:::EXTERNAL --> n4[x]:::OBJ_VARIABLE
-    n5[ClassY]:::EXTERNAL --> n6[y]:::OBJ_VARIABLE
-    n6[y]:::OBJ_VARIABLE --> n14[y2]:::OBJ_VARIABLE
-    n7[ClassX]:::EXTERNAL --> n8[zClass]:::OBJ_VARIABLE
-    n9[6]:::LITERAL --> n10[memberX]:::VARIABLE
-    n11[5]:::LITERAL --> n12[memberX]:::VARIABLE
-    n12[memberX]:::VARIABLE --> n13[memberY]:::VARIABLE
-    n13[memberY]:::VARIABLE --> n15[z]:::VARIABLE
+    n1[event main]:::EVENT
+    n2[main]:::RETURN
+    n3[args]:::FUNC_PARAM
+    n4[ClassX]:::EXTERNAL
+    n5[x]:::OBJ_VARIABLE
+    n6[ClassY]:::EXTERNAL
+    n7[y]:::OBJ_VARIABLE
+    n8[ClassX]:::EXTERNAL
+    n9[zClass]:::OBJ_VARIABLE
+    n10[6]:::LITERAL
+    n11[memberX]:::VARIABLE
+    n12[5]:::LITERAL
+    n13[memberX]:::VARIABLE
+    n14[memberY]:::VARIABLE
+    n15[y2]:::OBJ_VARIABLE
+    n16[z]:::VARIABLE
+    n1[event main]:::EVENT -. event .-> n2[main]:::RETURN
+    n1[event main]:::EVENT -. event .-> n3[args]:::FUNC_PARAM
+    n1[event main]:::EVENT -. event .-> n4[ClassX]:::EXTERNAL
+    n1[event main]:::EVENT -. event .-> n6[ClassY]:::EXTERNAL
+    n1[event main]:::EVENT -. event .-> n8[ClassX]:::EXTERNAL
+    n1[event main]:::EVENT -. event .-> n10[6]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n12[5]:::LITERAL
+    n4[ClassX]:::EXTERNAL --> n5[x]:::OBJ_VARIABLE
+    n6[ClassY]:::EXTERNAL --> n7[y]:::OBJ_VARIABLE
+    n7[y]:::OBJ_VARIABLE --> n15[y2]:::OBJ_VARIABLE
+    n8[ClassX]:::EXTERNAL --> n9[zClass]:::OBJ_VARIABLE
+    n10[6]:::LITERAL --> n11[memberX]:::VARIABLE
+    n12[5]:::LITERAL --> n13[memberX]:::VARIABLE
+    n13[memberX]:::VARIABLE --> n14[memberY]:::VARIABLE
+    n14[memberY]:::VARIABLE --> n16[z]:::VARIABLE
   end
+  linkStyle 0 stroke:#00897b,color:#00897b
+  linkStyle 1 stroke:#00897b,color:#00897b
+  linkStyle 2 stroke:#00897b,color:#00897b
+  linkStyle 3 stroke:#00897b,color:#00897b
+  linkStyle 4 stroke:#00897b,color:#00897b
+  linkStyle 5 stroke:#00897b,color:#00897b
+  linkStyle 6 stroke:#00897b,color:#00897b
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080
@@ -32,4 +47,5 @@ flowchart TD
   classDef RETURN fill:#FF808080
   classDef EXTERNAL fill:#FFA50040
   classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
+  classDef EVENT fill:#00897B40
 ```

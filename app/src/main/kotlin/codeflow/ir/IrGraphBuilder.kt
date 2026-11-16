@@ -230,7 +230,22 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
             null, root, PosStack(), emptySet(), root.ctx, root.ctx.location(root.name), globalCtx.isBoundary(root), firstSerial
         )
         Frame(this, block, PosStack(), emptySet(), null).invoke(emptyList(), emptyList())
+        startFromEvent(block)
         return block
+    }
+
+    /**
+     * The root's event feeds every node drawn under it - its block and every block inlined below -
+     * that nothing else feeds: [EdgeKind.EVENT]. Decided by incoming edges, never by label or type,
+     * and before [build] adds the [EdgeKind.SHARED] edges, since "nothing feeds it" is judged within
+     * this entry point - the other one may not have run.
+     */
+    private fun startFromEvent(root: GraphBuilderBlock) {
+        val event = root.event!!
+        fun blocksUnder(block: GraphBuilderBlock): List<GraphBuilderBlock> = listOf(block) + block.calledMethods.flatMap { blocksUnder(it) }
+        val nodes = blocksUnder(root).flatMap { it.graph.getNodes() }
+        val fed = nodes.flatMap { node -> node.edgesIterator().asSequence().map { it.target }.toList() }.toSet()
+        nodes.filter { it != event && it !in fed }.forEach { event.addEdge(it, EdgeKind.EVENT) }
     }
 
     /**

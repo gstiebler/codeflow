@@ -1,243 +1,310 @@
 ```mermaid
 flowchart TD
   subgraph b0["main"]
-    n1[main]:::RETURN
-    n2[args]:::FUNC_PARAM
-    n3[App]:::EXTERNAL
-    n4[app]:::OBJ_VARIABLE
-    n5[length]:::EXTERNAL
-    n6[0]:::LITERAL
-    n7[>]:::BIN_OP
-    n8[101]:::LITERAL
-    n9[102]:::LITERAL
-    n19[picked]:::VARIABLE
-    n20[1]:::LITERAL
-    n21[>]:::BIN_OP
-    n31[kept]:::VARIABLE
-    n32[2]:::LITERAL
-    n33[>]:::BIN_OP
-    n34[3]:::LITERAL
-    n35[>]:::BIN_OP
-    n50[nestedSeen]:::VARIABLE
-    n51[4]:::LITERAL
-    n52[>]:::BIN_OP
-    n62[errSeen]:::VARIABLE
-    n63[5]:::LITERAL
-    n64[>]:::BIN_OP
-    n70[quietSeen]:::VARIABLE
-    n71[6]:::LITERAL
-    n72[>]:::BIN_OP
-    n88[calleeSeen]:::VARIABLE
-    n89[7]:::LITERAL
-    n90[>]:::BIN_OP
-    n91[8]:::LITERAL
-    n92[>]:::BIN_OP
-    n110[forkedSeen]:::VARIABLE
-    n3[App]:::EXTERNAL --> n4[app]:::OBJ_VARIABLE
-    n5[length]:::EXTERNAL --> n7[>]:::BIN_OP
-    n5[length]:::EXTERNAL --> n21[>]:::BIN_OP
-    n5[length]:::EXTERNAL --> n33[>]:::BIN_OP
-    n5[length]:::EXTERNAL --> n35[>]:::BIN_OP
-    n5[length]:::EXTERNAL --> n52[>]:::BIN_OP
-    n5[length]:::EXTERNAL --> n64[>]:::BIN_OP
-    n5[length]:::EXTERNAL --> n72[>]:::BIN_OP
-    n5[length]:::EXTERNAL --> n90[>]:::BIN_OP
-    n5[length]:::EXTERNAL --> n92[>]:::BIN_OP
-    n6[0]:::LITERAL --> n7[>]:::BIN_OP
-    n7[>]:::BIN_OP --> n12[pickFlag]:::FUNC_PARAM
-    n8[101]:::LITERAL --> n13[a]:::FUNC_PARAM
-    n9[102]:::LITERAL --> n14[b]:::FUNC_PARAM
-    n20[1]:::LITERAL --> n21[>]:::BIN_OP
-    n21[>]:::BIN_OP --> n24[keepFlag]:::FUNC_PARAM
-    n32[2]:::LITERAL --> n33[>]:::BIN_OP
-    n33[>]:::BIN_OP --> n38[outer]:::FUNC_PARAM
-    n34[3]:::LITERAL --> n35[>]:::BIN_OP
-    n35[>]:::BIN_OP --> n39[inner]:::FUNC_PARAM
-    n51[4]:::LITERAL --> n52[>]:::BIN_OP
-    n52[>]:::BIN_OP --> n55[bad]:::FUNC_PARAM
-    n63[5]:::LITERAL --> n64[>]:::BIN_OP
-    n64[>]:::BIN_OP --> n67[bad]:::FUNC_PARAM
-    n71[6]:::LITERAL --> n72[>]:::BIN_OP
-    n72[>]:::BIN_OP --> n75[calleeFlag]:::FUNC_PARAM
-    n89[7]:::LITERAL --> n90[>]:::BIN_OP
-    n90[>]:::BIN_OP --> n95[outerFlag]:::FUNC_PARAM
-    n91[8]:::LITERAL --> n92[>]:::BIN_OP
-    n92[>]:::BIN_OP --> n96[innerFlag]:::FUNC_PARAM
-    n11[pick]:::RETURN --> n19[picked]:::VARIABLE
-    n23[keep]:::RETURN --> n31[kept]:::VARIABLE
-    n37[nested]:::RETURN --> n50[nestedSeen]:::VARIABLE
-    n61[err]:::VARIABLE --> n62[errSeen]:::VARIABLE
-    n69[quiet]:::VARIABLE --> n70[quietSeen]:::VARIABLE
-    n74[viaCallee]:::RETURN --> n88[calleeSeen]:::VARIABLE
-    n94[calleeThatForks]:::RETURN --> n110[forkedSeen]:::VARIABLE
-    subgraph b10["pick"]
-      n11[pick]:::RETURN
-      n12[pickFlag]:::FUNC_PARAM
-      n13[a]:::FUNC_PARAM
-      n14[b]:::FUNC_PARAM
-      n15[x]:::VARIABLE
+    n1[event main]:::EVENT
+    n2[main]:::RETURN
+    n3[args]:::FUNC_PARAM
+    n4[App]:::EXTERNAL
+    n5[app]:::OBJ_VARIABLE
+    n6[length]:::EXTERNAL
+    n7[0]:::LITERAL
+    n8[>]:::BIN_OP
+    n9[101]:::LITERAL
+    n10[102]:::LITERAL
+    n20[picked]:::VARIABLE
+    n21[1]:::LITERAL
+    n22[>]:::BIN_OP
+    n32[kept]:::VARIABLE
+    n33[2]:::LITERAL
+    n34[>]:::BIN_OP
+    n35[3]:::LITERAL
+    n36[>]:::BIN_OP
+    n51[nestedSeen]:::VARIABLE
+    n52[4]:::LITERAL
+    n53[>]:::BIN_OP
+    n63[errSeen]:::VARIABLE
+    n64[5]:::LITERAL
+    n65[>]:::BIN_OP
+    n71[quietSeen]:::VARIABLE
+    n72[6]:::LITERAL
+    n73[>]:::BIN_OP
+    n89[calleeSeen]:::VARIABLE
+    n90[7]:::LITERAL
+    n91[>]:::BIN_OP
+    n92[8]:::LITERAL
+    n93[>]:::BIN_OP
+    n111[forkedSeen]:::VARIABLE
+    n1[event main]:::EVENT -. event .-> n2[main]:::RETURN
+    n1[event main]:::EVENT -. event .-> n3[args]:::FUNC_PARAM
+    n1[event main]:::EVENT -. event .-> n4[App]:::EXTERNAL
+    n1[event main]:::EVENT -. event .-> n6[length]:::EXTERNAL
+    n1[event main]:::EVENT -. event .-> n7[0]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n9[101]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n10[102]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n21[1]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n33[2]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n35[3]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n52[4]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n64[5]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n72[6]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n90[7]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n92[8]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n26[111]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n28[122]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n41[131]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n43[132]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n47[133]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n55[guarded]:::RETURN
+    n1[event main]:::EVENT -. event .-> n57[141]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n59[142]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n67[failFast]:::RETURN
+    n1[event main]:::EVENT -. event .-> n69[151]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n77[161]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n82[162]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n79[setW]:::RETURN
+    n1[event main]:::EVENT -. event .-> n84[setW]:::RETURN
+    n1[event main]:::EVENT -. event .-> n107[173]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n99[setQ]:::RETURN
+    n1[event main]:::EVENT -. event .-> n101[171]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n103[172]:::LITERAL
+    n4[App]:::EXTERNAL --> n5[app]:::OBJ_VARIABLE
+    n6[length]:::EXTERNAL --> n8[>]:::BIN_OP
+    n6[length]:::EXTERNAL --> n22[>]:::BIN_OP
+    n6[length]:::EXTERNAL --> n34[>]:::BIN_OP
+    n6[length]:::EXTERNAL --> n36[>]:::BIN_OP
+    n6[length]:::EXTERNAL --> n53[>]:::BIN_OP
+    n6[length]:::EXTERNAL --> n65[>]:::BIN_OP
+    n6[length]:::EXTERNAL --> n73[>]:::BIN_OP
+    n6[length]:::EXTERNAL --> n91[>]:::BIN_OP
+    n6[length]:::EXTERNAL --> n93[>]:::BIN_OP
+    n7[0]:::LITERAL --> n8[>]:::BIN_OP
+    n8[>]:::BIN_OP --> n13[pickFlag]:::FUNC_PARAM
+    n9[101]:::LITERAL --> n14[a]:::FUNC_PARAM
+    n10[102]:::LITERAL --> n15[b]:::FUNC_PARAM
+    n21[1]:::LITERAL --> n22[>]:::BIN_OP
+    n22[>]:::BIN_OP --> n25[keepFlag]:::FUNC_PARAM
+    n33[2]:::LITERAL --> n34[>]:::BIN_OP
+    n34[>]:::BIN_OP --> n39[outer]:::FUNC_PARAM
+    n35[3]:::LITERAL --> n36[>]:::BIN_OP
+    n36[>]:::BIN_OP --> n40[inner]:::FUNC_PARAM
+    n52[4]:::LITERAL --> n53[>]:::BIN_OP
+    n53[>]:::BIN_OP --> n56[bad]:::FUNC_PARAM
+    n64[5]:::LITERAL --> n65[>]:::BIN_OP
+    n65[>]:::BIN_OP --> n68[bad]:::FUNC_PARAM
+    n72[6]:::LITERAL --> n73[>]:::BIN_OP
+    n73[>]:::BIN_OP --> n76[calleeFlag]:::FUNC_PARAM
+    n90[7]:::LITERAL --> n91[>]:::BIN_OP
+    n91[>]:::BIN_OP --> n96[outerFlag]:::FUNC_PARAM
+    n92[8]:::LITERAL --> n93[>]:::BIN_OP
+    n93[>]:::BIN_OP --> n97[innerFlag]:::FUNC_PARAM
+    n12[pick]:::RETURN --> n20[picked]:::VARIABLE
+    n24[keep]:::RETURN --> n32[kept]:::VARIABLE
+    n38[nested]:::RETURN --> n51[nestedSeen]:::VARIABLE
+    n62[err]:::VARIABLE --> n63[errSeen]:::VARIABLE
+    n70[quiet]:::VARIABLE --> n71[quietSeen]:::VARIABLE
+    n75[viaCallee]:::RETURN --> n89[calleeSeen]:::VARIABLE
+    n95[calleeThatForks]:::RETURN --> n111[forkedSeen]:::VARIABLE
+    subgraph b11["pick"]
+      n12[pick]:::RETURN
+      n13[pickFlag]:::FUNC_PARAM
+      n14[a]:::FUNC_PARAM
+      n15[b]:::FUNC_PARAM
       n16[x]:::VARIABLE
-      n17[if]:::BIN_OP
-      n18[x]:::VARIABLE
-      n12[pickFlag]:::FUNC_PARAM -->|if| n17[if]:::BIN_OP
-      n13[a]:::FUNC_PARAM --> n15[x]:::VARIABLE
-      n14[b]:::FUNC_PARAM --> n16[x]:::VARIABLE
-      n15[x]:::VARIABLE -->|true| n17[if]:::BIN_OP
-      n16[x]:::VARIABLE -->|false| n17[if]:::BIN_OP
-      n17[if]:::BIN_OP --> n18[x]:::VARIABLE
-      n18[x]:::VARIABLE --> n11[pick]:::RETURN
+      n17[x]:::VARIABLE
+      n18[if]:::BIN_OP
+      n19[x]:::VARIABLE
+      n13[pickFlag]:::FUNC_PARAM -->|if| n18[if]:::BIN_OP
+      n14[a]:::FUNC_PARAM --> n16[x]:::VARIABLE
+      n15[b]:::FUNC_PARAM --> n17[x]:::VARIABLE
+      n16[x]:::VARIABLE -->|true| n18[if]:::BIN_OP
+      n17[x]:::VARIABLE -->|false| n18[if]:::BIN_OP
+      n18[if]:::BIN_OP --> n19[x]:::VARIABLE
+      n19[x]:::VARIABLE --> n12[pick]:::RETURN
     end
-    subgraph b22["keep"]
-      n23[keep]:::RETURN
-      n24[keepFlag]:::FUNC_PARAM
-      n25[111]:::LITERAL
-      n26[y]:::VARIABLE
-      n27[122]:::LITERAL
-      n28[y]:::VARIABLE
-      n29[if]:::BIN_OP
-      n30[y]:::VARIABLE
-      n24[keepFlag]:::FUNC_PARAM -->|if| n29[if]:::BIN_OP
-      n25[111]:::LITERAL --> n26[y]:::VARIABLE
-      n26[y]:::VARIABLE -->|false| n29[if]:::BIN_OP
-      n27[122]:::LITERAL --> n28[y]:::VARIABLE
-      n28[y]:::VARIABLE -->|true| n29[if]:::BIN_OP
-      n29[if]:::BIN_OP --> n30[y]:::VARIABLE
-      n30[y]:::VARIABLE --> n23[keep]:::RETURN
+    subgraph b23["keep"]
+      n24[keep]:::RETURN
+      n25[keepFlag]:::FUNC_PARAM
+      n26[111]:::LITERAL
+      n27[y]:::VARIABLE
+      n28[122]:::LITERAL
+      n29[y]:::VARIABLE
+      n30[if]:::BIN_OP
+      n31[y]:::VARIABLE
+      n25[keepFlag]:::FUNC_PARAM -->|if| n30[if]:::BIN_OP
+      n26[111]:::LITERAL --> n27[y]:::VARIABLE
+      n27[y]:::VARIABLE -->|false| n30[if]:::BIN_OP
+      n28[122]:::LITERAL --> n29[y]:::VARIABLE
+      n29[y]:::VARIABLE -->|true| n30[if]:::BIN_OP
+      n30[if]:::BIN_OP --> n31[y]:::VARIABLE
+      n31[y]:::VARIABLE --> n24[keep]:::RETURN
     end
-    subgraph b36["nested"]
-      n37[nested]:::RETURN
-      n38[outer]:::FUNC_PARAM
-      n39[inner]:::FUNC_PARAM
-      n40[131]:::LITERAL
-      n41[z]:::VARIABLE
-      n42[132]:::LITERAL
-      n43[z]:::VARIABLE
-      n44[if]:::BIN_OP
-      n45[z]:::VARIABLE
-      n46[133]:::LITERAL
-      n47[z]:::VARIABLE
-      n48[if]:::BIN_OP
-      n49[z]:::VARIABLE
-      n38[outer]:::FUNC_PARAM -->|if| n48[if]:::BIN_OP
-      n39[inner]:::FUNC_PARAM -->|if| n44[if]:::BIN_OP
-      n40[131]:::LITERAL --> n41[z]:::VARIABLE
-      n41[z]:::VARIABLE -->|true| n44[if]:::BIN_OP
-      n42[132]:::LITERAL --> n43[z]:::VARIABLE
-      n43[z]:::VARIABLE -->|false| n44[if]:::BIN_OP
-      n44[if]:::BIN_OP --> n45[z]:::VARIABLE
-      n45[z]:::VARIABLE -->|true| n48[if]:::BIN_OP
-      n46[133]:::LITERAL --> n47[z]:::VARIABLE
-      n47[z]:::VARIABLE -->|false| n48[if]:::BIN_OP
-      n48[if]:::BIN_OP --> n49[z]:::VARIABLE
-      n49[z]:::VARIABLE --> n37[nested]:::RETURN
+    subgraph b37["nested"]
+      n38[nested]:::RETURN
+      n39[outer]:::FUNC_PARAM
+      n40[inner]:::FUNC_PARAM
+      n41[131]:::LITERAL
+      n42[z]:::VARIABLE
+      n43[132]:::LITERAL
+      n44[z]:::VARIABLE
+      n45[if]:::BIN_OP
+      n46[z]:::VARIABLE
+      n47[133]:::LITERAL
+      n48[z]:::VARIABLE
+      n49[if]:::BIN_OP
+      n50[z]:::VARIABLE
+      n39[outer]:::FUNC_PARAM -->|if| n49[if]:::BIN_OP
+      n40[inner]:::FUNC_PARAM -->|if| n45[if]:::BIN_OP
+      n41[131]:::LITERAL --> n42[z]:::VARIABLE
+      n42[z]:::VARIABLE -->|true| n45[if]:::BIN_OP
+      n43[132]:::LITERAL --> n44[z]:::VARIABLE
+      n44[z]:::VARIABLE -->|false| n45[if]:::BIN_OP
+      n45[if]:::BIN_OP --> n46[z]:::VARIABLE
+      n46[z]:::VARIABLE -->|true| n49[if]:::BIN_OP
+      n47[133]:::LITERAL --> n48[z]:::VARIABLE
+      n48[z]:::VARIABLE -->|false| n49[if]:::BIN_OP
+      n49[if]:::BIN_OP --> n50[z]:::VARIABLE
+      n50[z]:::VARIABLE --> n38[nested]:::RETURN
     end
-    subgraph b53["guarded"]
-      n54[guarded]:::RETURN
-      n55[bad]:::FUNC_PARAM
-      n56[141]:::LITERAL
-      n57[err]:::VARIABLE
-      n58[142]:::LITERAL
-      n59[err]:::VARIABLE
-      n60[if]:::BIN_OP
-      n61[err]:::VARIABLE
-      n55[bad]:::FUNC_PARAM -->|if| n60[if]:::BIN_OP
-      n56[141]:::LITERAL --> n57[err]:::VARIABLE
-      n57[err]:::VARIABLE -->|true| n60[if]:::BIN_OP
-      n58[142]:::LITERAL --> n59[err]:::VARIABLE
-      n59[err]:::VARIABLE -->|false| n60[if]:::BIN_OP
-      n60[if]:::BIN_OP --> n61[err]:::VARIABLE
+    subgraph b54["guarded"]
+      n55[guarded]:::RETURN
+      n56[bad]:::FUNC_PARAM
+      n57[141]:::LITERAL
+      n58[err]:::VARIABLE
+      n59[142]:::LITERAL
+      n60[err]:::VARIABLE
+      n61[if]:::BIN_OP
+      n62[err]:::VARIABLE
+      n56[bad]:::FUNC_PARAM -->|if| n61[if]:::BIN_OP
+      n57[141]:::LITERAL --> n58[err]:::VARIABLE
+      n58[err]:::VARIABLE -->|true| n61[if]:::BIN_OP
+      n59[142]:::LITERAL --> n60[err]:::VARIABLE
+      n60[err]:::VARIABLE -->|false| n61[if]:::BIN_OP
+      n61[if]:::BIN_OP --> n62[err]:::VARIABLE
     end
-    subgraph b65["failFast"]
-      n66[failFast]:::RETURN
-      n67[bad]:::FUNC_PARAM
-      n68[151]:::LITERAL
-      n69[quiet]:::VARIABLE
-      n68[151]:::LITERAL --> n69[quiet]:::VARIABLE
+    subgraph b66["failFast"]
+      n67[failFast]:::RETURN
+      n68[bad]:::FUNC_PARAM
+      n69[151]:::LITERAL
+      n70[quiet]:::VARIABLE
+      n69[151]:::LITERAL --> n70[quiet]:::VARIABLE
     end
-    subgraph b73["viaCallee"]
-      n74[viaCallee]:::RETURN
-      n75[calleeFlag]:::FUNC_PARAM
-      n76[161]:::LITERAL
-      n81[162]:::LITERAL
-      n86[if]:::BIN_OP
-      n87[w]:::VARIABLE
-      n75[calleeFlag]:::FUNC_PARAM -->|if| n86[if]:::BIN_OP
-      n76[161]:::LITERAL --> n79[v]:::FUNC_PARAM
-      n81[162]:::LITERAL --> n84[v]:::FUNC_PARAM
-      n86[if]:::BIN_OP --> n87[w]:::VARIABLE
-      n87[w]:::VARIABLE --> n74[viaCallee]:::RETURN
-      n80[w]:::VARIABLE -->|true| n86[if]:::BIN_OP
-      n85[w]:::VARIABLE -->|false| n86[if]:::BIN_OP
-      subgraph b77["setW"]
-        n78[setW]:::RETURN
-        n79[v]:::FUNC_PARAM
-        n80[w]:::VARIABLE
-        n79[v]:::FUNC_PARAM --> n80[w]:::VARIABLE
+    subgraph b74["viaCallee"]
+      n75[viaCallee]:::RETURN
+      n76[calleeFlag]:::FUNC_PARAM
+      n77[161]:::LITERAL
+      n82[162]:::LITERAL
+      n87[if]:::BIN_OP
+      n88[w]:::VARIABLE
+      n76[calleeFlag]:::FUNC_PARAM -->|if| n87[if]:::BIN_OP
+      n77[161]:::LITERAL --> n80[v]:::FUNC_PARAM
+      n82[162]:::LITERAL --> n85[v]:::FUNC_PARAM
+      n87[if]:::BIN_OP --> n88[w]:::VARIABLE
+      n88[w]:::VARIABLE --> n75[viaCallee]:::RETURN
+      n81[w]:::VARIABLE -->|true| n87[if]:::BIN_OP
+      n86[w]:::VARIABLE -->|false| n87[if]:::BIN_OP
+      subgraph b78["setW"]
+        n79[setW]:::RETURN
+        n80[v]:::FUNC_PARAM
+        n81[w]:::VARIABLE
+        n80[v]:::FUNC_PARAM --> n81[w]:::VARIABLE
       end
-      subgraph b82["setW"]
-        n83[setW]:::RETURN
-        n84[v]:::FUNC_PARAM
-        n85[w]:::VARIABLE
-        n84[v]:::FUNC_PARAM --> n85[w]:::VARIABLE
+      subgraph b83["setW"]
+        n84[setW]:::RETURN
+        n85[v]:::FUNC_PARAM
+        n86[w]:::VARIABLE
+        n85[v]:::FUNC_PARAM --> n86[w]:::VARIABLE
       end
     end
-    subgraph b93["calleeThatForks"]
-      n94[calleeThatForks]:::RETURN
-      n95[outerFlag]:::FUNC_PARAM
-      n96[innerFlag]:::FUNC_PARAM
-      n106[173]:::LITERAL
-      n107[q]:::VARIABLE
-      n108[if]:::BIN_OP
-      n109[q]:::VARIABLE
-      n95[outerFlag]:::FUNC_PARAM -->|if| n108[if]:::BIN_OP
-      n96[innerFlag]:::FUNC_PARAM --> n99[innerFlag]:::FUNC_PARAM
-      n106[173]:::LITERAL --> n107[q]:::VARIABLE
-      n107[q]:::VARIABLE -->|false| n108[if]:::BIN_OP
-      n108[if]:::BIN_OP --> n109[q]:::VARIABLE
-      n109[q]:::VARIABLE --> n94[calleeThatForks]:::RETURN
-      n105[q]:::VARIABLE -->|true| n108[if]:::BIN_OP
-      subgraph b97["setQ"]
-        n98[setQ]:::RETURN
-        n99[innerFlag]:::FUNC_PARAM
-        n100[171]:::LITERAL
-        n101[q]:::VARIABLE
-        n102[172]:::LITERAL
-        n103[q]:::VARIABLE
-        n104[if]:::BIN_OP
-        n105[q]:::VARIABLE
-        n99[innerFlag]:::FUNC_PARAM -->|if| n104[if]:::BIN_OP
-        n100[171]:::LITERAL --> n101[q]:::VARIABLE
-        n101[q]:::VARIABLE -->|true| n104[if]:::BIN_OP
-        n102[172]:::LITERAL --> n103[q]:::VARIABLE
-        n103[q]:::VARIABLE -->|false| n104[if]:::BIN_OP
-        n104[if]:::BIN_OP --> n105[q]:::VARIABLE
+    subgraph b94["calleeThatForks"]
+      n95[calleeThatForks]:::RETURN
+      n96[outerFlag]:::FUNC_PARAM
+      n97[innerFlag]:::FUNC_PARAM
+      n107[173]:::LITERAL
+      n108[q]:::VARIABLE
+      n109[if]:::BIN_OP
+      n110[q]:::VARIABLE
+      n96[outerFlag]:::FUNC_PARAM -->|if| n109[if]:::BIN_OP
+      n97[innerFlag]:::FUNC_PARAM --> n100[innerFlag]:::FUNC_PARAM
+      n107[173]:::LITERAL --> n108[q]:::VARIABLE
+      n108[q]:::VARIABLE -->|false| n109[if]:::BIN_OP
+      n109[if]:::BIN_OP --> n110[q]:::VARIABLE
+      n110[q]:::VARIABLE --> n95[calleeThatForks]:::RETURN
+      n106[q]:::VARIABLE -->|true| n109[if]:::BIN_OP
+      subgraph b98["setQ"]
+        n99[setQ]:::RETURN
+        n100[innerFlag]:::FUNC_PARAM
+        n101[171]:::LITERAL
+        n102[q]:::VARIABLE
+        n103[172]:::LITERAL
+        n104[q]:::VARIABLE
+        n105[if]:::BIN_OP
+        n106[q]:::VARIABLE
+        n100[innerFlag]:::FUNC_PARAM -->|if| n105[if]:::BIN_OP
+        n101[171]:::LITERAL --> n102[q]:::VARIABLE
+        n102[q]:::VARIABLE -->|true| n105[if]:::BIN_OP
+        n103[172]:::LITERAL --> n104[q]:::VARIABLE
+        n104[q]:::VARIABLE -->|false| n105[if]:::BIN_OP
+        n105[if]:::BIN_OP --> n106[q]:::VARIABLE
       end
     end
   end
-  linkStyle 37 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 40 stroke:#2e7d32,color:#2e7d32
-  linkStyle 41 stroke:#c62828,color:#c62828
-  linkStyle 44 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 46 stroke:#c62828,color:#c62828
-  linkStyle 48 stroke:#2e7d32,color:#2e7d32
-  linkStyle 51 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 52 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 54 stroke:#2e7d32,color:#2e7d32
-  linkStyle 56 stroke:#c62828,color:#c62828
-  linkStyle 58 stroke:#2e7d32,color:#2e7d32
-  linkStyle 60 stroke:#c62828,color:#c62828
-  linkStyle 63 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 65 stroke:#2e7d32,color:#2e7d32
-  linkStyle 67 stroke:#c62828,color:#c62828
+  linkStyle 0 stroke:#00897b,color:#00897b
+  linkStyle 1 stroke:#00897b,color:#00897b
+  linkStyle 2 stroke:#00897b,color:#00897b
+  linkStyle 3 stroke:#00897b,color:#00897b
+  linkStyle 4 stroke:#00897b,color:#00897b
+  linkStyle 5 stroke:#00897b,color:#00897b
+  linkStyle 6 stroke:#00897b,color:#00897b
+  linkStyle 7 stroke:#00897b,color:#00897b
+  linkStyle 8 stroke:#00897b,color:#00897b
+  linkStyle 9 stroke:#00897b,color:#00897b
+  linkStyle 10 stroke:#00897b,color:#00897b
+  linkStyle 11 stroke:#00897b,color:#00897b
+  linkStyle 12 stroke:#00897b,color:#00897b
+  linkStyle 13 stroke:#00897b,color:#00897b
+  linkStyle 14 stroke:#00897b,color:#00897b
+  linkStyle 15 stroke:#00897b,color:#00897b
+  linkStyle 16 stroke:#00897b,color:#00897b
+  linkStyle 17 stroke:#00897b,color:#00897b
+  linkStyle 18 stroke:#00897b,color:#00897b
+  linkStyle 19 stroke:#00897b,color:#00897b
+  linkStyle 20 stroke:#00897b,color:#00897b
+  linkStyle 21 stroke:#00897b,color:#00897b
+  linkStyle 22 stroke:#00897b,color:#00897b
+  linkStyle 23 stroke:#00897b,color:#00897b
+  linkStyle 24 stroke:#00897b,color:#00897b
+  linkStyle 25 stroke:#00897b,color:#00897b
+  linkStyle 26 stroke:#00897b,color:#00897b
+  linkStyle 27 stroke:#00897b,color:#00897b
+  linkStyle 28 stroke:#00897b,color:#00897b
+  linkStyle 29 stroke:#00897b,color:#00897b
+  linkStyle 30 stroke:#00897b,color:#00897b
+  linkStyle 31 stroke:#00897b,color:#00897b
+  linkStyle 32 stroke:#00897b,color:#00897b
   linkStyle 70 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 75 stroke:#2e7d32,color:#2e7d32
-  linkStyle 76 stroke:#c62828,color:#c62828
-  linkStyle 79 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 82 stroke:#c62828,color:#c62828
-  linkStyle 85 stroke:#2e7d32,color:#2e7d32
-  linkStyle 86 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 88 stroke:#2e7d32,color:#2e7d32
-  linkStyle 90 stroke:#c62828,color:#c62828
+  linkStyle 73 stroke:#2e7d32,color:#2e7d32
+  linkStyle 74 stroke:#c62828,color:#c62828
+  linkStyle 77 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 79 stroke:#c62828,color:#c62828
+  linkStyle 81 stroke:#2e7d32,color:#2e7d32
+  linkStyle 84 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 85 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 87 stroke:#2e7d32,color:#2e7d32
+  linkStyle 89 stroke:#c62828,color:#c62828
+  linkStyle 91 stroke:#2e7d32,color:#2e7d32
+  linkStyle 93 stroke:#c62828,color:#c62828
+  linkStyle 96 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 98 stroke:#2e7d32,color:#2e7d32
+  linkStyle 100 stroke:#c62828,color:#c62828
+  linkStyle 103 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 108 stroke:#2e7d32,color:#2e7d32
+  linkStyle 109 stroke:#c62828,color:#c62828
+  linkStyle 112 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 115 stroke:#c62828,color:#c62828
+  linkStyle 118 stroke:#2e7d32,color:#2e7d32
+  linkStyle 119 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 121 stroke:#2e7d32,color:#2e7d32
+  linkStyle 123 stroke:#c62828,color:#c62828
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080
@@ -245,4 +312,5 @@ flowchart TD
   classDef RETURN fill:#FF808080
   classDef EXTERNAL fill:#FFA50040
   classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
+  classDef EVENT fill:#00897B40
 ```

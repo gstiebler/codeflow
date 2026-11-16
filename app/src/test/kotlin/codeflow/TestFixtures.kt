@@ -36,13 +36,14 @@ object TestFixtures {
      *
      * Data only: an [EdgeKind.ORDER] edge says a boundary call ran before another, not that anything
      * flowed into it, and crossing it would make every argument of a boundary call reach every later
-     * one. [ordered] is the walk that follows it.
+     * one. [ordered] is the walk that follows it. Nor an [EdgeKind.EVENT] edge: the entry point
+     * starting a node is not a value reaching it, and every node would reach through the event.
      *
      * An edge into a callee's block is an edge to one of its nodes, so nested blocks need nothing
      * of their own. Nodes are compared by serial, which is which box, never by label.
      */
     fun reaches(from: GraphNode, to: GraphNode): Boolean =
-        walk(from, to) { _, edge -> edge.kind != EdgeKind.ORDER }
+        walk(from, to) { _, edge -> edge.kind != EdgeKind.ORDER && edge.kind != EdgeKind.EVENT }
 
     /**
      * Whether boundary call [from] runs before [to]: along the order chain, which leaves a call by

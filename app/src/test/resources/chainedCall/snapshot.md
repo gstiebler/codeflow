@@ -1,20 +1,27 @@
 ```mermaid
 flowchart TD
   subgraph b0["main"]
-    n1[main]:::RETURN
-    n2[args]:::FUNC_PARAM
-    n3[of]:::EXTERNAL
-    n4[items]:::OBJ_VARIABLE
-    n5[stream]:::EXTERNAL
-    n6[toList]:::EXTERNAL
-    n7[size]:::EXTERNAL
-    n8[size]:::VARIABLE
-    n3[of]:::EXTERNAL --> n4[items]:::OBJ_VARIABLE
-    n4[items]:::OBJ_VARIABLE --> n5[stream]:::EXTERNAL
-    n5[stream]:::EXTERNAL --> n6[toList]:::EXTERNAL
-    n6[toList]:::EXTERNAL --> n7[size]:::EXTERNAL
-    n7[size]:::EXTERNAL --> n8[size]:::VARIABLE
+    n1[event main]:::EVENT
+    n2[main]:::RETURN
+    n3[args]:::FUNC_PARAM
+    n4[of]:::EXTERNAL
+    n5[items]:::OBJ_VARIABLE
+    n6[stream]:::EXTERNAL
+    n7[toList]:::EXTERNAL
+    n8[size]:::EXTERNAL
+    n9[size]:::VARIABLE
+    n1[event main]:::EVENT -. event .-> n2[main]:::RETURN
+    n1[event main]:::EVENT -. event .-> n3[args]:::FUNC_PARAM
+    n1[event main]:::EVENT -. event .-> n4[of]:::EXTERNAL
+    n4[of]:::EXTERNAL --> n5[items]:::OBJ_VARIABLE
+    n5[items]:::OBJ_VARIABLE --> n6[stream]:::EXTERNAL
+    n6[stream]:::EXTERNAL --> n7[toList]:::EXTERNAL
+    n7[toList]:::EXTERNAL --> n8[size]:::EXTERNAL
+    n8[size]:::EXTERNAL --> n9[size]:::VARIABLE
   end
+  linkStyle 0 stroke:#00897b,color:#00897b
+  linkStyle 1 stroke:#00897b,color:#00897b
+  linkStyle 2 stroke:#00897b,color:#00897b
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080
@@ -22,4 +29,5 @@ flowchart TD
   classDef RETURN fill:#FF808080
   classDef EXTERNAL fill:#FFA50040
   classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2
+  classDef EVENT fill:#00897B40
 ```

@@ -270,9 +270,15 @@ class AppTest {
      */
     private val dataArrow = """ (?:-->(?:\|\w+\|)?|-\. shared \.->) """
 
-    /** The graph's edges as (source label, target label) pairs, ignoring the generated ids. */
-    private fun edgeLabels(graph: List<String>): List<Pair<String, String>> {
-        val edge = Regex("""n\d+\[([^]]*)]:::\w+${arrow}n\d+\[([^]]*)]""")
+    /**
+     * [arrow] without `-. event .->`: an entry point's event starts every node nothing else feeds -
+     * see [EdgeKind.EVENT] - and an assertion on which labels are adjacent is about the code, not that.
+     */
+    private val codeArrow = """ (?:-->(?:\|\w+\|)?|-\. (?:shared|order) \.->) """
+
+    /** The graph's edges as (source label, target label) pairs, ignoring the generated ids - and the event's, unless [events]. */
+    private fun edgeLabels(graph: List<String>, events: Boolean = false): List<Pair<String, String>> {
+        val edge = Regex("""n\d+\[([^]]*)]:::\w+${if (events) arrow else codeArrow}n\d+\[([^]]*)]""")
         return graph.mapNotNull { line ->
             edge.find(line)?.let { plain(it.groupValues[1]) to plain(it.groupValues[2]) }
         }
@@ -379,7 +385,7 @@ class AppTest {
      * and the writing ever disagree - which is the only way this can go wrong.
      */
     private fun assertLinkStylesAddressTheEdgesTheyMean(testDir: String, graph: List<String>) {
-        val strokes = mapOf("true" to "#2e7d32", "false" to "#c62828", "if" to "#6a6a6a", "order" to "#7b1fa2")
+        val strokes = mapOf("true" to "#2e7d32", "false" to "#c62828", "if" to "#6a6a6a", "order" to "#7b1fa2", "event" to "#00897b")
         val edge = Regex("""n\d+\[[^]]*]:::\w+ (?:-->(?:\|(\w+)\|)?|-\. (\w+) \.->) n\d+\[""")
         val style = Regex("""^\s*linkStyle (\d+) stroke:(#\w+)""")
         val wanted = HashMap<Int, String>()
@@ -1087,8 +1093,13 @@ class AppTest {
     private fun nodesOf(roots: List<GraphBuilderBlock>): List<GraphNode> =
         roots.flatMap { blocksUnder(it) }.flatMap { it.graph.getNodes() }
 
-    private fun edgesOf(roots: List<GraphBuilderBlock>): List<Triple<GraphNode, EdgeKind, GraphNode>> =
+    /** Every edge, the entry points' [EdgeKind.EVENT] ones included. */
+    private fun allEdgesOf(roots: List<GraphBuilderBlock>): List<Triple<GraphNode, EdgeKind, GraphNode>> =
         nodesOf(roots).flatMap { from -> from.edgesIterator().asSequence().map { Triple(from, it.kind, it.target) }.toList() }
+
+    /** Every edge but an event's: what the code draws, which is what "nothing flows in" asks about. */
+    private fun edgesOf(roots: List<GraphBuilderBlock>): List<Triple<GraphNode, EdgeKind, GraphNode>> =
+        allEdgesOf(roots).filter { it.second != EdgeKind.EVENT }
 
     /** The boundary call drawn for the call site on [line] of App.java - one block per call site. */
     private fun callAt(roots: List<GraphBuilderBlock>, line: Int): GraphNode =
@@ -1406,6 +1417,61 @@ class AppTest {
             setOf(last(first) to start(second), last(second) to start(first)),
             crossing.map { it.first to it.third }.toSet(), "a SHARED edge is not last write to the other root's start"
         )
+    }
+
+    // --- The entry event: one per root, starting what nothing else feeds. ---
+
+    /**
+     * `boundary/`'s one root has one EVENT, `event entrypoint`, its lowest serial. Every other node
+     * nothing else feeds has exactly one EVENT edge in, from it; no node something else feeds has one.
+     * The `boundaries` chain start is among what it starts.
+     */
+    @Test
+    fun theEntryEventStartsEveryNodeNothingElseFeeds() {
+        val roots = boundaryRootBlocks()
+        val edges = allEdgesOf(roots)
+        val nodes = nodesOf(roots)
+        val events = nodes.filter { it.getType() == NodeType.EVENT }
+        assertEquals(listOf("event entrypoint"), events.map { it.label })
+        val event = events.single()
+        assertEquals(nodes.minOf { it.serial }, event.serial, "the event is not the root's first node")
+        val fed = edges.filter { it.second != EdgeKind.EVENT }.map { it.third }.toSet()
+        for (node in nodes) {
+            if (node == event) continue
+            val starts = edges.filter { it.third == node && it.second == EdgeKind.EVENT }.map { it.first }
+            if (node in fed) assertEquals(emptyList(), starts, "${node.label} is fed and still gets an event edge")
+            else assertEquals(listOf(event), starts, "${node.label} is fed by nothing and not by exactly the event")
+        }
+        assertTrue(edges.none { it.first == event && it.second != EdgeKind.EVENT }, "the event has a non-EVENT edge")
+        val start = orderBefore(roots, callAt(roots, 10))
+        assertTrue(edges.any { it.first == event && it.third == start }, "the boundaries chain start is not started by the event")
+    }
+
+    /**
+     * `boundaryRoots/`: two roots, two events, each starting only its own root's nodes. A read that
+     * gets a SHARED edge from the other root still has its event edge: "nothing feeds it" is judged
+     * within the entry point, since the other one may not have run.
+     */
+    @Test
+    fun eachRootsEventStartsOnlyItsOwnNodesSharedReadsIncluded() {
+        val roots = boundaryRootsFixture()
+        val edges = allEdgesOf(roots)
+        assertEquals(
+            listOf(listOf("event first"), listOf("event second")),
+            roots.map { root -> nodesOf(listOf(root)).filter { it.getType() == NodeType.EVENT }.map { it.label } }
+        )
+        for (root in roots) {
+            val event = nodesOf(listOf(root)).single { it.getType() == NodeType.EVENT }
+            val own = nodesOf(listOf(root)).toSet()
+            val starts = edges.filter { it.first == event }.map { it.third }
+            assertTrue(starts.isNotEmpty(), "${event.label} starts nothing")
+            assertTrue(starts.all { it in own }, "${event.label} starts another root's node")
+        }
+        val sharedReads = edges.filter { it.second == EdgeKind.SHARED }.map { it.third }
+        assertEquals(2, sharedReads.size, "not one SHARED read per root")
+        sharedReads.forEach { read ->
+            assertEquals(1, edges.count { it.third == read && it.second == EdgeKind.EVENT }, "the SHARED-fed ${read.label} has no event edge")
+        }
     }
 
     /** Store's bodies are never read, by either root - and are, without the boundary. */
@@ -2473,7 +2539,7 @@ class AppTest {
      */
     @Test
     fun graphmlKeepsEveryEdgeTheMermaidGraphHas() {
-        val mermaid = edgeLabels(buildGraph("funcCall", listOf("App.java"))).sortedBy { it.toString() }
+        val mermaid = edgeLabels(buildGraph("funcCall", listOf("App.java")), events = true).sortedBy { it.toString() }
         val graphml = graphmlEdgeLabels(buildGraphml("funcCall", listOf("App.java"))).sortedBy { it.toString() }
         assertEquals(mermaid, graphml, "the two renderings of one graph disagree on its edges")
     }
@@ -2576,7 +2642,7 @@ class AppTest {
     /** The three exporters render one graph, so they have to agree on its edges. */
     @Test
     fun jsonKeepsEveryEdgeTheMermaidGraphHas() {
-        val mermaid = edgeLabels(buildGraph("funcCall", listOf("App.java"))).sortedBy { it.toString() }
+        val mermaid = edgeLabels(buildGraph("funcCall", listOf("App.java")), events = true).sortedBy { it.toString() }
         val json = jsonEdgeLabels(buildJson("funcCall", listOf("App.java"))).sortedBy { it.toString() }
         assertEquals(mermaid, json, "the two renderings of one graph disagree on its edges")
     }

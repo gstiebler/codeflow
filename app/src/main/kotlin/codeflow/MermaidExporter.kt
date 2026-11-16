@@ -48,7 +48,9 @@ class MermaidExporter() {
         "classDef EXTERNAL fill:#FFA50040",
         // Dashed, because it is the one node type that is not a claim about the code: it marks
         // where codeflow stopped, and it should not sit on the diagram looking like the rest.
-        "classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2"
+        "classDef UNMODELLED fill:#FF000030,stroke-dasharray: 4 2",
+        // Every root has an event, so unlike BOUNDARIES this class is in every flowchart.
+        "classDef EVENT fill:#00897B40"
     )
 
     /**
@@ -60,7 +62,8 @@ class MermaidExporter() {
         EdgeKind.TRUE to "#2e7d32",
         EdgeKind.FALSE to "#c62828",
         EdgeKind.CONDITION to "#6a6a6a",
-        EdgeKind.ORDER to "#7b1fa2"
+        EdgeKind.ORDER to "#7b1fa2",
+        EdgeKind.EVENT to "#00897b"
     )
 
     private fun genSpaces(n: Int) = " ".repeat(n)
@@ -174,6 +177,8 @@ class MermaidExporter() {
                 EdgeKind.SHARED -> "-. shared .->"
                 // Dashed too: it says which boundary call ran first, not that a value went there.
                 EdgeKind.ORDER -> "-. order .->"
+                // Dashed: the entry point starting a node, not a value reaching it.
+                EdgeKind.EVENT -> "-. event .->"
                 else -> edge.kind.label?.let { "-->|$it|" } ?: "-->"
             }
             strokes[edge.kind]?.let {

@@ -11,7 +11,14 @@ enum class NodeType {
      * VARIABLE because colour is per type in Mermaid and in the viewer, and the chain is order, not a
      * value, so it should not read as one. The gated `if` of its join is still a BIN_OP.
      */
-    BOUNDARIES
+    BOUNDARIES,
+
+    /**
+     * What starts an entry point - a request, a job, `main` - one per root, drawn first in the
+     * root's block. It feeds, by [EdgeKind.EVENT], every node of that root nothing else feeds, so
+     * the graph shows what the entry point sets going. The builder's, not an instruction's.
+     */
+    EVENT
 }
 
 /**
@@ -44,7 +51,13 @@ enum class EdgeKind(val label: String?) {
      * call would appear to reach every later boundary call. Exactly those two edges per boundary
      * call; the join of the token where `if` arms meet keeps the join's kinds.
      */
-    ORDER("order")
+    ORDER("order"),
+
+    /**
+     * A root's [NodeType.EVENT] starting a node of that root which nothing else feeds. Not data, so
+     * a walk asking where a value goes does not cross it, and not [ORDER], which says "ran before".
+     */
+    EVENT("event")
 }
 
 /**
@@ -151,6 +164,7 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
                 NodeType.EXTERNAL -> External(base, serial)
                 NodeType.UNMODELLED -> Unmodelled(base, serial)
                 NodeType.BOUNDARIES -> Boundaries(base, serial)
+                NodeType.EVENT -> Event(base, serial)
                 NodeType.BASE -> throw GraphException("BASE is the abstract case and has no node")
             }
 
@@ -192,6 +206,10 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
     /** The boundary-order token; see [NodeType.BOUNDARIES]. */
     class Boundaries(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.BOUNDARIES
+    }
+    /** What starts an entry point; see [NodeType.EVENT]. */
+    class Event(base: Base, serial: Int) : GraphNode(base, serial) {
+        override fun getType() = NodeType.EVENT
     }
     class MethodReturn(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.RETURN

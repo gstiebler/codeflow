@@ -98,6 +98,22 @@ edges they carry no data anywhere. Drawn dashed (`-. order .->`, purple `#7b1fa2
 the viewer. The tests' `reaches()` walks follow data only; `TestFixtures.ordered` follows the chain.
 Fixture: `boundaryOrder`.
 
+**At an `if` the token splits.** Fanning one token out as ORDER into the first call of each arm said
+the calls ran in order and not that only one arm runs - the two arms' calls looked like siblings,
+both after `f`. So where an `if`'s arms take the token, one `if` box (`BIN_OP`, `addSelection`) takes
+it - ORDER from `boundaries`, beside the condition as `CONDITION` - and hands it on as `TRUE` into the
+then-arm's first token read and `FALSE` into the else-arm's. An arm that never takes it hands it
+straight to the token's gated join (`if -->|false| if` for an `if` without `else`); an `if` whose arms
+never take it draws no split at all, so the split appears exactly when the token's join does. A
+nested `if` first in an arm takes the token on the enclosing split's edge for that arm and splits it
+again on its own condition. `FieldFork` carries the `if`'s gate and arm names; the builder draws the
+split lazily (`Split`, `IrGraphBuilder.orderToken`) on the first token read in an arm that nothing in
+that arm has written yet - found by walking the open forks and asking the journal whether the
+token's *holder* was written since each mark, never by a label. Only the token: ordinary values
+reaching into an arm stay ungated, and `switch`, `?:` and loops still fan out. `reaches()` follows a
+split's `TRUE`/`FALSE`, so the condition's operands reach each arm's first boundary call, which is
+the same control dependence the gated join already draws. Fixtures: `boundary`, `boundaryBranch`.
+
 **How it looks.** Every token box - start, writes, the gated join's value - is `NodeType.BOUNDARIES`,
 filled in the ORDER purple (`classDef BOUNDARIES fill:#7B1FA240`, emitted only when one is drawn, so
 documents without `--boundary` are unchanged; `PALETTE.BOUNDARIES` in the viewer). The gate itself

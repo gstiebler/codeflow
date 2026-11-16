@@ -164,9 +164,20 @@ class Phi(
  *
  * Its own [Val] is the handle that the arms and joins of this fork name. It produces no value.
  */
-class FieldFork(source: String) : Insn(source) {
-    override val inputs get() = emptyList<Val>()
-    override fun render() = "fieldFork"
+class FieldFork(
+    source: String,
+    /**
+     * What chooses the path, when it is lowered before the fork - an `if`'s condition - with
+     * [armNames] naming the paths in the order their [FieldArm]s come. The builder uses it for the
+     * boundary-order token alone: what an arm first takes of the token is handed on by a split the
+     * condition gates, the mirror of the gated join - see `docs/decisions/joins.md`. Null otherwise.
+     */
+    val gate: Gate? = null,
+    val armNames: List<String> = emptyList()
+) : Insn(source) {
+    override val inputs get() = listOfNotNull(gate?.value)
+    override fun render() = "fieldFork" + (gate?.let { " ${it.label} ? ${it.value}" } ?: "") +
+            (if (armNames.isEmpty()) "" else " $armNames")
 }
 
 /**

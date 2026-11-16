@@ -191,7 +191,8 @@ class SummaryParityTest {
 
         /** The boundary fixtures and the `--boundary` each is drawn with, as `InvariantsTest` draws them. */
         val BOUNDARIES = mapOf(
-            "boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"), "boundaryRoots" to listOf("Store")
+            "boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"), "boundaryRoots" to listOf("Store"),
+            "boundaryBranch" to listOf("Port")
         )
 
         /**

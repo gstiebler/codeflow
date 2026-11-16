@@ -108,7 +108,58 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
         journal.add(key to before)
     }
 
-    fun openFork(): OpenFork = OpenFork(journal.size).also { openForks.add(it) }
+    fun openFork(split: Split? = null): OpenFork = OpenFork(journal.size, split).also { openForks.add(it) }
+
+    /** Every [Split] box drawn, so a test can ask each for its edges. */
+    val splits = ArrayList<GraphNode>()
+
+    /**
+     * The boundary-order token as a read here takes it, and the edge it arrives on.
+     *
+     * Walks the open forks from the innermost out. A fork whose current arm has written the token
+     * already holds that write, and so does every fork around it. Past one with a [Split] the token
+     * has not been touched in this arm, so what the arm takes is the split's output, on the arm's
+     * own edge - the split itself taking the token as it stood around its fork, found by the same
+     * walk, so a nested `if` first in an arm takes it from the enclosing split. With no fork in the
+     * way, the token as it stands: the last write, or [start] - the chain's start - before any.
+     *
+     * Decided by the token's holder and the journal, never by a box's label.
+     */
+    fun orderToken(id: GraphNodeId, start: () -> GraphNode): Pair<GraphNode, EdgeKind> =
+        orderBelow(openForks.size, id, start).let { (node, kind) -> node to (kind ?: EdgeKind.ORDER) }
+
+    /** [orderToken] for the forks below [depth] only; the kind is null when no split handed it on. */
+    private fun orderBelow(depth: Int, id: GraphNodeId, start: () -> GraphNode): Pair<GraphNode, EdgeKind?> {
+        for (index in depth - 1 downTo 0) {
+            val fork = openForks[index]
+            if (orderWrittenSince(fork.mark)) break
+            val split = fork.split ?: continue
+            val node = split.node {
+                orderBelow(index, id, start).let { (token, kind) -> token to (kind ?: EdgeKind.ORDER) }
+            }
+            return node to armKind(fork.armInProgress())
+        }
+        return (fieldNode(heap.boundaryOrderHolder(), id) ?: start()) to null
+    }
+
+    private fun orderWrittenSince(mark: Int): Boolean =
+        (mark until journal.size).any { heap.isBoundaryOrder(journal[it].first.owner) }
+
+    /**
+     * What a path that did not write [key] arrives at [fork]'s join with, and the edge it says it
+     * arrives on, when it says. For a field, what the fork held. For the order token, what a read
+     * at the top of an arm would have taken: [fork]'s own split when it has one - its arms already
+     * name the edge - and otherwise what the forks around it hand in, which may be an enclosing
+     * split's arm.
+     */
+    private fun entryOf(fork: OpenFork, key: FieldKey): Pair<FieldState?, EdgeKind?> {
+        if (!heap.isBoundaryOrder(key.owner)) return fieldState(key) to null
+        fork.split?.let { split ->
+            return FieldState(checkNotNull(split.node) { "an arm wrote the order token without taking it" }, emptySet()) to null
+        }
+        val (node, kind) = orderBelow(openForks.indexOf(fork), key.id) { error("the order token has no start at a join") }
+        return FieldState(node, emptySet()) to kind
+    }
 
     /**
      * One path of [fork] has ended: set aside what its writes left, and put the fields back.
@@ -144,7 +195,7 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
         val keys = LinkedHashSet<FieldKey>()
         arms.forEach { keys.addAll(fork.arms[it].keys) }
         return keys.map { key ->
-            val entry = fieldState(key)
+            val (entry, entryKind) = entryOf(fork, key)
             val arrived = ArrayList<Pair<FieldState, String?>>()
             arms.forEachIndexed { position, arm ->
                 (fork.arms[arm][key] ?: entry)?.let { arrived.add(it to armNames.getOrNull(position)) }
@@ -154,7 +205,8 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
             FieldMerge(key, byBox.values.map { paths ->
                 // The same rule as for locals: a value that came down exactly one named path is that
                 // arm's, and one that came down several is neither.
-                FieldMerge.Reaching(paths.first().first, paths.map { it.second }.singleOrNull())
+                val state = paths.first().first
+                FieldMerge.Reaching(state, paths.map { it.second }.singleOrNull(), entryKind.takeIf { state === entry })
             })
         }
     }
@@ -262,6 +314,13 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
             enumConstants.values.filterNotNull().flatten()
 }
 
+/** The edge a value arriving down the arm named [arm] is drawn on: its side of an `if`, or plain flow. */
+private fun armKind(arm: String?) = when (arm) {
+    "true" -> EdgeKind.TRUE
+    "false" -> EdgeKind.FALSE
+    else -> EdgeKind.FLOW
+}
+
 /**
  * One invocation of one method: the block being drawn into, the object it runs on, and the values
  * its instructions have produced so far.
@@ -324,11 +383,12 @@ class Frame(
         val backEdges = ArrayList<Pair<GraphNode, Val>>()
 
         /**
-         * The [Val]s that are a [ReadBoundaryOrder]: what a call taking one of them takes is the
-         * order token, and that edge is [EdgeKind.ORDER] - decided by the instruction that produced
+         * The [Val]s that are a [ReadBoundaryOrder], with the edge the token arrives on: what a call
+         * taking one of them takes is the order token, and that edge is [EdgeKind.ORDER] - or the
+         * arm's edge, when an `if`'s split hands it on - decided by the instruction that produced
          * the input, not by what its box is called.
          */
-        val orderReads = HashSet<Int>()
+        val orderReads = HashMap<Int, EdgeKind>()
 
         /** How far the run has got, which is what makes a [Val] a back reference or not. */
         val reached get() = values.size
@@ -402,7 +462,10 @@ class Frame(
         }
 
         // Drawn before it is added, so the index it is about to take is how far the run has got.
-        is ReadBoundaryOrder -> readBoundaryOrder(insn).also { run.orderReads.add(run.reached) }
+        is ReadBoundaryOrder -> readBoundaryOrder(insn).let { (value, kind) ->
+            run.orderReads[run.reached] = kind
+            value
+        }
 
         // Journaled like a static field's write, so an arm's calls are undone with the arm and the
         // join draws the order each arm left. The call leaving the token is order, not data.
@@ -413,7 +476,7 @@ class Frame(
         )
 
         is FieldFork -> {
-            run.forks[run.reached] = builder.openFork()
+            run.forks[run.reached] = builder.openFork(insn.gate?.let { split(it, insn, run) })
             null
         }
 
@@ -572,13 +635,30 @@ class Frame(
      * Keyed with no declaration, which is the name, on a holder nothing else has: [unassigned] is
      * not asked, since there is no field for it to check.
      */
-    private fun readBoundaryOrder(insn: ReadBoundaryOrder): Value {
+    private fun readBoundaryOrder(insn: ReadBoundaryOrder): Pair<Value, EdgeKind> {
         val holder = builder.heap.boundaryOrderHolder()
         val id = JNodeId(stack, BOUNDARY_ORDER, null, setOf(holder))
-        val node = builder.fieldNode(holder, id)
-            ?: builder.record(block.addBoundaryOrder(base(id, insn, orderCaption)), setOf(holder))
+        val (node, kind) = builder.orderToken(id) {
+            builder.record(block.addBoundaryOrder(base(id, insn, orderCaption)), setOf(holder))
                 .also { builder.unwrittenStaticReads.add(id to it) }
-        return Value(node)
+        }
+        return Value(node) to kind
+    }
+
+    /**
+     * The order token's split at an `if` - see [Split] - drawn, if at all, into this frame's block
+     * when an arm first takes the token. A choosing like the gated join's, captioned with the
+     * construct, taking the token and the condition. Keyed apart from the join's choosing at the
+     * same position, whose key is `"<gate label> boundaries"`.
+     */
+    private fun split(gate: Gate, insn: FieldFork, run: Run): Split {
+        val condition = run.node(gate.value)
+        return Split(insn.armNames) { token, kind ->
+            block.addSelection(
+                base(labelId("${gate.label} split $BOUNDARY_ORDER", insn), insn, gate.label),
+                listOf(token to kind, condition to EdgeKind.CONDITION)
+            ).also { builder.splits.add(it) }
+        }
     }
 
     /**
@@ -726,7 +806,9 @@ class Frame(
                 continue
             }
             val gate = insn.gate
-            val paths = merge.reaching.map { it.state.node to (if (gate == null) EdgeKind.FLOW else armKind(it.arm)) }
+            val paths = merge.reaching.map {
+                it.state.node to (it.kind ?: if (gate == null) EdgeKind.FLOW else armKind(it.arm))
+            }
             val chosen = gate?.let {
                 block.addSelection(
                     base(labelId("${it.label} ${key.id.label}", insn), insn, it.label),
@@ -746,12 +828,6 @@ class Frame(
             val objects = if (key.isPrimitive) emptySet() else merge.reaching.flatMapTo(HashSet()) { it.state.objects }
             builder.setFieldState(key, FieldState(node, objects), before)
         }
-    }
-
-    private fun armKind(arm: String?) = when (arm) {
-        "true" -> EdgeKind.TRUE
-        "false" -> EdgeKind.FALSE
-        else -> EdgeKind.FLOW
     }
 
     /**
@@ -829,7 +905,7 @@ class Frame(
             val (order, data) = insn.args.partition { it.index in run.orderReads }
             val inputs = listOfNotNull(receiverNode) + data.map { run.node(it) }
             val external = block.addExternal(base(labelId(insn.name, insn), insn, lead = insn.lead), inputs)
-            order.forEach { run.node(it).addEdge(external, EdgeKind.ORDER) }
+            order.forEach { run.node(it).addEdge(external, run.orderReads.getValue(it.index)) }
             return Value(external)
         }
         val child = enter(method, receiverMemPos, insn)

@@ -1,9 +1,11 @@
 package codeflow
 
+import codeflow.graph.EdgeKind
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
 import codeflow.graph.NodeType
 import codeflow.ir.boundaryOrderCaption
+import codeflow.ir.BOUNDARY_CALL_LEAD
 import codeflow.ir.BinOp
 import codeflow.ir.Bind
 import codeflow.ir.Call
@@ -319,6 +321,54 @@ class InvariantsTest {
         assertTrue(checked > 100, "the sweep found almost no nodes to check: $checked")
     }
 
+    /**
+     * Every split of the boundary-order token - the box an `if` draws where its arms take the token -
+     * has the shape of a gated join turned round: one condition in, the token in once, and the token
+     * out into both arms on `true` and `false` and on nothing else.
+     *
+     * The token arrives as ORDER from a `boundaries` box, or - for an `if` first in an arm of another -
+     * on the enclosing split's own edge for that arm. An arm can take it more than once: a loop in
+     * the arm takes it at its first call and again where the loop's join meets the path past it, so
+     * "both arms" is at least one of each, not exactly one.
+     *
+     * And ORDER goes nowhere else: into a boundary call, a `boundaries` box, or a split.
+     */
+    @Test
+    fun everySplitTakesTheTokenAndItsConditionAndHandsTheTokenIntoBothArms() {
+        var checked = 0
+        fixtures().forEach { fixture ->
+            val drawn = drawn(fixture)
+            val splits = drawn.builder.splits.toSet()
+            val edges = drawn.nodes.flatMap { from ->
+                from.edgesIterator().asSequence().map { Triple(from, it.kind, it.target) }.toList()
+            }
+            splits.forEach { split ->
+                checked++
+                val ins = edges.filter { it.third === split }
+                val outs = edges.filter { it.first === split }.map { it.second }
+                val where = "$fixture: the split at ${split.source}"
+                assertEquals(1, ins.count { it.second == EdgeKind.CONDITION }, "$where does not take one condition")
+                val token = ins.filter { it.second != EdgeKind.CONDITION }
+                assertTrue(
+                    token.size == 1 && token.single().let { (from, kind, _) ->
+                        (kind == EdgeKind.ORDER && from.getType() == NodeType.BOUNDARIES) ||
+                                (kind in setOf(EdgeKind.TRUE, EdgeKind.FALSE) && from in splits)
+                    },
+                    "$where does not take the token once, from a token or an enclosing split: $token"
+                )
+                assertEquals(setOf(EdgeKind.TRUE, EdgeKind.FALSE), outs.toSet(), "$where does not hand the token into both arms: $outs")
+            }
+            edges.filter { it.second == EdgeKind.ORDER }.forEach { (from, _, to) ->
+                assertTrue(
+                    to.getType() == NodeType.BOUNDARIES || to in splits ||
+                            (to.getType() == NodeType.EXTERNAL && to.lead == BOUNDARY_CALL_LEAD),
+                    "$fixture: ORDER from ${from.label} goes to ${to.label}, not a call, a token or a split"
+                )
+            }
+        }
+        assertTrue(checked >= 5, "the sweep found almost no splits to check: $checked")
+    }
+
     private fun fixtures(): List<String> = TestFixtures.fixtures(testResourcesPath)
 
     /**
@@ -350,12 +400,13 @@ class InvariantsTest {
     private companion object {
         val ENTRY_POINTS = mapOf(
             "noMain" to "Report#total", "twoEntryPoints" to "Api#quote", "boundary" to "App#entrypoint",
-            "boundaryOrder" to "App#entrypoint", "boundaryRoots" to "App#first"
+            "boundaryOrder" to "App#entrypoint", "boundaryRoots" to "App#first", "boundaryBranch" to "App#entrypoint"
         )
 
         /** Drawn as the fixture's own test draws it, so the sweep checks the graph the golden holds. */
         val BOUNDARIES = mapOf(
-            "boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"), "boundaryRoots" to listOf("Store")
+            "boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"), "boundaryRoots" to listOf("Store"),
+            "boundaryBranch" to listOf("Port")
         )
 
         val cache = HashMap<String, Drawn>()

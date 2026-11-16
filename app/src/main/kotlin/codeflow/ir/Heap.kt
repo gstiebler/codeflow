@@ -97,6 +97,9 @@ class Heap(private val symbols: Symbols) {
      */
     fun boundaryOrderHolder(): MemPos = boundaryOrder ?: allocate(BOUNDARY_ORDER).also { boundaryOrder = it }
 
+    /** Whether [owner] is the token's holder, asked without allocating it. */
+    fun isBoundaryOrder(owner: Int?): Boolean = owner != null && owner == boundaryOrder?.id
+
     /** Every class's static holder, and the boundary-order token's once it exists, in no order anybody chose. */
     fun staticHolders(): Collection<MemPos> = staticMemPositions.values + listOfNotNull(boundaryOrder)
 

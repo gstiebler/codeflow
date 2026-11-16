@@ -23,6 +23,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 
@@ -1124,12 +1125,30 @@ class AppTest {
         rootsOf("boundaryOrder", listOf("App.java", "Gateway.java"), from = from, boundaries = listOf("Gateway"))
 
     /**
+     * The token's splits: a BIN_OP that hands something on along a [EdgeKind.TRUE] or
+     * [EdgeKind.FALSE] edge. A join takes its arms on those edges and gives one value out on plain
+     * flow, so nothing else in a graph sends them.
+     */
+    private fun splitsOf(roots: List<GraphBuilderBlock>): List<GraphNode> =
+        edgesOf(roots).filter { it.first.getType() == NodeType.BIN_OP && it.second in setOf(EdgeKind.TRUE, EdgeKind.FALSE) }
+            .map { it.first }.distinct()
+
+    /** Each edge out of [node], by kind - one target per kind, or the assertion fails. */
+    private fun outOf(roots: List<GraphBuilderBlock>, node: GraphNode): Map<EdgeKind, GraphNode> =
+        edgesOf(roots).filter { it.first === node }.groupBy { it.second }.mapValues { (_, it) -> it.single().third }
+
+    /** Each edge into [node], by kind - one source per kind, or the assertion fails. */
+    private fun into(roots: List<GraphBuilderBlock>, node: GraphNode): Map<EdgeKind, GraphNode> =
+        edgesOf(roots).filter { it.third === node }.groupBy { it.second }.mapValues { (_, it) -> it.single().first }
+
+    /**
      * The chain starts at one `boundaries` with nothing flowing in, the first call takes it after
-     * its parameter - one input more than it has parameters - and what that call leaves is what the
-     * first call of *each* arm takes.
+     * its parameter - one input more than it has parameters - and what that call leaves goes on, as
+     * its only edge out, into the `if` that splits it: ORDER in beside `a > b`, `true` into the
+     * then-arm's first call, `false` into the else-arm's. Neither arm's call takes the token itself.
      */
     @Test
-    fun theBoundaryOrderStartsBeforeTheFirstCallAndFeedsBothArms() {
+    fun theBoundaryOrderStartsBeforeTheFirstCallAndSplitsAtTheIf() {
         val roots = boundaryRootBlocks()
         val edges = edgesOf(roots)
         val func1 = callAt(roots, 10)
@@ -1143,8 +1162,19 @@ class AppTest {
         assertEquals(2, edges.count { it.third === func1 }, "call boundaryfunc1 takes its one parameter and the token, nothing else")
         val after1 = orderAfter(roots, func1)
         assertTrue(after1 !== start, "the call writes back into the box it read")
-        for (first in listOf(callAt(roots, 13), callAt(roots, 16))) {
-            assertTrue(orderBefore(roots, first) === after1, "${first.label} does not take what call boundaryfunc1 left")
+        val split = edges.single { it.first === after1 }.let { (_, kind, target) ->
+            assertEquals(EdgeKind.ORDER, kind, "the token does not go on into the split as order")
+            target
+        }
+        assertEquals("if" to NodeType.BIN_OP, split.label to split.getType(), "the token does not go into an `if`")
+        assertEquals(listOf(">"), edges.filter { it.third === split && it.second == EdgeKind.CONDITION }.map { it.first.label },
+            "the split is not decided by a > b")
+        val then2 = callAt(roots, 13)
+        val else3 = callAt(roots, 16)
+        assertEquals(mapOf(EdgeKind.TRUE to then2, EdgeKind.FALSE to else3), outOf(roots, split),
+            "the split does not hand the token to the then-arm's first call on true and the else-arm's on false")
+        for (first in listOf(then2, else3)) {
+            assertTrue(edges.none { it.first === after1 && it.third === first }, "${first.label} takes the token without the split")
         }
     }
 
@@ -1190,27 +1220,32 @@ class AppTest {
         assertEquals(listOf("boundaries entrypoint" to NodeType.BOUNDARIES), joined.map { it.label to it.getType() },
             "the choice does not come out as one boundaries")
         assertEquals(NodeType.BIN_OP, chosen.getType(), "the gate is drawn as the token rather than as the choice it is")
-        assertEquals(1, edges.filter { it.first.getType() == NodeType.BOUNDARIES && it.third.label == "if" }.map { it.third }.distinct().size,
-            "the token is joined at more than one choice")
+        val splits = splitsOf(roots)
+        assertEquals(1, edges.filter { it.first.getType() == NodeType.BOUNDARIES && it.third.label == "if" && it.third !in splits }
+            .map { it.third }.distinct().size, "the token is joined at more than one choice")
     }
 
     /**
      * The token's two edges at each boundary call are [EdgeKind.ORDER], and no other edge is: not the
      * call's value going to `result`, not the join where the arms meet, not the sources' own field
      * called `boundaries` in `boundaryOrder`. A token is a `boundaries` box written in the boundary
-     * class; the field's is in App.java.
+     * class; the field's is in App.java. The one other ORDER edge is the token going into the `if`
+     * that splits it, whose own edges into each arm's first call are `true` and `false` - so in
+     * `boundary` two calls take the token from the split rather than from a `boundaries`.
      */
     @Test
     fun theOrderChainsEdgesAreOrderAndNoOthers() {
-        for ((roots, calls) in listOf(boundaryRootBlocks() to 5, boundaryOrderRoots() to 4)) {
+        for ((roots, calls, splits) in listOf(Triple(boundaryRootBlocks(), 5, 1), Triple(boundaryOrderRoots(), 4, 0))) {
             val edges = edgesOf(roots)
             fun token(n: GraphNode) = n.getType() == NodeType.BOUNDARIES
             fun call(n: GraphNode) = n.getType() == NodeType.EXTERNAL && n.lead == BOUNDARY_CALL_LEAD
             val chain = edges.filter { (from, _, to) -> (token(from) && call(to)) || (call(from) && token(to)) }
-            assertEquals(2 * calls, chain.size, "not one token in and one out per boundary call: $chain")
+            assertEquals(2 * calls - 2 * splits, chain.size, "not one token in and one out per boundary call: $chain")
             assertEquals(listOf(EdgeKind.ORDER), chain.map { it.second }.distinct(), "a chain edge is not ORDER")
             val others = edges.filter { it !in chain && it.second == EdgeKind.ORDER }
-            assertTrue(others.isEmpty(), "edges off the chain are ORDER: ${others.map { "${it.first.label} -> ${it.third.label}" }}")
+            assertEquals(splitsOf(roots).size, splits, "not as many splits as the fixture has `if`s around boundary calls")
+            assertTrue(others.all { token(it.first) && it.third in splitsOf(roots) } && others.size == splits,
+                "edges off the chain are ORDER: ${others.map { "${it.first.label} -> ${it.third.label}" }}")
             assertTrue(edges.any { call(it.first) && it.third.label == "result" && it.second == EdgeKind.FLOW },
                 "the call's value does not reach result as plain flow")
         }
@@ -1233,6 +1268,80 @@ class AppTest {
         // The pair: the same argument does reach the then-arm's call, through result1 - real data.
         assertTrue(TestFixtures.reaches(x, then2), "boundaryfunc1's argument does not reach the then-arm's call boundaryfunc2 through result1")
         assertFalse(TestFixtures.ordered(else2, func1), "the else-arm's call boundaryfunc2 runs before call boundaryfunc1")
+    }
+
+    private fun boundaryBranchRoots(root: String) =
+        rootsOf("boundaryBranch", listOf("App.java", "Port.java"), from = listOf("App#$root"), boundaries = listOf("Port"))
+
+    /**
+     * An arm with no Port call in it leaves the token as the split handed it on, so the split's edge
+     * for that arm goes straight to the token's join - `if -->|false| if` with no `else` - and the
+     * other arm's call leaves its token at the same join on the other edge. The join, not the
+     * token from before the `if`, is what `close` takes.
+     */
+    @Test
+    fun anArmWithoutABoundaryCallHandsTheTokenFromTheSplitStraightToTheJoin() {
+        for ((root, lines, empty) in listOf(
+            Triple("noElse", Triple(20, 22, 24), EdgeKind.FALSE), Triple("onlyElse", Triple(29, 33, 35), EdgeKind.TRUE)
+        )) {
+            val roots = boundaryBranchRoots(root)
+            val (openLine, sendLine, closeLine) = lines
+            val full = if (empty == EdgeKind.FALSE) EdgeKind.TRUE else EdgeKind.FALSE
+            val split = splitsOf(roots).single()
+            val condition = if (root == "noElse") ">" else "<"
+            assertEquals(mapOf(EdgeKind.ORDER to orderAfter(roots, callAt(roots, openLine)), EdgeKind.CONDITION to
+                    nodesOf(roots).single { it.label == condition }), into(roots, split), "$root: the split's inputs")
+            val out = outOf(roots, split)
+            val send = callAt(roots, sendLine)
+            assertEquals(send, out[full], "$root: the split does not hand the token to send on $full")
+            val join = assertNotNull(out[empty], "$root: the split hands nothing on along $empty")
+            assertEquals("if" to NodeType.BIN_OP, join.label to join.getType(), "$root: the empty arm's edge does not go to a choice")
+            assertTrue(join !in splitsOf(roots), "$root: the empty arm's edge goes to another split")
+            assertEquals(mapOf(full to join), outOf(roots, orderAfter(roots, send)),
+                "$root: send's token does not arrive at the same join on $full")
+            val joined = outOf(roots, join).getValue(EdgeKind.FLOW)
+            assertTrue(orderBefore(roots, callAt(roots, closeLine)) === joined, "$root: close does not take the joined token")
+        }
+    }
+
+    /**
+     * An `if` first in the then-arm of another: the outer one splits on `a >= b` and hands the token
+     * on `true` into the inner one, which splits it again on `b <= c` - its token comes from the outer
+     * split, not from before either `if`. The outer `false` goes to the else-arm's flush.
+     */
+    @Test
+    fun aNestedIfSplitsTheTokenAgainOnItsOwnCondition() {
+        val roots = boundaryBranchRoots("nested")
+        val outerSplit = splitsOf(roots).single { s -> into(roots, s)[EdgeKind.CONDITION]?.label == ">=" }
+        val innerSplit = splitsOf(roots).single { s -> into(roots, s)[EdgeKind.CONDITION]?.label == "<=" }
+        assertEquals(2, splitsOf(roots).size, "not one split per `if`")
+        assertEquals(orderAfter(roots, callAt(roots, 40)), into(roots, outerSplit)[EdgeKind.ORDER],
+            "the outer split does not take open's token")
+        assertEquals(mapOf(EdgeKind.TRUE to innerSplit, EdgeKind.FALSE to callAt(roots, 49)), outOf(roots, outerSplit),
+            "the outer split does not hand the token to the inner split on true and the else-arm's flush on false")
+        assertEquals(setOf(EdgeKind.TRUE, EdgeKind.CONDITION), into(roots, innerSplit).keys,
+            "the inner split does not take the token from the outer split's true edge alone")
+        assertEquals(mapOf(EdgeKind.TRUE to callAt(roots, 43), EdgeKind.FALSE to callAt(roots, 45)), outOf(roots, innerSplit),
+            "the inner split does not hand the token to send on true and flush on false")
+    }
+
+    /**
+     * Neither arm calls into Port, so nothing splits the token: what `open` leaves goes, as ORDER,
+     * straight to `close` past the `if`. The `if` still chooses `r` - its condition goes to that
+     * join and nowhere else.
+     */
+    @Test
+    fun anIfWhoseArmsDoNotTouchTheTokenDoesNotSplitIt() {
+        val roots = boundaryBranchRoots("untouched")
+        val edges = edgesOf(roots)
+        val token = orderAfter(roots, callAt(roots, 56))
+        assertEquals(mapOf(EdgeKind.ORDER to callAt(roots, 63)), outOf(roots, token), "open's token does not go straight to close")
+        val eq = nodesOf(roots).single { it.label == "==" }
+        val chosen = edges.filter { it.first === eq && it.second == EdgeKind.CONDITION }.map { it.third }
+        assertEquals(1, chosen.size, "a == b decides something besides the join of r: $chosen")
+        assertEquals(setOf(EdgeKind.TRUE, EdgeKind.FALSE, EdgeKind.CONDITION),
+            edges.filter { it.third === chosen.single() }.map { it.second }.toSet(), "what a == b decides is not r's join")
+        assertTrue(edges.none { it.third.label == "if" && it.second == EdgeKind.ORDER }, "the token goes into an `if`")
     }
 
     /**
@@ -2686,6 +2795,9 @@ class AppTest {
     )
     @Test fun boundaryOrder() = codeflow(
         "boundaryOrder", listOf("App.java", "Gateway.java"), from = listOf("App#entrypoint"), boundaries = listOf("Gateway")
+    )
+    @Test fun boundaryBranch() = codeflow(
+        "boundaryBranch", listOf("App.java", "Port.java"), from = listOf("App#entrypoint"), boundaries = listOf("Port")
     )
     @Test fun member() = codeflow("member", listOf("App.java"))
     @Test fun files() = codeflow("files", listOf("App.java", "ClassX.java", "ClassY.java"))

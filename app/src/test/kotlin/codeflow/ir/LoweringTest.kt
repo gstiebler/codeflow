@@ -392,7 +392,7 @@ class LoweringTest {
                 "3: write b <- 2",
                 "4: const 7",
                 "5: binOp == 3 4",
-                "6: fieldFork",
+                "6: fieldFork if ? 5 [true, false]",
                 "7: const 13",
                 "8: write b <- 7",
                 "9: fieldArm 6",
@@ -485,7 +485,7 @@ class LoweringTest {
         assertEquals(
             listOf(
                 "0: param bad",
-                "1: fieldFork",
+                "1: fieldFork if ? 0 [true, false]",
                 "2: const 141",
                 "3: writeField this.err <- 2",
                 "4: return",

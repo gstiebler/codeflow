@@ -191,6 +191,17 @@ contributes the entry value; **with no entry value and a single writing arm the 
 carried across** - a field nothing wrote holds its default, which the diagram does not draw at
 every join.
 
+**The boundary-order token also splits at an `if`, the join's mirror.** The gated join takes what
+each arm left on `TRUE`/`FALSE` and the condition as `CONDITION`; the split, drawn at the fork, takes
+the token and the condition and hands the token *into* each arm on `TRUE`/`FALSE`. It is drawn only
+for the token and only for `if` (the `FieldFork` carries the gate and arm names for it), lazily on
+the first read of the token in an arm that has not written it, so an `if` whose arms never touch the
+token draws neither split nor join. At the join, an arm that did not take the token arrives with the
+split's output on its own edge instead of the entry value; a fork without a split inside an arm (a
+loop, `try`, `switch`) takes what the enclosing split hands that arm, so one arm can take the token
+twice - at its first call and where the inner fork's join meets the path past it. See
+`calls-and-dispatch.md`.
+
 Fields join over **all** arms, including those that return, throw or `break`. That is deliberate and
 over-approximate: the object outlives the method, so what a guard clause wrote is what a caller
 reads afterwards, and dropping such an arm is the same silent wrongness the other way. Locals do

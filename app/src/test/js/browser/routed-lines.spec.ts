@@ -89,7 +89,7 @@ test.describe('boundary, condensed lines', () => {
     await expect(page.locator(NODE)).toHaveCount(5);
     const on = await drawn(page);
     // The pair: there are lines, each with a length to sample.
-    expect(on.edges.length).toBe(12);
+    expect(on.edges.length).toBe(10);
     for (const edge of on.edges) expect(edge.points.length, edge.id).toBeGreaterThan(5);
     expect(crossings(on)).toEqual([]);
   });
@@ -98,7 +98,7 @@ test.describe('boundary, condensed lines', () => {
     await condense(page);
     await expect(page.locator(NODE)).toHaveCount(5);
     const on = await drawn(page);
-    expect(on.edges.length).toBe(12);
+    expect(on.edges.length).toBe(10);
     expect(on.nodes.every((n) => inside({ x: n.box.x + 1, y: n.box.y + 1 }, on.pane, -1))).toBe(true);
     expect(offPane(on)).toEqual([]);
   });

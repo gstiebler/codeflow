@@ -88,12 +88,14 @@ test.describe('boundary, condensed', () => {
 
   // The opening used to draw 13 lines - one per kind per pair, ten of them captioned with a kind -
   // packed into 40 px between layers. Each ordered pair is now one line, captioned only by a count.
+  // Ten since the `if` splits the order token: boundaryfunc1 hands it to the split in `program`, so
+  // its two ORDER lines straight into boundaryfunc2 and boundaryfunc3 are gone.
   test('the opening draws one line per ordered pair, captioned only with counts', async ({ page }) => {
     await condense(page);
     await expect(page.locator(NODE)).toHaveCount(5);
     const ids = await page.evaluate(() =>
       [...document.querySelectorAll('.react-flow__edge')].map((e) => e.getAttribute('aria-label')));
-    expect(ids.length).toBe(12);
+    expect(ids.length).toBe(10);
     expect(new Set(ids).size).toBe(ids.length);
     const captions = await page.locator('.react-flow__edge-text').allTextContents();
     // The pair: there are captions, and every one is a count.
@@ -111,7 +113,7 @@ test.describe('boundary, condensed', () => {
     await expect(mixed.locator('.react-flow__edge-path')).toHaveCSS('stroke', 'rgb(153, 153, 153)');
     await expect(mixed.locator('.react-flow__edge-path')).toHaveCSS('stroke-dasharray', 'none');
     // The pair: a line of one kind keeps that kind's purple and dash.
-    const order = edge('boundaryfunc1', 'boundary:boundary.Boundary#boundaryfunc2');
+    const order = edge('boundaryfunc2', 'boundary:boundary.Boundary#boundaryfunc3');
     await expect(order.locator('.react-flow__edge-path')).toHaveCSS('stroke', 'rgb(123, 31, 162)');
     await expect(order.locator('.react-flow__edge-path')).not.toHaveCSS('stroke-dasharray', 'none');
 

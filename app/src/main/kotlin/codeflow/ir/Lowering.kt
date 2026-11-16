@@ -460,7 +460,8 @@ class Lowering(private val symbols: Symbols, private val isBoundary: (Method) ->
             val source = ctx.location(node)
             // Fields are joined by the builder, which knows what they alias - see [FieldFork]. An
             // absent `else` is an empty arm, so the value from before the `if` arrives down "false".
-            val fork = emit(FieldFork(source))
+            // The gate is named here too, for the order token's split at the fork.
+            val fork = emit(FieldFork(source, Gate("if", condition), listOf("true", "false")))
             // A branch that leaves the method is claimed here rather than at the join, because it is
             // not at the join: that is the whole reason a guarded exit had nothing gating it.
             val beforeThen = exits.size

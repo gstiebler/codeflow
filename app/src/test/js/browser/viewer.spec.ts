@@ -50,9 +50,9 @@ test.describe('funcCall', () => {
     // label can only come back by the RETURN itself being revealed.
     expect(leaves).not.toContain('methodA');
     // methodA's box was already there, drawn as its stub; what the click changed is that it now holds
-    // a body. The event is three hops from x (x, 5, the event, what it starts), so the walk also reaches
-    // what the event starts inside both methodC call sites, and offers their boxes.
-    expect(await labels(boxLabels(page))).toEqual(['main', 'methodA', 'methodB', 'methodC', 'methodC']);
+    // a body. methodB is still shut: the walk does not pass through the entry event (x, 5, the event)
+    // to what it starts inside methodC.
+    expect(await labels(boxLabels(page))).toEqual(['main', 'methodA', 'methodB']);
   });
 
   test('reveals accumulate across clicks', async ({ page }) => {

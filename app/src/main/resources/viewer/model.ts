@@ -316,7 +316,11 @@ export function tap(payload: Payload, revealed: Set<Id>, id: Id): Set<Id> {
     for (const leaf of oneLevel(payload.nodes, box)) next.add(leaf);
   }
 
-  for (const reached of neighbourhood(payload.edges, id, REVEAL_DEPTH)) next.add(reached);
+  // An entry point's event starts every node nothing else feeds, so walked through it a click next
+  // to any literal would reach every unfed node of the root, callees and all. Its edges are followed
+  // only from the event itself: clicking it reveals what it starts, and no other walk steps onto it.
+  const walked = payload.edges.filter((edge) => edge.kind !== 'EVENT' || edge.source === id);
+  for (const reached of neighbourhood(walked, id, REVEAL_DEPTH)) next.add(reached);
   return next;
 }
 

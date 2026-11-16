@@ -109,3 +109,35 @@ const walked = {
 test('opening a method also walks the edges of the name that opened it', () => {
   assert.deepEqual([...tap(walked, new Set(['mR']), 'fR')].sort(), ['a', 'fR', 'mR', 'x']);
 });
+
+// The entry point's event starts every node nothing else feeds - here `l` in main and `c` inside f -
+// so a walk through it would join every literal to every other. `x` is two hops from the event
+// (x, l, event), and with the event as a hub the click reached `c` in f's body on the third.
+const evented = {
+  nodes: [
+    { id: 'm', type: 'METHOD', label: 'main' },
+    { id: 'ev', type: 'EVENT', label: 'event main', parent: 'm' },
+    { id: 'l', type: 'LITERAL', label: '5', parent: 'm' },
+    { id: 'x', type: 'VARIABLE', label: 'x', parent: 'm' },
+    { id: 'f', type: 'METHOD', label: 'f', parent: 'm' },
+    { id: 'fR', type: 'RETURN', label: 'f', parent: 'f' },
+    { id: 'c', type: 'LITERAL', label: '7', parent: 'f' },
+    { id: 'd', type: 'VARIABLE', label: 'd', parent: 'f' },
+  ],
+  edges: [
+    { source: 'ev', target: 'l', kind: 'EVENT' }, { source: 'ev', target: 'c', kind: 'EVENT' },
+    { source: 'l', target: 'x', kind: 'FLOW' }, { source: 'c', target: 'd', kind: 'FLOW' },
+  ],
+} satisfies Payload;
+
+test('a click elsewhere does not walk through the event to what else it starts', () => {
+  const revealed = [...tap(evented, new Set(['ev', 'x', 'fR']), 'x')].sort();
+  // The positive half: the walk still steps from x to l over the FLOW edge.
+  assert.ok(revealed.includes('l'), revealed.join(' '));
+  assert.ok(!revealed.includes('c'), revealed.join(' '));
+  assert.ok(!revealed.includes('d'), revealed.join(' '));
+});
+
+test('clicking the event reveals what it starts, and on from there', () => {
+  assert.deepEqual([...tap(evented, new Set(['ev', 'x', 'fR']), 'ev')].sort(), ['c', 'd', 'ev', 'fR', 'l', 'x']);
+});

@@ -211,8 +211,12 @@ Reset asks for the opening again, so it returns to the same set. The event is a 
 its edges into the groups are deduplicated per kind with a count, and clicking it reveals what it
 starts. In Boxes it is a leaf of the root's box, and Boxes edges take no pointer events
 (`.cf-boxes`): they answer no click, and the event's edge into a closed callee's stub crosses the
-box's title. Through the event, a three-hop Boxes click from a node next to an unfed one reaches
-every unfed node of the root.
+box's title. **The event is not a hub.** `tap` follows an `EVENT` edge only from the clicked node:
+clicking the event reveals what it starts, and no other walk steps onto it - walked through it, a
+three-hop click next to any literal reached every unfed node of the root, callees and all
+(`funcCall`: clicking `x` opened both `methodC` boxes). Condensed needs no such rule: a leaf click
+is one hop, and a group's frontier gains the event's targets, which the event, drawn outside, makes
+members with an outside edge - one hop, as clicking the event would.
 
 **Groups are read from the payload, never guessed.** A leaf belongs to a boundary method's group iff
 its *nearest* enclosing box carries `boundary: true`; the group is keyed by that box's `method`

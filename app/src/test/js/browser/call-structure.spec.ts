@@ -8,6 +8,9 @@ import { boxLabels, labels, leafCaptions, open, tapBox, tapLeaf } from './page.t
  * `func1`. Reveal follows edges, so before call structure was navigable this page opened on four
  * nodes and clicking every one of them changed nothing: 19 of the fixture's 23 leaves could not be
  * put on screen by any sequence of clicks.
+ *
+ * Only the entry point's event, `event main`, has edges into `func1` - to what nothing in it feeds -
+ * and they are when, not data: these tests open `func1` by its box and its name, not through them.
  */
 test.describe('member: a callee no edge reaches', () => {
   test.beforeEach(open('member'));
@@ -17,7 +20,7 @@ test.describe('member: a callee no edge reaches', () => {
   // would have nothing inside it saying which method it is.
   test('a callee of the entry method is drawn as its own name', async ({ page }) => {
     expect(await labels(boxLabels(page))).toEqual(['func1', 'main']);
-    expect(await labels(leafCaptions(page))).toEqual(['App', 'app', 'args', 'func1', 'main']);
+    expect(await labels(leafCaptions(page))).toEqual(['App', 'app', 'args', 'event main', 'func1', 'main']);
   });
 
   // Depth, not breadth: getMemberX is called from func1, and offering its stub too would put the
@@ -58,10 +61,10 @@ test.describe('member: a callee no edge reaches', () => {
   // method. `func1` matches exactly one leaf - the box of the same name is a title, not a node -
   // and the count before is what makes this fail if the click does nothing.
   test('clicking the name of a closed method opens its body', async ({ page }) => {
-    expect(await labels(leafCaptions(page))).toEqual(['App', 'app', 'args', 'func1', 'main']);
+    expect(await labels(leafCaptions(page))).toEqual(['App', 'app', 'args', 'event main', 'func1', 'main']);
     await tapLeaf(page, 'func1');
     const opened = await labels(leafCaptions(page));
-    expect(opened).toHaveLength(23);
+    expect(opened).toHaveLength(24);
     expect(opened).toContain('memberX');
   });
 });

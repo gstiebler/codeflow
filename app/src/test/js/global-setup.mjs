@@ -21,7 +21,8 @@ import { resolve } from 'node:path';
  * boundary call's `call` is bold and the order token has its own fill.
  *
  * `boundary` is drawn as AppTest draws it: three boundary methods, five call sites, so the condensed
- * view opens on four nodes - one per method, whatever its number of blocks, plus `program`.
+ * view opens on five nodes - one per method, whatever its number of blocks, the entry point's event,
+ * and `program`.
  */
 const FIXTURES = {
   funcCall: '',

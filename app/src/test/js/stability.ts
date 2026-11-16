@@ -44,7 +44,7 @@ function boxesWalk(payload: Payload): Walk {
 }
 
 function condensedWalk(payload: Payload): Walk {
-  let revealed = condensedOpening();
+  let revealed = condensedOpening(payload);
   const steps: Step[] = [];
   const first = flatElkGraph(condensed(payload, revealed), condensedCaption);
   const leaves = payload.nodes.filter((n) => n.type !== 'METHOD').length;

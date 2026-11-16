@@ -19,21 +19,29 @@ const tapGroup = (page: Page, label: string) => drewAgain(page, async () => {
 
 const BOUNDARY_GROUPS = ['boundaryfunc1', 'boundaryfunc2', 'boundaryfunc3'];
 
+/** The leaves drawn on their own, by their text. */
+const leafLabels = (page: Page) => page.evaluate((selector) =>
+  [...document.querySelectorAll(selector)].map((n) => (n.textContent ?? '').trim()).sort(), LEAF);
+
+const EVENT = 'event entrypoint';
+
 /**
  * The condensed view of `boundary`, asked of the DOM: three boundary methods called from five sites,
- * so it opens on four nodes - one per method plus `program` - and opens up where it is clicked.
+ * so it opens on five nodes - one per method, the entry point's event, and `program` - and opens up
+ * where it is clicked.
  */
 test.describe('boundary, condensed', () => {
   test.beforeEach(open('boundary'));
 
-  test('the page opens in Boxes, and Condensed draws one node per boundary method plus the program', async ({ page }) => {
+  test('the page opens in Boxes, and Condensed draws one node per boundary method, the event and the program', async ({ page }) => {
     await expect(button(page, 'Boxes')).toHaveAttribute('aria-pressed', 'true');
     expect((await boxLabels(page)).length).toBeGreaterThan(0);
     await expect(page.locator(GROUP)).toHaveCount(0);
 
     await condense(page);
-    await expect(page.locator(NODE)).toHaveCount(4);
+    await expect(page.locator(NODE)).toHaveCount(5);
     expect(await groupLabels(page)).toEqual([...BOUNDARY_GROUPS, 'program']);
+    expect(await leafLabels(page)).toEqual([EVENT]);
     expect(await boxLabels(page)).toEqual([]);
     await expect(button(page, 'Condensed')).toHaveAttribute('aria-pressed', 'true');
   });
@@ -47,10 +55,10 @@ test.describe('boundary, condensed', () => {
 
   test('clicking the program takes nodes out of it, and the boundary groups stay', async ({ page }) => {
     await condense(page);
-    await expect(page.locator(LEAF)).toHaveCount(0);
+    await expect(page.locator(LEAF)).toHaveCount(1);
     await tapGroup(page, 'program');
-    expect(await page.locator(NODE).count()).toBeGreaterThan(4);
-    expect(await page.locator(LEAF).count()).toBeGreaterThan(0);
+    expect(await page.locator(NODE).count()).toBeGreaterThan(5);
+    expect(await page.locator(LEAF).count()).toBeGreaterThan(1);
     expect(await groupLabels(page)).toEqual(expect.arrayContaining(BOUNDARY_GROUPS));
   });
 
@@ -64,12 +72,24 @@ test.describe('boundary, condensed', () => {
     await expect(tooltip).toContainText('App.java:');
   });
 
+  test('clicking the event takes what it starts out of their groups', async ({ page }) => {
+    await condense(page);
+    expect(await leafLabels(page)).toEqual([EVENT]);
+    await drewAgain(page, () => page.locator(LEAF).filter({ hasText: EVENT }).click());
+    expect(await page.locator(NODE).count()).toBeGreaterThan(5);
+    expect(await page.locator(LEAF).count()).toBeGreaterThan(1);
+    // The pair: the event is still drawn, and so is every boundary group.
+    expect(await leafLabels(page)).toContain(EVENT);
+    expect(await groupLabels(page)).toEqual(expect.arrayContaining(BOUNDARY_GROUPS));
+  });
+
   test('Reset returns the condensed view to its opening', async ({ page }) => {
     await condense(page);
     await tapGroup(page, 'program');
-    expect(await page.locator(NODE).count()).toBeGreaterThan(4);
+    expect(await page.locator(NODE).count()).toBeGreaterThan(5);
     await drewAgain(page, () => button(page, 'Reset').click());
-    await expect(page.locator(NODE)).toHaveCount(4);
+    await expect(page.locator(NODE)).toHaveCount(5);
     expect(await groupLabels(page)).toEqual([...BOUNDARY_GROUPS, 'program']);
+    expect(await leafLabels(page)).toEqual([EVENT]);
   });
 });

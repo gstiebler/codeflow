@@ -154,7 +154,7 @@ test.describe('boundary, condensed, reset', () => {
     await drewAgain(page, () => page.getByRole('button', { name: 'Condensed', exact: true }).click());
     await drewAgain(page, () => page.locator('.react-flow__node .cf-group').filter({ hasText: /^program \(/ }).click());
     const grown = await page.locator('.react-flow__node').count();
-    expect(grown).toBeGreaterThan(4);
+    expect(grown).toBeGreaterThan(5);
 
     // Drag the pane from its bottom-right corner far up and left: the drawing goes with it.
     const box = (await page.locator('.react-flow').boundingBox())!;
@@ -165,7 +165,8 @@ test.describe('boundary, condensed, reset', () => {
     expect(await outside(page)).toBeGreaterThan(0);
 
     await drewAgain(page, () => page.getByRole('button', { name: 'Reset', exact: true }).click());
-    await expect(page.locator('.react-flow__node')).toHaveCount(4);
+    // Three boundary groups, the entry point's event, and the program.
+    await expect(page.locator('.react-flow__node')).toHaveCount(5);
     expect(await outside(page)).toBe(0);
   });
 });

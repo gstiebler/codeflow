@@ -86,9 +86,12 @@ export function groupOf(payload: Payload): Map<Id, Id> {
   return new Map(index(payload).group);
 }
 
-/** What the condensed view opens on, and what Reset returns to: nothing taken out. */
-export function condensedOpening(): Set<Id> {
-  return new Set();
+/**
+ * What the condensed view opens on, and what Reset returns to: every entry point's event taken out of
+ * its group, so the page shows where the program starts beside the boundary groups and `program`.
+ */
+export function condensedOpening(payload: Payload): Set<Id> {
+  return new Set(payload.nodes.filter((n) => n.type === 'EVENT').map((n) => n.id));
 }
 
 /** Where a leaf is drawn: on its own once revealed, else as its group. */

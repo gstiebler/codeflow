@@ -18,10 +18,13 @@ export type Id = string;
 export type NodeType =
   | 'METHOD'
   | 'BASE' | 'LITERAL' | 'VARIABLE' | 'OBJ_VARIABLE' | 'BIN_OP' | 'FUNC_PARAM'
-  | 'RETURN' | 'EXTERNAL' | 'UNMODELLED' | 'BOUNDARIES';
+  | 'RETURN' | 'EXTERNAL' | 'UNMODELLED' | 'BOUNDARIES' | 'EVENT';
 
-/** Every `codeflow.graph.EdgeKind`. SHARED is one entry point's static write reaching another's read. */
-export type EdgeKind = 'FLOW' | 'TRUE' | 'FALSE' | 'CONDITION' | 'ORDER' | 'SHARED';
+/**
+ * Every `codeflow.graph.EdgeKind`. SHARED is one entry point's static write reaching another's read;
+ * EVENT is an entry point's event starting a node nothing else feeds.
+ */
+export type EdgeKind = 'FLOW' | 'TRUE' | 'FALSE' | 'CONDITION' | 'ORDER' | 'SHARED' | 'EVENT';
 
 export type PayloadNode = {
   id: Id;

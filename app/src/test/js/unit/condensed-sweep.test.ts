@@ -47,7 +47,7 @@ function faults(payload: Payload, revealed: Set<Id>, view: CondensedView): strin
  * not, so a broken click fails rather than hangs.
  */
 function walk(payload: Payload): { revealed: Set<Id>; faults: string[] } {
-  let revealed = condensedOpening();
+  let revealed = condensedOpening(payload);
   const leaves = payload.nodes.filter((n) => n.type !== 'METHOD').length;
   const problems = faults(payload, revealed, condensed(payload, revealed));
   for (let round = 0; round <= leaves && problems.length === 0; round += 1) {
@@ -90,15 +90,19 @@ test('the walk ends with every leaf on its own and every payload edge drawn once
 });
 
 // The boundary fixtures are what the groups are for: one group per boundary method, whatever the
-// number of roots and call sites - `boundaryRoots` calls `save` from two roots.
-test('a boundary fixture opens on one group per boundary method plus the program', () => {
+// number of roots and call sites - `boundaryRoots` calls `save` from two roots - plus each root's
+// event, on its own, and the program.
+test('a boundary fixture opens on one group per boundary method, each event, and the program', () => {
   const opening = (fixture: string) => {
     const { payload } = corpus.find((c) => c.name === fixture)!;
-    return condensed(payload, condensedOpening()).nodes.map((n) => `${n.label}:${n.type}`).sort();
+    return condensed(payload, condensedOpening(payload)).nodes.map((n) => `${n.label}:${n.type}`).sort();
   };
-  assert.deepEqual(opening('boundary'), ['boundaryfunc1:GROUP', 'boundaryfunc2:GROUP', 'boundaryfunc3:GROUP', 'program:GROUP']);
+  assert.deepEqual(opening('boundary'), [
+    'boundaryfunc1:GROUP', 'boundaryfunc2:GROUP', 'boundaryfunc3:GROUP', 'event entrypoint:EVENT', 'program:GROUP',
+  ]);
   const roots = corpus.find((c) => c.name === 'boundaryRoots')!.payload;
   const boundaryBoxes = roots.nodes.filter((n) => n.boundary).map((n) => n.method);
   assert.ok(boundaryBoxes.length > new Set(boundaryBoxes).size, 'boundaryRoots has no boundary method with two blocks');
-  assert.equal(opening('boundaryRoots').length, new Set(boundaryBoxes).size + 1);
+  assert.equal(opening('boundaryRoots').length, new Set(boundaryBoxes).size + 2 + 1);
+  assert.deepEqual(opening('boundaryRoots').filter((n) => n.endsWith(':EVENT')), ['event first:EVENT', 'event second:EVENT']);
 });

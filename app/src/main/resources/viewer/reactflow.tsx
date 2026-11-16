@@ -52,6 +52,9 @@ function installStyles() {
                   border: 1px solid #999; border-radius: 4px; padding: 4px 8px;
                   font: 11px ui-monospace, monospace; white-space: pre; box-shadow: 0 1px 4px #0003; }
     .react-flow__handle { opacity: 0; }
+    /* Boxes answers no click on an edge, and an edge drawn over a box's title - an entry point's event
+       into a closed callee's stub - would otherwise take the click the title is there for. */
+    .cf-boxes .react-flow__edge { pointer-events: none; }
     .react-flow__node.cf-new > * { animation: cf-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
     .react-flow__edge.cf-new .react-flow__edge-path { animation: cf-edge-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
     @keyframes cf-ring { from { box-shadow: 0 0 0 4px ${NEW_RING}; } to { box-shadow: 0 0 0 4px transparent; } }
@@ -354,7 +357,7 @@ function Graph({ payload, revealed, setRevealed }: Revealing) {
 
   return (
     <ReactFlow nodes={drawing.nodes} edges={drawing.edges} nodeTypes={NODE_TYPES} onNodeClick={onNodeClick}
-               className={moving ? 'cf-moving' : undefined}
+               className={moving ? 'cf-boxes cf-moving' : 'cf-boxes'}
                onInit={setFlow} minZoom={0.05} proOptions={{ hideAttribution: true }}>
       <Background />
     </ReactFlow>
@@ -485,14 +488,14 @@ type Mode = 'boxes' | 'condensed';
 function Page({ payload }: { payload: Payload }) {
   const [mode, setMode] = useState<Mode>('boxes');
   const [boxed, setBoxed] = useState<Set<Id>>(() => opening(payload));
-  const [shown, setShown] = useState<Set<Id>>(() => condensedOpening());
+  const [shown, setShown] = useState<Set<Id>>(() => condensedOpening(payload));
 
   // Folding needs a box, so a sprawl inside the entry method has nothing to fold, and the condensed
   // view folds nothing at all. Without this the only way back is a reload, which re-runs the whole
   // layout.
   const reset = useCallback(() => {
     if (mode === 'boxes') setBoxed(opening(payload));
-    else setShown(condensedOpening());
+    else setShown(condensedOpening(payload));
   }, [mode, payload]);
 
   useEffect(() => {

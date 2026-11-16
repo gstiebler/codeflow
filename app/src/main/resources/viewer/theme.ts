@@ -27,6 +27,8 @@ export const PALETTE: Partial<Record<NodeType, string>> = {
   UNMODELLED:   'rgba(255, 0, 0, 0.19)',
   // The boundary-order token, in the ORDER edges' purple: the chain's boxes and arrows are one thing.
   BOUNDARIES:   'rgba(123, 31, 162, 0.25)',
+  // The entry point's event, in the EVENT edges' teal: what set the root going.
+  EVENT:        'rgba(0, 137, 123, 0.25)',
   METHOD:       'rgba(240, 240, 240, 0.60)',
 };
 
@@ -55,6 +57,8 @@ export const EDGE_COLOURS: Partial<Record<EdgeKind, string>> = {
   CONDITION: '#6a6a6a',
   // The boundary-order token in and out of a boundary call: which ran first, not a value.
   ORDER:     '#7b1fa2',
+  // The entry point's event starting what nothing else feeds: when, not a value.
+  EVENT:     '#00897b',
 };
 
 /** The grey every FLOW edge keeps, which is nearly every edge on the page. */
@@ -65,13 +69,13 @@ export const EDGE_DEFAULT = '#999';
  *
  * Here rather than in the renderer so that it is a pure function `node --test` can load - the
  * renderer imports React Flow and elkjs, which it cannot. CONDITION reads `if` rather than
- * `condition`, and is dashed, as the Mermaid document draws it; ORDER is dashed for the reason the
- * Mermaid `-. order .->` is - it is not a value arriving. FLOW is unlabelled: it is nearly every edge.
+ * `condition`, and is dashed, as the Mermaid document draws it; ORDER and EVENT are dashed for the
+ * reason the Mermaid `-. order .->` and `-. event .->` are - they are not a value arriving. FLOW is unlabelled: it is nearly every edge.
  */
 export function edgeStyle(kind: EdgeKind): { colour: string; label: string | undefined; dashed: boolean } {
   return {
     colour: EDGE_COLOURS[kind] ?? EDGE_DEFAULT,
     label: kind === 'CONDITION' ? 'if' : (kind === 'FLOW' ? undefined : kind.toLowerCase()),
-    dashed: kind === 'CONDITION' || kind === 'ORDER',
+    dashed: kind === 'CONDITION' || kind === 'ORDER' || kind === 'EVENT',
   };
 }

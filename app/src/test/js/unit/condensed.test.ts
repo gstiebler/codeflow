@@ -59,7 +59,7 @@ const sorted = (view: CondensedView) => ({
 // One group per boundary method however many call sites it has - three blocks of `fetch`, one nested
 // in `helper` - and `program` for the rest, the box-less `n10` included.
 test('the condensed view opens on one node per boundary method and one for the program', () => {
-  assert.deepEqual(sorted(condensed(PAYLOAD, condensedOpening())).nodes, [
+  assert.deepEqual(sorted(condensed(PAYLOAD, condensedOpening(PAYLOAD))).nodes, [
     { id: FETCH, label: 'fetch', type: 'GROUP', members: 6, boundary: true },
     { id: SAVE, label: 'save', type: 'GROUP', members: 1, boundary: true },
     { id: PROGRAM, label: 'program', type: 'GROUP', members: 5 },
@@ -135,11 +135,40 @@ test('a revealed leaf keeps its lead', () => {
 });
 
 test('reset returns to the opening view', () => {
-  let revealed = condensedOpening();
+  let revealed = condensedOpening(PAYLOAD);
   revealed = tapCondensed(PAYLOAD, revealed, { node: PROGRAM });
   revealed = tapCondensed(PAYLOAD, revealed, { node: 'n2' });
   assert.notDeepEqual(condensed(PAYLOAD, revealed), condensed(PAYLOAD, new Set()));
-  assert.deepEqual(condensed(PAYLOAD, condensedOpening()), condensed(PAYLOAD, new Set()));
+  assert.deepEqual(condensed(PAYLOAD, condensedOpening(PAYLOAD)), condensed(PAYLOAD, new Set()));
+});
+
+// Two roots, two events: each event is taken out of its group from the start, beside the boundary
+// groups and the program - and Reset, which asks for the opening again, comes back to the same page.
+test('the condensed view opens with every entry point\'s event on its own, and Reset returns to it', () => {
+  const events: Payload = {
+    ...PAYLOAD,
+    nodes: [
+      ...PAYLOAD.nodes,
+      leaf('e1', 'event main', 'b0', 'p/App.java:4:5', 'EVENT'),
+      box('b6', 'other', 'p.App#other()'),
+      leaf('e2', 'event other', 'b6', 'p/App.java:20:5', 'EVENT'),
+      leaf('n13', 'o', 'b6', 'p/App.java:21:9'),
+    ],
+    edges: [...PAYLOAD.edges, edge('e1', 'n1', 'EVENT'), edge('e1', 'n3', 'EVENT'), edge('e2', 'n13', 'EVENT')],
+  };
+  const opening = condensedOpening(events);
+  assert.deepEqual([...opening].sort(), ['e1', 'e2']);
+  const view = sorted(condensed(events, opening));
+  assert.deepEqual(view.nodes.map((n) => `${n.id}:${n.type}`), [FETCH, SAVE, 'e1', 'e2', PROGRAM].map((id) =>
+    `${id}:${id.startsWith('e') ? 'EVENT' : 'GROUP'}`).sort());
+  // The pair: the event's targets stay in their group, which the event points into.
+  assert.ok(!view.nodes.some((n) => n.id === 'n1' || n.id === 'n13'));
+  assert.ok(view.edges.includes(`e1->${PROGRAM}:EVENTx2`), view.edges.join(' '));
+
+  let revealed = tapCondensed(events, opening, { node: PROGRAM });
+  assert.notDeepEqual(condensed(events, revealed), condensed(events, opening));
+  revealed = condensedOpening(events);
+  assert.deepEqual(condensed(events, revealed), condensed(events, opening));
 });
 
 test('hovering a leaf shows its method and its line', () => {

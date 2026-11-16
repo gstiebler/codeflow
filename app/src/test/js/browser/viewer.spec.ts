@@ -9,7 +9,9 @@ import {
 //
 // `methodA` and `methodB` are not bodies: each is the one RETURN node a closed callee is drawn as,
 // which is what makes the box exist on the page and therefore clickable.
-const OPENING = ['5', '8', 'App', 'app', 'args', 'e', 'main', 'methodA', 'methodB', 'x', 'y'];
+//
+// `event main` is the entry point's event, a leaf of `main` like any other.
+const OPENING = ['5', '8', 'App', 'app', 'args', 'e', 'event main', 'main', 'methodA', 'methodB', 'x', 'y'];
 
 /**
  * What a reader sees, asked of the page rather than of the model.
@@ -48,8 +50,9 @@ test.describe('funcCall', () => {
     // label can only come back by the RETURN itself being revealed.
     expect(leaves).not.toContain('methodA');
     // methodA's box was already there, drawn as its stub; what the click changed is that it now holds
-    // a body. methodB is still shut.
-    expect(await labels(boxLabels(page))).toEqual(['main', 'methodA', 'methodB']);
+    // a body. The event is three hops from x (x, 5, the event, what it starts), so the walk also reaches
+    // what the event starts inside both methodC call sites, and offers their boxes.
+    expect(await labels(boxLabels(page))).toEqual(['main', 'methodA', 'methodB', 'methodC', 'methodC']);
   });
 
   test('reveals accumulate across clicks', async ({ page }) => {

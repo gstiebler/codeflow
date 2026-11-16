@@ -204,11 +204,21 @@ default and draws what it drew before). Spec: `docs/superpowers/specs/2026-11-15
 `(payload, revealed)`, types the only import — and the page keeps one `revealed` per view, so
 switching away and back returns to what was open. `R` and the `Reset` button reset the view on screen.
 
+**It opens on what happens and what is outside.** `condensedOpening(payload)` is the ids of the
+payload's `EVENT` leaves - one per root, see `calls-and-dispatch.md` - so the first page is one
+group per boundary method, each root's event on its own, and `program` (`boundary`: five nodes).
+Reset asks for the opening again, so it returns to the same set. The event is a leaf like any other:
+its edges into the groups are deduplicated per kind with a count, and clicking it reveals what it
+starts. In Boxes it is a leaf of the root's box, and Boxes edges take no pointer events
+(`.cf-boxes`): they answer no click, and the event's edge into a closed callee's stub crosses the
+box's title. Through the event, a three-hop Boxes click from a node next to an unfed one reaches
+every unfed node of the root.
+
 **Groups are read from the payload, never guessed.** A leaf belongs to a boundary method's group iff
 its *nearest* enclosing box carries `boundary: true`; the group is keyed by that box's `method`
 (`pkg.Class#name(ParamTypes)`, JsonExporter's `Method.key()`), which is what makes every block of
 one method — one per call site, across roots — a single group. Keyed by box id instead, `boundary`
-would open on six nodes, not four. Everything else, including a leaf with no box, is `program`; no
+would open on seven nodes, not five. Everything else, including a leaf with no box, is `program`; no
 leaf is ever dropped, and the corpus sweep holds that at every step of a click-everything walk.
 
 **Click rules** (`tapCondensed`; each only adds to `revealed`):

@@ -13,6 +13,9 @@ Moved verbatim from CLAUDE.md, which now keeps only the rules. This is the reaso
 - **Behaviour tests** using `edgeLabels`, which reduces the graph to `(sourceLabel, targetLabel)`
   pairs and ignores ids. These are the assertions that can fail on a graph that has never been
   correct. **New behaviour needs one of these**, not just a regenerated snapshot.
+  `edgeLabels`, `edgesOf` and `reaches()` skip the root's `EVENT` edges (and `reaches()` `ORDER`
+  too): an event starts every node nothing else feeds, and an assertion on which labels are
+  adjacent, or what reaches what, is about the code, not that. The exporter-parity tests and `allEdgesOf` keep them.
 - **Suite-wide invariants** run on every fixture: `assertNoSelfEdges`, `assertNoUnknownOperators`,
   `assertNoDuplicateNodeIds`, `assertNoNodeIsMentionedBelowItsOwnBlock`,
   `assertLinkStylesAddressTheEdgesTheyMean`. These read the rendered Mermaid — the last two check

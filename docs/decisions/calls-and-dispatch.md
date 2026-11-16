@@ -109,3 +109,18 @@ read from the text) that is drawn bold: a Mermaid markdown string `` "`**call** 
 escaped so it is not italic), `<strong>` in the viewer (`captionParts`), plain in GraphML. An
 outside call that merely is named `call` has no lead and stays plain. Several roots each get their
 own chain, named after them and tied only by `SHARED` edges: fixture `boundaryRoots`.
+
+**Each root has an entry event.** An entry point is something that happens - a request, a job,
+`main` - so every root gets one `NodeType.EVENT` node, `event <root simple name>`, created first in
+the root's block (the root's lowest serial; the builder's, not an instruction's, so Lowering,
+`--summaries` and `SummaryParityTest` are unchanged). Once the root is built, and before `build(roots)`
+adds `SHARED` edges, `IrGraphBuilder.startFromEvent` gives it an `EdgeKind.EVENT` edge to every node
+under the root - its block and every inlined one - that has no incoming edge: literals, parameters,
+`this`, the token's start, unwritten field reads, `UNMODELLED` nodes, a void method's `RETURN`. "No
+incoming edge" is structural and judged within the entry point: a read that another root's `SHARED`
+edge also reaches keeps its event edge, since that root may not have run. The kind is not `FLOW`,
+so `reaches()` stays data-only, and not `ORDER`, which means "ran before". Teal: `classDef EVENT
+fill:#00897B40` (always - every root has one), `-. event .->` with `#00897b`; `PALETTE.EVENT` and
+the same stroke in the viewer. Spec: `docs/superpowers/specs/2026-11-15-entry-event-design.md`.
+`InvariantsTest` holds that each root has exactly its one event and every other node has something
+arriving.

@@ -22,6 +22,7 @@ and drawing is the point:
 |---|---|
 | `model.ts` | every decision about what is on screen — `opening`, `tap`, `screen` — as pure functions of `(payload, revealed)`, no DOM and no library |
 | `condensed.ts` | the same for the condensed view — `condensed`, `tapCondensed`, `hoverText` — see [The condensed view](#the-condensed-view) |
+| `mermaid.ts` | `condensedMermaid(view)`: the condensed view on screen as a Mermaid flowchart — see [The condensed view](#the-condensed-view) |
 | `layout.ts` | the layout posed as a value: `elkGraph(view)`, `flatElkGraph(view)` and `positions(laidOut)`, seeded from the last drawing by `stabilise`; the condensed lines' `routes(laidOut)`, `captionAt`, `roundedPath` |
 | `transition.ts` | how one drawing becomes the next — `diffViews`, `frame` — by node id, pure; see [Expanding without losing your place](#expanding-without-losing-your-place) |
 | `types.ts`, `theme.ts` | the payload and view types, and the colours the page paints with |
@@ -275,6 +276,21 @@ edge, the method and line of its *targets* — where the value arrives, not the 
 it, which for a phi or a call is not the same line. The text comes from the payload's `lines`
 (only the lines some node names), read from disk by JsonExporter rather than from the block's own
 file, because a field initialiser can be drawn in a block of another file.
+
+**`Mermaid` exports what is on screen** (spec: `docs/superpowers/specs/2026-11-15-condensed-mermaid-export-design.md`).
+The button, shown only in Condensed, downloads `codeflow-condensed.md`: a ```` ```mermaid ```` fence,
+so it renders where it is opened (Obsidian, GitHub), saved through a Blob and a temporary `<a download>`
+rather than the clipboard, which `file://` pages do not always get. `condensedMermaid(view)`
+(`mermaid.ts`, pure, no DOM) takes the very `CondensedView` the renderer draws - `Page` computes it
+once and hands it both to `CondensedGraph` and to the button - so the file cannot differ from the
+screen. Nodes are `n0, n1, …` in view order, never derived from attributes; the label is
+`condensedCaption`, with `"` `<` `>` `#` as Mermaid entities. Colours are the theme's, not copies:
+one `classDef` per look in use (a leaf's type fill and `NODE_OUTLINE`, a group's `GROUP_FILL` and
+its owner's outline - the renderer's CSS reads the same two constants), `rgba()` written as
+`#rrggbbaa` by `hex`, since a classDef is split on commas; each edge a `linkStyle` from
+`condensedEdgeStyle`, indexed in the order the edges are written, `×N` when N > 1. Hover text and
+routes are left out: Mermaid lays out itself. No Mermaid parser is a dependency, so the unit tests
+read the export back with a line grammar of their own rather than through Mermaid.
 
 The page's `window.drawn` counts only real condensed layouts (the target drawing starts `null`), so a
 browser test waiting on it after switching views waits for ELK, not for the empty first render.

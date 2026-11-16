@@ -17,12 +17,13 @@ import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { captionParts, opening, screen, tap } from './model.ts';
 import { condensed, condensedCaption, condensedOpening, hoverText, tapCondensed } from './condensed.ts';
+import { condensedMermaid } from './mermaid.ts';
 import {
   captionAt, elkGraph, flatEdgeId, flatElkGraph, positions, roundedPath, routes, NODE_HEIGHT, TITLE_HEIGHT,
   type Point, type Positioned,
 } from './layout.ts';
 import {
-  PALETTE, NODE_DEFAULT, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, edgeStyle,
+  PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, edgeStyle,
 } from './theme.ts';
 import {
   absolute, diffViews, easeOut, frame, HIGHLIGHT_MS, MOTION_CUTOFF, MOVE_MS, type Drawn,
@@ -35,14 +36,14 @@ import type {
 function installStyles() {
   const style = document.createElement('style');
   style.textContent = `${css}
-    .cf-node { border: 1px solid #999; border-radius: 4px; font: 11px system-ui, sans-serif;
+    .cf-node { border: 1px solid ${NODE_OUTLINE}; border-radius: 4px; font: 11px system-ui, sans-serif;
                display: flex; align-items: center; justify-content: center; box-sizing: border-box;
                width: 100%; height: 100%; }
     .cf-box { border: 1px solid #999; border-radius: 4px; background: ${PALETTE.METHOD};
               box-sizing: border-box; width: 100%; height: 100%; }
     .cf-box > .cf-title { font: bold 11px system-ui, sans-serif; padding: 0 6px; box-sizing: border-box;
                           height: ${TITLE_HEIGHT}px; line-height: ${TITLE_HEIGHT}px; }
-    .cf-group { border: 2px solid ${GROUP_OUTLINE}; border-radius: 4px; background: #fff;
+    .cf-group { border: 2px solid ${GROUP_OUTLINE}; border-radius: 4px; background: ${GROUP_FILL};
                 font: bold 11px system-ui, sans-serif; display: flex; align-items: center;
                 justify-content: center; box-sizing: border-box; width: 100%; height: 100%; }
     .cf-toolbar { position: fixed; top: 8px; left: 8px; z-index: 10; display: flex; gap: 4px; }
@@ -467,13 +468,12 @@ type Hover = { target: CondensedTarget; x: number; y: number };
  * The condensed view: flat, laid out by ELK like the boxed one, with a tooltip where the boxes would
  * have said where a node lives. Every decision is condensed.ts's; this writes it out.
  */
-function CondensedGraph({ payload, revealed, setRevealed }: Revealing) {
+function CondensedGraph({ payload, revealed, setRevealed, view }: Revealing & { view: CondensedView }) {
   // Null until ELK first answers, so that the layout counter counts only real layouts: a probe
   // waiting for the condensed view to be drawn must not be satisfied by the empty first render.
   const [target, setTarget] = useState<Target | null>(null);
   const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
   const [hover, setHover] = useState<Hover | null>(null);
-  const view = useMemo(() => condensed(payload, revealed), [payload, revealed]);
   const previous = useRef<Map<Id, Point>>(undefined);
   const click = useRef<Click | undefined>(undefined);
 
@@ -533,6 +533,16 @@ function CondensedGraph({ payload, revealed, setRevealed }: Revealing) {
 
 type Mode = 'boxes' | 'condensed';
 
+/** The condensed view as a Mermaid document, fenced so it renders where it is opened, saved by the browser. */
+function download(view: CondensedView) {
+  const blob = new Blob(['```mermaid\n', condensedMermaid(view), '```\n'], { type: 'text/markdown' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'codeflow-condensed.md';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 /**
  * The two views and the switch between them. Each view's `revealed` lives here rather than in the
  * view, so that switching away and back returns to what the reader had opened. Boxes is the default,
@@ -542,6 +552,8 @@ function Page({ payload }: { payload: Payload }) {
   const [mode, setMode] = useState<Mode>('boxes');
   const [boxed, setBoxed] = useState<Set<Id>>(() => opening(payload));
   const [shown, setShown] = useState<Set<Id>>(() => condensedOpening(payload));
+  // Here rather than in CondensedGraph so that the Mermaid button exports the very view drawn.
+  const condensedView = useMemo(() => condensed(payload, shown), [payload, shown]);
 
   // Folding needs a box, so a sprawl inside the entry method has nothing to fold, and the condensed
   // view folds nothing at all. Without this the only way back is a reload, which re-runs the whole
@@ -565,10 +577,11 @@ function Page({ payload }: { payload: Payload }) {
         <button type="button" aria-pressed={mode === 'boxes'} onClick={() => setMode('boxes')}>Boxes</button>
         <button type="button" aria-pressed={mode === 'condensed'} onClick={() => setMode('condensed')}>Condensed</button>
         <button type="button" onClick={reset}>Reset</button>
+        {mode === 'condensed' && <button type="button" onClick={() => download(condensedView)}>Mermaid</button>}
       </div>
       {mode === 'boxes'
         ? <Graph payload={payload} revealed={boxed} setRevealed={setBoxed} />
-        : <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} />}
+        : <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={condensedView} />}
     </>
   );
 }

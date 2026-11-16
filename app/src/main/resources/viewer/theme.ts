@@ -35,6 +35,12 @@ export const PALETTE: Partial<Record<NodeType, string>> = {
 /** What a node with no colour of its own is filled with. */
 export const NODE_DEFAULT = '#ddd';
 
+/** A leaf's outline, 1 px, whatever its fill. */
+export const NODE_OUTLINE = '#999';
+
+/** A condensed-view group's fill: white, so its outline is what says whose it is. */
+export const GROUP_FILL = '#fff';
+
 /**
  * A condensed-view group's outline: `program` grey, a boundary method's group in the boundaries
  * purple - the same purple as the token and the ORDER edges, since all three are the boundary.

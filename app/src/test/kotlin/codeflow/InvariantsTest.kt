@@ -400,13 +400,14 @@ class InvariantsTest {
     private companion object {
         val ENTRY_POINTS = mapOf(
             "noMain" to "Report#total", "twoEntryPoints" to "Api#quote", "boundary" to "App#entrypoint",
-            "boundaryOrder" to "App#entrypoint", "boundaryRoots" to "App#first", "boundaryBranch" to "App#entrypoint"
+            "boundaryOrder" to "App#entrypoint", "boundaryRoots" to "App#first", "boundaryBranch" to "App#entrypoint",
+            "boundaryInterface" to "Service#run"
         )
 
         /** Drawn as the fixture's own test draws it, so the sweep checks the graph the golden holds. */
         val BOUNDARIES = mapOf(
             "boundary" to listOf("Boundary"), "boundaryOrder" to listOf("Gateway"), "boundaryRoots" to listOf("Store"),
-            "boundaryBranch" to listOf("Port")
+            "boundaryBranch" to listOf("Port"), "boundaryInterface" to listOf("Store")
         )
 
         val cache = HashMap<String, Drawn>()

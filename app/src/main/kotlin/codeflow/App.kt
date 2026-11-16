@@ -16,7 +16,7 @@ import kotlin.system.exitProcess
  * not start with `--` - and fail on a path that was never meant to be one. Both spellings are
  * accepted because both are what people type.
  */
-private class Args(argv: Array<String>) {
+private class Args(given: Array<String>) {
     var directory: String? = null
         private set
     val from = ArrayList<String>()
@@ -24,6 +24,7 @@ private class Args(argv: Array<String>) {
     val flags = HashSet<String>()
 
     init {
+        val argv = expandArgumentFiles(given)
         var i = 0
         while (i < argv.size) {
             val arg = argv[i]
@@ -55,6 +56,25 @@ private class Args(argv: Array<String>) {
     companion object {
         val FORMATS = setOf("--html", "--json", "--graphml", "--summaries")
     }
+}
+
+/**
+ * Each `@path` replaced by the arguments that file holds, javac's convention: every line split on
+ * whitespace, blank lines and lines starting `#` skipped. Not recursive - an `@` inside the file is an
+ * ordinary argument. So a set of roots and boundaries lives in a file a person edits, rather than in a
+ * shell history.
+ *
+ * A file that cannot be read fails, naming it: run without the roots and boundaries it held, the
+ * document would be a complete graph of something other than what was asked for.
+ */
+internal fun expandArgumentFiles(argv: Array<String>): List<String> = argv.flatMap { arg ->
+    if (!arg.startsWith("@")) return@flatMap listOf(arg)
+    val path = Path.of(arg.removePrefix("@"))
+    require(Files.isRegularFile(path)) { "arguments file $path not found" }
+    Files.readAllLines(path)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("#") }
+        .flatMap { it.split(Regex("\\s+")) }
 }
 
 fun main(argv: Array<String>) {

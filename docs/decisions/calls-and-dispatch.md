@@ -78,6 +78,28 @@ would have had to be repeated in the summarizer, and two copies of that rule are
 disagree. `boundary` is the fixture; `aBoundaryBodyIsNotRead` checks the body's literals are absent
 with the flag and present without it.
 
+**A boundary may be an interface.** A service usually reaches what is outside it through an injected,
+interface-typed field (`loanAssembler.assemble(id)`): nobody `new`ed the receiver, so dispatch takes
+javac's static answer, the interface method - which has no body and was never registered, so the call
+was a bare `EXTERNAL` and `--boundary` changed nothing. So an abstract or interface method declared
+directly on a boundary class is registered too (`GlobalContext.markBoundaries`, once the boundaries
+are known, since `--boundary` is matched against the registered classes) and lowered as the assumed
+implementation, which never reads a body. Bodyless methods of every other class stay unregistered.
+
+**No dispatch past a boundary.** A call javac resolves to a method declared on a boundary class *is*
+that boundary method, whatever objects the receiver holds (`Dispatch.boundary`, first in
+`Dispatch.resolve`; the summarizer asks it too before recording a `dispatch` gap). A boundary is the
+declared API, not one implementation, and its bodies are not read anyway: dispatching would draw
+`StoreImpl.save`'s body where the receiver happens to be a known `new StoreImpl()` and the boundary
+where it is not - one call site meaning two things depending on how much the analysis could see.
+Matched on the declaring class, as `isBoundary` is, so a method inherited from a supertype that is not
+itself a boundary is not one. Fixture `boundaryInterface`: an interface `Store`, its one
+implementation, and two roots, one through an injected field and one through `new StoreImpl()`.
+
+Roots and boundaries for a real corpus are a list someone edits, so a command-line argument `@path`
+is replaced by the arguments in that file (javac's convention: each line split on whitespace, blank
+lines and `#` lines skipped, not recursive). A missing file fails, naming it.
+
 **Boundary calls are chained in the order they ran.** Boundaries usually have side effects, so each
 assumed implementation also reads an order token before its call and writes the call's value back
 into it after: `boundaries → call f → boundaries → call g → …`. The token is one more input after

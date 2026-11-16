@@ -136,7 +136,7 @@ class AstReader(private val basePath: Path) {
             val ctx = getContext(compUnitTree, sourcePositions)
             compUnitTree.accept(AstProcessor(globalCtx), ctx)
         }
-        globalCtx.boundaries = boundaries.flatMapTo(LinkedHashSet()) { selectBoundary(globalCtx, it) }
+        globalCtx.markBoundaries(boundaries.flatMapTo(LinkedHashSet()) { selectBoundary(globalCtx, it) })
         return Analysis(globalCtx, manager)
     }
 

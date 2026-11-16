@@ -41,7 +41,8 @@ class AstProcessor(private val globalCtx: GlobalContext) : TreeScanner<GraphNode
         // reaches is decided at run time by the receiver's actual class, and codeflow does not track
         // that - picking one would be a guess drawn as fact. So it is left unregistered and the call
         // takes the opaque EXTERNAL path, which says the value goes in and something comes out
-        // without claiming to know what happened in between.
+        // without claiming to know what happened in between. One on a `--boundary` class is
+        // registered later, once the boundaries are known: `GlobalContext.markBoundaries`.
         if (node.body == null) {
             logger.debug { "No body to inline: ${node.name}" }
             return null

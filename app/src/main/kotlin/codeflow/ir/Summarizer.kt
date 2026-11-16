@@ -418,7 +418,8 @@ class Summarizer(
             }
             val types = receiver.mapNotNull { typeOf(it) }.distinct()
             val virtual = Dispatch.isVirtual(insn.receiver, declared)
-            if (virtual && overriddenInSources(declared)) {
+            // A boundary is not dispatched past (see Dispatch.boundary), so no body can be undecided.
+            if (virtual && Dispatch.boundary(globalCtx, declared) == null && overriddenInSources(declared)) {
                 val undecided = receiver.filter { typeOf(it) == null }
                 if (undecided.isNotEmpty() || receiver.isEmpty()) {
                     val on = if (receiver.isEmpty()) "an untracked receiver"

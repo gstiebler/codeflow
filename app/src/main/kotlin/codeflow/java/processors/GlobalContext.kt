@@ -52,6 +52,32 @@ class GlobalContext(val symbols: Symbols) {
      * assumed implementation instead - see `docs/decisions/calls-and-dispatch.md`.
      */
     var boundaries: Set<Element> = emptySet()
+        private set
+
+    /**
+     * Makes [classes] the boundaries, and registers what they declare with no body.
+     *
+     * An abstract or interface method is not registered as it is met (`AstProcessor.visitMethod`):
+     * there is nothing to inline. On a boundary class there is - the assumed implementation, which
+     * never reads a body - and it is what such a class is usually made of: a service reaches its
+     * gateways through interface-typed fields, so a boundary that is an interface would otherwise
+     * draw nothing at all. Bodyless methods of every other class stay unregistered.
+     *
+     * Here rather than in `AstProcessor` because the boundaries are only known once every class has
+     * been registered: `--boundary` is matched against them.
+     */
+    fun markBoundaries(classes: Set<Element>) {
+        boundaries = classes
+        for (boundary in classes) {
+            val declaring = findClass(boundary) ?: continue
+            for (member in declaring.tree.members) {
+                if (member !is MethodTree || member.body != null || !symbols.isWrittenInSource(member)) continue
+                val element = symbols.element(member, ElementKind.METHOD) as? ExecutableElement
+                    ?: throw GraphException("javac resolved no declaration for '${member.name}' at ${declaring.ctx.location(member)}")
+                addMethod(member, element, declaring.ctx)
+            }
+        }
+    }
 
     /** Whether [method] is a method (not a constructor) declared directly on a boundary class. */
     fun isBoundary(method: Method): Boolean =

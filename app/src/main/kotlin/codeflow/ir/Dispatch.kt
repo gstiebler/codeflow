@@ -36,11 +36,25 @@ object Dispatch {
      */
     fun resolve(globalCtx: GlobalContext, insn: Call, types: List<Element>): Method? {
         val declared = insn.target as? ExecutableElement ?: return null
+        boundary(globalCtx, declared)?.let { return it }
         val statically = globalCtx.findMethod(declared)
         if (!isVirtual(insn.receiver, declared)) return statically
         if (types.isEmpty()) return statically
         return types.map { globalCtx.implementation(declared, it) }.distinct().singleOrNull()
     }
+
+    /**
+     * The boundary method a call javac resolved to [declared] is, whatever objects its receiver holds.
+     *
+     * No dispatch past a boundary: `--boundary Store` names the API a service talks through, not one
+     * implementation of it, and a boundary's bodies are not read anyway. Dispatching would draw
+     * `StoreImpl.save`'s body for a receiver that happens to be a known `new StoreImpl()` and the
+     * boundary for one that is not - one call site meaning two things depending on how much the
+     * analysis could see. Matched on the declaring class, as [GlobalContext.isBoundary] is: a method
+     * inherited from a supertype that is not a boundary is not one.
+     */
+    fun boundary(globalCtx: GlobalContext, declared: ExecutableElement): Method? =
+        globalCtx.findMethod(declared)?.takeIf { globalCtx.isBoundary(it) }
 
     /**
      * Whether the receiver's class gets to choose, which is what "virtual" means.

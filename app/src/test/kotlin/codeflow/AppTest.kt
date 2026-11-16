@@ -1592,6 +1592,138 @@ class AppTest {
         assertTrue("8001" in read && "8002" in read, "the body literals are not drawn even without --boundary: $read")
     }
 
+    // --- A boundary that is an interface, reached through an injected field: `boundaryInterface/`. ---
+
+    private val boundaryInterfaceFiles = listOf("Service.java", "Store.java", "StoreImpl.java")
+
+    /** `run` calls Store through a field nobody `new`ed; `known` through a local that is a `new StoreImpl()`. */
+    private fun boundaryInterfaceRoots(boundaries: List<String> = listOf("Store")) = rootsOf(
+        "boundaryInterface", boundaryInterfaceFiles, from = listOf("Service#run", "Service#known"), boundaries = boundaries
+    )
+
+    /**
+     * An interface's methods have no body, and on a boundary that is no obstacle: `store.save(a)`
+     * draws `call save` with `a` going in, then the token, `ORDER` both ways, into `call load`.
+     */
+    @Test
+    fun anInterfaceBoundaryDrawsItsCallsInOrder() {
+        val roots = boundaryInterfaceRoots()
+        val run = roots.first()
+        val (save, load) = boundaryCalls(run).also {
+            assertEquals(listOf("call save", "call load"), it.map { call -> call.label })
+        }
+        val a = run.parameterNodes.single()
+        assertTrue(TestFixtures.reaches(a, save), "a does not reach call save")
+        assertFalse(TestFixtures.reaches(a, load), "a reaches call load, which it is never passed to")
+        val token = orderAfter(roots, save)
+        val edges = edgesOf(roots)
+        assertTrue(Triple(save, EdgeKind.ORDER, token) in edges, "call save does not leave the token as ORDER")
+        assertTrue(Triple(token, EdgeKind.ORDER, load) in edges, "call load does not take save's token as ORDER")
+        assertEquals(listOf(true, true), run.calledMethods.map { it.boundary }, "save and load's blocks are not boundary blocks")
+    }
+
+    /**
+     * No dispatch past a boundary: where the receiver is known to be a `new StoreImpl()`, the call
+     * is still the boundary, and StoreImpl's bodies are drawn nowhere. Without `--boundary` they are
+     * - dispatch on the object, as ever.
+     */
+    @Test
+    fun aBoundaryIsNotDispatchedPastToItsImplementation() {
+        val roots = boundaryInterfaceRoots()
+        val labels = nodesOf(roots).map { it.label }
+        assertTrue(labels.none { it == "7001" || it == "7002" }, "an implementation body was drawn: $labels")
+        assertEquals(listOf("call save", "call load"), boundaryCalls(roots.last()).map { it.label })
+        val read = nodesOf(boundaryInterfaceRoots(emptyList())).map { it.label }
+        assertTrue("7001" in read && "7002" in read, "the known receiver does not reach StoreImpl without --boundary: $read")
+    }
+
+    /**
+     * Without `--boundary` an interface method stays unregistered: `store.save(a)` is today's bare
+     * outside call - an EXTERNAL `save`, no block opened, nothing bold.
+     */
+    @Test
+    fun withoutTheBoundaryAnInterfaceCallIsABareExternal() {
+        val run = boundaryInterfaceRoots(emptyList()).first()
+        assertEquals(emptyList(), run.calledMethods.map { it.getMethodName() }, "a block was opened for a bodyless method")
+        val externals = run.graph.getNodes().filter { it.getType() == NodeType.EXTERNAL }
+        assertEquals(listOf("save" to null, "load" to null), externals.map { it.label to it.lead })
+        assertTrue(TestFixtures.reaches(run.parameterNodes.single(), externals.first()), "a does not reach save")
+    }
+
+    /**
+     * The summarizer agrees: `store.save(a)` on a field's object, overridden in the sources, is the
+     * boundary call and not an undecided dispatch - no `dispatch` gap, and `a` goes into `call save`.
+     */
+    @Test
+    fun summariesDoNotDispatchPastAnInterfaceBoundary() {
+        val doc = buildSummaries("boundaryInterface", listOf("Service#run"), listOf("Store"))
+        val run = summaryRows(doc).single()
+        assertEquals(0, run.getAsJsonArray("gaps").size(), "a gap on a boundary call: ${run.getAsJsonArray("gaps")}")
+        val flows = flowsOf(doc, "boundaryInterface.Service#run(int)")
+        assertTrue(flows.any { it.startsWith("P0>ext-arg:call save@") }, "a does not go into call save: $flows")
+    }
+
+    /** The payload marks an interface boundary's block as it marks a class's: what the condensed view groups by. */
+    @Test
+    fun jsonMarksAnInterfaceBoundarysBlocks() {
+        val boxes = jsonNodes(jsonOf(boundaryInterfaceRoots())).filter { it.get("type").asString == "METHOD" }
+        val saves = boxes.filter { jsonLabel(it) == "save" }
+        assertEquals(2, saves.size, "not one save block per root: ${saves.map { it.get("method") }}")
+        saves.forEach {
+            assertEquals("boundaryInterface.Store#save(int)", it.get("method").asString)
+            assertEquals(true, it.get("boundary")?.asBoolean, "Store#save's block is not marked a boundary")
+        }
+    }
+
+    // --- Arguments files: `@path` is replaced by the arguments the file holds. ---
+
+    private fun cli(vararg argv: String): String {
+        val out = java.io.ByteArrayOutputStream()
+        val saved = System.out
+        System.setOut(java.io.PrintStream(out, true))
+        try {
+            assertEquals(0, runCli(arrayOf(*argv)))
+        } finally {
+            System.setOut(saved)
+        }
+        return out.toString()
+    }
+
+    /**
+     * A file of roots and boundaries gives the document the same arguments inline do. It leads with
+     * a blank line, ahead of the directory - taken as an argument, that would be the directory - and
+     * has a comment that would fail as a `--boundary` naming nothing if it were read.
+     */
+    @Test
+    fun anArgumentsFileIsTheSameAsItsArgumentsInline() {
+        val file = Files.createTempFile("codeflow", ".args")
+        try {
+            Files.writeString(
+                file,
+                """
+                |
+                |# --boundary Nowhere
+                |--from Service#run --from Service#known
+                |   # indented comment
+                |
+                |--boundary Store
+                |""".trimMargin()
+            )
+            val dir = testResourcesPath.resolve("boundaryInterface").toString()
+            val inline = cli(dir, "--from", "Service#run", "--from", "Service#known", "--boundary", "Store", "--json")
+            assertEquals(inline, cli("@$file", dir, "--json"))
+            assertTrue("\"boundary\": true" in inline, "the inline run drew no boundary: $inline")
+        } finally {
+            Files.delete(file)
+        }
+    }
+
+    @Test
+    fun aMissingArgumentsFileFailsNamingIt() {
+        val error = assertFailsWith<IllegalArgumentException> { runCli(arrayOf("@/nowhere/roots.args", "src")) }
+        assertTrue("/nowhere/roots.args" in (error.message ?: ""), "the error does not name the file: ${error.message}")
+    }
+
     @Test
     fun aBoundaryThatNamesNoClassFailsLoudly() {
         val error = assertFailsWith<GraphException> { boundaryGraph(listOf("Nowhere")) }
@@ -2798,6 +2930,9 @@ class AppTest {
     )
     @Test fun boundaryBranch() = codeflow(
         "boundaryBranch", listOf("App.java", "Port.java"), from = listOf("App#entrypoint"), boundaries = listOf("Port")
+    )
+    @Test fun boundaryInterface() = codeflow(
+        "boundaryInterface", boundaryInterfaceFiles, from = listOf("Service#run", "Service#known"), boundaries = listOf("Store")
     )
     @Test fun member() = codeflow("member", listOf("App.java"))
     @Test fun files() = codeflow("files", listOf("App.java", "ClassX.java", "ClassY.java"))

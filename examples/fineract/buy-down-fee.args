@@ -1,0 +1,14 @@
+# BuyDownFeeWritePlatformServiceImpl#makeLoanBuyDownFee: root, and its injected collaborators as boundaries (seeded by seed-args.py)
+--from BuyDownFeeWritePlatformServiceImpl#makeLoanBuyDownFee
+--boundary org.apache.fineract.portfolio.loanaccount.service.ProgressiveLoanTransactionValidator
+--boundary org.apache.fineract.portfolio.loanaccount.service.LoanAssembler
+--boundary org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository
+--boundary org.apache.fineract.portfolio.paymentdetail.service.PaymentDetailWritePlatformService
+--boundary org.apache.fineract.portfolio.loanaccount.service.LoanJournalEntryPoster
+--boundary org.apache.fineract.infrastructure.core.service.ExternalIdFactory
+--boundary org.apache.fineract.portfolio.loanaccount.repository.LoanBuyDownFeeBalanceRepository
+--boundary org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService
+--boundary org.apache.fineract.infrastructure.codes.domain.CodeValueRepository
+--boundary org.apache.fineract.infrastructure.core.service.TransactionBoundApplicationEventPublisher
+--boundary org.springframework.data.jpa.repository.JpaRepository
+--boundary org.springframework.data.jpa.repository.JpaSpecificationExecutor

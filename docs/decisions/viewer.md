@@ -22,7 +22,8 @@ and drawing is the point:
 |---|---|
 | `model.ts` | every decision about what is on screen — `opening`, `tap`, `screen` — as pure functions of `(payload, revealed)`, no DOM and no library |
 | `condensed.ts` | the same for the condensed view — `condensed`, `tapCondensed`, `hoverText` — see [The condensed view](#the-condensed-view) |
-| `layout.ts` | the layout posed as a value: `elkGraph(view)`, `flatElkGraph(view)` and `positions(laidOut)` |
+| `layout.ts` | the layout posed as a value: `elkGraph(view)`, `flatElkGraph(view)` and `positions(laidOut)`, seeded from the last drawing by `stabilise` |
+| `transition.ts` | how one drawing becomes the next — `diffViews`, `frame` — by node id, pure; see [Expanding without losing your place](#expanding-without-losing-your-place) |
 | `types.ts`, `theme.ts` | the payload and view types, and the colours the page paints with |
 | `reactflow.tsx` | the renderer, and what `--html` emits |
 
@@ -230,6 +231,61 @@ it, which for a phi or a call is not the same line. The text comes from the payl
 (only the lines some node names), read from disk by JsonExporter rather than from the block's own
 file, because a field initialiser can be drawn in a block of another file.
 
-The page's `window.drawn` counts only real condensed layouts (the layout state starts `null`), so a
+The page's `window.drawn` counts only real condensed layouts (the target drawing starts `null`), so a
 browser test waiting on it after switching views waits for ELK, not for the empty first render.
 
+## Expanding without losing your place
+
+A click used to re-run ELK from scratch and refit, and the new drawing could look nothing like the
+old one. Spec: `docs/superpowers/specs/2026-11-15-expand-animation-design.md`. Three things, in both
+views; switching views is a plain redraw (each view remounts, lays out from scratch, does not animate).
+
+**Stable layout: ELK's interactive options, seeded from the last drawing** (`stabilise` in
+`layout.ts`). Each node drawn before gets its old position (`x`, `y` and `elk.position`); a new one
+sits half a pixel past its first already-drawn neighbour *in the same graph* (a position means
+nothing across a box boundary); every graph gets `elk.layered.layering.strategy: INTERACTIVE` and
+`crossingMinimization.semiInteractive: true`. Child and edge order are left alone. Measured by
+`node app/src/test/js/stability.ts` — a click-everything walk over every fixture `graph.json`
+(163 Boxes clicks, 103 Condensed clicks); per click, mean displacement of nodes drawn before and
+after (net of the clicked node's own move) and order inversions among them:
+
+| | Boxes px / inversions | Condensed px / inversions |
+|---|---|---|
+| from scratch (before) | 207.3 / 88.40 | 80.4 / 22.77 |
+| model order (`considerModelOrder: NODES_AND_EDGES`, input sorted by old position) | crashes elkjs 0.9.3 | 74.6 / 26.91 |
+| **interactive (chosen)** | **126.9 / 29.91** | **81.3 / 16.86** |
+
+Model order combined with `hierarchyHandling: INCLUDE_CHILDREN` throws from inside an elkjs timer
+(uncatchable), so it cannot be used for Boxes at all, and in Condensed it moves nodes less but flips
+more of them. Interactive cuts both in Boxes; in Condensed it cuts inversions by a quarter and costs
+0.9 px of displacement (about 1 %) — kept, because an order that flips is what loses the reader, and
+a node that drifts a pixel is not. Things tried and dropped: feeding the input in the old drawing's
+order (row- or column-major) *with or without* interactive — it changes ELK's layering and cycle
+breaking and made both numbers worse in every variant; seating new nodes by BFS instead of at one
+neighbour — no gain. `layout-stability.test.ts` pins a one-neighbour reveal keeping every old pair's
+order on a payload where ELK from scratch does flip one.
+
+**The move** (`useMotion` in `reactflow.tsx`, positions from `transition.ts`). The old drawing stays
+on screen until the new layout lands; then kept nodes glide (and boxes resize) over 350 ms, ease-out;
+new nodes grow out of the clicked node's old place *on the page* (made relative to their own box's
+start) and fade in; gone nodes fade out where they were and are dropped when the move ends. The
+viewport moves against the clicked node every frame, so it holds still on screen; afterwards the page
+refits only if something new is off screen. A second click mid-move starts from the positions on
+screen. Positions are renderer state: `model.ts` and `condensed.ts` decide what is on screen and know
+nothing of motion, and `transition.ts` compares two drawings by node id (payload ids, `program`,
+`boundary:<method>`, all stable across clicks) with no DOM, so `node --test` covers the arithmetic.
+
+What appeared gets a fading ring (`cf-new`, `NEW_RING`, 1.5 s), nodes and edges alike; the node last
+clicked keeps a steady outline (`cf-clicked`) until the next click (an edge click clears it).
+
+**When it jumps instead.** `prefers-reduced-motion: reduce`, more than `MOTION_CUTOFF` (2,000) drawn
+nodes in the next view — every frame re-renders every node, and at that size it is a slideshow — and
+`window.cfAnimationMs = 0` (tests). A jump keeps the ring (static under reduced motion) and the anchor.
+
+**`window.drawn` counts after the move and any refit have finished**, and a move cut short by the
+next layout is never counted, so a test waiting on it reads the settled drawing. The ReactFlow root
+carries `cf-moving` while a move runs, for the browser tests (`animation.spec.ts`).
+
+**No `extent: 'parent'`.** React Flow clamps a child to its parent's *measured* size, and a box resized
+this frame has not been measured yet: every frame of a move drew its children in its top-left corner.
+Nothing is draggable, so the extent bought nothing. The 40 px anchor test is what caught it.

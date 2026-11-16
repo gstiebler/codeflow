@@ -77,7 +77,8 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
   of `(payload, revealed)`; `revealed` is the only state. ELK options are **strings**. A parent node
   must precede its children. → `docs/decisions/viewer.md`
   The condensed view (`condensed.ts`) follows the same contract; a group is a boundary `method`
-  read off the box, never a label.
+  read off the box, never a label. Positions and motion are renderer state (`stabilise`,
+  `transition.ts`); `window.drawn` counts only once a click's move has ended.
 
 ## Adding a Java construct
 

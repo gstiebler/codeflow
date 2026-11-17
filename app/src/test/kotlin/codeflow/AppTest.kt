@@ -1055,18 +1055,18 @@ class AppTest {
     }
 
     /**
-     * Each call is the assumed implementation: parameters into `call <name>`, that into `result`,
-     * `result` out through the method's RETURN to the caller.
+     * Each call is the assumed implementation: parameters into `call <name>`, that straight out
+     * through the method's RETURN to the caller - no `result` local in between.
      */
     @Test
     fun aBoundaryCallIsTheAssumedImplementation() {
         val graph = boundaryGraph()
         val types = nodeTypes(graph).toSet()
         assertTrue("call boundaryfunc1" to "EXTERNAL" in types, "no EXTERNAL call node: $types")
-        assertTrue("result" to "VARIABLE" in types, "no result local: $types")
+        assertTrue(types.none { it.first == "result" }, "a result local is drawn: $types")
         val edges = edgeLabels(graph)
         assertTrue("x" to "call boundaryfunc1" in edges, "the parameter does not feed the call: $edges")
-        assertTrue("call boundaryfunc1" to "result" in edges, "the call does not feed result: $edges")
+        assertTrue("call boundaryfunc1" to "boundaryfunc1" in edges, "the call does not feed the RETURN: $edges")
     }
 
     /** What the caller passes reaches the call it is passed to, in each arm of the `if`. */
@@ -1246,8 +1246,8 @@ class AppTest {
             assertEquals(splitsOf(roots).size, splits, "not as many splits as the fixture has `if`s around boundary calls")
             assertTrue(others.all { token(it.first) && it.third in splitsOf(roots) } && others.size == splits,
                 "edges off the chain are ORDER: ${others.map { "${it.first.label} -> ${it.third.label}" }}")
-            assertTrue(edges.any { call(it.first) && it.third.label == "result" && it.second == EdgeKind.FLOW },
-                "the call's value does not reach result as plain flow")
+            assertTrue(edges.any { call(it.first) && it.third.getType() == NodeType.RETURN && it.second == EdgeKind.FLOW },
+                "the call's value does not reach the method's RETURN as plain flow")
         }
     }
 

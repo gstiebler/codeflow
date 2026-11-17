@@ -82,8 +82,8 @@ function LeafNode({ data }: NodeProps) {
   return (
     <div className="cf-node" style={{ background: PALETTE[node.type] ?? NODE_DEFAULT }}>
       <Handle type="target" position={Position.Top} />
-      {caption.lead !== undefined && <strong>{caption.lead}</strong>}
-      {caption.rest}
+      {/* One span: as a flex item of its own, `rest` would lose its leading space - `callfetch`. */}
+      <span>{caption.lead !== undefined && <strong>{caption.lead}</strong>}{caption.rest}</span>
       <Handle type="source" position={Position.Bottom} />
     </div>
   );

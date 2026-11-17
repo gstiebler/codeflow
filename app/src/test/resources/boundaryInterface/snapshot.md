@@ -26,48 +26,44 @@ flowchart TD
       n12[load]:::RETURN
       n13["`**call** load`"]:::EXTERNAL
       n14[boundaries run]:::BOUNDARIES
-      n15[result]:::VARIABLE
       n13["`**call** load`"]:::EXTERNAL -. order .-> n14[boundaries run]:::BOUNDARIES
-      n13["`**call** load`"]:::EXTERNAL --> n15[result]:::VARIABLE
-      n15[result]:::VARIABLE --> n12[load]:::RETURN
+      n13["`**call** load`"]:::EXTERNAL --> n12[load]:::RETURN
     end
   end
-  subgraph b16["known"]
-    n17[event known]:::EVENT
-    n18[known]:::RETURN
-    n19[b]:::FUNC_PARAM
-    n20[StoreImpl]:::EXTERNAL
-    n21[local]:::OBJ_VARIABLE
-    n17[event known]:::EVENT -. event .-> n19[b]:::FUNC_PARAM
-    n17[event known]:::EVENT -. event .-> n20[StoreImpl]:::EXTERNAL
-    n17[event known]:::EVENT -. event .-> n23[save]:::RETURN
-    n17[event known]:::EVENT -. event .-> n25[boundaries known]:::BOUNDARIES
-    n19[b]:::FUNC_PARAM --> n24[x]:::FUNC_PARAM
-    n20[StoreImpl]:::EXTERNAL --> n21[local]:::OBJ_VARIABLE
-    n27[boundaries known]:::BOUNDARIES -. order .-> n30["`**call** load`"]:::EXTERNAL
-    n29[load]:::RETURN --> n18[known]:::RETURN
-    subgraph b22["save"]
-      n23[save]:::RETURN
-      n24[x]:::FUNC_PARAM
-      n25[boundaries known]:::BOUNDARIES
-      n26["`**call** save`"]:::EXTERNAL
-      n27[boundaries known]:::BOUNDARIES
-      n24[x]:::FUNC_PARAM --> n26["`**call** save`"]:::EXTERNAL
-      n25[boundaries known]:::BOUNDARIES -. order .-> n26["`**call** save`"]:::EXTERNAL
-      n26["`**call** save`"]:::EXTERNAL -. order .-> n27[boundaries known]:::BOUNDARIES
+  subgraph b15["known"]
+    n16[event known]:::EVENT
+    n17[known]:::RETURN
+    n18[b]:::FUNC_PARAM
+    n19[StoreImpl]:::EXTERNAL
+    n20[local]:::OBJ_VARIABLE
+    n16[event known]:::EVENT -. event .-> n18[b]:::FUNC_PARAM
+    n16[event known]:::EVENT -. event .-> n19[StoreImpl]:::EXTERNAL
+    n16[event known]:::EVENT -. event .-> n22[save]:::RETURN
+    n16[event known]:::EVENT -. event .-> n24[boundaries known]:::BOUNDARIES
+    n18[b]:::FUNC_PARAM --> n23[x]:::FUNC_PARAM
+    n19[StoreImpl]:::EXTERNAL --> n20[local]:::OBJ_VARIABLE
+    n26[boundaries known]:::BOUNDARIES -. order .-> n29["`**call** load`"]:::EXTERNAL
+    n28[load]:::RETURN --> n17[known]:::RETURN
+    subgraph b21["save"]
+      n22[save]:::RETURN
+      n23[x]:::FUNC_PARAM
+      n24[boundaries known]:::BOUNDARIES
+      n25["`**call** save`"]:::EXTERNAL
+      n26[boundaries known]:::BOUNDARIES
+      n23[x]:::FUNC_PARAM --> n25["`**call** save`"]:::EXTERNAL
+      n24[boundaries known]:::BOUNDARIES -. order .-> n25["`**call** save`"]:::EXTERNAL
+      n25["`**call** save`"]:::EXTERNAL -. order .-> n26[boundaries known]:::BOUNDARIES
     end
-    subgraph b28["load"]
-      n29[load]:::RETURN
-      n30["`**call** load`"]:::EXTERNAL
-      n31[boundaries known]:::BOUNDARIES
-      n32[result]:::VARIABLE
-      n30["`**call** load`"]:::EXTERNAL -. order .-> n31[boundaries known]:::BOUNDARIES
-      n30["`**call** load`"]:::EXTERNAL --> n32[result]:::VARIABLE
-      n32[result]:::VARIABLE --> n29[load]:::RETURN
+    subgraph b27["load"]
+      n28[load]:::RETURN
+      n29["`**call** load`"]:::EXTERNAL
+      n30[boundaries known]:::BOUNDARIES
+      n29["`**call** load`"]:::EXTERNAL -. order .-> n30[boundaries known]:::BOUNDARIES
+      n29["`**call** load`"]:::EXTERNAL --> n28[load]:::RETURN
     end
   end
-  n14[boundaries run]:::BOUNDARIES -. shared .-> n25[boundaries known]:::BOUNDARIES
-  n31[boundaries known]:::BOUNDARIES -. shared .-> n8[boundaries run]:::BOUNDARIES
+  n14[boundaries run]:::BOUNDARIES -. shared .-> n24[boundaries known]:::BOUNDARIES
+  n30[boundaries known]:::BOUNDARIES -. shared .-> n8[boundaries run]:::BOUNDARIES
   linkStyle 0 stroke:#00897b,color:#00897b
   linkStyle 1 stroke:#00897b,color:#00897b
   linkStyle 2 stroke:#00897b,color:#00897b
@@ -76,14 +72,14 @@ flowchart TD
   linkStyle 8 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 9 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 10 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 12 stroke:#00897b,color:#00897b
   linkStyle 13 stroke:#00897b,color:#00897b
   linkStyle 14 stroke:#00897b,color:#00897b
   linkStyle 15 stroke:#00897b,color:#00897b
-  linkStyle 16 stroke:#00897b,color:#00897b
-  linkStyle 19 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 18 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 21 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 22 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 23 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 24 stroke:#7b1fa2,color:#7b1fa2
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

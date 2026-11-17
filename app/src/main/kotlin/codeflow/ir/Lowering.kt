@@ -193,7 +193,8 @@ class Lowering(private val symbols: Symbols, private val isBoundary: (Method) ->
 
         /**
          * A boundary method's assumed implementation, in place of its body:
-         * `T result = call f(p0, p1, ...); return result;`, and no return when it is `void`.
+         * `return call f(p0, p1, ...);`, and no return when it is `void`. No `result` local: it
+         * would be a second box saying what the call box already says.
          *
          * The operation is a call javac resolved to nothing, on no object - the instruction an
          * unresolved call already is - so the builder draws it `EXTERNAL` and the summarizer reads
@@ -216,8 +217,7 @@ class Lowering(private val symbols: Symbols, private val isBoundary: (Method) ->
             emit(WriteBoundaryOrder(call, source))
             val returnType = method.element.returnType.kind
             if (returnType == TypeKind.VOID) return
-            val result = emit(WriteLocal("result", null, returnType.isPrimitive, call, source))
-            emit(Return(result, source))
+            emit(Return(call, source))
         }
 
         /**

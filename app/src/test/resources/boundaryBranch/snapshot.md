@@ -13,49 +13,49 @@ flowchart TD
     n1[event entrypoint]:::EVENT -. event .-> n7[noElse]:::RETURN
     n1[event entrypoint]:::EVENT -. event .-> n11[open]:::RETURN
     n1[event entrypoint]:::EVENT -. event .-> n13[boundaries entrypoint]:::BOUNDARIES
-    n1[event entrypoint]:::EVENT -. event .-> n27[close]:::RETURN
-    n1[event entrypoint]:::EVENT -. event .-> n32[onlyElse]:::RETURN
-    n1[event entrypoint]:::EVENT -. event .-> n41[1]:::LITERAL
-    n1[event entrypoint]:::EVENT -. event .-> n36[open]:::RETURN
-    n1[event entrypoint]:::EVENT -. event .-> n56[close]:::RETURN
-    n1[event entrypoint]:::EVENT -. event .-> n61[nested]:::RETURN
-    n1[event entrypoint]:::EVENT -. event .-> n66[open]:::RETURN
-    n1[event entrypoint]:::EVENT -. event .-> n103[close]:::RETURN
-    n1[event entrypoint]:::EVENT -. event .-> n112[open]:::RETURN
-    n1[event entrypoint]:::EVENT -. event .-> n122[close]:::RETURN
+    n1[event entrypoint]:::EVENT -. event .-> n26[close]:::RETURN
+    n1[event entrypoint]:::EVENT -. event .-> n31[onlyElse]:::RETURN
+    n1[event entrypoint]:::EVENT -. event .-> n40[1]:::LITERAL
+    n1[event entrypoint]:::EVENT -. event .-> n35[open]:::RETURN
+    n1[event entrypoint]:::EVENT -. event .-> n54[close]:::RETURN
+    n1[event entrypoint]:::EVENT -. event .-> n59[nested]:::RETURN
+    n1[event entrypoint]:::EVENT -. event .-> n64[open]:::RETURN
+    n1[event entrypoint]:::EVENT -. event .-> n97[close]:::RETURN
+    n1[event entrypoint]:::EVENT -. event .-> n106[open]:::RETURN
+    n1[event entrypoint]:::EVENT -. event .-> n116[close]:::RETURN
     n3[a]:::FUNC_PARAM --> n8[a]:::FUNC_PARAM
-    n3[a]:::FUNC_PARAM --> n33[a]:::FUNC_PARAM
-    n3[a]:::FUNC_PARAM --> n62[a]:::FUNC_PARAM
-    n3[a]:::FUNC_PARAM --> n109[a]:::FUNC_PARAM
+    n3[a]:::FUNC_PARAM --> n32[a]:::FUNC_PARAM
+    n3[a]:::FUNC_PARAM --> n60[a]:::FUNC_PARAM
+    n3[a]:::FUNC_PARAM --> n103[a]:::FUNC_PARAM
     n4[b]:::FUNC_PARAM --> n9[b]:::FUNC_PARAM
-    n4[b]:::FUNC_PARAM --> n34[b]:::FUNC_PARAM
-    n4[b]:::FUNC_PARAM --> n63[b]:::FUNC_PARAM
-    n4[b]:::FUNC_PARAM --> n110[b]:::FUNC_PARAM
-    n5[c]:::FUNC_PARAM --> n64[c]:::FUNC_PARAM
-    n30[boundaries entrypoint]:::BOUNDARIES -. order .-> n38["`**call** open`"]:::EXTERNAL
-    n59[boundaries entrypoint]:::BOUNDARIES -. order .-> n68["`**call** open`"]:::EXTERNAL
-    n106[boundaries entrypoint]:::BOUNDARIES -. order .-> n114["`**call** open`"]:::EXTERNAL
+    n4[b]:::FUNC_PARAM --> n33[b]:::FUNC_PARAM
+    n4[b]:::FUNC_PARAM --> n61[b]:::FUNC_PARAM
+    n4[b]:::FUNC_PARAM --> n104[b]:::FUNC_PARAM
+    n5[c]:::FUNC_PARAM --> n62[c]:::FUNC_PARAM
+    n29[boundaries entrypoint]:::BOUNDARIES -. order .-> n37["`**call** open`"]:::EXTERNAL
+    n57[boundaries entrypoint]:::BOUNDARIES -. order .-> n66["`**call** open`"]:::EXTERNAL
+    n100[boundaries entrypoint]:::BOUNDARIES -. order .-> n108["`**call** open`"]:::EXTERNAL
     subgraph b6["noElse"]
       n7[noElse]:::RETURN
       n8[a]:::FUNC_PARAM
       n9[b]:::FUNC_PARAM
       n16[>]:::BIN_OP
       n20[if]:::BIN_OP
-      n24[if]:::BIN_OP
-      n25[boundaries entrypoint]:::BOUNDARIES
+      n23[if]:::BIN_OP
+      n24[boundaries entrypoint]:::BOUNDARIES
       n8[a]:::FUNC_PARAM --> n12[x]:::FUNC_PARAM
       n8[a]:::FUNC_PARAM --> n16[>]:::BIN_OP
-      n8[a]:::FUNC_PARAM --> n28[x]:::FUNC_PARAM
+      n8[a]:::FUNC_PARAM --> n27[x]:::FUNC_PARAM
       n9[b]:::FUNC_PARAM --> n16[>]:::BIN_OP
       n9[b]:::FUNC_PARAM --> n19[x]:::FUNC_PARAM
       n16[>]:::BIN_OP -->|if| n20[if]:::BIN_OP
-      n16[>]:::BIN_OP -->|if| n24[if]:::BIN_OP
+      n16[>]:::BIN_OP -->|if| n23[if]:::BIN_OP
       n20[if]:::BIN_OP -->|true| n21["`**call** send`"]:::EXTERNAL
-      n20[if]:::BIN_OP -->|false| n24[if]:::BIN_OP
-      n24[if]:::BIN_OP --> n25[boundaries entrypoint]:::BOUNDARIES
-      n25[boundaries entrypoint]:::BOUNDARIES -. order .-> n29["`**call** close`"]:::EXTERNAL
+      n20[if]:::BIN_OP -->|false| n23[if]:::BIN_OP
+      n23[if]:::BIN_OP --> n24[boundaries entrypoint]:::BOUNDARIES
+      n24[boundaries entrypoint]:::BOUNDARIES -. order .-> n28["`**call** close`"]:::EXTERNAL
       n15[boundaries entrypoint]:::BOUNDARIES -. order .-> n20[if]:::BIN_OP
-      n22[boundaries entrypoint]:::BOUNDARIES -->|true| n24[if]:::BIN_OP
+      n22[boundaries entrypoint]:::BOUNDARIES -->|true| n23[if]:::BIN_OP
       subgraph b10["open"]
         n11[open]:::RETURN
         n12[x]:::FUNC_PARAM
@@ -71,219 +71,207 @@ flowchart TD
         n19[x]:::FUNC_PARAM
         n21["`**call** send`"]:::EXTERNAL
         n22[boundaries entrypoint]:::BOUNDARIES
-        n23[result]:::VARIABLE
         n19[x]:::FUNC_PARAM --> n21["`**call** send`"]:::EXTERNAL
         n21["`**call** send`"]:::EXTERNAL -. order .-> n22[boundaries entrypoint]:::BOUNDARIES
-        n21["`**call** send`"]:::EXTERNAL --> n23[result]:::VARIABLE
-        n23[result]:::VARIABLE --> n18[send]:::RETURN
+        n21["`**call** send`"]:::EXTERNAL --> n18[send]:::RETURN
       end
-      subgraph b26["close"]
-        n27[close]:::RETURN
-        n28[x]:::FUNC_PARAM
-        n29["`**call** close`"]:::EXTERNAL
-        n30[boundaries entrypoint]:::BOUNDARIES
-        n28[x]:::FUNC_PARAM --> n29["`**call** close`"]:::EXTERNAL
-        n29["`**call** close`"]:::EXTERNAL -. order .-> n30[boundaries entrypoint]:::BOUNDARIES
+      subgraph b25["close"]
+        n26[close]:::RETURN
+        n27[x]:::FUNC_PARAM
+        n28["`**call** close`"]:::EXTERNAL
+        n29[boundaries entrypoint]:::BOUNDARIES
+        n27[x]:::FUNC_PARAM --> n28["`**call** close`"]:::EXTERNAL
+        n28["`**call** close`"]:::EXTERNAL -. order .-> n29[boundaries entrypoint]:::BOUNDARIES
       end
     end
-    subgraph b31["onlyElse"]
-      n32[onlyElse]:::RETURN
-      n33[a]:::FUNC_PARAM
-      n34[b]:::FUNC_PARAM
-      n40[<]:::BIN_OP
-      n41[1]:::LITERAL
-      n42[+]:::BIN_OP
-      n43[b]:::VARIABLE
-      n47[if]:::BIN_OP
+    subgraph b30["onlyElse"]
+      n31[onlyElse]:::RETURN
+      n32[a]:::FUNC_PARAM
+      n33[b]:::FUNC_PARAM
+      n39[<]:::BIN_OP
+      n40[1]:::LITERAL
+      n41[+]:::BIN_OP
+      n42[b]:::VARIABLE
+      n46[if]:::BIN_OP
+      n49[if]:::BIN_OP
+      n50[b]:::VARIABLE
       n51[if]:::BIN_OP
-      n52[b]:::VARIABLE
-      n53[if]:::BIN_OP
-      n54[boundaries entrypoint]:::BOUNDARIES
-      n33[a]:::FUNC_PARAM --> n37[x]:::FUNC_PARAM
-      n33[a]:::FUNC_PARAM --> n40[<]:::BIN_OP
-      n34[b]:::FUNC_PARAM --> n40[<]:::BIN_OP
-      n34[b]:::FUNC_PARAM --> n42[+]:::BIN_OP
-      n34[b]:::FUNC_PARAM --> n46[x]:::FUNC_PARAM
-      n34[b]:::FUNC_PARAM -->|false| n51[if]:::BIN_OP
-      n40[<]:::BIN_OP -->|if| n47[if]:::BIN_OP
-      n40[<]:::BIN_OP -->|if| n51[if]:::BIN_OP
-      n40[<]:::BIN_OP -->|if| n53[if]:::BIN_OP
-      n41[1]:::LITERAL --> n42[+]:::BIN_OP
-      n42[+]:::BIN_OP --> n43[b]:::VARIABLE
-      n43[b]:::VARIABLE -->|true| n51[if]:::BIN_OP
-      n47[if]:::BIN_OP -->|false| n48["`**call** send`"]:::EXTERNAL
-      n47[if]:::BIN_OP -->|true| n53[if]:::BIN_OP
-      n51[if]:::BIN_OP --> n52[b]:::VARIABLE
-      n52[b]:::VARIABLE --> n57[x]:::FUNC_PARAM
-      n53[if]:::BIN_OP --> n54[boundaries entrypoint]:::BOUNDARIES
-      n54[boundaries entrypoint]:::BOUNDARIES -. order .-> n58["`**call** close`"]:::EXTERNAL
-      n39[boundaries entrypoint]:::BOUNDARIES -. order .-> n47[if]:::BIN_OP
-      n49[boundaries entrypoint]:::BOUNDARIES -->|false| n53[if]:::BIN_OP
-      subgraph b35["open"]
-        n36[open]:::RETURN
-        n37[x]:::FUNC_PARAM
-        n38["`**call** open`"]:::EXTERNAL
-        n39[boundaries entrypoint]:::BOUNDARIES
-        n37[x]:::FUNC_PARAM --> n38["`**call** open`"]:::EXTERNAL
-        n38["`**call** open`"]:::EXTERNAL -. order .-> n39[boundaries entrypoint]:::BOUNDARIES
+      n52[boundaries entrypoint]:::BOUNDARIES
+      n32[a]:::FUNC_PARAM --> n36[x]:::FUNC_PARAM
+      n32[a]:::FUNC_PARAM --> n39[<]:::BIN_OP
+      n33[b]:::FUNC_PARAM --> n39[<]:::BIN_OP
+      n33[b]:::FUNC_PARAM --> n41[+]:::BIN_OP
+      n33[b]:::FUNC_PARAM --> n45[x]:::FUNC_PARAM
+      n33[b]:::FUNC_PARAM -->|false| n49[if]:::BIN_OP
+      n39[<]:::BIN_OP -->|if| n46[if]:::BIN_OP
+      n39[<]:::BIN_OP -->|if| n49[if]:::BIN_OP
+      n39[<]:::BIN_OP -->|if| n51[if]:::BIN_OP
+      n40[1]:::LITERAL --> n41[+]:::BIN_OP
+      n41[+]:::BIN_OP --> n42[b]:::VARIABLE
+      n42[b]:::VARIABLE -->|true| n49[if]:::BIN_OP
+      n46[if]:::BIN_OP -->|false| n47["`**call** send`"]:::EXTERNAL
+      n46[if]:::BIN_OP -->|true| n51[if]:::BIN_OP
+      n49[if]:::BIN_OP --> n50[b]:::VARIABLE
+      n50[b]:::VARIABLE --> n55[x]:::FUNC_PARAM
+      n51[if]:::BIN_OP --> n52[boundaries entrypoint]:::BOUNDARIES
+      n52[boundaries entrypoint]:::BOUNDARIES -. order .-> n56["`**call** close`"]:::EXTERNAL
+      n38[boundaries entrypoint]:::BOUNDARIES -. order .-> n46[if]:::BIN_OP
+      n48[boundaries entrypoint]:::BOUNDARIES -->|false| n51[if]:::BIN_OP
+      subgraph b34["open"]
+        n35[open]:::RETURN
+        n36[x]:::FUNC_PARAM
+        n37["`**call** open`"]:::EXTERNAL
+        n38[boundaries entrypoint]:::BOUNDARIES
+        n36[x]:::FUNC_PARAM --> n37["`**call** open`"]:::EXTERNAL
+        n37["`**call** open`"]:::EXTERNAL -. order .-> n38[boundaries entrypoint]:::BOUNDARIES
       end
-      subgraph b44["send"]
-        n45[send]:::RETURN
-        n46[x]:::FUNC_PARAM
-        n48["`**call** send`"]:::EXTERNAL
-        n49[boundaries entrypoint]:::BOUNDARIES
-        n50[result]:::VARIABLE
-        n46[x]:::FUNC_PARAM --> n48["`**call** send`"]:::EXTERNAL
-        n48["`**call** send`"]:::EXTERNAL -. order .-> n49[boundaries entrypoint]:::BOUNDARIES
-        n48["`**call** send`"]:::EXTERNAL --> n50[result]:::VARIABLE
-        n50[result]:::VARIABLE --> n45[send]:::RETURN
+      subgraph b43["send"]
+        n44[send]:::RETURN
+        n45[x]:::FUNC_PARAM
+        n47["`**call** send`"]:::EXTERNAL
+        n48[boundaries entrypoint]:::BOUNDARIES
+        n45[x]:::FUNC_PARAM --> n47["`**call** send`"]:::EXTERNAL
+        n47["`**call** send`"]:::EXTERNAL -. order .-> n48[boundaries entrypoint]:::BOUNDARIES
+        n47["`**call** send`"]:::EXTERNAL --> n44[send]:::RETURN
       end
-      subgraph b55["close"]
-        n56[close]:::RETURN
-        n57[x]:::FUNC_PARAM
-        n58["`**call** close`"]:::EXTERNAL
-        n59[boundaries entrypoint]:::BOUNDARIES
-        n57[x]:::FUNC_PARAM --> n58["`**call** close`"]:::EXTERNAL
-        n58["`**call** close`"]:::EXTERNAL -. order .-> n59[boundaries entrypoint]:::BOUNDARIES
+      subgraph b53["close"]
+        n54[close]:::RETURN
+        n55[x]:::FUNC_PARAM
+        n56["`**call** close`"]:::EXTERNAL
+        n57[boundaries entrypoint]:::BOUNDARIES
+        n55[x]:::FUNC_PARAM --> n56["`**call** close`"]:::EXTERNAL
+        n56["`**call** close`"]:::EXTERNAL -. order .-> n57[boundaries entrypoint]:::BOUNDARIES
       end
     end
-    subgraph b60["nested"]
-      n61[nested]:::RETURN
-      n62[a]:::FUNC_PARAM
-      n63[b]:::FUNC_PARAM
-      n64[c]:::FUNC_PARAM
-      n70[>=]:::BIN_OP
-      n71[<=]:::BIN_OP
-      n75[if]:::BIN_OP
-      n76[if]:::BIN_OP
-      n86[if]:::BIN_OP
-      n87[boundaries entrypoint]:::BOUNDARIES
-      n100[if]:::BIN_OP
-      n101[boundaries entrypoint]:::BOUNDARIES
-      n62[a]:::FUNC_PARAM --> n67[x]:::FUNC_PARAM
-      n62[a]:::FUNC_PARAM --> n70[>=]:::BIN_OP
-      n62[a]:::FUNC_PARAM --> n90[x]:::FUNC_PARAM
-      n63[b]:::FUNC_PARAM --> n70[>=]:::BIN_OP
-      n63[b]:::FUNC_PARAM --> n71[<=]:::BIN_OP
-      n63[b]:::FUNC_PARAM --> n96[x]:::FUNC_PARAM
-      n64[c]:::FUNC_PARAM --> n71[<=]:::BIN_OP
-      n64[c]:::FUNC_PARAM --> n74[x]:::FUNC_PARAM
-      n64[c]:::FUNC_PARAM --> n82[x]:::FUNC_PARAM
-      n64[c]:::FUNC_PARAM --> n104[x]:::FUNC_PARAM
-      n70[>=]:::BIN_OP -->|if| n75[if]:::BIN_OP
-      n70[>=]:::BIN_OP -->|if| n100[if]:::BIN_OP
-      n71[<=]:::BIN_OP -->|if| n76[if]:::BIN_OP
-      n71[<=]:::BIN_OP -->|if| n86[if]:::BIN_OP
-      n75[if]:::BIN_OP -->|true| n76[if]:::BIN_OP
-      n75[if]:::BIN_OP -->|false| n97["`**call** flush`"]:::EXTERNAL
-      n76[if]:::BIN_OP -->|true| n77["`**call** send`"]:::EXTERNAL
-      n76[if]:::BIN_OP -->|false| n83["`**call** flush`"]:::EXTERNAL
-      n86[if]:::BIN_OP --> n87[boundaries entrypoint]:::BOUNDARIES
-      n87[boundaries entrypoint]:::BOUNDARIES -. order .-> n91["`**call** send`"]:::EXTERNAL
-      n100[if]:::BIN_OP --> n101[boundaries entrypoint]:::BOUNDARIES
-      n101[boundaries entrypoint]:::BOUNDARIES -. order .-> n105["`**call** close`"]:::EXTERNAL
-      n69[boundaries entrypoint]:::BOUNDARIES -. order .-> n75[if]:::BIN_OP
-      n78[boundaries entrypoint]:::BOUNDARIES -->|true| n86[if]:::BIN_OP
-      n84[boundaries entrypoint]:::BOUNDARIES -->|false| n86[if]:::BIN_OP
-      n92[boundaries entrypoint]:::BOUNDARIES -->|true| n100[if]:::BIN_OP
-      n98[boundaries entrypoint]:::BOUNDARIES -->|false| n100[if]:::BIN_OP
-      subgraph b65["open"]
-        n66[open]:::RETURN
-        n67[x]:::FUNC_PARAM
-        n68["`**call** open`"]:::EXTERNAL
-        n69[boundaries entrypoint]:::BOUNDARIES
-        n67[x]:::FUNC_PARAM --> n68["`**call** open`"]:::EXTERNAL
-        n68["`**call** open`"]:::EXTERNAL -. order .-> n69[boundaries entrypoint]:::BOUNDARIES
+    subgraph b58["nested"]
+      n59[nested]:::RETURN
+      n60[a]:::FUNC_PARAM
+      n61[b]:::FUNC_PARAM
+      n62[c]:::FUNC_PARAM
+      n68[>=]:::BIN_OP
+      n69[<=]:::BIN_OP
+      n73[if]:::BIN_OP
+      n74[if]:::BIN_OP
+      n82[if]:::BIN_OP
+      n83[boundaries entrypoint]:::BOUNDARIES
+      n94[if]:::BIN_OP
+      n95[boundaries entrypoint]:::BOUNDARIES
+      n60[a]:::FUNC_PARAM --> n65[x]:::FUNC_PARAM
+      n60[a]:::FUNC_PARAM --> n68[>=]:::BIN_OP
+      n60[a]:::FUNC_PARAM --> n86[x]:::FUNC_PARAM
+      n61[b]:::FUNC_PARAM --> n68[>=]:::BIN_OP
+      n61[b]:::FUNC_PARAM --> n69[<=]:::BIN_OP
+      n61[b]:::FUNC_PARAM --> n91[x]:::FUNC_PARAM
+      n62[c]:::FUNC_PARAM --> n69[<=]:::BIN_OP
+      n62[c]:::FUNC_PARAM --> n72[x]:::FUNC_PARAM
+      n62[c]:::FUNC_PARAM --> n79[x]:::FUNC_PARAM
+      n62[c]:::FUNC_PARAM --> n98[x]:::FUNC_PARAM
+      n68[>=]:::BIN_OP -->|if| n73[if]:::BIN_OP
+      n68[>=]:::BIN_OP -->|if| n94[if]:::BIN_OP
+      n69[<=]:::BIN_OP -->|if| n74[if]:::BIN_OP
+      n69[<=]:::BIN_OP -->|if| n82[if]:::BIN_OP
+      n73[if]:::BIN_OP -->|true| n74[if]:::BIN_OP
+      n73[if]:::BIN_OP -->|false| n92["`**call** flush`"]:::EXTERNAL
+      n74[if]:::BIN_OP -->|true| n75["`**call** send`"]:::EXTERNAL
+      n74[if]:::BIN_OP -->|false| n80["`**call** flush`"]:::EXTERNAL
+      n82[if]:::BIN_OP --> n83[boundaries entrypoint]:::BOUNDARIES
+      n83[boundaries entrypoint]:::BOUNDARIES -. order .-> n87["`**call** send`"]:::EXTERNAL
+      n94[if]:::BIN_OP --> n95[boundaries entrypoint]:::BOUNDARIES
+      n95[boundaries entrypoint]:::BOUNDARIES -. order .-> n99["`**call** close`"]:::EXTERNAL
+      n67[boundaries entrypoint]:::BOUNDARIES -. order .-> n73[if]:::BIN_OP
+      n76[boundaries entrypoint]:::BOUNDARIES -->|true| n82[if]:::BIN_OP
+      n81[boundaries entrypoint]:::BOUNDARIES -->|false| n82[if]:::BIN_OP
+      n88[boundaries entrypoint]:::BOUNDARIES -->|true| n94[if]:::BIN_OP
+      n93[boundaries entrypoint]:::BOUNDARIES -->|false| n94[if]:::BIN_OP
+      subgraph b63["open"]
+        n64[open]:::RETURN
+        n65[x]:::FUNC_PARAM
+        n66["`**call** open`"]:::EXTERNAL
+        n67[boundaries entrypoint]:::BOUNDARIES
+        n65[x]:::FUNC_PARAM --> n66["`**call** open`"]:::EXTERNAL
+        n66["`**call** open`"]:::EXTERNAL -. order .-> n67[boundaries entrypoint]:::BOUNDARIES
       end
-      subgraph b72["send"]
-        n73[send]:::RETURN
-        n74[x]:::FUNC_PARAM
-        n77["`**call** send`"]:::EXTERNAL
-        n78[boundaries entrypoint]:::BOUNDARIES
-        n79[result]:::VARIABLE
-        n74[x]:::FUNC_PARAM --> n77["`**call** send`"]:::EXTERNAL
-        n77["`**call** send`"]:::EXTERNAL -. order .-> n78[boundaries entrypoint]:::BOUNDARIES
-        n77["`**call** send`"]:::EXTERNAL --> n79[result]:::VARIABLE
-        n79[result]:::VARIABLE --> n73[send]:::RETURN
+      subgraph b70["send"]
+        n71[send]:::RETURN
+        n72[x]:::FUNC_PARAM
+        n75["`**call** send`"]:::EXTERNAL
+        n76[boundaries entrypoint]:::BOUNDARIES
+        n72[x]:::FUNC_PARAM --> n75["`**call** send`"]:::EXTERNAL
+        n75["`**call** send`"]:::EXTERNAL -. order .-> n76[boundaries entrypoint]:::BOUNDARIES
+        n75["`**call** send`"]:::EXTERNAL --> n71[send]:::RETURN
       end
-      subgraph b80["flush"]
-        n81[flush]:::RETURN
-        n82[x]:::FUNC_PARAM
-        n83["`**call** flush`"]:::EXTERNAL
-        n84[boundaries entrypoint]:::BOUNDARIES
-        n85[result]:::VARIABLE
-        n82[x]:::FUNC_PARAM --> n83["`**call** flush`"]:::EXTERNAL
-        n83["`**call** flush`"]:::EXTERNAL -. order .-> n84[boundaries entrypoint]:::BOUNDARIES
-        n83["`**call** flush`"]:::EXTERNAL --> n85[result]:::VARIABLE
-        n85[result]:::VARIABLE --> n81[flush]:::RETURN
+      subgraph b77["flush"]
+        n78[flush]:::RETURN
+        n79[x]:::FUNC_PARAM
+        n80["`**call** flush`"]:::EXTERNAL
+        n81[boundaries entrypoint]:::BOUNDARIES
+        n79[x]:::FUNC_PARAM --> n80["`**call** flush`"]:::EXTERNAL
+        n80["`**call** flush`"]:::EXTERNAL -. order .-> n81[boundaries entrypoint]:::BOUNDARIES
+        n80["`**call** flush`"]:::EXTERNAL --> n78[flush]:::RETURN
       end
-      subgraph b88["send"]
-        n89[send]:::RETURN
-        n90[x]:::FUNC_PARAM
-        n91["`**call** send`"]:::EXTERNAL
-        n92[boundaries entrypoint]:::BOUNDARIES
-        n93[result]:::VARIABLE
-        n90[x]:::FUNC_PARAM --> n91["`**call** send`"]:::EXTERNAL
-        n91["`**call** send`"]:::EXTERNAL -. order .-> n92[boundaries entrypoint]:::BOUNDARIES
-        n91["`**call** send`"]:::EXTERNAL --> n93[result]:::VARIABLE
-        n93[result]:::VARIABLE --> n89[send]:::RETURN
+      subgraph b84["send"]
+        n85[send]:::RETURN
+        n86[x]:::FUNC_PARAM
+        n87["`**call** send`"]:::EXTERNAL
+        n88[boundaries entrypoint]:::BOUNDARIES
+        n86[x]:::FUNC_PARAM --> n87["`**call** send`"]:::EXTERNAL
+        n87["`**call** send`"]:::EXTERNAL -. order .-> n88[boundaries entrypoint]:::BOUNDARIES
+        n87["`**call** send`"]:::EXTERNAL --> n85[send]:::RETURN
       end
-      subgraph b94["flush"]
-        n95[flush]:::RETURN
-        n96[x]:::FUNC_PARAM
-        n97["`**call** flush`"]:::EXTERNAL
-        n98[boundaries entrypoint]:::BOUNDARIES
-        n99[result]:::VARIABLE
-        n96[x]:::FUNC_PARAM --> n97["`**call** flush`"]:::EXTERNAL
-        n97["`**call** flush`"]:::EXTERNAL -. order .-> n98[boundaries entrypoint]:::BOUNDARIES
-        n97["`**call** flush`"]:::EXTERNAL --> n99[result]:::VARIABLE
-        n99[result]:::VARIABLE --> n95[flush]:::RETURN
+      subgraph b89["flush"]
+        n90[flush]:::RETURN
+        n91[x]:::FUNC_PARAM
+        n92["`**call** flush`"]:::EXTERNAL
+        n93[boundaries entrypoint]:::BOUNDARIES
+        n91[x]:::FUNC_PARAM --> n92["`**call** flush`"]:::EXTERNAL
+        n92["`**call** flush`"]:::EXTERNAL -. order .-> n93[boundaries entrypoint]:::BOUNDARIES
+        n92["`**call** flush`"]:::EXTERNAL --> n90[flush]:::RETURN
       end
-      subgraph b102["close"]
-        n103[close]:::RETURN
-        n104[x]:::FUNC_PARAM
-        n105["`**call** close`"]:::EXTERNAL
-        n106[boundaries entrypoint]:::BOUNDARIES
-        n104[x]:::FUNC_PARAM --> n105["`**call** close`"]:::EXTERNAL
-        n105["`**call** close`"]:::EXTERNAL -. order .-> n106[boundaries entrypoint]:::BOUNDARIES
+      subgraph b96["close"]
+        n97[close]:::RETURN
+        n98[x]:::FUNC_PARAM
+        n99["`**call** close`"]:::EXTERNAL
+        n100[boundaries entrypoint]:::BOUNDARIES
+        n98[x]:::FUNC_PARAM --> n99["`**call** close`"]:::EXTERNAL
+        n99["`**call** close`"]:::EXTERNAL -. order .-> n100[boundaries entrypoint]:::BOUNDARIES
       end
     end
-    subgraph b107["untouched"]
-      n108[untouched]:::RETURN
-      n109[a]:::FUNC_PARAM
-      n110[b]:::FUNC_PARAM
-      n116[==]:::BIN_OP
-      n117[r]:::VARIABLE
-      n118[r]:::VARIABLE
-      n119[if]:::BIN_OP
-      n120[r]:::VARIABLE
-      n109[a]:::FUNC_PARAM --> n113[x]:::FUNC_PARAM
-      n109[a]:::FUNC_PARAM --> n116[==]:::BIN_OP
-      n109[a]:::FUNC_PARAM --> n117[r]:::VARIABLE
-      n110[b]:::FUNC_PARAM --> n116[==]:::BIN_OP
-      n110[b]:::FUNC_PARAM --> n118[r]:::VARIABLE
-      n116[==]:::BIN_OP -->|if| n119[if]:::BIN_OP
-      n117[r]:::VARIABLE -->|true| n119[if]:::BIN_OP
-      n118[r]:::VARIABLE -->|false| n119[if]:::BIN_OP
-      n119[if]:::BIN_OP --> n120[r]:::VARIABLE
-      n120[r]:::VARIABLE --> n123[x]:::FUNC_PARAM
-      n120[r]:::VARIABLE --> n108[untouched]:::RETURN
-      n115[boundaries entrypoint]:::BOUNDARIES -. order .-> n124["`**call** close`"]:::EXTERNAL
-      subgraph b111["open"]
-        n112[open]:::RETURN
-        n113[x]:::FUNC_PARAM
-        n114["`**call** open`"]:::EXTERNAL
-        n115[boundaries entrypoint]:::BOUNDARIES
-        n113[x]:::FUNC_PARAM --> n114["`**call** open`"]:::EXTERNAL
-        n114["`**call** open`"]:::EXTERNAL -. order .-> n115[boundaries entrypoint]:::BOUNDARIES
+    subgraph b101["untouched"]
+      n102[untouched]:::RETURN
+      n103[a]:::FUNC_PARAM
+      n104[b]:::FUNC_PARAM
+      n110[==]:::BIN_OP
+      n111[r]:::VARIABLE
+      n112[r]:::VARIABLE
+      n113[if]:::BIN_OP
+      n114[r]:::VARIABLE
+      n103[a]:::FUNC_PARAM --> n107[x]:::FUNC_PARAM
+      n103[a]:::FUNC_PARAM --> n110[==]:::BIN_OP
+      n103[a]:::FUNC_PARAM --> n111[r]:::VARIABLE
+      n104[b]:::FUNC_PARAM --> n110[==]:::BIN_OP
+      n104[b]:::FUNC_PARAM --> n112[r]:::VARIABLE
+      n110[==]:::BIN_OP -->|if| n113[if]:::BIN_OP
+      n111[r]:::VARIABLE -->|true| n113[if]:::BIN_OP
+      n112[r]:::VARIABLE -->|false| n113[if]:::BIN_OP
+      n113[if]:::BIN_OP --> n114[r]:::VARIABLE
+      n114[r]:::VARIABLE --> n117[x]:::FUNC_PARAM
+      n114[r]:::VARIABLE --> n102[untouched]:::RETURN
+      n109[boundaries entrypoint]:::BOUNDARIES -. order .-> n118["`**call** close`"]:::EXTERNAL
+      subgraph b105["open"]
+        n106[open]:::RETURN
+        n107[x]:::FUNC_PARAM
+        n108["`**call** open`"]:::EXTERNAL
+        n109[boundaries entrypoint]:::BOUNDARIES
+        n107[x]:::FUNC_PARAM --> n108["`**call** open`"]:::EXTERNAL
+        n108["`**call** open`"]:::EXTERNAL -. order .-> n109[boundaries entrypoint]:::BOUNDARIES
       end
-      subgraph b121["close"]
-        n122[close]:::RETURN
-        n123[x]:::FUNC_PARAM
-        n124["`**call** close`"]:::EXTERNAL
-        n125[boundaries entrypoint]:::BOUNDARIES
-        n123[x]:::FUNC_PARAM --> n124["`**call** close`"]:::EXTERNAL
-        n124["`**call** close`"]:::EXTERNAL -. order .-> n125[boundaries entrypoint]:::BOUNDARIES
+      subgraph b115["close"]
+        n116[close]:::RETURN
+        n117[x]:::FUNC_PARAM
+        n118["`**call** close`"]:::EXTERNAL
+        n119[boundaries entrypoint]:::BOUNDARIES
+        n117[x]:::FUNC_PARAM --> n118["`**call** close`"]:::EXTERNAL
+        n118["`**call** close`"]:::EXTERNAL -. order .-> n119[boundaries entrypoint]:::BOUNDARIES
       end
     end
   end
@@ -317,47 +305,47 @@ flowchart TD
   linkStyle 43 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 44 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 46 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 50 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 56 stroke:#c62828,color:#c62828
+  linkStyle 49 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 55 stroke:#c62828,color:#c62828
+  linkStyle 56 stroke:#6a6a6a,color:#6a6a6a
   linkStyle 57 stroke:#6a6a6a,color:#6a6a6a
   linkStyle 58 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 59 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 62 stroke:#2e7d32,color:#2e7d32
-  linkStyle 63 stroke:#c62828,color:#c62828
-  linkStyle 64 stroke:#2e7d32,color:#2e7d32
+  linkStyle 61 stroke:#2e7d32,color:#2e7d32
+  linkStyle 62 stroke:#c62828,color:#c62828
+  linkStyle 63 stroke:#2e7d32,color:#2e7d32
+  linkStyle 67 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 68 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 69 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 70 stroke:#c62828,color:#c62828
-  linkStyle 72 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 74 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 78 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 69 stroke:#c62828,color:#c62828
+  linkStyle 71 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 73 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 76 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 87 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 88 stroke:#6a6a6a,color:#6a6a6a
   linkStyle 89 stroke:#6a6a6a,color:#6a6a6a
   linkStyle 90 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 91 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 92 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 91 stroke:#2e7d32,color:#2e7d32
+  linkStyle 92 stroke:#c62828,color:#c62828
   linkStyle 93 stroke:#2e7d32,color:#2e7d32
   linkStyle 94 stroke:#c62828,color:#c62828
-  linkStyle 95 stroke:#2e7d32,color:#2e7d32
-  linkStyle 96 stroke:#c62828,color:#c62828
+  linkStyle 96 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 98 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 100 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 101 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 99 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 100 stroke:#2e7d32,color:#2e7d32
+  linkStyle 101 stroke:#c62828,color:#c62828
   linkStyle 102 stroke:#2e7d32,color:#2e7d32
   linkStyle 103 stroke:#c62828,color:#c62828
-  linkStyle 104 stroke:#2e7d32,color:#2e7d32
-  linkStyle 105 stroke:#c62828,color:#c62828
+  linkStyle 105 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 107 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 109 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 110 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 113 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 117 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 121 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 125 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 131 stroke:#6a6a6a,color:#6a6a6a
-  linkStyle 132 stroke:#2e7d32,color:#2e7d32
-  linkStyle 133 stroke:#c62828,color:#c62828
-  linkStyle 137 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 139 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 141 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 116 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 119 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 125 stroke:#6a6a6a,color:#6a6a6a
+  linkStyle 126 stroke:#2e7d32,color:#2e7d32
+  linkStyle 127 stroke:#c62828,color:#c62828
+  linkStyle 131 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 133 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 135 stroke:#7b1fa2,color:#7b1fa2
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

@@ -6,120 +6,110 @@ flowchart TD
     n3[a]:::FUNC_PARAM
     n4[b]:::FUNC_PARAM
     n5[c]:::FUNC_PARAM
-    n13[result1]:::VARIABLE
-    n14[0]:::LITERAL
-    n15[result2]:::VARIABLE
-    n16[>]:::BIN_OP
-    n21[if]:::BIN_OP
-    n25[result2]:::VARIABLE
-    n49[if]:::BIN_OP
-    n50[result2]:::VARIABLE
-    n51[if]:::BIN_OP
-    n52[boundaries entrypoint]:::BOUNDARIES
+    n12[result1]:::VARIABLE
+    n13[0]:::LITERAL
+    n14[result2]:::VARIABLE
+    n15[>]:::BIN_OP
+    n20[if]:::BIN_OP
+    n23[result2]:::VARIABLE
+    n44[if]:::BIN_OP
+    n45[result2]:::VARIABLE
+    n46[if]:::BIN_OP
+    n47[boundaries entrypoint]:::BOUNDARIES
     n1[event entrypoint]:::EVENT -. event .-> n2[entrypoint]:::RETURN
     n1[event entrypoint]:::EVENT -. event .-> n3[a]:::FUNC_PARAM
     n1[event entrypoint]:::EVENT -. event .-> n4[b]:::FUNC_PARAM
     n1[event entrypoint]:::EVENT -. event .-> n5[c]:::FUNC_PARAM
-    n1[event entrypoint]:::EVENT -. event .-> n14[0]:::LITERAL
+    n1[event entrypoint]:::EVENT -. event .-> n13[0]:::LITERAL
     n1[event entrypoint]:::EVENT -. event .-> n9[boundaries entrypoint]:::BOUNDARIES
     n3[a]:::FUNC_PARAM --> n8[x]:::FUNC_PARAM
-    n3[a]:::FUNC_PARAM --> n16[>]:::BIN_OP
-    n3[a]:::FUNC_PARAM --> n20[y]:::FUNC_PARAM
-    n3[a]:::FUNC_PARAM --> n36[x]:::FUNC_PARAM
-    n3[a]:::FUNC_PARAM --> n45[y]:::FUNC_PARAM
-    n4[b]:::FUNC_PARAM --> n16[>]:::BIN_OP
-    n4[b]:::FUNC_PARAM --> n29[y]:::FUNC_PARAM
-    n4[b]:::FUNC_PARAM --> n37[y]:::FUNC_PARAM
-    n5[c]:::FUNC_PARAM --> n30[z]:::FUNC_PARAM
-    n5[c]:::FUNC_PARAM --> n38[z]:::FUNC_PARAM
-    n13[result1]:::VARIABLE --> n19[x]:::FUNC_PARAM
-    n14[0]:::LITERAL --> n15[result2]:::VARIABLE
-    n15[result2]:::VARIABLE --> n44[x]:::FUNC_PARAM
-    n15[result2]:::VARIABLE -->|false| n49[if]:::BIN_OP
-    n16[>]:::BIN_OP -->|if| n21[if]:::BIN_OP
-    n16[>]:::BIN_OP -->|if| n49[if]:::BIN_OP
-    n16[>]:::BIN_OP -->|if| n51[if]:::BIN_OP
-    n21[if]:::BIN_OP -->|true| n22["`**call** boundaryfunc2`"]:::EXTERNAL
-    n21[if]:::BIN_OP -->|false| n39["`**call** boundaryfunc3`"]:::EXTERNAL
-    n25[result2]:::VARIABLE --> n28[x]:::FUNC_PARAM
-    n25[result2]:::VARIABLE -->|true| n49[if]:::BIN_OP
-    n49[if]:::BIN_OP --> n50[result2]:::VARIABLE
-    n51[if]:::BIN_OP --> n52[boundaries entrypoint]:::BOUNDARIES
-    n7[boundaryfunc1]:::RETURN --> n13[result1]:::VARIABLE
-    n11[boundaries entrypoint]:::BOUNDARIES -. order .-> n21[if]:::BIN_OP
-    n18[boundaryfunc2]:::RETURN --> n25[result2]:::VARIABLE
-    n23[boundaries entrypoint]:::BOUNDARIES -. order .-> n31["`**call** boundaryfunc3`"]:::EXTERNAL
-    n32[boundaries entrypoint]:::BOUNDARIES -->|true| n51[if]:::BIN_OP
-    n40[boundaries entrypoint]:::BOUNDARIES -. order .-> n46["`**call** boundaryfunc2`"]:::EXTERNAL
-    n47[boundaries entrypoint]:::BOUNDARIES -->|false| n51[if]:::BIN_OP
+    n3[a]:::FUNC_PARAM --> n15[>]:::BIN_OP
+    n3[a]:::FUNC_PARAM --> n19[y]:::FUNC_PARAM
+    n3[a]:::FUNC_PARAM --> n33[x]:::FUNC_PARAM
+    n3[a]:::FUNC_PARAM --> n41[y]:::FUNC_PARAM
+    n4[b]:::FUNC_PARAM --> n15[>]:::BIN_OP
+    n4[b]:::FUNC_PARAM --> n27[y]:::FUNC_PARAM
+    n4[b]:::FUNC_PARAM --> n34[y]:::FUNC_PARAM
+    n5[c]:::FUNC_PARAM --> n28[z]:::FUNC_PARAM
+    n5[c]:::FUNC_PARAM --> n35[z]:::FUNC_PARAM
+    n12[result1]:::VARIABLE --> n18[x]:::FUNC_PARAM
+    n13[0]:::LITERAL --> n14[result2]:::VARIABLE
+    n14[result2]:::VARIABLE --> n40[x]:::FUNC_PARAM
+    n14[result2]:::VARIABLE -->|false| n44[if]:::BIN_OP
+    n15[>]:::BIN_OP -->|if| n20[if]:::BIN_OP
+    n15[>]:::BIN_OP -->|if| n44[if]:::BIN_OP
+    n15[>]:::BIN_OP -->|if| n46[if]:::BIN_OP
+    n20[if]:::BIN_OP -->|true| n21["`**call** boundaryfunc2`"]:::EXTERNAL
+    n20[if]:::BIN_OP -->|false| n36["`**call** boundaryfunc3`"]:::EXTERNAL
+    n23[result2]:::VARIABLE --> n26[x]:::FUNC_PARAM
+    n23[result2]:::VARIABLE -->|true| n44[if]:::BIN_OP
+    n44[if]:::BIN_OP --> n45[result2]:::VARIABLE
+    n46[if]:::BIN_OP --> n47[boundaries entrypoint]:::BOUNDARIES
+    n7[boundaryfunc1]:::RETURN --> n12[result1]:::VARIABLE
+    n11[boundaries entrypoint]:::BOUNDARIES -. order .-> n20[if]:::BIN_OP
+    n17[boundaryfunc2]:::RETURN --> n23[result2]:::VARIABLE
+    n22[boundaries entrypoint]:::BOUNDARIES -. order .-> n29["`**call** boundaryfunc3`"]:::EXTERNAL
+    n30[boundaries entrypoint]:::BOUNDARIES -->|true| n46[if]:::BIN_OP
+    n37[boundaries entrypoint]:::BOUNDARIES -. order .-> n42["`**call** boundaryfunc2`"]:::EXTERNAL
+    n43[boundaries entrypoint]:::BOUNDARIES -->|false| n46[if]:::BIN_OP
     subgraph b6["boundaryfunc1"]
       n7[boundaryfunc1]:::RETURN
       n8[x]:::FUNC_PARAM
       n9[boundaries entrypoint]:::BOUNDARIES
       n10["`**call** boundaryfunc1`"]:::EXTERNAL
       n11[boundaries entrypoint]:::BOUNDARIES
-      n12[result]:::VARIABLE
       n8[x]:::FUNC_PARAM --> n10["`**call** boundaryfunc1`"]:::EXTERNAL
       n9[boundaries entrypoint]:::BOUNDARIES -. order .-> n10["`**call** boundaryfunc1`"]:::EXTERNAL
       n10["`**call** boundaryfunc1`"]:::EXTERNAL -. order .-> n11[boundaries entrypoint]:::BOUNDARIES
-      n10["`**call** boundaryfunc1`"]:::EXTERNAL --> n12[result]:::VARIABLE
-      n12[result]:::VARIABLE --> n7[boundaryfunc1]:::RETURN
+      n10["`**call** boundaryfunc1`"]:::EXTERNAL --> n7[boundaryfunc1]:::RETURN
     end
-    subgraph b17["boundaryfunc2"]
-      n18[boundaryfunc2]:::RETURN
-      n19[x]:::FUNC_PARAM
-      n20[y]:::FUNC_PARAM
-      n22["`**call** boundaryfunc2`"]:::EXTERNAL
-      n23[boundaries entrypoint]:::BOUNDARIES
-      n24[result]:::VARIABLE
-      n19[x]:::FUNC_PARAM --> n22["`**call** boundaryfunc2`"]:::EXTERNAL
-      n20[y]:::FUNC_PARAM --> n22["`**call** boundaryfunc2`"]:::EXTERNAL
-      n22["`**call** boundaryfunc2`"]:::EXTERNAL -. order .-> n23[boundaries entrypoint]:::BOUNDARIES
-      n22["`**call** boundaryfunc2`"]:::EXTERNAL --> n24[result]:::VARIABLE
-      n24[result]:::VARIABLE --> n18[boundaryfunc2]:::RETURN
+    subgraph b16["boundaryfunc2"]
+      n17[boundaryfunc2]:::RETURN
+      n18[x]:::FUNC_PARAM
+      n19[y]:::FUNC_PARAM
+      n21["`**call** boundaryfunc2`"]:::EXTERNAL
+      n22[boundaries entrypoint]:::BOUNDARIES
+      n18[x]:::FUNC_PARAM --> n21["`**call** boundaryfunc2`"]:::EXTERNAL
+      n19[y]:::FUNC_PARAM --> n21["`**call** boundaryfunc2`"]:::EXTERNAL
+      n21["`**call** boundaryfunc2`"]:::EXTERNAL -. order .-> n22[boundaries entrypoint]:::BOUNDARIES
+      n21["`**call** boundaryfunc2`"]:::EXTERNAL --> n17[boundaryfunc2]:::RETURN
     end
-    subgraph b26["boundaryfunc3"]
-      n27[boundaryfunc3]:::RETURN
-      n28[x]:::FUNC_PARAM
-      n29[y]:::FUNC_PARAM
-      n30[z]:::FUNC_PARAM
-      n31["`**call** boundaryfunc3`"]:::EXTERNAL
-      n32[boundaries entrypoint]:::BOUNDARIES
-      n33[result]:::VARIABLE
-      n28[x]:::FUNC_PARAM --> n31["`**call** boundaryfunc3`"]:::EXTERNAL
-      n29[y]:::FUNC_PARAM --> n31["`**call** boundaryfunc3`"]:::EXTERNAL
-      n30[z]:::FUNC_PARAM --> n31["`**call** boundaryfunc3`"]:::EXTERNAL
-      n31["`**call** boundaryfunc3`"]:::EXTERNAL -. order .-> n32[boundaries entrypoint]:::BOUNDARIES
-      n31["`**call** boundaryfunc3`"]:::EXTERNAL --> n33[result]:::VARIABLE
-      n33[result]:::VARIABLE --> n27[boundaryfunc3]:::RETURN
+    subgraph b24["boundaryfunc3"]
+      n25[boundaryfunc3]:::RETURN
+      n26[x]:::FUNC_PARAM
+      n27[y]:::FUNC_PARAM
+      n28[z]:::FUNC_PARAM
+      n29["`**call** boundaryfunc3`"]:::EXTERNAL
+      n30[boundaries entrypoint]:::BOUNDARIES
+      n26[x]:::FUNC_PARAM --> n29["`**call** boundaryfunc3`"]:::EXTERNAL
+      n27[y]:::FUNC_PARAM --> n29["`**call** boundaryfunc3`"]:::EXTERNAL
+      n28[z]:::FUNC_PARAM --> n29["`**call** boundaryfunc3`"]:::EXTERNAL
+      n29["`**call** boundaryfunc3`"]:::EXTERNAL -. order .-> n30[boundaries entrypoint]:::BOUNDARIES
+      n29["`**call** boundaryfunc3`"]:::EXTERNAL --> n25[boundaryfunc3]:::RETURN
     end
-    subgraph b34["boundaryfunc3"]
-      n35[boundaryfunc3]:::RETURN
-      n36[x]:::FUNC_PARAM
-      n37[y]:::FUNC_PARAM
-      n38[z]:::FUNC_PARAM
-      n39["`**call** boundaryfunc3`"]:::EXTERNAL
-      n40[boundaries entrypoint]:::BOUNDARIES
-      n41[result]:::VARIABLE
-      n36[x]:::FUNC_PARAM --> n39["`**call** boundaryfunc3`"]:::EXTERNAL
-      n37[y]:::FUNC_PARAM --> n39["`**call** boundaryfunc3`"]:::EXTERNAL
-      n38[z]:::FUNC_PARAM --> n39["`**call** boundaryfunc3`"]:::EXTERNAL
-      n39["`**call** boundaryfunc3`"]:::EXTERNAL -. order .-> n40[boundaries entrypoint]:::BOUNDARIES
-      n39["`**call** boundaryfunc3`"]:::EXTERNAL --> n41[result]:::VARIABLE
-      n41[result]:::VARIABLE --> n35[boundaryfunc3]:::RETURN
+    subgraph b31["boundaryfunc3"]
+      n32[boundaryfunc3]:::RETURN
+      n33[x]:::FUNC_PARAM
+      n34[y]:::FUNC_PARAM
+      n35[z]:::FUNC_PARAM
+      n36["`**call** boundaryfunc3`"]:::EXTERNAL
+      n37[boundaries entrypoint]:::BOUNDARIES
+      n33[x]:::FUNC_PARAM --> n36["`**call** boundaryfunc3`"]:::EXTERNAL
+      n34[y]:::FUNC_PARAM --> n36["`**call** boundaryfunc3`"]:::EXTERNAL
+      n35[z]:::FUNC_PARAM --> n36["`**call** boundaryfunc3`"]:::EXTERNAL
+      n36["`**call** boundaryfunc3`"]:::EXTERNAL -. order .-> n37[boundaries entrypoint]:::BOUNDARIES
+      n36["`**call** boundaryfunc3`"]:::EXTERNAL --> n32[boundaryfunc3]:::RETURN
     end
-    subgraph b42["boundaryfunc2"]
-      n43[boundaryfunc2]:::RETURN
-      n44[x]:::FUNC_PARAM
-      n45[y]:::FUNC_PARAM
-      n46["`**call** boundaryfunc2`"]:::EXTERNAL
-      n47[boundaries entrypoint]:::BOUNDARIES
-      n48[result]:::VARIABLE
-      n44[x]:::FUNC_PARAM --> n46["`**call** boundaryfunc2`"]:::EXTERNAL
-      n45[y]:::FUNC_PARAM --> n46["`**call** boundaryfunc2`"]:::EXTERNAL
-      n46["`**call** boundaryfunc2`"]:::EXTERNAL -. order .-> n47[boundaries entrypoint]:::BOUNDARIES
-      n46["`**call** boundaryfunc2`"]:::EXTERNAL --> n48[result]:::VARIABLE
-      n48[result]:::VARIABLE --> n43[boundaryfunc2]:::RETURN
+    subgraph b38["boundaryfunc2"]
+      n39[boundaryfunc2]:::RETURN
+      n40[x]:::FUNC_PARAM
+      n41[y]:::FUNC_PARAM
+      n42["`**call** boundaryfunc2`"]:::EXTERNAL
+      n43[boundaries entrypoint]:::BOUNDARIES
+      n40[x]:::FUNC_PARAM --> n42["`**call** boundaryfunc2`"]:::EXTERNAL
+      n41[y]:::FUNC_PARAM --> n42["`**call** boundaryfunc2`"]:::EXTERNAL
+      n42["`**call** boundaryfunc2`"]:::EXTERNAL -. order .-> n43[boundaries entrypoint]:::BOUNDARIES
+      n42["`**call** boundaryfunc2`"]:::EXTERNAL --> n39[boundaryfunc2]:::RETURN
     end
   end
   linkStyle 0 stroke:#00897b,color:#00897b
@@ -142,10 +132,10 @@ flowchart TD
   linkStyle 35 stroke:#c62828,color:#c62828
   linkStyle 37 stroke:#7b1fa2,color:#7b1fa2
   linkStyle 38 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 43 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 49 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 55 stroke:#7b1fa2,color:#7b1fa2
-  linkStyle 60 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 42 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 47 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 52 stroke:#7b1fa2,color:#7b1fa2
+  linkStyle 56 stroke:#7b1fa2,color:#7b1fa2
   classDef LITERAL fill:#00FF0030
   classDef VARIABLE fill:#80808030
   classDef BIN_OP fill:#80808080

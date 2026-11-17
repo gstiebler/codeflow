@@ -628,7 +628,7 @@ class LoweringTest {
 
     /**
      * A boundary's assumed body takes the order token after its parameters and leaves the call's
-     * value in it: read, call, write, in that order - and then `result` and the return, as before.
+     * value in it: read, call, write, in that order - and then the return of the call itself.
      * The order is the claim: written first, the call would take the token it itself left.
      */
     @Test
@@ -640,14 +640,13 @@ class LoweringTest {
                 "2: read boundaries",
                 "3: call call boundaryfunc2 on static 0 1 2",
                 "4: write boundaries <- 3",
-                "5: write result <- 3",
-                "6: return 5"
+                "5: return 3"
             ),
             lowerWithBoundaries("boundary", listOf("Boundary"), "Boundary#boundaryfunc2")
         )
     }
 
-    /** A void boundary threads the token too; it only has no `result` and no return. */
+    /** A void boundary threads the token too; it only has no return. */
     @Test
     fun aVoidBoundaryCallThreadsTheOrderTokenToo() {
         assertEquals(

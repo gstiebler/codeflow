@@ -58,5 +58,7 @@
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanBalanceService
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanTransactionService
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanOriginatorLinkingService
+# The request: each command.xxxNamed(...) is one call box, not JsonCommand's parsing inlined again.
+--boundary org.apache.fineract.infrastructure.core.api.JsonCommand
 --boundary org.springframework.data.jpa.repository.JpaRepository
 --boundary org.springframework.data.jpa.repository.JpaSpecificationExecutor

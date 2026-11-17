@@ -10,5 +10,7 @@
 --boundary org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService
 --boundary org.apache.fineract.infrastructure.codes.domain.CodeValueRepository
 --boundary org.apache.fineract.infrastructure.core.service.TransactionBoundApplicationEventPublisher
+# The request: each command.xxxNamed(...) is one call box, not JsonCommand's parsing inlined again.
+--boundary org.apache.fineract.infrastructure.core.api.JsonCommand
 --boundary org.springframework.data.jpa.repository.JpaRepository
 --boundary org.springframework.data.jpa.repository.JpaSpecificationExecutor

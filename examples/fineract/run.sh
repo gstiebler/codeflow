@@ -30,6 +30,7 @@ files=("$@")
 
 export JAVA_OPTS="${JAVA_OPTS:--Xmx8g}"
 for args in "${files[@]}"; do
+  [ -f "$args" ] || args="$here/$args"   # a bare name means one of ours
   name="$(basename "$args" .args)"
   echo "== $name" >&2
   # Non-zero also means "some construct not modelled" (listed on stderr); the page is still written.

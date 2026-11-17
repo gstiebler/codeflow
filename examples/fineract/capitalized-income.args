@@ -1,11 +1,12 @@
 # CapitalizedIncomeWritePlatformServiceImpl#addCapitalizedIncome: root, and its injected collaborators as boundaries (seeded by seed-args.py)
+# --pure: classes whose methods only read or compute (no write, no throw) - one call box, not in the order chain.
 --from CapitalizedIncomeWritePlatformServiceImpl#addCapitalizedIncome
 --boundary org.apache.fineract.portfolio.loanaccount.service.ProgressiveLoanTransactionValidator
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanAssembler
 --boundary org.apache.fineract.portfolio.loanaccount.domain.LoanTransactionRepository
 --boundary org.apache.fineract.portfolio.paymentdetail.service.PaymentDetailWritePlatformService
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanJournalEntryPoster
---boundary org.apache.fineract.infrastructure.core.service.ExternalIdFactory
+--pure org.apache.fineract.infrastructure.core.service.ExternalIdFactory
 --boundary org.apache.fineract.portfolio.loanaccount.repository.LoanCapitalizedIncomeBalanceRepository
 --boundary org.apache.fineract.portfolio.loanaccount.service.ReprocessLoanTransactionsService
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanBalanceService
@@ -14,7 +15,7 @@
 --boundary org.apache.fineract.infrastructure.codes.domain.CodeValueRepository
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanScheduleService
 --boundary org.apache.fineract.infrastructure.core.service.TransactionBoundApplicationEventPublisher
-# The request: each command.xxxNamed(...) is one call box, not JsonCommand's parsing inlined again.
---boundary org.apache.fineract.infrastructure.core.api.JsonCommand
+# The request: each command.xxxNamed(...) is one call box, out of the order chain (reads only).
+--pure org.apache.fineract.infrastructure.core.api.JsonCommand
 --boundary org.springframework.data.jpa.repository.JpaRepository
 --boundary org.springframework.data.jpa.repository.JpaSpecificationExecutor

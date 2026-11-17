@@ -1,4 +1,5 @@
 # LoanWritePlatformServiceJpaRepositoryImpl#makeLoanRepaymentWithChargeRefundChargeType: root, and its injected collaborators as boundaries (seeded by seed-args.py)
+# --pure: classes whose methods only read or compute (no write, no throw) - one call box, not in the order chain.
 --from LoanWritePlatformServiceJpaRepositoryImpl#makeLoanRepaymentWithChargeRefundChargeType
 --boundary org.apache.fineract.infrastructure.security.service.PlatformSecurityContext
 --boundary org.apache.fineract.portfolio.loanaccount.serialization.LoanTransactionValidator
@@ -15,10 +16,10 @@
 --boundary org.apache.fineract.infrastructure.configuration.domain.ConfigurationDomainService
 --boundary org.apache.fineract.organisation.workingdays.domain.WorkingDaysRepositoryWrapper
 --boundary org.apache.fineract.portfolio.account.service.AccountTransfersWritePlatformService
---boundary org.apache.fineract.portfolio.account.service.AccountTransfersReadPlatformService
---boundary org.apache.fineract.portfolio.account.service.AccountAssociationsReadPlatformService
---boundary org.apache.fineract.portfolio.loanaccount.service.LoanReadPlatformService
---boundary org.apache.fineract.infrastructure.core.serialization.FromJsonHelper
+--pure org.apache.fineract.portfolio.account.service.AccountTransfersReadPlatformService
+--pure org.apache.fineract.portfolio.account.service.AccountAssociationsReadPlatformService
+--pure org.apache.fineract.portfolio.loanaccount.service.LoanReadPlatformService
+--pure org.apache.fineract.infrastructure.core.serialization.FromJsonHelper
 --boundary org.apache.fineract.portfolio.calendar.domain.CalendarRepository
 --boundary org.apache.fineract.portfolio.loanaccount.loanschedule.service.LoanScheduleHistoryWritePlatformService
 --boundary org.apache.fineract.portfolio.loanaccount.serialization.LoanApplicationValidator
@@ -37,7 +38,7 @@
 --boundary org.apache.fineract.portfolio.loanaccount.domain.LoanRepaymentScheduleInstallmentRepository
 --boundary org.apache.fineract.portfolio.loanaccount.domain.LoanLifecycleStateMachine
 --boundary org.apache.fineract.cob.service.AccountLockService
---boundary org.apache.fineract.infrastructure.core.service.ExternalIdFactory
+--pure org.apache.fineract.infrastructure.core.service.ExternalIdFactory
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanAccrualTransactionBusinessEventService
 --boundary org.apache.fineract.infrastructure.core.exception.ErrorHandler
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanDownPaymentHandlerService
@@ -53,12 +54,12 @@
 --boundary org.apache.fineract.portfolio.loanaccount.domain.LoanAccountService
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanJournalEntryPoster
 --boundary org.apache.fineract.portfolio.loanaccount.service.adjustment.LoanAdjustmentService
---boundary org.apache.fineract.portfolio.loanaccount.mapper.LoanMapper
+--pure org.apache.fineract.portfolio.loanaccount.mapper.LoanMapper
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanTransactionProcessingService
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanBalanceService
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanTransactionService
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanOriginatorLinkingService
-# The request: each command.xxxNamed(...) is one call box, not JsonCommand's parsing inlined again.
---boundary org.apache.fineract.infrastructure.core.api.JsonCommand
+# The request: each command.xxxNamed(...) is one call box, out of the order chain (reads only).
+--pure org.apache.fineract.infrastructure.core.api.JsonCommand
 --boundary org.springframework.data.jpa.repository.JpaRepository
 --boundary org.springframework.data.jpa.repository.JpaSpecificationExecutor

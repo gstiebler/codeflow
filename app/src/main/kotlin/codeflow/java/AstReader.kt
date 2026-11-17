@@ -42,9 +42,10 @@ class AstReader(private val basePath: Path) {
     fun process(
         fileNames: List<Path>,
         entryPoints: List<String> = emptyList(),
-        boundaries: List<String> = emptyList()
+        boundaries: List<String> = emptyList(),
+        pures: List<String> = emptyList()
     ): List<GraphBuilderBlock> {
-        val analysis = analyse(fileNames, boundaries)
+        val analysis = analyse(fileNames, boundaries, pures)
         val entries = if (entryPoints.isEmpty()) listOf(selectEntry(analysis.globalCtx, null))
         else entryPoints.map { selectEntry(analysis.globalCtx, it) }
         val root = IrGraphBuilder(analysis.globalCtx).build(entries)
@@ -64,9 +65,10 @@ class AstReader(private val basePath: Path) {
     fun summarise(
         fileNames: List<Path>,
         entryPoints: List<String> = emptyList(),
-        boundaries: List<String> = emptyList()
+        boundaries: List<String> = emptyList(),
+        pures: List<String> = emptyList()
     ): List<Pair<Method, Summary>> {
-        val analysis = analyse(fileNames, boundaries)
+        val analysis = analyse(fileNames, boundaries, pures)
         entryPoints.forEach { analysis.method(it) }
         val builder = IrGraphBuilder(analysis.globalCtx)
         val all = Summarizer(analysis.globalCtx, builder::bodyOf, builder::initializersOf).summariseAll()
@@ -87,9 +89,10 @@ class AstReader(private val basePath: Path) {
      * method *means* should not have to render a diagram to ask.
      *
      * [boundaries] are the classes `--boundary` names, whose methods are lowered as the assumed
-     * implementation rather than read - see [GlobalContext.isBoundary].
+     * implementation rather than read - see [GlobalContext.isBoundary]. [pures] are the classes
+     * `--pure` names: boundaries whose calls take no part in the order they ran in.
      */
-    fun analyse(fileNames: List<Path>, boundaries: List<String> = emptyList()): Analysis {
+    fun analyse(fileNames: List<Path>, boundaries: List<String> = emptyList(), pures: List<String> = emptyList()): Analysis {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
@@ -136,7 +139,12 @@ class AstReader(private val basePath: Path) {
             val ctx = getContext(compUnitTree, sourcePositions)
             compUnitTree.accept(AstProcessor(globalCtx), ctx)
         }
-        globalCtx.markBoundaries(boundaries.flatMapTo(LinkedHashSet()) { selectBoundary(globalCtx, it) })
+        val ordered = boundaries.flatMapTo(LinkedHashSet()) { selectBoundary(globalCtx, it, "--boundary") }
+        val pure = pures.flatMapTo(LinkedHashSet()) { selectBoundary(globalCtx, it, "--pure") }
+        // Both flags on one class: whether its calls are ordered is not ours to guess.
+        val both = ordered.intersect(pure)
+        if (both.isNotEmpty()) throw GraphException("${both.joinToString(", ")} named by both --boundary and --pure")
+        globalCtx.markBoundaries(ordered + pure, pure)
         return Analysis(globalCtx, manager)
     }
 
@@ -195,13 +203,13 @@ class AstReader(private val basePath: Path) {
      * otherwise read the body it was meant to hide, and the diagram would give no sign of it. A
      * simple name naming several classes makes every one of them a boundary, and each is reported.
      */
-    private fun selectBoundary(globalCtx: GlobalContext, spec: String): List<Element> {
+    private fun selectBoundary(globalCtx: GlobalContext, spec: String, flag: String): List<Element> {
         val candidates = globalCtx.sourceClasses()
         val matches = candidates.filter { MethodSpec.matchesClass(it, spec) }
         if (matches.isEmpty()) throw GraphException(
-            "No class matching '$spec' for --boundary in the analysed sources: ${candidates.joinToString(", ")}"
+            "No class matching '$spec' for $flag in the analysed sources: ${candidates.joinToString(", ")}"
         )
-        matches.forEach { System.err.println("codeflow: boundary '$it'") }
+        matches.forEach { System.err.println("codeflow: ${flag.removePrefix("--")} '$it'") }
         return matches
     }
 

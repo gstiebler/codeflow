@@ -40,10 +40,11 @@ class AppTest {
         testDir: String,
         testFiles: List<String>,
         from: List<String> = emptyList(),
-        boundaries: List<String> = emptyList()
+        boundaries: List<String> = emptyList(),
+        pures: List<String> = emptyList()
     ): List<GraphBuilderBlock> {
         val testDirPath = testResourcesPath.resolve(testDir)
-        return AstReader(testResourcesPath).process(testFiles.map { testDirPath.resolve(it) }, from, boundaries)
+        return AstReader(testResourcesPath).process(testFiles.map { testDirPath.resolve(it) }, from, boundaries, pures)
     }
 
     private fun mermaid(roots: List<GraphBuilderBlock>): List<String> {
@@ -1359,6 +1360,37 @@ class AppTest {
             assertTrue(TestFixtures.ordered(before, after), "${before.label} does not run before ${after.label}")
             assertFalse(TestFixtures.ordered(after, before), "${after.label} runs before ${before.label}, the order reversed")
         }
+    }
+
+    /**
+     * `--pure Gateway`: each call is still one `call` box its argument goes into, but none takes or
+     * leaves the order token - no `boundaries` box, no ORDER edge. The pair: `--boundary Gateway` on
+     * the same fixture has both, so the test fails if `--pure` were read as `--boundary`.
+     */
+    @Test
+    fun aPureCallIsABoundaryCallOutOfTheOrder() {
+        val pure = rootsOf("boundaryOrder", listOf("App.java", "Gateway.java"), from = listOf("App#entrypoint"), pures = listOf("Gateway"))
+        for (name in listOf("call open", "call fetch", "call log", "call close")) {
+            val call = callNamed(pure, name)
+            assertEquals(BOUNDARY_CALL_LEAD, call.lead, "$name is not drawn as a boundary call")
+            assertTrue(edgesOf(pure).any { it.third === call && it.first.getType() == NodeType.FUNC_PARAM && it.second == EdgeKind.FLOW },
+                "$name takes no argument")
+        }
+        assertTrue(nodesOf(pure).none { it.getType() == NodeType.BOUNDARIES }, "a pure call reads or leaves the token")
+        assertTrue(edgesOf(pure).none { it.second == EdgeKind.ORDER }, "a pure call is in the order chain")
+        val ordered = boundaryOrderRoots()
+        assertTrue(nodesOf(ordered).any { it.getType() == NodeType.BOUNDARIES } && edgesOf(ordered).any { it.second == EdgeKind.ORDER },
+            "--boundary on the same fixture has no order chain, so the test above proves nothing")
+    }
+
+    /** One class under both flags: whether its calls are ordered is not ours to guess. */
+    @Test
+    fun aClassBothBoundaryAndPureFails() {
+        val error = assertFailsWith<GraphException> {
+            rootsOf("boundaryOrder", listOf("App.java", "Gateway.java"), from = listOf("App#entrypoint"),
+                boundaries = listOf("Gateway"), pures = listOf("Gateway"))
+        }
+        assertTrue("Gateway" in error.message!!, "the error does not name the class: ${error.message}")
     }
 
     /** A void boundary has no result, and still leaves the token for the next call. */

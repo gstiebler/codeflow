@@ -54,6 +54,9 @@ class GlobalContext(val symbols: Symbols) {
     var boundaries: Set<Element> = emptySet()
         private set
 
+    /** The boundaries `--pure` named: their calls take no part in the boundary order. A subset of [boundaries]. */
+    private var pures: Set<Element> = emptySet()
+
     /**
      * Makes [classes] the boundaries, and registers what they declare with no body.
      *
@@ -66,8 +69,10 @@ class GlobalContext(val symbols: Symbols) {
      * Here rather than in `AstProcessor` because the boundaries are only known once every class has
      * been registered: `--boundary` is matched against them.
      */
-    fun markBoundaries(classes: Set<Element>) {
+    fun markBoundaries(classes: Set<Element>, pure: Set<Element> = emptySet()) {
+        require(classes.containsAll(pure)) { "a pure class that is not a boundary: ${pure - classes}" }
         boundaries = classes
+        pures = pure
         for (boundary in classes) {
             val declaring = findClass(boundary) ?: continue
             for (member in declaring.tree.members) {
@@ -82,6 +87,9 @@ class GlobalContext(val symbols: Symbols) {
     /** Whether [method] is a method (not a constructor) declared directly on a boundary class. */
     fun isBoundary(method: Method): Boolean =
         method.element.kind == ElementKind.METHOD && method.element.enclosingElement in boundaries
+
+    /** Whether [method] is a boundary `--pure` named, whose calls are not ordered. */
+    fun isPure(method: Method): Boolean = isBoundary(method) && method.element.enclosingElement in pures
 
     /** See [unmodelledConstructs]. */
     fun recordUnmodelled(description: String) {

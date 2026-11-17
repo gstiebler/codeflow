@@ -114,11 +114,19 @@ token's two edges at each call are `ORDER`**, not `FLOW` - `boundaries → call 
 `call f → boundaries`, nothing else: drawn as flow, every argument of a boundary call *reached* every
 later one through the token. The kind is decided where the edge is made, from the instruction - the
 builder's `Run.orderReads` marks a `ReadBoundaryOrder`'s value, and a call taking one draws that input
-as `ORDER`; `WriteBoundaryOrder` writes with `ORDER` - never from the box's name. `call f → result`
+as `ORDER`; `WriteBoundaryOrder` writes with `ORDER` - never from the box's name. `call f → return`
 stays `FLOW`, and the token's gated join and `SHARED` edges keep their kinds: between two `ORDER`
 edges they carry no data anywhere. Drawn dashed (`-. order .->`, purple `#7b1fa2`) in Mermaid and
 the viewer. The tests' `reaches()` walks follow data only; `TestFixtures.ordered` follows the chain.
 Fixture: `boundaryOrder`.
+
+**`--pure <Class>` is a boundary out of the order.** Not every collaborator has side effects: in
+Fineract `command.dateFormat()`, finders and calculators sat in the chain beside `save`, hiding the
+order that matters. A `--pure` class is a boundary in every other way - not read, one `call f` box,
+no dispatch past it - but `assumeBoundary` emits no `ReadBoundaryOrder` / `WriteBoundaryOrder` for
+it (`GlobalContext.isPure`). Per class, like `--boundary`: put a class there only when none of its
+methods writes *or throws* - a validator's throw is an effect whose order matters. A class named by
+both flags fails. Test: `aPureCallIsABoundaryCallOutOfTheOrder`.
 
 **At an `if` the token splits.** Fanning one token out as ORDER into the first call of each arm said
 the calls ran in order and not that only one arm runs - the two arms' calls looked like siblings,

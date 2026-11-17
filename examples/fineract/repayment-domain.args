@@ -1,4 +1,5 @@
 # LoanAccountDomainServiceJpa#makeRepayment: root, and its injected collaborators as boundaries (seeded by seed-args.py)
+# --pure: classes whose methods only read or compute (no write, no throw) - one call box, not in the order chain.
 --from LoanAccountDomainServiceJpa#makeRepayment
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanAssembler
 --boundary org.apache.fineract.portfolio.loanaccount.domain.LoanRepositoryWrapper
@@ -14,9 +15,9 @@
 --boundary org.apache.fineract.portfolio.loanaccount.domain.LoanCollateralManagementRepository
 --boundary org.apache.fineract.portfolio.delinquency.service.DelinquencyWritePlatformService
 --boundary org.apache.fineract.portfolio.loanaccount.domain.LoanLifecycleStateMachine
---boundary org.apache.fineract.infrastructure.core.service.ExternalIdFactory
---boundary org.apache.fineract.portfolio.delinquency.helper.DelinquencyEffectivePauseHelper
---boundary org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService
+--pure org.apache.fineract.infrastructure.core.service.ExternalIdFactory
+--pure org.apache.fineract.portfolio.delinquency.helper.DelinquencyEffectivePauseHelper
+--pure org.apache.fineract.portfolio.delinquency.service.DelinquencyReadPlatformService
 --boundary org.apache.fineract.portfolio.loanaccount.service.LoanAccrualsProcessingService
 --boundary org.apache.fineract.portfolio.loanaccount.service.InterestRefundServiceDelegate
 --boundary org.apache.fineract.portfolio.loanaccount.serialization.LoanTransactionValidator

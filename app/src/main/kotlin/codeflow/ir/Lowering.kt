@@ -35,14 +35,18 @@ class MethodBody(val method: Method, val instructions: List<Insn>) {
  * The value each expression produces is returned as a [Val], which is an index into the list being
  * built. So an instruction never refers to a tree, only to earlier instructions.
  */
-class Lowering(private val symbols: Symbols, private val isBoundary: (Method) -> Boolean = { false }) {
+class Lowering(
+    private val symbols: Symbols,
+    private val isBoundary: (Method) -> Boolean = { false },
+    private val isPure: (Method) -> Boolean = { false }
+) {
 
     fun lower(method: Method): MethodBody {
         val body = Body(symbols, method.ctx)
         val parameters = body.declareParameters(method)
         // A boundary's body is not read at all: what it is assumed to do stands in for it, and
         // everything downstream sees an ordinary method. See docs/decisions/calls-and-dispatch.md.
-        if (isBoundary(method)) body.assumeBoundary(method, parameters)
+        if (isBoundary(method)) body.assumeBoundary(method, parameters, ordered = !isPure(method))
         else method.name.body?.accept(body, method.ctx)
         body.finish()
         return MethodBody(method, body.instructions)
@@ -203,18 +207,19 @@ class Lowering(private val symbols: Symbols, private val isBoundary: (Method) ->
          * Every boundary call also takes the order token after its parameters and leaves the call's
          * value in it - see [ReadBoundaryOrder] - so boundary calls are drawn in the order they ran,
          * void ones included. Read before the call and written after it: the other way round, the
-         * call would take what it itself left.
+         * call would take what it itself left. A `--pure` boundary is not [ordered]: its calls have no
+         * side effect for the order to be about, and in the chain they would only hide the ones that do.
          */
-        fun assumeBoundary(method: Method, parameters: List<Val>) {
+        fun assumeBoundary(method: Method, parameters: List<Val>, ordered: Boolean) {
             val source = ctx.location(method.name)
-            val order = emit(ReadBoundaryOrder(source))
+            val order = if (ordered) listOf(emit(ReadBoundaryOrder(source))) else emptyList()
             val call = emit(
                 Call(
                     "$BOUNDARY_CALL_LEAD ${method.name.name}", null, Receiver.TypeName, parameters + order, source,
                     lead = BOUNDARY_CALL_LEAD
                 )
             )
-            emit(WriteBoundaryOrder(call, source))
+            if (ordered) emit(WriteBoundaryOrder(call, source))
             val returnType = method.element.returnType.kind
             if (returnType == TypeKind.VOID) return
             emit(Return(call, source))

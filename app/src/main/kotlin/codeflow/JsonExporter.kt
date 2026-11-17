@@ -108,11 +108,15 @@ class JsonExporter(private val sourceRoot: Path) {
     ) {
         val ownId = blockId(block)
         val boundary = if (block.boundary) """, "boundary": true""" else ""
+        // Where this block was called from: the hover's stack. A root was called by nothing, and its
+        // `openedAt` is its own declaration, so it carries none - absent meaning "the root".
+        val called = if (parentId == null) "" else """, "called": "${escape(block.openedAt)}""""
         nodes.add(
             entry(ownId, block.getMethodName(), "METHOD", block.getSource(), parentId) +
-                    """, "method": "${escape(block.method.key())}"$boundary}"""
+                    """, "method": "${escape(block.method.key())}"$boundary$called}"""
         )
         sources.add(block.getSource())
+        if (parentId != null) sources.add(block.openedAt)
 
         for (node in block.graph.getNodes()) {
             nodes.add(entry(nodeId(node), node.label, node.getType().toString(), node.source, ownId, node.lead) + "}")
@@ -142,8 +146,9 @@ class JsonExporter(private val sourceRoot: Path) {
      * `lead` is the opposite case on purpose: only a boundary call has one, and its absence is
      * the answer for every other node - the label is the whole caption. See [GraphNode.lead].
      *
-     * The object is left open, so a box can add its own keys before closing it: `method`, and
-     * `boundary` on a boundary method's block - absent meaning no, the same rule as `lead`.
+     * The object is left open, so a box can add its own keys before closing it: `method`,
+     * `boundary` on a boundary method's block - absent meaning no, the same rule as `lead` - and
+     * `called`, the `path:line:col` of the call that opened it, on every box but a root.
      */
     private fun entry(
         id: String, label: String, type: String, source: String, parentId: String?, lead: String? = null

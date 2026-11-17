@@ -208,10 +208,30 @@ test('the condensed view opens with every entry point\'s event on its own, and R
 });
 
 test('hovering a leaf shows its method and its line', () => {
-  assert.deepEqual(hoverText(PAYLOAD, new Set(['n2']), { node: 'n2' }), ['App#main', 'App.java:6  int b = fetch(a);']);
+  assert.deepEqual(hoverText(PAYLOAD, new Set(['n2']), { node: 'n2' }), ['App#main  App.java:6  int b = fetch(a);']);
   // A line the payload has no text for is still named.
   const bare = { ...PAYLOAD, lines: {} };
-  assert.deepEqual(hoverText(bare, new Set(['n2']), { node: 'n2' }), ['App#main', 'App.java:6']);
+  assert.deepEqual(hoverText(bare, new Set(['n2']), { node: 'n2' }), ['App#main  App.java:6']);
+  // A leaf with no box: its line alone.
+  assert.deepEqual(hoverText(PAYLOAD, new Set(['n10']), { node: 'n10' }), ['App.java:2  class App {']);
+});
+
+// n12 is in fetch, called by helper on line 13, called by main on line 7: three frames, innermost
+// first, each naming the line running in that method - the stack a Java trace would print.
+test('hovering a leaf deep in calls shows its call stack', () => {
+  const called: Record<string, string> = { b4: 'p/App.java:7:9', b5: 'p/App.java:13:9' };
+  const traced: Payload = {
+    ...PAYLOAD,
+    nodes: PAYLOAD.nodes.map((n) => (called[n.id] ? { ...n, called: called[n.id] } : n)),
+    lines: { ...PAYLOAD.lines, 'p/App.java': { ...PAYLOAD.lines!['p/App.java'], 13: 'fetch(h);' } },
+  };
+  assert.deepEqual(hoverText(traced, new Set(['n12']), { node: 'n12' }), [
+    'Gw#fetch  Gw.java:3  static int fetch(int x) {',
+    'App#helper  App.java:13  fetch(h);',
+    'App#main  App.java:7  int c = 0;',
+  ]);
+  // A payload whose boxes say nothing of their callers stops at the first box.
+  assert.deepEqual(hoverText(PAYLOAD, new Set(['n12']), { node: 'n12' }), ['Gw#fetch  Gw.java:3  static int fetch(int x) {']);
 });
 
 // fetch's members are all in Gw.java's lines 3-4; program's come from main (2 is the orphan, which

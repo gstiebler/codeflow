@@ -2855,14 +2855,32 @@ class AppTest {
     }
 
     /**
-     * `lines` holds exactly the lines the nodes' sources name, each as that line of the file,
+     * Every box but the root says where it was called from, so the hover can show the stack: two
+     * calls of one method from two lines are two blocks with two `called`s. The entry point was
+     * called by nothing and has none. Fails against a box naming its declaration instead.
+     */
+    @Test
+    fun jsonNamesTheCallSiteOfEveryBoxButTheRoot() {
+        val doc = jsonOf(boundaryRootBlocks())
+        val boxes = jsonNodes(doc).filter { it.get("type").asString == "METHOD" }
+        assertEquals(null, boxes.single { jsonLabel(it) == "entrypoint" }.get("called"), "the root has a call site")
+        val func2 = boxes.filter { jsonLabel(it) == "boundaryfunc2" }.map { it.get("called")!!.asString }
+        assertEquals(listOf("boundary/App.java:13", "boundary/App.java:17"), func2.map { it.substringBeforeLast(":") }.sorted())
+        assertEquals(
+            "result2 = Boundary.boundaryfunc2(result1, a);",
+            doc.getAsJsonObject("lines").getAsJsonObject("boundary/App.java").get("13").asString
+        )
+    }
+
+    /**
+     * `lines` holds exactly the lines the nodes' sources (and the boxes' call sites) name, each as that line of the file,
      * trimmed. The text is checked against the file read here, so a line off by one fails.
      */
     @Test
     fun jsonCarriesTheTextOfEveryLineANodeNamesAndNoOther() {
         val doc = jsonOf(boundaryRootBlocks())
         val lines = doc.getAsJsonObject("lines")
-        val named = jsonNodes(doc).map { jsonSource(it)!! }
+        val named = jsonNodes(doc).flatMap { listOfNotNull(jsonSource(it)!!, it.get("called")?.asString) }
             .map { it.split(":") }
             .map { it[0] to it[1] }
             .toSet()

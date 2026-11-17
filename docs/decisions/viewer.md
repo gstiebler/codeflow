@@ -270,8 +270,12 @@ draws routes straight away. `window.drawn` is unchanged: it counts after the mov
 on it reads routed lines. Side effect: a line can now run where a clicked node was, so the pointer
 left there hovers it (`condensed.spec.ts` moves the pointer away before asserting no tooltip).
 
-**Hover is an approximation, on purpose.** A leaf shows the method of its nearest box and its line
-with the text; a group, its count and each method's line range, capped at ten then `+N more`; an
+**Hover is an approximation, on purpose.** A leaf shows its call stack, innermost first, as a Java
+trace prints it: its box's method and its own line, then each enclosing box's method and the line its
+child box was `called` from (spec: `docs/superpowers/specs/2026-11-16-hover-call-stack-design.md`).
+The stack is what tells apart the copies a per-call-site inlining draws of one line; it is read off
+the box nesting plus one payload field, `called` (`GraphBuilderBlock.openedAt`, absent on a root),
+never a per-node stack. A group, its count and each method's line range, capped at ten then `+N more`; an
 edge, the method and line of its *targets* — where the value arrives, not the expression that moved
 it, which for a phi or a call is not the same line. The text comes from the payload's `lines`
 (only the lines some node names), read from disk by JsonExporter rather than from the block's own

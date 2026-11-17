@@ -235,6 +235,26 @@ function methodOf(ix: Index, leaf: PayloadNode): string | null {
   return box?.method === undefined ? null : shortMethod(box.method);
 }
 
+/**
+ * A leaf's call stack, innermost first, as a Java trace prints it: each frame is a box's method and
+ * the line running in it - the leaf's own line in its box, then in each enclosing box the line its
+ * child was `called` from. A box with no `called` is a root, or a payload that predates it: the
+ * walk ends there.
+ */
+function stackOf(payload: Payload, ix: Index, leaf: PayloadNode): string[] {
+  const frame = (box: PayloadNode | undefined, source: string | undefined) =>
+    [box?.method === undefined ? null : shortMethod(box.method), lineOf(payload, source)]
+      .filter((s) => s !== null).join('  ');
+  let box = leaf.parent === undefined ? undefined : ix.byId.get(leaf.parent);
+  const frames = [frame(box, leaf.source)];
+  while (box?.called !== undefined && box.parent !== undefined) {
+    const caller = ix.byId.get(box.parent);
+    frames.push(frame(caller, box.called));
+    box = caller;
+  }
+  return frames;
+}
+
 const capped = (entries: string[]) => entries.length <= HOVER_CAP
   ? entries
   : [...entries.slice(0, HOVER_CAP), `+${entries.length - HOVER_CAP} more`];
@@ -242,7 +262,8 @@ const capped = (entries: string[]) => entries.length <= HOVER_CAP
 /**
  * The tooltip, as lines.
  *
- * - a leaf: the method it was created in (`Class#method`) and its line with the text;
+ * - a leaf: its call stack, innermost first, one `Class#method  File.java:N  text` per frame - see
+ *   [stackOf] - capped like the rest;
  * - a group: its member count, then each method its members come from with the range of their
  *   lines, first [HOVER_CAP] then `+N more`;
  * - a drawn edge: the kinds it stands for with their counts (`flow ×3, order ×2`, in KIND_ORDER),
@@ -270,7 +291,7 @@ export function hoverText(payload: Payload, revealed: Set<Id>, target: Condensed
   if (members === undefined) {
     const leaf = ix.byId.get(target.node);
     if (leaf === undefined) throw new Error(`no node ${target.node} in the payload`);
-    return [methodOf(ix, leaf), lineOf(payload, leaf.source)].filter((s) => s !== null);
+    return capped(stackOf(payload, ix, leaf));
   }
 
   const inside = members.filter((m) => !revealed.has(m));

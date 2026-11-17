@@ -53,6 +53,11 @@ export type PayloadNode = {
   method?: string;
   /** On a METHOD box only, and only when it is a boundary method's block: never found from a label. */
   boundary?: boolean;
+  /**
+   * On a METHOD box only: `file:line:col` of the call that opened this block. Absent on a root, which
+   * nothing called. The boxes nest by call, so walking `parent` and reading this is the call stack.
+   */
+  called?: string;
 };
 
 export type PayloadEdge = { source: Id; target: Id; kind: EdgeKind };

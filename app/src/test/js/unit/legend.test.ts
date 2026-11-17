@@ -1,0 +1,43 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  BOUNDARY_OUTLINE, EDGE_MEANINGS, NODE_MEANINGS, PALETTE, legend,
+} from '../../../main/resources/viewer/theme.ts';
+import type { EdgeKind, NodeType, Payload } from '../../../main/resources/viewer/types.ts';
+
+const LEAVES: NodeType[] = [
+  'LITERAL', 'VARIABLE', 'OBJ_VARIABLE', 'BIN_OP', 'FUNC_PARAM', 'RETURN', 'EXTERNAL', 'UNMODELLED',
+  'BOUNDARIES', 'EVENT',
+];
+const KINDS: EdgeKind[] = ['FLOW', 'TRUE', 'FALSE', 'CONDITION', 'ORDER', 'SHARED', 'EVENT'];
+
+// A colour with no meaning is the guess the legend is there to stop.
+test('every leaf type and every edge kind has a meaning', () => {
+  for (const type of LEAVES) assert.ok(NODE_MEANINGS[type], `no meaning for ${type}`);
+  for (const kind of KINDS) assert.ok(EDGE_MEANINGS[kind], `no meaning for ${kind}`);
+});
+
+const payload = (types: NodeType[], kinds: EdgeKind[]): Payload => ({
+  nodes: [{ id: 'm', label: 'main', type: 'METHOD' },
+    ...types.map((type, i) => ({ id: `n${i}`, label: `n${i}`, type, parent: 'm' }))],
+  edges: kinds.map((kind) => ({ source: 'n0', target: 'n1', kind })),
+});
+
+test('the legend lists only the leaf types and edge kinds the payload has', () => {
+  const rows = legend(payload(['RETURN', 'LITERAL', 'LITERAL'], ['FLOW']), 'boxes');
+  assert.deepEqual(rows.leaves.map((r) => r.name), ['LITERAL', 'RETURN']);
+  assert.deepEqual(rows.lines.map((r) => r.name), ['FLOW']);
+  assert.equal(rows.leaves.find((r) => r.name === 'RETURN')!.fill, PALETTE.RETURN);
+  // The pair: a payload with an ORDER edge lists it, dashed, in the colour it is painted in.
+  const order = legend(payload(['RETURN', 'LITERAL'], ['FLOW', 'ORDER']), 'boxes').lines.find((r) => r.name === 'ORDER');
+  assert.deepEqual(order && { colour: order.colour, dashed: order.dashed }, { colour: '#7b1fa2', dashed: true });
+});
+
+test('Condensed lists the boundary group outline; Boxes lists the method box instead', () => {
+  const p = payload(['LITERAL', 'RETURN'], ['FLOW']);
+  const condensedRows = legend(p, 'condensed').boxes;
+  assert.ok(condensedRows.some((r) => r.outline === BOUNDARY_OUTLINE), 'no boundary outline in Condensed');
+  const boxesRows = legend(p, 'boxes').boxes;
+  assert.ok(!boxesRows.some((r) => r.outline === BOUNDARY_OUTLINE), 'a boundary outline in Boxes');
+  assert.ok(boxesRows.some((r) => r.name === 'method'), 'no method box in Boxes');
+});

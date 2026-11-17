@@ -7,7 +7,7 @@
  * because it is Kotlin. That duplication is documented in CLAUDE.md; a third copy inside the page
  * would not be.
  */
-import type { CondensedEdge, NodeType, EdgeKind } from './types.ts';
+import type { CondensedEdge, NodeType, EdgeKind, Payload } from './types.ts';
 
 /**
  * Partial, and deliberately: BASE has no colour of its own and takes NODE_DEFAULT, the same as it
@@ -104,4 +104,66 @@ export function condensedEdgeStyle(edge: CondensedEdge): { colour: string; label
   const kinds = Object.keys(edge.kinds) as EdgeKind[];
   const { colour, dashed } = edgeStyle(kinds.length === 1 ? kinds[0] : 'FLOW');
   return { colour, label: edge.count > 1 ? `×${edge.count}` : undefined, dashed };
+}
+
+/**
+ * What each leaf's fill means, beside the fills, so a new colour without a meaning shows in this one
+ * file. METHOD is a box, not a leaf, and BASE is never emitted.
+ */
+export const NODE_MEANINGS: Partial<Record<NodeType, string>> = {
+  LITERAL:      'a constant written in the code',
+  VARIABLE:     'a variable holding a primitive (number, boolean, ...)',
+  OBJ_VARIABLE: 'a variable holding an object',
+  BIN_OP:       'an operator: +, ==, &&, ...',
+  FUNC_PARAM:   "a method's parameter",
+  RETURN:       'what a method returns',
+  EXTERNAL:     'from outside the sources, or a boundary call (call x): not read further',
+  UNMODELLED:   'a construct codeflow does not model: the graph is incomplete here',
+  BOUNDARIES:   'the order token: which boundary call ran before which',
+  EVENT:        "the entry point's event: what set it going",
+};
+
+/** What each edge kind means. */
+export const EDGE_MEANINGS: Record<EdgeKind, string> = {
+  FLOW:      'a value flows into',
+  TRUE:      'chosen when the condition is true',
+  FALSE:     'chosen when the condition is false',
+  CONDITION: 'the condition that chose (if)',
+  ORDER:     'ran before: the order of boundary calls, not a value',
+  SHARED:    "a static one entry point writes and another reads",
+  EVENT:     'the event starts this: when, not a value',
+};
+
+export type LegendLeaf = { name: string; fill: string; outline: string; meaning: string };
+export type LegendLine = { name: string; colour: string; dashed: boolean; meaning: string };
+
+/**
+ * The legend's rows, read off the same constants the renderer paints with: leaf fills and line
+ * styles only for the types and kinds this payload has, the containers of the current view, and the
+ * two marks a click leaves.
+ */
+export function legend(payload: Payload, mode: 'boxes' | 'condensed'): { leaves: LegendLeaf[]; boxes: LegendLeaf[]; lines: LegendLine[] } {
+  const types = new Set(payload.nodes.map((n) => n.type));
+  const kinds = new Set(payload.edges.map((e) => e.kind));
+  const leaves: LegendLeaf[] = (Object.keys(NODE_MEANINGS) as NodeType[]).filter((t) => types.has(t)).map((t) => ({
+    name: t, fill: PALETTE[t] ?? NODE_DEFAULT, outline: NODE_OUTLINE, meaning: NODE_MEANINGS[t]!,
+  }));
+  const boxes: LegendLeaf[] = [];
+  if (mode === 'boxes') {
+    boxes.push({ name: 'method', fill: PALETTE.METHOD!, outline: NODE_OUTLINE, meaning: 'a method body, inlined per call; click to open or fold' });
+  } else {
+    boxes.push(
+      { name: 'method', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: "a method's calls gathered; click to open" },
+      { name: 'boundary', fill: GROUP_FILL, outline: BOUNDARY_OUTLINE, meaning: 'a boundary method: its body is not read' },
+    );
+  }
+  boxes.push(
+    { name: 'just appeared', fill: GROUP_FILL, outline: NEW_RING, meaning: 'new since the last click (fades)' },
+    { name: 'clicked', fill: GROUP_FILL, outline: CLICKED_OUTLINE, meaning: 'the node last clicked' },
+  );
+  const lines = (Object.keys(EDGE_MEANINGS) as EdgeKind[]).filter((k) => kinds.has(k)).map((k) => {
+    const { colour, dashed } = edgeStyle(k);
+    return { name: k, colour, dashed, meaning: EDGE_MEANINGS[k] };
+  });
+  return { leaves, boxes, lines };
 }

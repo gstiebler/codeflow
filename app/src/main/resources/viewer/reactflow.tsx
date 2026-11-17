@@ -23,7 +23,7 @@ import {
   type Point, type Positioned,
 } from './layout.ts';
 import {
-  PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, edgeStyle,
+  PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, edgeStyle, legend,
 } from './theme.ts';
 import {
   absolute, diffViews, easeOut, frame, HIGHLIGHT_MS, MOTION_CUTOFF, MOVE_MS, type Drawn,
@@ -50,6 +50,13 @@ function installStyles() {
     .cf-toolbar button { font: 12px system-ui, sans-serif; padding: 3px 10px; border: 1px solid #999;
                          border-radius: 4px; background: #fff; cursor: pointer; }
     .cf-toolbar button[aria-pressed="true"] { background: #333; color: #fff; }
+    .cf-legend { position: fixed; top: 40px; left: 8px; z-index: 15; max-height: calc(100vh - 56px);
+                 overflow-y: auto; background: #fff; border: 1px solid #999; border-radius: 4px;
+                 padding: 6px 10px; font: 12px system-ui, sans-serif; box-shadow: 0 1px 4px #0003; }
+    .cf-legend h4 { margin: 6px 0 4px; font-size: 12px; }
+    .cf-legend-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+    .cf-legend-row > :first-child { flex: none; width: 32px; height: 14px; box-sizing: border-box; border-radius: 3px; }
+    .cf-legend-row b { font-weight: 600; }
     .cf-tooltip { position: fixed; z-index: 20; pointer-events: none; background: #fff;
                   border: 1px solid #999; border-radius: 4px; padding: 4px 8px;
                   font: 11px ui-monospace, monospace; white-space: pre; box-shadow: 0 1px 4px #0003; }
@@ -543,6 +550,33 @@ function download(view: CondensedView) {
   URL.revokeObjectURL(link.href);
 }
 
+/** What each colour, outline and line on the page means - rows from theme.ts's `legend`. */
+function Legend({ payload, mode }: { payload: Payload; mode: Mode }) {
+  const { leaves, boxes, lines } = legend(payload, mode);
+  const swatch = (r: { name: string; fill: string; outline: string; meaning: string }, width: number) => (
+    <div key={r.name} className="cf-legend-row">
+      <div style={{ background: r.fill, border: `${width}px solid ${r.outline}` }} />
+      <span><b>{r.name}</b> {r.meaning}</span>
+    </div>
+  );
+  return (
+    <div className="cf-legend" role="dialog" aria-label="Legend">
+      <h4>Values</h4>
+      {leaves.map((r) => swatch(r, 1))}
+      <h4>Boxes</h4>
+      {boxes.map((r) => swatch(r, 2))}
+      <h4>Lines</h4>
+      {lines.map((r) => (
+        <div key={r.name} className="cf-legend-row">
+          <svg width="32" height="14"><line x1="1" y1="7" x2="31" y2="7" stroke={r.colour} strokeWidth="2"
+            strokeDasharray={r.dashed ? '4 3' : undefined} /></svg>
+          <span><b>{r.name.toLowerCase()}</b> {r.meaning}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * The two views and the switch between them. Each view's `revealed` lives here rather than in the
  * view, so that switching away and back returns to what the reader had opened. Boxes is the default,
@@ -550,6 +584,7 @@ function download(view: CondensedView) {
  */
 function Page({ payload }: { payload: Payload }) {
   const [mode, setMode] = useState<Mode>('boxes');
+  const [legendOpen, setLegendOpen] = useState(false);
   const [boxed, setBoxed] = useState<Set<Id>>(() => opening(payload));
   const [shown, setShown] = useState<Set<Id>>(() => condensedOpening(payload));
   // Here rather than in CondensedGraph so that the Mermaid button exports the very view drawn.
@@ -578,7 +613,9 @@ function Page({ payload }: { payload: Payload }) {
         <button type="button" aria-pressed={mode === 'condensed'} onClick={() => setMode('condensed')}>Condensed</button>
         <button type="button" onClick={reset}>Reset</button>
         {mode === 'condensed' && <button type="button" onClick={() => download(condensedView)}>Mermaid</button>}
+        <button type="button" aria-pressed={legendOpen} onClick={() => setLegendOpen((open) => !open)}>Legend</button>
       </div>
+      {legendOpen && <Legend payload={payload} mode={mode} />}
       {mode === 'boxes'
         ? <Graph payload={payload} revealed={boxed} setRevealed={setBoxed} />
         : <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={condensedView} />}

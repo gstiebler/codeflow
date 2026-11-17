@@ -197,6 +197,14 @@ inert is a method whose whole body *is* its own RETURN — `member`'s `getMember
 `showing` is derived inside `screen()` on every call and never stored, so folding a box cannot
 strand a stub that was added when it opened.
 
+## The legend
+
+The `Legend` toolbar toggle (both views, closed by default) lists what each fill, outline and line
+means. The meanings live in `theme.ts` beside the colours (`NODE_MEANINGS`, `EDGE_MEANINGS`) and
+`legend(payload, mode)` reads its rows off the same constants the renderer paints with, so the legend
+cannot drift from the page. It lists only the leaf types and edge kinds the payload has: a reference
+of colours that are not on screen is noise. Spec: `docs/superpowers/specs/2026-11-17-legend-design.md`.
+
 ## The condensed view
 
 A second view on the same page and payload, behind a `Boxes` / `Condensed` switch (Boxes is the

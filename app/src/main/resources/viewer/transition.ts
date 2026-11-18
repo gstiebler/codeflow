@@ -63,7 +63,15 @@ export function diffViews(prev: Drawn, next: Drawn, clicked?: Id): Diff {
     if (start.has(id)) return start.get(id)!;
     const was = prev.get(id);
     let at: Point;
-    if (was) at = { x: was.x, y: was.y };
+    // A kept node that changed box - into or out of the condensed view's focus lane - starts where it
+    // was on the page, made relative to its new box; its old relative place means nothing there.
+    if (was && was.parent === next.get(id)!.parent) at = { x: was.x, y: was.y };
+    else if (was) {
+      const page = absolute(prev, id);
+      const parent = next.get(id)!.parent;
+      const base = parent !== undefined && next.has(parent) ? startOnPage(parent) : { x: 0, y: 0 };
+      at = { x: page.x - base.x, y: page.y - base.y };
+    }
     else if (origin === undefined) at = { x: next.get(id)!.x, y: next.get(id)!.y };
     else {
       const parent = next.get(id)!.parent;

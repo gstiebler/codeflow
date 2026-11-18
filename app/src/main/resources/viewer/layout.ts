@@ -16,7 +16,7 @@ export const TITLE_HEIGHT = 22;
 /** One stretch of a routed edge, as ELK returns it: in the frame of the graph the edge is declared in. */
 export type ElkSection = { id: string; startPoint: Point; endPoint: Point; bendPoints?: Point[] };
 
-export type ElkEdge = { id: string; sources: string[]; targets: string[]; sections?: ElkSection[] };
+export type ElkEdge = { id: string; sources: string[]; targets: string[]; sections?: ElkSection[]; container?: string };
 
 export type ElkNode = {
   id: string;
@@ -132,13 +132,31 @@ const FLAT_OPTIONS: Record<string, string> = {
 /** The condensed view draws one edge per ordered pair of display nodes, so the pair is its id. */
 export const flatEdgeId = (edge: { source: Id; target: Id }) => `${edge.source}->${edge.target}`;
 
+/** The compound node a clicked path is laid out in. Not a payload id: those are numbers and `program` / `boundary:...`. */
+export const FOCUS_LANE = 'lane:focus';
+
+/** Room inside the lane, so its nodes do not sit on its outline. */
+const LANE_OPTIONS: Record<string, string> = { ...FLAT_OPTIONS, 'elk.padding': '[top=16,left=16,bottom=16,right=16]' };
+
+/**
+ * `lane`, when given and not empty, is the clicked path: its nodes go in one compound node, which ELK
+ * places as a block, so the path reads as one piece beside the rest. Edges stay declared at the root -
+ * the one graph enclosing every pair - which needs `INCLUDE_CHILDREN`, as in the boxed view.
+ */
 export function flatElkGraph(
-  view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>,
+  view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>, lane?: Set<Id>,
 ): ElkNode {
+  const leaf = (node: CondensedNode): ElkNode => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT });
+  const inLane = lane !== undefined && lane.size > 0 ? lane : undefined;
   const root: ElkNode = {
     id: 'root',
-    layoutOptions: FLAT_OPTIONS,
-    children: view.nodes.map((node) => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT })),
+    layoutOptions: inLane ? { ...FLAT_OPTIONS, 'elk.hierarchyHandling': 'INCLUDE_CHILDREN' } : FLAT_OPTIONS,
+    children: inLane
+      ? [
+        ...view.nodes.filter((n) => !inLane.has(n.id)).map(leaf),
+        { id: FOCUS_LANE, layoutOptions: LANE_OPTIONS, children: view.nodes.filter((n) => inLane.has(n.id)).map(leaf) },
+      ]
+      : view.nodes.map(leaf),
     edges: view.edges.map((edge) => ({ id: flatEdgeId(edge), sources: [edge.source], targets: [edge.target] })),
   };
   return previous ? stabilise(root, previous) : root;
@@ -227,7 +245,8 @@ export function positions(laidOut: ElkNode, parent?: Id, into: Positioned[] = []
 
 /**
  * Every root edge's route, by edge id: start, each bend in order, end - in the frame of the root,
- * which for the flat condensed graph is the frame its nodes come back in, so nothing is re-based.
+ * which is the frame React Flow draws lines in. A line inside the focus lane comes back in the lane's
+ * frame and is moved out by the lane's place.
  *
  * An edge with no section, or with more than one, is an error rather than a straight line. A simple
  * edge in a flat layered graph always comes back as exactly one section; anything else means the
@@ -235,14 +254,20 @@ export function positions(laidOut: ElkNode, parent?: Id, into: Positioned[] = []
  * prevent - drawn with nothing on the page to say it was guessed.
  */
 export function routes(laidOut: ElkNode): Map<string, Point[]> {
+  // ELK gives an edge it placed inside a compound node - the focus lane - in that node's frame, and
+  // says which in `container`: added back here, or the line is drawn off by the lane's offset.
+  const frame = new Map<Id, Point>([[laidOut.id, { x: 0, y: 0 }]]);
+  for (const child of laidOut.children ?? []) frame.set(child.id, { x: child.x ?? 0, y: child.y ?? 0 });
   const into = new Map<string, Point[]>();
   for (const edge of laidOut.edges ?? []) {
     const sections = edge.sections ?? [];
     if (sections.length !== 1) {
       throw new Error(`ELK returned ${sections.length} sections for edge ${edge.id}, expected exactly one`);
     }
+    const base = frame.get(edge.container ?? laidOut.id);
+    if (base === undefined) throw new Error(`ELK put edge ${edge.id} in ${edge.container}, which is not a top-level node`);
     const [only] = sections;
-    into.set(edge.id, [only.startPoint, ...(only.bendPoints ?? []), only.endPoint].map(({ x, y }) => ({ x, y })));
+    into.set(edge.id, [only.startPoint, ...(only.bendPoints ?? []), only.endPoint].map(({ x, y }) => ({ x: x + base.x, y: y + base.y })));
   }
   return into;
 }

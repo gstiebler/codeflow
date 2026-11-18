@@ -205,6 +205,25 @@ means. The meanings live in `theme.ts` beside the colours (`NODE_MEANINGS`, `EDG
 cannot drift from the page. It lists only the leaf types and edge kinds the payload has: a reference
 of colours that are not on screen is noise. Spec: `docs/superpowers/specs/2026-11-17-legend-design.md`.
 
+## The focus lane (Condensed only)
+
+A condensed click on a leaf or a line also focuses it: `focusPath` (condensed.ts) is everything that
+flows into it, back to the entry point, and everything it flows into, on to the boundaries. The page
+lays that path out in one ELK compound node, `lane:focus`, and fades the rest to `DIM_OPACITY`. Esc,
+a click on the canvas or the lane, Reset, or a click on a group clears it.
+
+- **Walked over payload edges, not drawn ones.** A group is a hub on the page; walking through it
+  put most of the graph on the path. A leaf still in its group puts the group on the path.
+- **ORDER is not walked.** It says which call ran first; following it pulls in every later call.
+- **A group click focuses nothing**: it stands for values that need not be related.
+- **ELK gives a line inside the lane in the lane's frame** (`container` on the edge). `routes` adds
+  the lane's place back; without it every lane line starts and ends short of its nodes.
+- **A node changing box starts where it was on the page** (`diffViews`), not at its old relative
+  place, or it jumps into the lane at the start of the move.
+- Boxes has no lane: a value cannot leave its method box without breaking the boxes.
+
+Spec: `docs/superpowers/specs/2026-11-17-focus-path-design.md`.
+
 ## The condensed view
 
 A second view on the same page and payload, behind a `Boxes` / `Condensed` switch (Boxes is the

@@ -16,14 +16,17 @@ import {
 import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { captionParts, opening, screen, tap } from './model.ts';
-import { condensed, condensedCaption, condensedOpening, hoverText, tapCondensed } from './condensed.ts';
+import {
+  condensed, condensedCaption, condensedOpening, focusOf, focusPath, hoverText, tapCondensed, type Focus, type FocusPath,
+} from './condensed.ts';
 import { condensedMermaid } from './mermaid.ts';
 import {
-  captionAt, elkGraph, flatEdgeId, flatElkGraph, positions, roundedPath, routes, NODE_HEIGHT, TITLE_HEIGHT,
+  captionAt, elkGraph, flatEdgeId, flatElkGraph, positions, roundedPath, routes, FOCUS_LANE, NODE_HEIGHT, TITLE_HEIGHT,
   type Point, type Positioned,
 } from './layout.ts';
 import {
   PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, edgeStyle, legend,
+  FOCUS_FILL, FOCUS_OUTLINE, DIM_OPACITY,
 } from './theme.ts';
 import {
   absolute, diffViews, easeOut, frame, HIGHLIGHT_MS, MOTION_CUTOFF, MOVE_MS, type Drawn,
@@ -69,6 +72,11 @@ function installStyles() {
     @keyframes cf-ring { from { box-shadow: 0 0 0 4px ${NEW_RING}; } to { box-shadow: 0 0 0 4px transparent; } }
     @keyframes cf-edge-ring { from { filter: drop-shadow(0 0 3px ${NEW_RING}); } to { filter: none; } }
     .react-flow__node.cf-clicked > * { outline: 2px solid ${CLICKED_OUTLINE}; outline-offset: 2px; }
+    .cf-lane { background: ${FOCUS_FILL}; border: 2px solid ${FOCUS_OUTLINE}; border-radius: 8px;
+               box-sizing: border-box; width: 100%; height: 100%; }
+    .react-flow__node.cf-dim, .react-flow__edge.cf-dim { opacity: ${DIM_OPACITY}; }
+    /* The lane is a region, not something a click revealed: no ring. */
+    .react-flow__node-focusLane.cf-new > * { animation: none; box-shadow: none; }
     @media (prefers-reduced-motion: reduce) {
       .react-flow__node.cf-new > * { animation: none; box-shadow: 0 0 0 4px ${NEW_RING}; }
       .react-flow__edge.cf-new .react-flow__edge-path { animation: none; filter: drop-shadow(0 0 3px ${NEW_RING}); }
@@ -236,9 +244,10 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
     const freshEdges = new Set(prev ? next.edges.filter((e) => !oldEdges.has(e.id)).map((e) => e.id) : []);
     const ringed = (ring: boolean): Drawing => ({
       nodes: next.nodes.map((n) => ({
-        ...n, className: classes(ring && fresh.has(n.id) && 'cf-new', n.id === outlined.current && 'cf-clicked'),
+        // The drawing's own class - the condensed view's `cf-dim` - kept under the rings.
+        ...n, className: classes(n.className ?? false, ring && fresh.has(n.id) && 'cf-new', n.id === outlined.current && 'cf-clicked'),
       })),
-      edges: next.edges.map((e) => ({ ...e, className: classes(ring && freshEdges.has(e.id) && 'cf-new') })),
+      edges: next.edges.map((e) => ({ ...e, className: classes(e.className ?? false, ring && freshEdges.has(e.id) && 'cf-new') })),
     });
     const settled = ringed(true);
 
@@ -392,22 +401,40 @@ function GroupNode({ data }: NodeProps) {
   );
 }
 
-// Not `group`: React Flow has a built-in node type of that name.
-const CONDENSED_TYPES = { leaf: LeafNode, condensedGroup: GroupNode };
+/** The region a click's path is laid out in. Nothing to say: the path inside it is the content. */
+function LaneNode() {
+  return <div className="cf-lane" />;
+}
 
-function condensedNodesOf(view: CondensedView, laid: Positioned[]): Node[] {
+// Not `group`: React Flow has a built-in node type of that name.
+const CONDENSED_TYPES = { leaf: LeafNode, condensedGroup: GroupNode, focusLane: LaneNode };
+
+/** Off a focus's path: faded. With no focus nothing is. */
+const dimmed = (path: FocusPath | null, on: boolean) => (path !== null && !on ? 'cf-dim' : undefined);
+
+/** The lane first, if there is one: React Flow drops a child that arrives before its parent. */
+function condensedNodesOf(view: CondensedView, laid: Positioned[], path: FocusPath | null): Node[] {
   const at = new Map(laid.map((p) => [p.id, p]));
-  return view.nodes.filter((node) => at.has(node.id)).map((node) => {
-    const p = at.get(node.id)!;
-    return {
+  const lane = at.get(FOCUS_LANE);
+  const nodes: Node[] = lane === undefined ? [] : [{
+    id: FOCUS_LANE, type: 'focusLane', position: { x: lane.x, y: lane.y }, data: {},
+    style: { width: lane.width, height: lane.height }, draggable: false, selectable: false,
+  }];
+  for (const node of view.nodes) {
+    const p = at.get(node.id);
+    if (p === undefined) continue;
+    nodes.push({
       id: node.id,
       type: node.type === 'GROUP' ? 'condensedGroup' : 'leaf',
       position: { x: p.x, y: p.y },
       data: (node.type === 'GROUP' ? node : asLeaf(node)) as unknown as Record<string, unknown>,
+      ...(p.parent ? { parentId: p.parent } : {}),
       style: { width: p.width, height: p.height || NODE_HEIGHT },
+      className: dimmed(path, path?.nodes.has(node.id) ?? false),
       draggable: false,
-    };
-  });
+    });
+  }
+  return nodes;
 }
 
 /** How far a routed line's corner is rounded off, in pixels. */
@@ -450,7 +477,7 @@ const CONDENSED_EDGE_TYPES = { routed: RoutedEdge };
  * along its route. A line ELK did not route is an error: drawn without one it would be a straight
  * guess through whatever lies between its ends.
  */
-function condensedEdgesOf(view: CondensedView, routed: Map<string, Point[]>): Edge[] {
+function condensedEdgesOf(view: CondensedView, routed: Map<string, Point[]>, path: FocusPath | null): Edge[] {
   return view.edges.map((edge) => {
     const { colour, label, dashed } = condensedEdgeStyle(edge);
     const id = flatEdgeId(edge);
@@ -462,6 +489,7 @@ function condensedEdgesOf(view: CondensedView, routed: Map<string, Point[]>): Ed
       data: { route },
       source: edge.source,
       target: edge.target,
+      className: dimmed(path, path?.edges.get(edge.source)?.has(edge.target) ?? false),
       ...(label === undefined ? {} : { label, labelBgStyle: { fill: LABEL_BG }, labelBgPadding: [4, 2] as [number, number] }),
       style: { stroke: colour, strokeWidth: 1.5, ...(dashed ? { strokeDasharray: '4 3' } : {}) },
       markerEnd: { type: MarkerType.ArrowClosed, color: colour },
@@ -475,7 +503,9 @@ type Hover = { target: CondensedTarget; x: number; y: number };
  * The condensed view: flat, laid out by ELK like the boxed one, with a tooltip where the boxes would
  * have said where a node lives. Every decision is condensed.ts's; this writes it out.
  */
-function CondensedGraph({ payload, revealed, setRevealed, view }: Revealing & { view: CondensedView }) {
+function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus }: Revealing & {
+  view: CondensedView; focus: Focus | null; setFocus: Dispatch<SetStateAction<Focus | null>>;
+}) {
   // Null until ELK first answers, so that the layout counter counts only real layouts: a probe
   // waiting for the condensed view to be drawn must not be satisfied by the empty first render.
   const [target, setTarget] = useState<Target | null>(null);
@@ -483,19 +513,20 @@ function CondensedGraph({ payload, revealed, setRevealed, view }: Revealing & { 
   const [hover, setHover] = useState<Hover | null>(null);
   const previous = useRef<Map<Id, Point>>(undefined);
   const click = useRef<Click | undefined>(undefined);
+  const path = useMemo(() => (focus === null ? null : focusPath(payload, revealed, focus)), [payload, revealed, focus]);
 
   useEffect(() => {
     let current = true;
-    new ELK().layout(flatElkGraph(view, condensedCaption, previous.current)).then((result) => {
+    new ELK().layout(flatElkGraph(view, condensedCaption, previous.current, path?.nodes)).then((result) => {
       if (!current) return;
       const laid = positions(result);
       previous.current = new Map(laid.map((p) => [p.id, { x: p.x, y: p.y }]));
-      const drawing = { nodes: condensedNodesOf(view, laid), edges: condensedEdgesOf(view, routes(result)) };
+      const drawing = { nodes: condensedNodesOf(view, laid, path), edges: condensedEdgesOf(view, routes(result), path) };
       setTarget({ drawing, click: click.current });
       click.current = undefined;
     });
     return () => { current = false; };
-  }, [view]);
+  }, [view, path]);
 
   // The boxed view's motion, refit and layout counter - see useMotion.
   const { drawing, moving } = useMotion(flow, target);
@@ -511,8 +542,21 @@ function CondensedGraph({ payload, revealed, setRevealed, view }: Revealing & { 
   const tapOn = useCallback((on: CondensedTarget) => {
     setHover(null);
     click.current = 'node' in on ? { id: on.node } : {};
+    setFocus(focusOf(payload, revealed, on));
     setRevealed((was) => tapCondensed(payload, was, on));
-  }, [payload, setRevealed]);
+  }, [payload, revealed, setRevealed, setFocus]);
+
+  // Back to the whole graph, where it is: no click to anchor on, and nothing new to refit for.
+  const unfocus = useCallback(() => {
+    if (focus === null) return;
+    click.current = {};
+    setFocus(null);
+  }, [focus, setFocus]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') unfocus(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [unfocus]);
 
   const edgeTarget = (edge: Edge): CondensedTarget => ({ edge: [edge.source, edge.target] });
 
@@ -520,9 +564,12 @@ function CondensedGraph({ payload, revealed, setRevealed, view }: Revealing & { 
     <>
       <ReactFlow nodes={drawing.nodes} edges={edges} nodeTypes={CONDENSED_TYPES} edgeTypes={CONDENSED_EDGE_TYPES}
                  className={moving ? 'cf-moving' : undefined}
-                 onNodeClick={(_, node) => tapOn({ node: node.id })}
+                 onNodeClick={(_, node) => (node.id === FOCUS_LANE ? unfocus() : tapOn({ node: node.id }))}
                  onEdgeClick={(_, edge) => tapOn(edgeTarget(edge))}
-                 onNodeMouseEnter={(event, node) => setHover({ target: { node: node.id }, x: event.clientX, y: event.clientY })}
+                 onPaneClick={unfocus}
+                 onNodeMouseEnter={(event, node) => {
+                   if (node.id !== FOCUS_LANE) setHover({ target: { node: node.id }, x: event.clientX, y: event.clientY });
+                 }}
                  onNodeMouseLeave={() => setHover(null)}
                  onEdgeMouseEnter={(event, edge) => setHover({ target: edgeTarget(edge), x: event.clientX, y: event.clientY })}
                  onEdgeMouseLeave={() => setHover(null)}
@@ -587,6 +634,8 @@ function Page({ payload }: { payload: Payload }) {
   const [legendOpen, setLegendOpen] = useState(false);
   const [boxed, setBoxed] = useState<Set<Id>>(() => opening(payload));
   const [shown, setShown] = useState<Set<Id>>(() => condensedOpening(payload));
+  // The condensed click's path - see focusPath. Here beside `shown` so that Reset clears both.
+  const [focus, setFocus] = useState<Focus | null>(null);
   // Here rather than in CondensedGraph so that the Mermaid button exports the very view drawn.
   const condensedView = useMemo(() => condensed(payload, shown), [payload, shown]);
 
@@ -595,7 +644,10 @@ function Page({ payload }: { payload: Payload }) {
   // layout.
   const reset = useCallback(() => {
     if (mode === 'boxes') setBoxed(opening(payload));
-    else setShown(condensedOpening(payload));
+    else {
+      setShown(condensedOpening(payload));
+      setFocus(null);
+    }
   }, [mode, payload]);
 
   useEffect(() => {
@@ -618,7 +670,8 @@ function Page({ payload }: { payload: Payload }) {
       {legendOpen && <Legend payload={payload} mode={mode} />}
       {mode === 'boxes'
         ? <Graph payload={payload} revealed={boxed} setRevealed={setBoxed} />
-        : <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={condensedView} />}
+        : <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={condensedView}
+                          focus={focus} setFocus={setFocus} />}
     </>
   );
 }

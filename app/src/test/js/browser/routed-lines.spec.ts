@@ -23,7 +23,8 @@ type Drawn = {
 const drawn = (page: Page): Promise<Drawn> => page.evaluate(() => {
   const box = (r: DOMRect) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   return {
-    nodes: [...document.querySelectorAll<HTMLElement>('.react-flow__node')]
+    // Not the focus lane: it is a region the path's lines run inside and its in and out lines cross.
+    nodes: [...document.querySelectorAll<HTMLElement>('.react-flow__node:not(.react-flow__node-focusLane)')]
       .map((n) => ({ id: n.dataset.id!, box: box(n.getBoundingClientRect()) })),
     edges: [...document.querySelectorAll('.react-flow__edge')].map((edge) => {
       const path = edge.querySelector<SVGPathElement>('.react-flow__edge-path')!;
@@ -65,6 +66,16 @@ function crossings(page: Drawn): string[] {
     }
   }
   return [...found].sort();
+}
+
+/** Every line whose first point is not on its source's box or whose last is not on its target's. */
+function detached(page: Drawn): string[] {
+  const box = new Map(page.nodes.map((n) => [n.id, n.box]));
+  const on = (p: { x: number; y: number }, id: string) => inside(p, box.get(id)!, -3);
+  return page.edges.filter((edge) => {
+    const [source, target] = edge.id.split('->');
+    return !on(edge.points[0], source) || !on(edge.points[edge.points.length - 1], target);
+  }).map((edge) => edge.id).sort();
 }
 
 /** Points of a drawn line outside the pane the page is drawn in. */
@@ -130,6 +141,19 @@ test.describe('boundary, condensed lines', () => {
     expect(on.nodes.length).toBeGreaterThan(5);
     expect(on.edges.length).toBeGreaterThan(12);
     expect(on.edges.filter((e) => curved(e.d)).map((e) => e.id)).toEqual([]);
+    expect(crossings(on)).toEqual([]);
+  });
+
+  // ELK gives a line inside the lane in the lane's frame; drawn without the lane's offset, each one
+  // starts and ends short of its nodes, by however far the lane sits from the page's corner.
+  test('with a path in its lane, every line meets its two nodes and runs clear of the rest', async ({ page }) => {
+    await condense(page);
+    await drewAgain(page, () => page.locator(LEAF).filter({ hasText: EVENT }).click());
+    await drewAgain(page, () => page.locator(LEAF).filter({ hasText: /^c$/ }).click());
+    await expect(page.locator('.react-flow__node-focusLane')).toHaveCount(1);
+    const on = await drawn(page);
+    expect(on.edges.length).toBeGreaterThan(12);
+    expect(detached(on)).toEqual([]);
     expect(crossings(on)).toEqual([]);
   });
 });

@@ -135,6 +135,7 @@ already placed every node and, asked for `elk.edgeRouting: ORTHOGONAL`, routes e
 them; so the condensed view draws that route (`routes(laidOut)` in `layout.ts`, a `routed` edge type in the renderer: the polyline
 with ~6 px rounded corners, the arrow at its end, `×N` at the middle of its longest segment).
 Orthogonal over splines because right angles are the easiest to follow from one end to the other.
+The `Curved` toolbar toggle (page state `lineStyle`, not remembered) swaps to `elk.edgeRouting: SPLINES`, drawn by `curvedPath` as ELK's cubic Beziers (still one section, 1+3k points), so curves also clear the nodes; the toggle re-lays-out and keeps `shown` and `focus`.
 A flat graph's routes come back in the frame of its nodes, so nothing is re-based. An edge ELK gave
 no section, or more than one, **throws** - a straight line drawn instead would be a guess through
 whatever lies between its ends, with nothing on the page to say so. The fit includes the routes.

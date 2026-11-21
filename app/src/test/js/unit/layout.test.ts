@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { flatElkGraph, nodeWidth, positions, type ElkNode } from '../../../main/resources/viewer/layout.ts';
+import { curvedPath, flatElkGraph, nodeWidth, positions, routes, type ElkNode } from '../../../main/resources/viewer/layout.ts';
 
 test('positions flattens the laid-out tree, keeping each parent', () => {
   const laid: ElkNode = {
@@ -38,4 +38,37 @@ test('the layout is flat, sized from the captions, one edge per ordered pair', (
   assert.equal(root.layoutOptions!['elk.spacing.nodeNode'], '40');
   for (const value of Object.values(root.layoutOptions!)) assert.equal(typeof value, 'string');
   assert.equal(root.layoutOptions!['elk.hierarchyHandling'], undefined);
+});
+
+// Square is today's routing and the default; curved asks ELK for splines.
+test('flatElkGraph routes square by default and curved on request', () => {
+  const view = { nodes: [{ id: 'a', label: 'a', type: 'VARIABLE' as const }], edges: [] };
+  const routing = (root: ElkNode) => root.layoutOptions!['elk.edgeRouting'];
+  assert.equal(routing(flatElkGraph(view, (n) => n.label)), 'ORTHOGONAL');
+  assert.equal(routing(flatElkGraph(view, (n) => n.label, undefined, undefined, 'square')), 'ORTHOGONAL');
+  assert.equal(routing(flatElkGraph(view, (n) => n.label, undefined, undefined, 'curved')), 'SPLINES');
+});
+
+// ELK's SPLINES section, recorded from elkjs 0.9.3 (a -> b, one layer apart): startPoint, then
+// bendPoints and endPoint together are cubic Bezier control points in threes - 1 + 3k points in all.
+const spline: ElkNode = {
+  id: 'root',
+  edges: [{
+    id: 'a->b', sources: ['a'], targets: ['b'],
+    sections: [{
+      id: 'a->b_s0', startPoint: { x: 105.5, y: 38 }, endPoint: { x: 134, y: 108 },
+      bendPoints: [{ x: 105.5, y: 38 }, { x: 131.15, y: 73 }],
+    }],
+  }],
+};
+
+test('curvedPath draws a recorded ELK spline section as a cubic Bezier', () => {
+  assert.equal(curvedPath(routes(spline).get('a->b')!), 'M 105.5 38 C 105.5 38 131.15 73 134 108');
+});
+
+test('curvedPath chains one cubic per three points, and draws a route with no bends straight', () => {
+  const p = (x: number, y: number) => ({ x, y });
+  assert.equal(curvedPath([p(0, 0), p(1, 1), p(2, 2), p(3, 3), p(4, 4), p(5, 5), p(6, 6)]),
+    'M 0 0 C 1 1 2 2 3 3 C 4 4 5 5 6 6');
+  assert.equal(curvedPath([p(0, 0), p(10, 20)]), 'M 0 0 L 10 20');
 });

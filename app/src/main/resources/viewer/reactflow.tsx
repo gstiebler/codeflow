@@ -20,8 +20,8 @@ import {
 } from './condensed.ts';
 import { condensedMermaid } from './mermaid.ts';
 import {
-  captionAt, flatEdgeId, flatElkGraph, positions, roundedPath, routes, FOCUS_LANE, NODE_HEIGHT,
-  type Point, type Positioned,
+  captionAt, curvedPath, flatEdgeId, flatElkGraph, positions, roundedPath, routes, FOCUS_LANE, NODE_HEIGHT,
+  type LineStyle, type Point, type Positioned,
 } from './layout.ts';
 import {
   PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, legend,
@@ -335,11 +335,11 @@ function RoutedEdge({
   id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data,
   style, markerEnd, label, labelStyle, labelBgStyle, labelBgPadding,
 }: EdgeProps) {
-  const route = (data as { route?: Point[] } | undefined)?.route;
+  const { route, lineStyle } = (data ?? {}) as { route?: Point[]; lineStyle?: LineStyle };
   let path: string;
   let at: Point;
   if (route) {
-    path = roundedPath(route, CORNER);
+    path = lineStyle === 'curved' ? curvedPath(route) : roundedPath(route, CORNER);
     at = captionAt(route);
   } else {
     const [curve, x, y] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
@@ -359,7 +359,7 @@ const CONDENSED_EDGE_TYPES = { routed: RoutedEdge };
  * along its route. A line ELK did not route is an error: drawn without one it would be a straight
  * guess through whatever lies between its ends.
  */
-function condensedEdgesOf(view: CondensedView, routed: Map<string, Point[]>, path: FocusPath | null): Edge[] {
+function condensedEdgesOf(view: CondensedView, routed: Map<string, Point[]>, path: FocusPath | null, lineStyle: LineStyle): Edge[] {
   return view.edges.map((edge) => {
     const { colour, label, dashed } = condensedEdgeStyle(edge);
     const id = flatEdgeId(edge);
@@ -368,7 +368,7 @@ function condensedEdgesOf(view: CondensedView, routed: Map<string, Point[]>, pat
     return {
       id,
       type: 'routed',
-      data: { route },
+      data: { route, lineStyle },
       source: edge.source,
       target: edge.target,
       className: dimmed(path, path?.edges.get(edge.source)?.has(edge.target) ?? false),
@@ -385,8 +385,8 @@ type Hover = { target: CondensedTarget; x: number; y: number };
  * The view: flat, laid out by ELK, with a tooltip saying where a node lives. Every decision is
  * condensed.ts's; this writes it out.
  */
-function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus }: Revealing & {
-  view: CondensedView; focus: Focus | null; setFocus: Dispatch<SetStateAction<Focus | null>>;
+function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus, lineStyle }: Revealing & {
+  lineStyle: LineStyle; view: CondensedView; focus: Focus | null; setFocus: Dispatch<SetStateAction<Focus | null>>;
 }) {
   // Null until ELK first answers, so that the layout counter counts only real layouts: a probe
   // waiting for the condensed view to be drawn must not be satisfied by the empty first render.
@@ -399,16 +399,16 @@ function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus 
 
   useEffect(() => {
     let current = true;
-    new ELK().layout(flatElkGraph(view, condensedCaption, previous.current, path?.nodes)).then((result) => {
+    new ELK().layout(flatElkGraph(view, condensedCaption, previous.current, path?.nodes, lineStyle)).then((result) => {
       if (!current) return;
       const laid = positions(result);
       previous.current = new Map(laid.map((p) => [p.id, { x: p.x, y: p.y }]));
-      const drawing = { nodes: condensedNodesOf(view, laid, path), edges: condensedEdgesOf(view, routes(result), path) };
+      const drawing = { nodes: condensedNodesOf(view, laid, path), edges: condensedEdgesOf(view, routes(result), path, lineStyle) };
       setTarget({ drawing, click: click.current });
       click.current = undefined;
     });
     return () => { current = false; };
-  }, [view, path]);
+  }, [view, path, lineStyle]);
 
   // Motion, refit and the layout counter - see useMotion.
   const { drawing, moving } = useMotion(flow, target);
@@ -510,6 +510,8 @@ function Legend({ payload }: { payload: Payload }) {
  */
 function Page({ payload }: { payload: Payload }) {
   const [legendOpen, setLegendOpen] = useState(false);
+  // Square or curved lines; changing it re-lays-out the same view, so `shown` and `focus` stay.
+  const [lineStyle, setLineStyle] = useState<LineStyle>('square');
   const [shown, setShown] = useState<Set<Id>>(() => condensedOpening(payload));
   // The click's path - see focusPath. Here beside `shown` so that Reset clears both.
   const [focus, setFocus] = useState<Focus | null>(null);
@@ -537,10 +539,12 @@ function Page({ payload }: { payload: Payload }) {
         <button type="button" onClick={reset}>Reset</button>
         <button type="button" onClick={() => download(condensedView)}>Mermaid</button>
         <button type="button" aria-pressed={legendOpen} onClick={() => setLegendOpen((open) => !open)}>Legend</button>
+        <button type="button" aria-pressed={lineStyle === 'curved'}
+                onClick={() => setLineStyle((style) => (style === 'curved' ? 'square' : 'curved'))}>Curved</button>
       </div>
       {legendOpen && <Legend payload={payload} />}
       <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={condensedView}
-                      focus={focus} setFocus={setFocus} />
+                      focus={focus} setFocus={setFocus} lineStyle={lineStyle} />
     </>
   );
 }

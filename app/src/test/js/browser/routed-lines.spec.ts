@@ -151,3 +151,24 @@ test.describe('boundary, condensed lines', () => {
     expect(crossings(on)).toEqual([]);
   });
 });
+
+/** The Curved toggle: every line becomes ELK's spline and back, with the same nodes on screen. */
+test.describe('boundary, line style', () => {
+  test.beforeEach(open('boundary'));
+
+  test('Curved draws every line as a curve, and a second click restores the square lines', async ({ page }) => {
+    const button = page.getByRole('button', { name: 'Curved', exact: true });
+    await expect(button).toHaveAttribute('aria-pressed', 'false');
+    const nodes = await page.locator(NODE).count();
+    await drewAgain(page, () => button.click());
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator(NODE)).toHaveCount(nodes);
+    const on = await drawn(page);
+    expect(on.edges.length).toBeGreaterThan(0);
+    for (const edge of on.edges) expect(curved(edge.d), edge.id).toBe(true);
+    await drewAgain(page, () => button.click());
+    await expect(button).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator(NODE)).toHaveCount(nodes);
+    expect((await drawn(page)).edges.some((e) => curved(e.d))).toBe(false);
+  });
+});

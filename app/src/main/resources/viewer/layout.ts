@@ -62,6 +62,9 @@ const FLAT_OPTIONS: Record<string, string> = {
   'elk.edgeRouting': 'ORTHOGONAL',
 };
 
+/** How the page draws its lines: right-angled routes with rounded corners, or ELK's smooth splines. */
+export type LineStyle = 'square' | 'curved';
+
 /** The condensed view draws one edge per ordered pair of display nodes, so the pair is its id. */
 export const flatEdgeId = (edge: { source: Id; target: Id }) => `${edge.source}->${edge.target}`;
 
@@ -78,16 +81,20 @@ const LANE_OPTIONS: Record<string, string> = { ...FLAT_OPTIONS, 'elk.padding': '
  */
 export function flatElkGraph(
   view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>, lane?: Set<Id>,
+  style: LineStyle = 'square',
 ): ElkNode {
   const leaf = (node: CondensedNode): ElkNode => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT });
   const inLane = lane !== undefined && lane.size > 0 ? lane : undefined;
+  // The lane's own layout is routed the same way, or its inner lines would stay square.
+  const options = { ...FLAT_OPTIONS, 'elk.edgeRouting': style === 'curved' ? 'SPLINES' : 'ORTHOGONAL' };
+  const laneOptions = { ...LANE_OPTIONS, 'elk.edgeRouting': options['elk.edgeRouting'] };
   const root: ElkNode = {
     id: 'root',
-    layoutOptions: inLane ? { ...FLAT_OPTIONS, 'elk.hierarchyHandling': 'INCLUDE_CHILDREN' } : FLAT_OPTIONS,
+    layoutOptions: inLane ? { ...options, 'elk.hierarchyHandling': 'INCLUDE_CHILDREN' } : options,
     children: inLane
       ? [
         ...view.nodes.filter((n) => !inLane.has(n.id)).map(leaf),
-        { id: FOCUS_LANE, layoutOptions: LANE_OPTIONS, children: view.nodes.filter((n) => inLane.has(n.id)).map(leaf) },
+        { id: FOCUS_LANE, layoutOptions: laneOptions, children: view.nodes.filter((n) => inLane.has(n.id)).map(leaf) },
       ]
       : view.nodes.map(leaf),
     edges: view.edges.map((edge) => ({ id: flatEdgeId(edge), sources: [edge.source], targets: [edge.target] })),
@@ -246,5 +253,25 @@ export function roundedPath(route: Point[], radius: number): string {
   }
   const last = route[route.length - 1];
   parts.push(`L ${last.x} ${last.y}`);
+  return parts.join(' ');
+}
+
+/**
+ * An SVG path for a route ELK computed with `elk.edgeRouting: SPLINES`. Found by running elkjs 0.9.3:
+ * a spline edge still comes back as exactly one section, and its points - startPoint, bendPoints in
+ * order, endPoint - are cubic Bezier control points: the start, then one `C` per three points
+ * (1 + 3k in all; even a straight edge with no obstacle gets one cubic, e.g. start, start, a point
+ * on the line, end; a long straight stretch can have several). A route that is not of that shape,
+ * which is the two-point route of an edge with no bends, is drawn as the straight line it is.
+ */
+export function curvedPath(route: Point[]): string {
+  const parts = [`M ${route[0].x} ${route[0].y}`];
+  if (route.length < 4 || (route.length - 1) % 3 !== 0) {
+    for (const p of route.slice(1)) parts.push(`L ${p.x} ${p.y}`);
+  } else {
+    for (let i = 1; i < route.length; i += 3) {
+      parts.push(`C ${route[i].x} ${route[i].y} ${route[i + 1].x} ${route[i + 1].y} ${route[i + 2].x} ${route[i + 2].y}`);
+    }
+  }
   return parts.join(' ');
 }

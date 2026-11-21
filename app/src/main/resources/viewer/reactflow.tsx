@@ -168,10 +168,16 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
   const committed = useRef<(() => void) | undefined>(undefined);
 
   // `then` runs once the drawing is on the page, not merely asked for.
+  //
+  // React Flow forgets a node's measurement (and its handles, so its edges) whenever it is handed a
+  // new node object, and every paint hands it new ones. It measures with a ResizeObserver that fires
+  // once per size, so a node measured and then reset before it re-rendered is never measured again:
+  // hidden for good. Every node therefore carries the size it is drawn at, which is its style's.
   const paint = (next: Drawing, then?: () => void) => {
-    shown.current = next;
+    const measured: Drawing = { ...next, nodes: next.nodes.map((n) => ({ ...n, measured: size(n) })) };
+    shown.current = measured;
     committed.current = then;
-    setDrawing(next);
+    setDrawing(measured);
   };
   useEffect(() => {
     const then = committed.current;

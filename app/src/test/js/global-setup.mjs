@@ -27,8 +27,43 @@ const FIXTURES = {
   boundaryBranch: '--from App#entrypoint --boundary Port',
 };
 
+/**
+ * `bigBoundary`: twenty methods of five steps, each calling `Port` twice per step - 200 boundary call
+ * sites in a payload of a couple of MB. Written here rather than kept in `src/test/resources`, where
+ * every directory is also a golden test. It exists for one reason: the Boundaries panel recomputes
+ * every row on every render, and on a payload this size that costs more than React Flow's own
+ * measurement of a node, which is the race `measured.spec.ts` is about. A small fixture draws too
+ * fast to lose it.
+ */
+function bigBoundary() {
+  const dir = resolve('build/viewer-test/src/bigBoundary');
+  mkdirSync(dir, { recursive: true });
+  const methods = Array.from({ length: 20 }, (_, m) => [
+    `  static int m${m}(int a, int b) {`,
+    '    int x = a;',
+    ...Array.from({ length: 5 }, (_, s) => [
+      `    x = x + b * ${s + 1};`,
+      `    if (x > ${s}) { Port.send(x); } else { x = x - a; }`,
+      '    Port.flush(x);',
+    ]).flat(),
+    '    return x;',
+    '  }',
+  ].join('\n'));
+  const calls = methods.map((_, m) => `    m${m}(a, b);`).join('\n');
+  writeFileSync(`${dir}/App.java`,
+    `package bigBoundary;\npublic class App {\n  static void entrypoint(int a, int b) {\n${calls}\n  }\n${methods.join('\n')}\n}\n`);
+  writeFileSync(`${dir}/Port.java`, 'package bigBoundary;\npublic class Port {\n  static void send(int x) {}\n  static void flush(int x) {}\n}\n');
+  return dir;
+}
+
 export default function globalSetup() {
   mkdirSync('build/viewer-test', { recursive: true });
+  const big = bigBoundary();
+  const html = execSync(
+    `./gradlew -q run --args="${big} --html --from App#entrypoint --boundary Port"`,
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] },
+  );
+  writeFileSync('build/viewer-test/bigBoundary.html', html);
   for (const [name, flags] of Object.entries(FIXTURES)) {
     const html = execSync(
       `./gradlew -q run --args="${resolve(`app/src/test/resources/${name}`)} --html ${flags}"`,

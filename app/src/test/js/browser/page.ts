@@ -86,9 +86,29 @@ export const tapLeafAll = (page: Page, label: string) => drewAgain(page, async (
   await page.locator(PICKER).getByRole('button', { name: 'Show all', exact: true }).click();
 });
 
-/** Click a group by its label - a method's name; the first, when a method is called from several places. Its caption is `label (count)`. */
+/** What a method's frame is drawn as, by the method's name; the first, when a method is called from several places. */
+export const frameOf = (page: Page, label: string) =>
+  page.locator('.react-flow__node-condensedFrame').filter({ hasText: new RegExp(`^${label}$`) }).first();
+
+/**
+ * A method's group, by its name; the first, in the order the page draws them, when a method is called from
+ * several places. Its caption is `label (count)` - or, once a value of the method is out and it sits in its
+ * frame, `N more`, and then it is the group the frame's id names (`frame:<box>`; the group's id is the box's).
+ */
+export const groupNode = async (page: Page, label: string) => {
+  const id = await page.evaluate((name) => {
+    const framed = new Set([...document.querySelectorAll<HTMLElement>('.react-flow__node-condensedFrame')]
+      .filter((f) => (f.textContent ?? '').trim() === name).map((f) => f.dataset.id!.slice('frame:'.length)));
+    const groups = [...document.querySelectorAll<HTMLElement>('.react-flow__node')].filter((n) => n.querySelector('.cf-group'));
+    return groups.find((n) => framed.has(n.dataset.id!) || (n.textContent ?? '').startsWith(`${name} (`))?.dataset.id;
+  }, label);
+  if (id === undefined) throw new Error(`no group or frame named ${label}`);
+  return page.locator(`.react-flow__node[data-id="${id}"] .cf-group`);
+};
+
+/** Click a group by its label - a method's name; the first, when a method is called from several places. */
 export const tapGroup = (page: Page, label: string) => drewAgain(page, async () => {
-  await page.locator('.react-flow__node .cf-group').filter({ hasText: new RegExp(`^${label} \\(`) }).first().click();
+  await (await groupNode(page, label)).click();
 });
 
 /** Press R and let the page catch up. The one gesture that is not a click. */
@@ -99,6 +119,6 @@ export const reset = (page: Page) => drewAgain(page, () => page.keyboard.press('
  * the click did before the popup. Counts as one drawing, like `tapGroup`.
  */
 export const tapGroupAll = (page: Page, label: string) => drewAgain(page, async () => {
-  await page.locator('.react-flow__node .cf-group').filter({ hasText: new RegExp(`^${label} \\(`) }).first().click();
+  await (await groupNode(page, label)).click();
   await page.locator(PICKER).getByRole('button', { name: 'Show all', exact: true }).click();
 });

@@ -48,6 +48,13 @@ export const GROUP_OUTLINE = '#999';
 export const BOUNDARY_OUTLINE = '#7b1fa2';
 
 /**
+ * A method's frame, around its revealed values: unfilled, so the lines running through it stay visible,
+ * with a light outline; a boundary method's frame keeps the boundary purple.
+ */
+export const FRAME_FILL = 'transparent';
+export const FRAME_OUTLINE = '#bbb';
+
+/**
  * After a click: the ring that fades off what just appeared, in a blue nothing else on the page uses,
  * and the steady outline on the node that was clicked, until the next click.
  */
@@ -138,7 +145,7 @@ export type LegendLine = { name: string; colour: string; dashed: boolean; meanin
 
 /**
  * The legend's rows, read off the same constants the renderer paints with: leaf fills and line
- * styles only for the types and kinds this payload has, the groups, and the
+ * styles only for the types and kinds this payload has, the groups, the method frame and the
  * two marks a click leaves.
  */
 export function legend(payload: Payload): { leaves: LegendLeaf[]; boxes: LegendLeaf[]; lines: LegendLine[] } {
@@ -150,6 +157,7 @@ export function legend(payload: Payload): { leaves: LegendLeaf[]; boxes: LegendL
   const boxes: LegendLeaf[] = [
     { name: 'program', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: 'everything not yet in a method box; click to open' },
     { name: 'method', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: "a method call's body, folded; click to open" },
+    { name: 'frame', fill: FRAME_FILL, outline: FRAME_OUTLINE, meaning: "a method's values, inside it; its `N more` box opens the rest" },
     { name: 'boundary', fill: GROUP_FILL, outline: BOUNDARY_OUTLINE, meaning: 'a boundary method: its body is not read' },
     { name: 'just appeared', fill: GROUP_FILL, outline: NEW_RING, meaning: 'new since the last click (fades)' },
     { name: 'clicked', fill: GROUP_FILL, outline: CLICKED_OUTLINE, meaning: 'the node last clicked' },

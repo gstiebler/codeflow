@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { SURFACE, open, reset, tapLeafAll } from './page.ts';
 
-const NODE = '.react-flow__node';
+/** A drawn node: a frame is the outline around some, not one of them. */
+const NODE = '.react-flow__node:not(.react-flow__node-condensedFrame)';
 
 /**
  * The page on `funcCall`, asked of the DOM rather than of the view: it draws, and R brings back the

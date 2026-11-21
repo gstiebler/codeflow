@@ -269,14 +269,14 @@ test('clicking a drawn edge takes out the endpoints of the edges it stands for',
 test('a group whose last member came out is gone, and its edges arrive at the member', () => {
   const view = sorted(condensed(PAYLOAD, new Set(['n9'])));
   assert.deepEqual(view.nodes.map((n) => n.id), ['b0', 'b1', 'n9', 'program']);
-  assert.deepEqual(view.nodes.find((n) => n.id === 'n9'), { id: 'n9', label: 'x', type: 'FUNC_PARAM' });
+  assert.deepEqual(view.nodes.find((n) => n.id === 'n9'), { id: 'n9', label: 'x', type: 'FUNC_PARAM', frame: 'frame:b3' });
   assert.ok(view.edges.includes('b1->n9:ORDER1x1'));
   assert.ok(view.edges.includes('b0->n9:FLOW1x1'), view.edges.join(' '));
 });
 
 test('a revealed leaf keeps its lead', () => {
   const view = condensed(PAYLOAD, new Set(['n5']));
-  assert.deepEqual(view.nodes.find((n) => n.id === 'n5'), { id: 'n5', label: 'call fetch', type: 'EXTERNAL', lead: 'call' });
+  assert.deepEqual(view.nodes.find((n) => n.id === 'n5'), { id: 'n5', label: 'call fetch', type: 'EXTERNAL', lead: 'call', frame: 'frame:b1' });
 });
 
 test('reset returns to the opening view', () => {
@@ -650,4 +650,68 @@ test('revealing a nested boundary box draws it as a group and no leaf of it', ()
   assert.equal(boundaryDrawn(PAYLOAD, revealed, nested), true);
   const was = new Set(condensed(PAYLOAD, opening).nodes.map((n) => n.id));
   assert.deepEqual(view.nodes.filter((n) => !was.has(n.id)).map((n) => n.id), ['b5']);
+});
+
+// Method frames: a box with a revealed value of its own is open, and draws those values inside a frame.
+const framesOf = (revealed: string[]) => condensed(PAYLOAD, new Set(revealed));
+const nodeOf = (view: CondensedView, id: string) => view.nodes.find((n) => n.id === id);
+
+test('a box with one revealed leaf has one frame; its leaf and its rest node sit in it, and the rest says N more', () => {
+  const view = framesOf(['n1']);
+  assert.deepEqual(view.frames, [{ id: 'frame:b0', box: 'b0', label: 'main' }]);
+  assert.equal(nodeOf(view, 'n1')!.frame, 'frame:b0');
+  const rest = nodeOf(view, 'b0')!;
+  assert.equal(rest.type, 'GROUP');
+  assert.equal(rest.frame, 'frame:b0');
+  assert.equal(condensedCaption(rest), '3 more');
+  // The pair: the same box without a revealed leaf is today's `main (4)`, no frame anywhere.
+  const closed = framesOf([]);
+  assert.deepEqual(closed.frames, []);
+  assert.equal(condensedCaption(nodeOf(closed, 'b0')!), 'main (4)');
+  assert.equal(nodeOf(closed, 'b0')!.frame, undefined);
+});
+
+test('a box opened by an edge, and program, have no frame and keep their caption', () => {
+  const view = framesOf(['n1']);
+  // b1 is open (n1 flows into n4) but none of its leaves is revealed.
+  assert.equal(nodeOf(view, 'b1')!.frame, undefined);
+  assert.equal(condensedCaption(nodeOf(view, 'b1')!), 'fetch (3)');
+  const program = nodeOf(view, 'program')!;
+  assert.equal(program.frame, undefined);
+  assert.equal(condensedCaption(program), `program (${program.members})`);
+  assert.deepEqual(view.frames.map((f) => f.box), ['b0']);
+});
+
+test('a METHOD id revealed alone is the plain box it was, with no frame', () => {
+  const view = framesOf(['b1']);
+  assert.deepEqual(view.frames, []);
+  assert.equal(nodeOf(view, 'b1')!.frame, undefined);
+  assert.equal(condensedCaption(nodeOf(view, 'b1')!), 'fetch (3)');
+});
+
+test('every member revealed: the frame stays and the rest node is gone', () => {
+  const view = framesOf(['n9']);
+  assert.deepEqual(view.frames, [{ id: 'frame:b3', box: 'b3', label: 'save', boundary: true }]);
+  assert.equal(nodeOf(view, 'n9')!.frame, 'frame:b3');
+  assert.equal(nodeOf(view, 'b3'), undefined);
+});
+
+test('two call sites of one method are two frames, side by side; a nested callee has its frame at the root', () => {
+  const two = framesOf(['n4', 'n7']);
+  assert.deepEqual(two.frames.map((f) => f.id), ['frame:b1', 'frame:b2']);
+  assert.equal(nodeOf(two, 'n4')!.frame, 'frame:b1');
+  assert.equal(nodeOf(two, 'n7')!.frame, 'frame:b2');
+  assert.equal(condensedCaption(nodeOf(two, 'b1')!), '2 more');
+  const nested = framesOf(['n11', 'n12']);
+  assert.deepEqual(nested.frames.map((f) => [f.id, f.box]), [['frame:b4', 'b4'], ['frame:b5', 'b5']]);
+  // A frame names its box and nothing above it: one level, never inside another.
+  assert.deepEqual(nested.frames.map((f) => Object.keys(f).sort()), [['box', 'id', 'label'], ['boundary', 'box', 'id', 'label']]);
+  assert.equal(nodeOf(nested, 'n12')!.frame, 'frame:b5');
+  assert.equal(nodeOf(nested, 'n11')!.frame, 'frame:b4');
+});
+
+test('frames are not nodes: the node ids and edges are what they were', () => {
+  const view = framesOf(['n1']);
+  assert.ok(view.nodes.every((n) => !n.id.startsWith('frame:')));
+  assert.ok(view.edges.every((e) => !e.source.startsWith('frame:') && !e.target.startsWith('frame:')));
 });

@@ -68,18 +68,33 @@ export type LineStyle = 'square' | 'curved';
 /** The condensed view draws one edge per ordered pair of display nodes, so the pair is its id. */
 export const flatEdgeId = (edge: { source: Id; target: Id }) => `${edge.source}->${edge.target}`;
 
+/** Room inside a frame, most of it on top, for the method's name. */
+const FRAME_OPTIONS: Record<string, string> = { ...FLAT_OPTIONS, 'elk.padding': '[top=28,left=12,bottom=12,right=12]' };
+
 /**
- * The view, for ELK, flat: every node a child of the root.
+ * The view, for ELK: every node a child of the root, except those of a method's frame, which sit in
+ * the frame's compound node, itself a child of the root - one level deep, never a frame in a frame.
+ * Edges stay declared at the root, the one graph enclosing every pair, which needs `INCLUDE_CHILDREN`
+ * and is asked for only when there is a frame.
  */
 export function flatElkGraph(
   view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>,
   style: LineStyle = 'square',
 ): ElkNode {
-  const options = { ...FLAT_OPTIONS, 'elk.edgeRouting': style === 'curved' ? 'SPLINES' : 'ORTHOGONAL' };
+  const leaf = (node: CondensedNode): ElkNode => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT });
+  const routing = style === 'curved' ? 'SPLINES' : 'ORTHOGONAL';
+  const options = { ...FLAT_OPTIONS, 'elk.edgeRouting': routing };
   const root: ElkNode = {
     id: 'root',
-    layoutOptions: options,
-    children: view.nodes.map((node) => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT })),
+    layoutOptions: view.frames.length > 0 ? { ...options, 'elk.hierarchyHandling': 'INCLUDE_CHILDREN' } : options,
+    children: [
+      ...view.frames.map((frame): ElkNode => ({
+        id: frame.id,
+        layoutOptions: { ...FRAME_OPTIONS, 'elk.edgeRouting': routing },
+        children: view.nodes.filter((n) => n.frame === frame.id).map(leaf),
+      })),
+      ...view.nodes.filter((n) => n.frame === undefined).map(leaf),
+    ],
     edges: view.edges.map((edge) => ({ id: flatEdgeId(edge), sources: [edge.source], targets: [edge.target] })),
   };
   return previous ? stabilise(root, previous) : root;
@@ -244,12 +259,19 @@ export function roundedPath(route: Point[], radius: number): string {
  * order, endPoint - are cubic Bezier control points: the start, then one `C` per three points
  * (1 + 3k in all; even a straight edge with no obstacle gets one cubic, e.g. start, start, a point
  * on the line, end; a long straight stretch can have several). A route that is not of that shape,
- * which is the two-point route of an edge with no bends, is drawn as the straight line it is.
+ * which is the two-point route of an edge with no bends, is drawn as the straight line it is. An edge
+ * that crosses a frame comes back from ELK as a spline stitched from several pieces, with a point count
+ * that is not 1 + 3k: its points lie along the curve, so a Catmull-Rom curve through them is drawn.
  */
 export function curvedPath(route: Point[]): string {
   const parts = [`M ${route[0].x} ${route[0].y}`];
-  if (route.length < 4 || (route.length - 1) % 3 !== 0) {
+  if (route.length < 3) {
     for (const p of route.slice(1)) parts.push(`L ${p.x} ${p.y}`);
+  } else if (route.length < 4 || (route.length - 1) % 3 !== 0) {
+    for (let i = 0; i < route.length - 1; i++) {
+      const [p0, p1, p2, p3] = [route[Math.max(i - 1, 0)], route[i], route[i + 1], route[Math.min(i + 2, route.length - 1)]];
+      parts.push(`C ${p1.x + (p2.x - p0.x) / 6} ${p1.y + (p2.y - p0.y) / 6} ${p2.x - (p3.x - p1.x) / 6} ${p2.y - (p3.y - p1.y) / 6} ${p2.x} ${p2.y}`);
+    }
   } else {
     for (let i = 1; i < route.length; i += 3) {
       parts.push(`C ${route[i].x} ${route[i].y} ${route[i + 1].x} ${route[i + 1].y} ${route[i + 2].x} ${route[i + 2].y}`);

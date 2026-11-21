@@ -68,7 +68,8 @@ function byModelOrder(root: ElkNode, previous: Map<Id, Point>): ElkNode {
       rank.set(child.id, rank.size);
       return child.children ? rebuild(child) : child;
     });
-    const layoutOptions = graph.layoutOptions && { ...graph.layoutOptions, 'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES' };
+    // Only the root: ELK fails on a frame given the strategy.
+    const layoutOptions = graph === root && graph.layoutOptions && { ...graph.layoutOptions, 'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES' };
     return { ...graph, ...(layoutOptions ? { layoutOptions } : {}), children };
   };
   const rebuilt = rebuild(root);

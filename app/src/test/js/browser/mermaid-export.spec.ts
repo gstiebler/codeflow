@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
 import { open, tapGroupAll } from './page.ts';
 
-const NODE = '.react-flow__node';
+/** A drawn node: a frame is the outline around some, not one of them. */
+const NODE = '.react-flow__node:not(.react-flow__node-condensedFrame)';
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 

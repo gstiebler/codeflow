@@ -17,9 +17,14 @@
  * or a hidden member has an edge of any kind but EVENT to a revealed leaf (either direction) - and in
  * `program` otherwise. A boundary box is no exception: it is drawn when open, with its own look. Boxes are flat, never inside one another. A
  * leaf with no box is a payload this viewer was not written for, and throws.
+ *
+ * A revealed leaf is drawn inside its method's frame (`CondensedView.frames`): a box with at least one of its
+ * own leaves revealed is *open* and gets one, holding those leaves and, while it still has hidden members, its
+ * group - the rest node, captioned `N more`. A frame is not a node: no edge ends on it, and it is never inside
+ * another frame. A method id revealed alone, with no leaf of the box, draws the plain box and no frame.
  */
 import type {
-  CondensedEdge, CondensedNode, CondensedTarget, CondensedView, EdgeKind, Id, Payload, PayloadEdge, PayloadNode,
+  CondensedEdge, CondensedFrame, CondensedNode, CondensedTarget, CondensedView, EdgeKind, Id, Payload, PayloadEdge, PayloadNode,
 } from './types.ts';
 
 /**
@@ -176,16 +181,32 @@ export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
   const left = new Map<Id, number>();
   for (const group of groups.values()) left.set(group, (left.get(group) ?? 0) + 1);
 
+  // A box is open - framed - when a leaf of its own is revealed, in payload order.
+  const frames: CondensedFrame[] = [];
+  const framed = new Map<Id, Id>();
+  for (const box of payload.nodes) {
+    if (box.type !== 'METHOD' || !(ix.members.get(box.id) ?? []).some((m) => revealed.has(m))) continue;
+    const id = `frame:${box.id}`;
+    framed.set(box.id, id);
+    frames.push({ id, box: box.id, label: ix.label.get(box.id)!, ...(box.boundary ? { boundary: true as const } : {}) });
+  }
+
   const nodes: CondensedNode[] = [];
   // `program` first, then the boxes in payload order; a group with no hidden member is not drawn.
   for (const id of [PROGRAM, ...ix.members.keys()]) {
     const count = left.get(id) ?? 0;
     if (count === 0) continue;
-    nodes.push({ id, label: ix.label.get(id)!, type: 'GROUP', members: count, ...(ix.byId.get(id)?.boundary ? { boundary: true } : {}) });
+    nodes.push({
+      id, label: ix.label.get(id)!, type: 'GROUP', members: count,
+      ...(ix.byId.get(id)?.boundary ? { boundary: true } : {}), ...(framed.has(id) ? { frame: framed.get(id) } : {}),
+    });
   }
   for (const leaf of ix.leaves) {
     if (!revealed.has(leaf.id)) continue;
-    nodes.push({ id: leaf.id, label: leaf.label, type: leaf.type, ...(leaf.lead === undefined ? {} : { lead: leaf.lead }) });
+    nodes.push({
+      id: leaf.id, label: leaf.label, type: leaf.type, ...(leaf.lead === undefined ? {} : { lead: leaf.lead }),
+      frame: framed.get(ix.box.get(leaf.id)!)!,
+    });
   }
 
   const drawn = new Map<string, CondensedEdge>();
@@ -201,15 +222,17 @@ export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
     } else drawn.set(key, { source, target, kinds: { [edge.kind]: 1 }, count: 1 });
   }
 
-  return { nodes, edges: [...drawn.values()] };
+  return { nodes, edges: [...drawn.values()], frames };
 }
 
 /**
  * What a display node is captioned: a leaf its label, a group its label and how many it stands for -
- * `fetch (42)` - so a click that takes members out visibly changes the group too.
+ * `fetch (42)` - so a click that takes members out visibly changes the group too. A group inside its
+ * box's frame is the rest of that box, and the frame already says whose: `39 more`.
  */
 export function condensedCaption(node: CondensedNode): string {
-  return node.type === 'GROUP' ? `${node.label} (${node.members})` : node.label;
+  if (node.type !== 'GROUP') return node.label;
+  return node.frame === undefined ? `${node.label} (${node.members})` : `${node.members} more`;
 }
 
 /** The payload edges a drawn edge stands for, of every kind. */

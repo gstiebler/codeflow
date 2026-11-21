@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
-import { drewAgain, open, PICKER, tapLeaf } from './page.ts';
+import { drewAgain, groupNode, open, PICKER, tapLeaf } from './page.ts';
 
-const NODE = '.react-flow__node';
+/** A drawn node: a frame is the outline around some, not one of them. */
+const NODE = '.react-flow__node:not(.react-flow__node-condensedFrame)';
 const GROUP = '.react-flow__node .cf-group';
 const LEAF = '.react-flow__node .cf-node';
 const POPUP = PICKER;
@@ -101,10 +102,10 @@ test.describe('the picker', () => {
 test.describe('the picker on a box', () => {
   test.beforeEach(open('boundaryBranch'));
 
-  const onlyElse = (page: Page) => page.locator('.react-flow__node .cf-group').filter({ hasText: /^onlyElse \(/ });
+  const onlyElse = (page: Page) => groupNode(page, 'onlyElse');
 
   test('lists calls then values, and filters by label without regard to case', async ({ page }) => {
-    await onlyElse(page).click();
+    await (await onlyElse(page)).click();
     const popup = page.locator(POPUP);
     await expect(popup.locator('h4')).toHaveText(['calls', 'values']);
     await expect(popup.getByRole('checkbox')).toHaveCount(11);
@@ -116,7 +117,7 @@ test.describe('the picker on a box', () => {
 
   test('picking a call opens that box as a group and draws no leaf for it', async ({ page }) => {
     await expect(page.locator(NODE)).toHaveCount(10);
-    await onlyElse(page).click();
+    await (await onlyElse(page)).click();
     const popup = page.locator(POPUP);
     await popup.getByRole('checkbox', { name: 'open' }).check();
     await drewAgain(page, () => popup.getByRole('button', { name: 'Show selected (1)' }).click());
@@ -126,7 +127,7 @@ test.describe('the picker on a box', () => {
   });
 
   test('picking a value draws just that leaf', async ({ page }) => {
-    await onlyElse(page).click();
+    await (await onlyElse(page)).click();
     const popup = page.locator(POPUP);
     await popup.getByRole('checkbox', { name: 'onlyElse' }).check();
     await drewAgain(page, () => popup.getByRole('button', { name: 'Show selected (1)' }).click());
@@ -135,7 +136,7 @@ test.describe('the picker on a box', () => {
   });
 
   test('typing r in the filter does not reset the page', async ({ page }) => {
-    await onlyElse(page).click();
+    await (await onlyElse(page)).click();
     await page.locator(POPUP).getByRole('searchbox').fill('r');
     await expect(page.locator(POPUP)).toBeVisible();
     await expect(page.locator(POPUP).getByRole('searchbox')).toHaveValue('r');

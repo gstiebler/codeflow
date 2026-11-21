@@ -25,7 +25,15 @@ const square = (a: Point, b: Point) => Math.abs(a.y - b.y) < 0.01 || Math.abs(a.
 /** What is wrong with one laid-out condensed view's routes, or nothing. */
 function faults(view: CondensedView, laidOut: ElkNode): string[] {
   const found: string[] = [];
-  const at = new Map(positions(laidOut).map((p) => [p.id, p]));
+  // Routes come back in the root's frame, so the boxes are taken in it too: a node in a frame is placed
+  // by its frame. A frame is no obstacle - lines inside it are the point of it - so it is left out.
+  const placed = positions(laidOut);
+  const page = new Map<Id, Positioned>();
+  for (const p of placed) {
+    const base = p.parent === undefined ? { x: 0, y: 0 } : page.get(p.parent)!;
+    page.set(p.id, { ...p, x: base.x + p.x, y: base.y + p.y });
+  }
+  const at = new Map([...page].filter(([id]) => !id.startsWith('frame:')));
   const read = routes(laidOut);
   for (const edge of view.edges) {
     const id = flatEdgeId(edge);
@@ -49,6 +57,7 @@ test('every condensed layout of the corpus routes every line clear of every node
   const found: string[] = [];
   let layouts = 0;
   let lines = 0;
+  let frames = 0;
   for (const { name, payload } of loadCorpus()) {
     let revealed = condensedOpening(payload);
     let previous: Map<Id, Point> | undefined;
@@ -58,6 +67,7 @@ test('every condensed layout of the corpus routes every line clear of every node
       previous = new Map(positions(laidOut).map((p) => [p.id, { x: p.x, y: p.y }]));
       layouts += 1;
       lines += view.edges.length;
+      frames += view.frames.length;
       for (const fault of faults(view, laidOut)) found.push(`${name}: ${fault}`);
     };
     await draw();
@@ -75,5 +85,6 @@ test('every condensed layout of the corpus routes every line clear of every node
   // The pair: the walk laid out more than the openings, and drew lines.
   assert.ok(layouts > 100, `only ${layouts} layouts`);
   assert.ok(lines > 0);
+  assert.ok(frames > 100, `only ${frames} frames laid out`);
   assert.deepEqual(found, []);
 });

@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
-import { drewAgain, open, tapGroupAll } from './page.ts';
+import { drewAgain, frameOf, open, tapGroupAll } from './page.ts';
 
-const NODE = '.react-flow__node';
+/** A drawn node: a frame is the outline around some, not one of them. */
+const NODE = '.react-flow__node:not(.react-flow__node-condensedFrame)';
 const GROUP = '.react-flow__node .cf-group';
 const LEAF = '.react-flow__node .cf-node';
 
@@ -13,7 +14,8 @@ const button = (page: Page, name: string) => page.getByRole('button', { name, ex
 
 /** One per call site, so a method called twice is named twice. */
 const BOUNDARY_GROUPS = ['boundaryfunc1', 'boundaryfunc2', 'boundaryfunc2', 'boundaryfunc3', 'boundaryfunc3'];
-const OPENING = [...BOUNDARY_GROUPS, 'entrypoint'];
+/** The entry box is a frame at the opening: its rest node reads `10 more`, the other five boxes are closed. */
+const OPENING = ['10 more', ...BOUNDARY_GROUPS];
 
 /** The leaves drawn on their own, by their text. */
 const leafLabels = (page: Page) => page.evaluate((selector) =>
@@ -44,7 +46,8 @@ test.describe('boundary', () => {
   test('a boundary box has the boundaries purple outline, and a plain method box does not', async ({ page }) => {
     const group = (label: string) => page.locator(GROUP).filter({ hasText: new RegExp(`^${label} \\(`) });
     await expect(group('boundaryfunc1')).toHaveCSS('border-top-color', 'rgb(123, 31, 162)');
-    await expect(group('entrypoint')).not.toHaveCSS('border-top-color', 'rgb(123, 31, 162)');
+    // The entry method is drawn as a frame, which is not a boundary frame.
+    await expect(frameOf(page, 'entrypoint').locator('.cf-frame')).not.toHaveCSS('border-top-color', 'rgb(123, 31, 162)');
   });
 
   test('clicking the entry method box takes nodes out of it, and the boundary boxes stay', async ({ page }) => {
@@ -72,9 +75,9 @@ test.describe('boundary', () => {
     await drewAgain(page, () => page.locator(LEAF).filter({ hasText: EVENT }).click());
     expect(await page.locator(NODE).count()).toBeGreaterThan(11);
     expect(await page.locator(LEAF).count()).toBeGreaterThan(5);
-    // The pair: the event is still drawn, and so is every boundary group.
+    // The pair: the event is still drawn; boundaryfunc1 is now a frame (`4 more`), the entry's rest node reads `9 more`, and the other boundary boxes are closed.
     expect(await leafLabels(page)).toContain(EVENT);
-    expect(await groupLabels(page)).toEqual(expect.arrayContaining(BOUNDARY_GROUPS));
+    expect(await groupLabels(page)).toEqual(['4 more', '9 more', 'boundaryfunc2', 'boundaryfunc2', 'boundaryfunc3', 'boundaryfunc3']);
   });
 
   // The opening used to draw 13 lines - one per kind per pair, ten of them captioned with a kind -

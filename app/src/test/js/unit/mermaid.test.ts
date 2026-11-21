@@ -83,6 +83,7 @@ test('a label with " < > # comes out as Mermaid entities', () => {
       { id: 'b', label: 'plain', type: 'VARIABLE' },
     ],
     edges: [{ source: 'a', target: 'b', kinds: { FLOW: 1 }, count: 1 }],
+    frames: [],
   };
   const { nodes } = parse(condensedMermaid(view));
   assert.equal(nodes[0].label, 'say(#quot;#lt;b#gt;#quot; + #35;x)');

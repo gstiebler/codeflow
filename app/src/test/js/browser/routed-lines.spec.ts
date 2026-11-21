@@ -5,7 +5,8 @@ declare global {
   interface Window { lineFrames?: { moving: boolean; curved: boolean }[] }
 }
 
-const NODE = '.react-flow__node';
+/** A drawn node: a frame is the outline around some, not one of them. */
+const NODE = '.react-flow__node:not(.react-flow__node-condensedFrame)';
 const LEAF = '.react-flow__node .cf-node';
 const EVENT = 'event entrypoint';
 
@@ -23,7 +24,8 @@ type Drawn = {
 const drawn = (page: Page): Promise<Drawn> => page.evaluate(() => {
   const box = (r: DOMRect) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
   return {
-    nodes: [...document.querySelectorAll<HTMLElement>('.react-flow__node')]
+    // Not a frame: the lines inside it run through its box by design; its nodes are the obstacles.
+    nodes: [...document.querySelectorAll<HTMLElement>('.react-flow__node:not(.react-flow__node-condensedFrame)')]
       .map((n) => ({ id: n.dataset.id!, box: box(n.getBoundingClientRect()) })),
     edges: [...document.querySelectorAll('.react-flow__edge')].map((edge) => {
       const path = edge.querySelector<SVGPathElement>('.react-flow__edge-path')!;

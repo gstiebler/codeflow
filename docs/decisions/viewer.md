@@ -90,8 +90,8 @@ when it is a root box, when a member is revealed, or when a hidden member has a
 non-EVENT edge (either direction) to a revealed leaf (open); a direct callee with no contact is not drawn
 (it is listed under `calls` in the root box's picker); otherwise its members stay in `program`. A drawn boundary box keeps its purple outline. An EVENT edge alone
 opens nothing. Revealing the member that touched the screen keeps the box drawn. A nested call's box opens
-on its own contacts, so two call sites of one method can differ. Flat: a nested call's box is a sibling of
-its caller's, never inside it. Merging a method's call sites into one group was rejected: it draws paths
+on its own contacts, so two call sites of one method can differ. Boxes stay side by side: a nested call's box is a sibling of
+its caller's, never inside it; the values sit in their own method's frame (below). Merging a method's call sites into one group was rejected: it draws paths
 that do not exist (call 1's argument appears to reach call 2's result). A leaf with no parent box is an
 error, thrown. No leaf is ever dropped; the corpus sweep holds that at every step of a click-everything
 walk, and a `program` click with no frontier reveals all its members so the walk ends. Hover names the
@@ -142,7 +142,17 @@ and dash, so colour still says the kind when there is one; a mixed edge is drawn
 solid), since no one kind's look would be true of it. The caption is `×N` when N > 1, never a kind
 word, on the page's white (`LABEL_BG`). The hover starts with the kinds and counts in `EdgeKind`
 order (`flow ×1, false ×1`). Spacing is 70 px between layers, 40 between nodes. A group whose last member came out is not drawn. The layout is
-flat (`flatElkGraph`, no compound nodes); an edge's id is its pair.
+flat except for frames (`flatElkGraph`); an edge's id is its pair.
+
+**Frames.** A box with at least one of its own leaves revealed is *open* and is drawn as a frame
+(`CondensedView.frames`, id `frame:<box>`, not a node): the method's name at its top-left, its revealed
+values inside, and, while members are still hidden, its group as the *rest node*, captioned `N more`
+(same id as the box, so clicking it is clicking the box). Every member revealed: the frame stays, the
+rest node goes. A METHOD id revealed alone (opened from a picker) has no value out and draws the plain
+box; closed boxes and `program` are plain boxes. A frame is one level deep, never inside another; no
+edge ends on one. Clicking a frame or hovering it is clicking or hovering its box. In ELK each frame is a
+compound child of the root (`elk.padding` 28 on top for the caption) with `elk.hierarchyHandling:
+INCLUDE_CHILDREN` set on the root only when a frame exists; edges are still declared at the root.
 
 **Lines follow ELK's routes** (spec: `docs/superpowers/specs/2026-11-15-routed-lines-design.md`).
 React Flow draws an edge as a curve from a fixed handle on one node to a fixed handle on the other,
@@ -153,7 +163,7 @@ them; so the condensed view draws that route (`routes(laidOut)` in `layout.ts`, 
 with ~6 px rounded corners, the arrow at its end, `×N` at the middle of its longest segment).
 Orthogonal over splines because right angles are the easiest to follow from one end to the other.
 The `Curved` toolbar toggle (page state `lineStyle`, not remembered) swaps to `elk.edgeRouting: SPLINES`, drawn by `curvedPath` as ELK's cubic Beziers (still one section, 1+3k points), so curves also clear the nodes; the toggle re-lays-out and keeps `shown`.
-A flat graph's routes come back in the frame of its nodes, so nothing is re-based. An edge ELK gave
+A route ELK placed in a frame comes back in that frame's coordinates, and `routes` adds the frame's place back (`container`), so every route is in root coordinates. An edge that crosses frames comes back from SPLINES as a stitched spline whose point count is not 1+3k; `curvedPath` draws a Catmull-Rom curve through those points. An edge ELK gave
 no section, or more than one, **throws** - a straight line drawn instead would be a guess through
 whatever lies between its ends, with nothing on the page to say so. The fit includes the routes.
 `routes-sweep.test.ts` lays out every condensed view of the corpus click-walk, seeded as the page

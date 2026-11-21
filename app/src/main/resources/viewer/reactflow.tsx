@@ -25,13 +25,13 @@ import {
   type LineStyle, type Point, type Positioned,
 } from './layout.ts';
 import {
-  PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, legend,
+  PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, FRAME_FILL, FRAME_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, legend,
 } from './theme.ts';
 import {
   absolute, diffViews, easeOut, frame, HIGHLIGHT_MS, MOTION_CUTOFF, MOVE_MS, type Drawn,
 } from './transition.ts';
 import type {
-  CondensedNode, CondensedTarget, CondensedView, Id, NodeType, Payload,
+  CondensedFrame, CondensedNode, CondensedTarget, CondensedView, Id, NodeType, Payload,
 } from './types.ts';
 
 /** The popup's width and tallest height, in pixels; where it opens is kept inside the window by these. */
@@ -48,6 +48,9 @@ function installStyles() {
     .cf-group { border: 2px solid ${GROUP_OUTLINE}; border-radius: 4px; background: ${GROUP_FILL};
                 font: bold 11px system-ui, sans-serif; display: flex; align-items: center;
                 justify-content: center; box-sizing: border-box; width: 100%; height: 100%; }
+    .cf-frame { border: 1px solid ${FRAME_OUTLINE}; border-radius: 8px; background: ${FRAME_FILL};
+                box-sizing: border-box; width: 100%; height: 100%; padding: 6px 10px;
+                font: bold 11px system-ui, sans-serif; color: #555; }
     .cf-toolbar { position: fixed; top: 8px; left: 8px; z-index: 10; display: flex; gap: 4px; }
     .cf-toolbar button { font: 12px system-ui, sans-serif; padding: 3px 10px; border: 1px solid #999;
                          border-radius: 4px; background: #fff; cursor: pointer; }
@@ -84,6 +87,8 @@ function installStyles() {
     .react-flow__handle { opacity: 0; }
     .react-flow__node.cf-new > * { animation: cf-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
     .react-flow__edge.cf-new .react-flow__edge-path { animation: cf-edge-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
+    /* A frame appears with its first value, which carries the ring; the frame itself does not. */
+    .react-flow__node-condensedFrame.cf-new > * { animation: none; box-shadow: none; }
     @keyframes cf-ring { from { box-shadow: 0 0 0 4px ${NEW_RING}; } to { box-shadow: 0 0 0 4px transparent; } }
     @keyframes cf-edge-ring { from { filter: drop-shadow(0 0 3px ${NEW_RING}); } to { filter: none; } }
     .react-flow__node.cf-clicked > * { outline: 2px solid ${CLICKED_OUTLINE}; outline-offset: 2px; }
@@ -306,12 +311,31 @@ function GroupNode({ data }: NodeProps) {
   );
 }
 
-// Not `group`: React Flow has a built-in node type of that name.
-const CONDENSED_TYPES = { leaf: LeafNode, condensedGroup: GroupNode };
+/** A method's frame: its name, at the top left, over the values drawn inside it. Nothing else to say. */
+function FrameNode({ data }: NodeProps) {
+  const frame = data as unknown as CondensedFrame;
+  return <div className="cf-frame" style={frame.boundary ? { borderColor: BOUNDARY_OUTLINE } : undefined}>{frame.label}</div>;
+}
 
+// Not `group`: React Flow has a built-in node type of that name.
+const CONDENSED_TYPES = { leaf: LeafNode, condensedGroup: GroupNode, condensedFrame: FrameNode };
+
+/** What a click or a hover on a node means: a frame is its box's group, anything else is itself. */
+const targetOf = (node: Node): CondensedTarget =>
+  ({ node: node.type === 'condensedFrame' ? (node.data as unknown as CondensedFrame).box : node.id });
+
+/** The frames first: React Flow drops a child that arrives before its parent. */
 function condensedNodesOf(view: CondensedView, laid: Positioned[]): Node[] {
   const at = new Map(laid.map((p) => [p.id, p]));
   const nodes: Node[] = [];
+  for (const frame of view.frames) {
+    const p = at.get(frame.id);
+    if (p === undefined) continue;
+    nodes.push({
+      id: frame.id, type: 'condensedFrame', position: { x: p.x, y: p.y }, data: frame as unknown as Record<string, unknown>,
+      style: { width: p.width, height: p.height }, draggable: false, selectable: false,
+    });
+  }
   for (const node of view.nodes) {
     const p = at.get(node.id);
     if (p === undefined) continue;
@@ -560,7 +584,8 @@ function CondensedGraph({ payload, revealed, setRevealed, view, lineStyle, bound
     if (choices.length <= PICK_AT) return show(on, choices.flatMap((c) => c.reveal));
     const caption = (id: Id) => {
       const node = view.nodes.find((n) => n.id === id);
-      return node === undefined ? id : condensedCaption(node);
+      // A box with every value out has no rest node: its frame's name is what was clicked.
+      return node === undefined ? (view.frames.find((f) => f.box === id)?.label ?? id) : condensedCaption(node);
     };
     setHover(null);
     picks.current += 1;
@@ -586,10 +611,10 @@ function CondensedGraph({ payload, revealed, setRevealed, view, lineStyle, bound
     <>
       <ReactFlow nodes={drawing.nodes} edges={edges} nodeTypes={CONDENSED_TYPES} edgeTypes={CONDENSED_EDGE_TYPES}
                  className={moving ? 'cf-moving' : undefined}
-                 onNodeClick={(event, node) => tapOn({ node: node.id }, event)}
+                 onNodeClick={(event, node) => tapOn(targetOf(node), event)}
                  onEdgeClick={(event, edge) => tapOn(edgeTarget(edge), event)}
                  onPaneClick={() => setPick(null)}
-                 onNodeMouseEnter={(event, node) => setHover({ target: { node: node.id }, x: event.clientX, y: event.clientY })}
+                 onNodeMouseEnter={(event, node) => setHover({ target: targetOf(node), x: event.clientX, y: event.clientY })}
                  onNodeMouseLeave={() => setHover(null)}
                  onEdgeMouseEnter={(event, edge) => setHover({ target: edgeTarget(edge), x: event.clientX, y: event.clientY })}
                  onEdgeMouseLeave={() => setHover(null)}

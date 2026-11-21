@@ -87,6 +87,25 @@ export type CondensedNode = {
   boundary?: boolean;
   /** On a leaf, as in the payload. */
   lead?: string;
+  /**
+   * The frame this node is drawn inside: a revealed leaf its method box's, and the group of an open box
+   * (its rest node) its own. Absent on `program` and on a box with no revealed leaf.
+   */
+  frame?: Id;
+};
+
+/**
+ * The outline a method's revealed values are drawn inside: one per open box, `frame:<box id>`. Not a
+ * node - no edge ends on it - and never inside another frame, so it holds only leaves and its own rest node.
+ */
+export type CondensedFrame = {
+  id: Id;
+  /** The method box it stands for. */
+  box: Id;
+  /** The box's caption: the method's simple name. */
+  label: string;
+  /** The box is a boundary method's block. */
+  boundary?: true;
 };
 
 /**
@@ -95,7 +114,7 @@ export type CondensedNode = {
  */
 export type CondensedEdge = { source: Id; target: Id; kinds: Partial<Record<EdgeKind, number>>; count: number };
 
-export type CondensedView = { nodes: CondensedNode[]; edges: CondensedEdge[] };
+export type CondensedView = { nodes: CondensedNode[]; edges: CondensedEdge[]; frames: CondensedFrame[] };
 
 /** What a click or a hover in the condensed view lands on: a display node, or a drawn edge. */
 export type CondensedTarget = { node: Id } | { edge: [Id, Id] };

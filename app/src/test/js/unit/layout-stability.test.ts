@@ -26,8 +26,8 @@ function inversions(before: Map<string, Point>, after: Map<string, Point>): stri
 
 // `a` feeds `b` and `c`; a click puts `d` under `b`. ELK from scratch swaps `b` and `c` to make room -
 // the jump that loses the reader. Seeded with the drawing before, every old pair keeps its order.
-const before: CondensedView = { nodes: [leaf('a'), leaf('b'), leaf('c')], edges: [flow('a', 'b'), flow('a', 'c')] };
-const after: CondensedView = { nodes: [...before.nodes, leaf('d')], edges: [...before.edges, flow('b', 'd')] };
+const before: CondensedView = { nodes: [leaf('a'), leaf('b'), leaf('c')], edges: [flow('a', 'b'), flow('a', 'c')], frames: [] };
+const after: CondensedView = { nodes: [...before.nodes, leaf('d')], edges: [...before.edges, flow('b', 'd')], frames: [] };
 
 test('a one-neighbour reveal keeps every old node in its order', async () => {
   const drawn = await lay(flatElkGraph(before, caption));

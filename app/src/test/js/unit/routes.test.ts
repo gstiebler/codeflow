@@ -11,7 +11,7 @@ const flow = (source: string, target: string) => ({ source, target, kinds: { FLO
 
 // The layout asks ELK for orthogonal routes - a string, as every ELK option must be.
 test('the layout asks ELK for orthogonal routes', () => {
-  const flat = flatElkGraph({ nodes: [leaf('a')], edges: [] }, (n) => n.label);
+  const flat = flatElkGraph({ nodes: [leaf('a')], edges: [], frames: [] }, (n) => n.label);
   assert.equal(flat.layoutOptions!['elk.edgeRouting'], 'ORTHOGONAL');
 });
 
@@ -69,6 +69,7 @@ test('ELK routes a flat graph in the frame of its nodes', async () => {
   const view: CondensedView = {
     nodes: ['a', 'b', 'c'].map(leaf),
     edges: [flow('a', 'b'), flow('a', 'c'), flow('c', 'a'), flow('b', 'c')],
+    frames: [],
   };
   const result = await new ELK().layout(flatElkGraph(view, (n) => n.label)) as ElkNode;
   const at = new Map(positions(result).map((p) => [p.id, p]));

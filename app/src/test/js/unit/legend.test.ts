@@ -48,3 +48,8 @@ test('the legend lists the program box first', () => {
   assert.equal(rows[0].name, 'program');
   assert.equal(rows[0].meaning, 'everything not yet in a method box; click to open');
 });
+
+test('the legend has a row for the method frame', () => {
+  const rows = legend(payload(['LITERAL', 'RETURN'], ['FLOW'])).boxes;
+  assert.ok(rows.some((r) => r.name === 'frame'), 'no frame row');
+});

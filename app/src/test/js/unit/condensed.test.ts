@@ -82,6 +82,10 @@ test('a data edge to a revealed leaf opens the box', () => {
   assert.deepEqual(groupsOf(eventPayload([edge('e', 'y')]), ['e']), [['b1', 2]]);
 });
 
+test('any non-EVENT kind opens the box', () => {
+  assert.deepEqual(groupsOf(eventPayload([edge('e', 'y', 'ORDER')]), ['e']), [['b1', 2]]);
+});
+
 test('an open box stays drawn after its contact is revealed', () => {
   assert.deepEqual(groupsOf(eventPayload([edge('e', 'y')]), ['e', 'y']), [['b1', 1]]);
 });
@@ -289,7 +293,7 @@ test('the condensed view opens with every entry point\'s event on its own, and R
   assert.deepEqual([...opening].sort(), ['e1', 'e2']);
   const view = sorted(condensed(events, opening));
   assert.deepEqual(view.nodes.map((n) => `${n.id}:${n.type}`), ['b0', 'b1', 'b2', 'b3', 'b5', 'b6', 'e1', 'e2', 'program'].map((id) =>
-    `${id}:${id.startsWith('e') && id !== 'program' ? 'EVENT' : 'GROUP'}`).sort());
+    `${id}:${id.startsWith('e') ? 'EVENT' : 'GROUP'}`).sort());
   // The pair: the event's targets stay in their group, which the event points into.
   assert.ok(!view.nodes.some((n) => n.id === 'n1' || n.id === 'n13'));
   assert.ok(view.edges.includes('e1->b0:EVENT2x2'), view.edges.join(' '));

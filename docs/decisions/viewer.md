@@ -98,7 +98,7 @@ members with an outside edge - one hop, as clicking the event would.
 `program` or in the METHOD box it sits directly in (`leaf.parent`; group id = the box's payload id,
 caption the method's simple name with the member count, payload order, `program` first). A box is drawn
 when it is `boundary` (purple outline, always), when a member is revealed, or when a hidden member has a
-non-EVENT edge to a revealed leaf (open); otherwise its members stay in `program`. An EVENT edge alone
+non-EVENT edge (either direction) to a revealed leaf (open); otherwise its members stay in `program`. An EVENT edge alone
 opens nothing. Revealing the member that touched the screen keeps the box drawn. A nested call's box opens
 on its own contacts, so two call sites of one method can differ. Flat: a nested call's box is a sibling of
 its caller's, never inside it. Merging a method's call sites into one group was rejected: it draws paths

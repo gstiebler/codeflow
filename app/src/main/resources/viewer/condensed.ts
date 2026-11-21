@@ -8,7 +8,7 @@
  *
  * A hidden leaf is drawn in its call-site box (the METHOD box it sits directly in, `parent`) when the
  * box is boundary or open - a member is revealed, or a hidden member has an edge of any kind but
- * EVENT to a revealed leaf - and in `program` otherwise. Boxes are flat, never inside one another. A
+ * EVENT to a revealed leaf (either direction) - and in `program` otherwise. Boxes are flat, never inside one another. A
  * leaf with no box is a payload this viewer was not written for, and throws.
  */
 import type {
@@ -96,7 +96,7 @@ function index(payload: Payload): Index {
 /**
  * Hidden leaf -> where it is drawn: its box when that is boundary or open, else `program`. Revealed
  * leaves are absent. A box is open when a leaf of it is revealed, or a hidden leaf of it has an edge
- * of any kind but EVENT to a revealed leaf (EVENT edges fan out from the entry event to nearly
+ * of any kind but EVENT to a revealed leaf, either direction (EVENT edges fan out from the entry event to nearly
  * everything it starts, and would open the whole opening).
  */
 export function groupOf(payload: Payload, revealed: Set<Id>): Map<Id, Id> {

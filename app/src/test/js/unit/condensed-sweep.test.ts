@@ -86,9 +86,9 @@ test('the walk ends with every leaf on its own and every payload edge drawn once
   assert.deepEqual(short, [], short.join('\n'));
 });
 
-// One group per call-site box, so a boundary method called twice is two groups: `boundary` calls
-// boundaryfunc2 and boundaryfunc3 twice each. Each root's event is on its own beside them.
-test('a boundary fixture opens on one group per call-site box and each event', () => {
+// The opening is the boundary boxes plus the event's box, so a boundary method called twice is two groups:
+// `boundary` calls boundaryfunc2 and boundaryfunc3 twice each. Each root's event is on its own beside them.
+test('a boundary fixture opens on its boundary boxes and each event', () => {
   const opening = (fixture: string) => {
     const { payload } = corpus.find((c) => c.name === fixture)!;
     return condensed(payload, condensedOpening(payload)).nodes.map((n) => `${n.label}:${n.type}`).sort();

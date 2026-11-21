@@ -13,7 +13,7 @@ import java.util.TreeSet
  * A block becomes a node like any other, distinguished only by carrying type METHOD, and every
  * node inside it names it as `parent`. Nesting rather than a separate list of groups, because that
  * is how a graph library models a container - React Flow's `parentId` is this field - and it is
- * what the viewer draws as a foldable box. So `parent` is the method boundary, and a payload that
+ * a group the viewer draws as one box, clicked to open. So `parent` is the method boundary, and a payload that
  * drops it is a correct graph with every boundary silently gone.
  *
  * [sourceRoot] is what every node's `source` path is relative to - the directory AstReader was

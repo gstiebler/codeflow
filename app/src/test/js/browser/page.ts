@@ -12,7 +12,7 @@ declare global {
 /**
  * How the browser suite talks to the page: open it, read what is drawn, click, wait.
  *
- * Everything here goes through the DOM rather than through the `view` object the page publishes. A
+ * Everything here goes through the DOM rather than through `window.drawn`, the only thing the page publishes. A
  * page whose data is right and whose rendering is not would otherwise come out green, and the
  * rendering is the whole of what a page test can add over a unit test on condensed.ts.
  */
@@ -35,21 +35,14 @@ export const open = (fixture: string) => async ({ page }: { page: Page }) => {
 /** What the graph is painted onto, so "did anything get drawn" has an answer. */
 export const SURFACE = '.react-flow__pane';
 
-/**
- * A caption carries the badge - `x ↓3` - and nearly every assertion names the plain label, so the
- * counts come off here rather than in each test. Splitting on the arrow is enough: no label holds
- * one.
- */
-export const plain = (caption: string) => caption.split(' ↑')[0].split(' ↓')[0].trim();
-
 /** Plain names, sorted: what most of the assertions compare against. */
-export const labels = async (from: Promise<string[]>) => (await from).map(plain).sort();
+export const labels = async (from: Promise<string[]>) => (await from).sort();
 
-/** Every drawn caption belonging to a leaf of this name - one per occurrence, badges included. */
+/** Every drawn caption belonging to a leaf of this name - one per occurrence. */
 export const captionsOf = async (from: Promise<string[]>, label: string) =>
-  (await from).filter((caption) => plain(caption) === label).sort();
+  (await from).filter((caption) => caption === label).sort();
 
-/** The drawn caption of every visible leaf - badges included, since a badge is drawn. */
+/** The drawn caption of every visible leaf as drawn. */
 export const leafCaptions = (page: Page) => page.evaluate(() =>
   [...document.querySelectorAll('.react-flow__node .cf-node')].map((n) => n.textContent ?? ''));
 
@@ -78,7 +71,7 @@ export const drewAgain = async (page: Page, gesture: () => Promise<void>) => {
 // of wrongness a page-level test is here to catch.
 export const tapLeaf = (page: Page, label: string) => drewAgain(page, async () => {
   await page.locator('.react-flow__node .cf-node')
-    .filter({ hasText: new RegExp(`^${label}( [↑↓].*)*$`) }).first().click();
+    .filter({ hasText: new RegExp(`^${label}$`) }).first().click();
 });
 
 /** Click a group by its label - a method's name; the first, when a method is called from several places. Its caption is `label (count)`. */

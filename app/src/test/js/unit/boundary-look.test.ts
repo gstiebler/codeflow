@@ -16,15 +16,15 @@ test('a BOUNDARIES node is filled with the classDef MermaidExporter gives it', (
   assert.notEqual(PALETTE.BOUNDARIES, PALETTE.VARIABLE);
 });
 
-// Only the payload's `lead` is bold - never a prefix found in the label. The counts stay in the rest.
-test('a node with a lead is cut into the lead and the rest of its badge', () => {
-  assert.deepEqual(captionParts({ badge: 'call fetch ↓2', lead: 'call' }), { lead: 'call', rest: ' fetch ↓2' });
+// Only the payload's `lead` is bold - never a prefix found in the label. 
+test('a node with a lead is cut into the lead and the rest of its label', () => {
+  assert.deepEqual(captionParts({ label: 'call fetch', lead: 'call' }), { lead: 'call', rest: ' fetch' });
   // The pair: an outside call named `call`, with no lead, stays whole and plain.
-  assert.deepEqual(captionParts({ badge: 'call' }), { rest: 'call' });
-  assert.deepEqual(captionParts({ badge: 'callback ↑1' }), { rest: 'callback ↑1' });
+  assert.deepEqual(captionParts({ label: 'call' }), { rest: 'call' });
+  assert.deepEqual(captionParts({ label: 'callback' }), { rest: 'callback' });
 });
 
-// A lead the badge does not start with is a payload this viewer was not written for: drawn whole.
-test('a lead the badge does not start with is not drawn bold', () => {
-  assert.deepEqual(captionParts({ badge: 'fetch', lead: 'call' }), { rest: 'fetch' });
+// A lead the label does not start with is a payload this viewer was not written for: drawn whole.
+test('a lead the label does not start with is not drawn bold', () => {
+  assert.deepEqual(captionParts({ label: 'fetch', lead: 'call' }), { rest: 'fetch' });
 });

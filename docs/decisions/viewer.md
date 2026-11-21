@@ -89,10 +89,7 @@ payload's `EVENT` leaves - one per root, see `calls-and-dispatch.md` - so the fi
 box per call site (a method's box, flat), each root's event on its own (`boundary`: seven nodes).
 Reset asks for the opening again, so it returns to the same set. The event is a leaf like any other:
 its edges into a group are one drawn edge with a count, and clicking it reveals what it
-starts. **The event is not a hub.** `tap` follows an `EVENT` edge only from the clicked node:
-clicking the event reveals what it starts, and no other walk steps onto it - walked through it, a
-three-hop click next to any literal reached every unfed node of the root, callees and all
-(`funcCall`: clicking `x` opened both `methodC` boxes). A leaf click is one hop, and a group's frontier gains the event's targets, which the event, drawn outside, makes
+starts. A leaf click is one hop, and a group's frontier gains the event's targets, which the event, drawn outside, makes
 members with an outside edge - one hop, as clicking the event would.
 
 **Groups are read from the payload, never guessed.** A leaf belongs to the group of the METHOD box it sits
@@ -116,7 +113,7 @@ leaf if revealed, else its group) and dropped when both land on one display node
 one ordered pair is **one** drawn edge, whatever its kinds (`A→B` and `B→A` stay two), carrying a
 count per kind (`CondensedEdge.kinds`). Spec: `docs/superpowers/specs/2026-11-15-calmer-condensed-design.md`.
 Why: one line per kind, each captioned with its kind, made the five-node opening of `boundary` a
-tangle - 13 lines, 10 captions; now 12 lines, 4 captions, all counts. The kinds are not lost, they
+tangle - 13 lines, 10 captions; now captions are counts only (the opening is seven nodes, 13 lines). The kinds are not lost, they
 moved one hover away. `condensedEdgeStyle` (`theme.ts`): a single-kind edge keeps that kind's colour
 and dash, so colour still says the kind when there is one; a mixed edge is drawn as FLOW (grey,
 solid), since no one kind's look would be true of it. The caption is `×N` when N > 1, never a kind
@@ -126,7 +123,7 @@ flat (`flatElkGraph`, no compound nodes); an edge's id is its pair.
 
 **Lines follow ELK's routes** (spec: `docs/superpowers/specs/2026-11-15-routed-lines-design.md`).
 React Flow draws an edge as a curve from a fixed handle on one node to a fixed handle on the other,
-and knows nothing of what lies between: on `boundary`'s opening, 7 of the 12 lines ran through a
+and knows nothing of what lies between: on `boundary`'s old five-node opening, 7 of the 12 lines ran through a
 node box, 12 crossings in all, and a line going back up looped through its own ends. ELK has
 already placed every node and, asked for `elk.edgeRouting: ORTHOGONAL`, routes every edge around
 them; so the condensed view draws that route (`routes(laidOut)` in `layout.ts`, a `routed` edge type in the renderer: the polyline
@@ -186,18 +183,19 @@ sits half a pixel past its first already-drawn neighbour *in the same graph* (a 
 nothing across a group boundary); every graph gets `elk.layered.layering.strategy: INTERACTIVE` and
 `crossingMinimization.semiInteractive: true`. Child and edge order are left alone. Measured by
 `node app/src/test/js/stability.ts` — a click-everything walk over every fixture `graph.json`
-(103 clicks); per click, mean displacement of nodes drawn before and
+(428 clicks); per click, mean displacement of nodes drawn before and
 after (net of the clicked node's own move) and order inversions among them:
 
 | | px / inversions |
 |---|---|
-| from scratch (before) | 80.4 / 22.77 |
-| model order (`considerModelOrder: NODES_AND_EDGES`, input sorted by old position) | 74.6 / 26.91 |
-| **interactive (chosen)** | **81.3 / 16.86** |
+| from scratch (before) | 224.5 / 153.06 |
+| model order (`considerModelOrder: NODES_AND_EDGES`, input sorted by old position) | 165.3 / 97.35 |
+| **interactive (chosen)** | **140.0 / 44.78** |
 
-Model order moves nodes less but flips more of them. Interactive cuts inversions by a quarter and costs
-0.9 px of displacement (about 1 %) — kept, because an order that flips is what loses the reader, and
-a node that drifts a pixel is not. Things tried and dropped: feeding the input in the old drawing's
+Interactive moves nodes least and flips fewest: against model order, 15 % less displacement and
+under half the inversions (measured on the flat one-box-per-call-site grouping; on the earlier
+grouping model order moved nodes less but flipped more, and interactive was chosen for the flips,
+because an order that flips is what loses the reader). Things tried and dropped: feeding the input in the old drawing's
 order (row- or column-major) *with or without* interactive — it changes ELK's layering and cycle
 breaking and made both numbers worse in every variant; seating new nodes by BFS instead of at one
 neighbour — no gain. `layout-stability.test.ts` pins a one-neighbour reveal keeping every old pair's
@@ -212,7 +210,7 @@ refits only if something new is off screen, or if no click asked for the drawing
 anchors the reader, who may have panned anywhere). An edge click has no anchor either but keeps the
 off-screen rule. A second click mid-move starts from the positions on screen, minus the nodes that
 were fading out - they are gone already, and starting from them would draw them whole and fade them
-again. Positions are renderer state: `condensed.ts` decides what is on screen and know
+again. Positions are renderer state: `condensed.ts` decides what is on screen and knows
 nothing of motion, and `transition.ts` compares two drawings by node id (payload ids, a group's being
 its box's, all stable across clicks) with no DOM, so `node --test` covers the arithmetic.
 

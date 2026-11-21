@@ -15,16 +15,16 @@ import type {
 } from './types.ts';
 
 /**
- * A leaf's caption cut where the renderer changes weight: the node's `lead` and the rest of `badge`.
+ * A leaf's caption cut where the renderer changes weight: the node's `lead` and the rest of its `label`.
  *
  * The lead is the payload's, never a prefix found in the text - a source call named `call x` has
- * none and stays plain. A badge that does not start with its lead is a payload this viewer was not
+ * none and stays plain. A label that does not start with its lead is a payload this viewer was not
  * written for, and it is drawn whole rather than with the wrong letters in bold.
  */
-export function captionParts(node: { badge: string; lead?: string }): { lead?: string; rest: string } {
-  const { badge, lead } = node;
-  if (lead === undefined || !badge.startsWith(lead)) return { rest: badge };
-  return { lead, rest: badge.slice(lead.length) };
+export function captionParts(node: { label: string; lead?: string }): { lead?: string; rest: string } {
+  const { label, lead } = node;
+  if (lead === undefined || !label.startsWith(lead)) return { rest: label };
+  return { lead, rest: label.slice(lead.length) };
 }
 
 /** How many entries a group's or an edge's hover lists before `+N more`. */

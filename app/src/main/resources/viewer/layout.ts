@@ -38,7 +38,7 @@ const CHAR_WIDTH = 6.5;
 const PADDING = 16;
 export const NODE_HEIGHT = 26;
 
-export const nodeWidth = (badge: string) => Math.round(badge.length * CHAR_WIDTH) + PADDING;
+export const nodeWidth = (caption: string) => Math.round(caption.length * CHAR_WIDTH) + PADDING;
 
 /**
  * The view, for ELK: one level, no method boxes. Group and leaf alike are sized from the caption

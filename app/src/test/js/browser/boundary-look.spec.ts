@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { leafCaptions, labels, open, tapGroup } from './page.ts';
 
-/** The leaf drawn with this caption, badges ignored. */
+/** The leaf drawn with this caption. */
 const leaf = (page: Page, label: string) =>
   page.locator('.react-flow__node .cf-node').filter({ hasText: new RegExp(`^${label}( [↑↓].*)*$`) }).first();
 

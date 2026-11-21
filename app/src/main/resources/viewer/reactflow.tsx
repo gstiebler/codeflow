@@ -81,7 +81,7 @@ function installStyles() {
  * because React Flow will not draw an edge without them.
  */
 function LeafNode({ data }: NodeProps) {
-  const node = data as unknown as CondensedNode & { badge: string };
+  const node = data as unknown as CondensedNode;
   const caption = captionParts(node);
   return (
     <div className="cf-node" style={{ background: PALETTE[node.type as NodeType] ?? NODE_DEFAULT }}>
@@ -271,9 +271,6 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
 /** What a view is handed by the page: the payload and its own `revealed`, which the page keeps. */
 type Revealing = { payload: Payload; revealed: Set<Id>; setRevealed: Dispatch<SetStateAction<Set<Id>>> };
 
-/** A condensed leaf, drawn by LeafNode: its caption is its label, as it has no hidden-neighbour badge. */
-const asLeaf = (node: CondensedNode) => ({ ...node, badge: node.label });
-
 /** A group: its caption - label and count - with an outline saying whose it is. */
 function GroupNode({ data }: NodeProps) {
   const node = data as unknown as CondensedNode;
@@ -312,7 +309,7 @@ function condensedNodesOf(view: CondensedView, laid: Positioned[], path: FocusPa
       id: node.id,
       type: node.type === 'GROUP' ? 'condensedGroup' : 'leaf',
       position: { x: p.x, y: p.y },
-      data: (node.type === 'GROUP' ? node : asLeaf(node)) as unknown as Record<string, unknown>,
+      data: node as unknown as Record<string, unknown>,
       ...(p.parent ? { parentId: p.parent } : {}),
       style: { width: p.width, height: p.height || NODE_HEIGHT },
       className: dimmed(path, path?.nodes.has(node.id) ?? false),

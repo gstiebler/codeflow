@@ -2,7 +2,7 @@
  * How one drawing turns into the next, decided without a browser: which nodes stay, arrive and go,
  * where each starts, and where it is at any moment of the move.
  *
- * Renderer state, not model state. condensed.ts decides what is on screen and know
+ * Renderer state, not model state. condensed.ts decides what is on screen and knows
  * nothing of motion; this compares two drawings by node id - payload ids, a condensed
  * group's being its box's - all stable across clicks - and the renderer tweens.
  *

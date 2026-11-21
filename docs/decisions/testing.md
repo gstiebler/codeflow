@@ -82,7 +82,7 @@ format.
 
 Split by what they can actually catch:
 
-- `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `condensed.ts`.
+- `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `condensed.ts`, `layout.ts`, `theme.ts`, `transition.ts` and the mermaid export.
 
   The corpus sweeps live here too, over the `graph.json` the golden suite writes beside each
   fixture (gitignored, rewritten every run, like `ir.txt`).

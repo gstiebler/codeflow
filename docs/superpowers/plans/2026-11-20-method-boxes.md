@@ -73,4 +73,4 @@
 
 ### Task 3: Fineract box count (main agent)
 
-- [ ] Run one `examples/fineract` case (`examples/fineract/run.sh`, see its README) on the branch build; count `GROUP` nodes in the condensed opening; report to the user.
+- [x] Run one `examples/fineract` case (`examples/fineract/run.sh`, see its README) on the branch build; count `GROUP` nodes in the condensed opening; report to the user. Boxes in the opening: repayment 18 (15 groups before), capitalized-income 85 (19), buy-down-fee 106 (14), repayment-domain 315 (28).

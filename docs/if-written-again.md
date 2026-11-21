@@ -24,7 +24,7 @@ These are load-bearing, and a rewrite that lost them would be worse than what ex
 - **`reaches()`.** An edge assertion says two labels are adjacent; only a walk over ids can say a
   value actually arrived. The findings doc records a behaviour test that passed on a graph where the
   value never came.
-- **The viewer's `neighbourhood`**: an undirected ball of bounded radius, revealed and never
+- **The viewer's `neighbourhood`** (since removed with the Boxes view): an undirected ball of bounded radius, revealed and never
   subtracted. It is independent of everything below and it is good.
 
 ## 1. A control-flow graph and SSA, instead of one mutable slot per variable

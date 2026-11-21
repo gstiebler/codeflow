@@ -32,6 +32,7 @@ test('the layout is flat, sized from the captions, one edge per ordered pair', (
     ['b0', nodeWidth('main (12)'), undefined],
     ['x', nodeWidth('x'), undefined],
   ]);
+  assert.ok(nodeWidth('main (12)') > nodeWidth('x'), 'a longer caption is wider');
   assert.deepEqual(root.edges!.map((e) => e.id), ['x->b0', 'b0->x']);
   assert.equal(root.layoutOptions!['elk.layered.spacing.nodeNodeBetweenLayers'], '70');
   assert.equal(root.layoutOptions!['elk.spacing.nodeNode'], '40');

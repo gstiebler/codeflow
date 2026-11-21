@@ -336,7 +336,7 @@ class AppTest {
         Files.writeString(testDirPath.resolve("graph.html"), page)
 
         // The same payload the page inlines, on its own, because the viewer's Node tests need it:
-        // model.ts decides what is on screen and a sweep over the real corpus is the only thing
+        // condensed.ts decides what is on screen and a sweep over the real corpus is the only thing
         // that can say a fixture is reachable at all. Gitignored and rewritten like the page.
         val payload = StringBuilder()
         JsonExporter(testResourcesPath).processMainMethod(roots) { payload.append(it).append("\n") }
@@ -2956,11 +2956,11 @@ class AppTest {
         // name is no use either - it occurs in our code too, so asserting on it passed with not one
         // library present. Each of these three is written by exactly one of the three things that
         // have to be here: `react-flow__pane` by React Flow's own stylesheet, "Minified React error"
-        // by the production React build, and `cf-box` by reactflow.tsx.
+        // by the production React build, and `cf-group` by reactflow.tsx.
         assertTrue("react-flow__pane" in html, "the renderer was not inlined")
         assertTrue("Minified React error" in html, "React itself was not inlined")
         assertTrue("org.eclipse.elk" in html, "the layout engine was not inlined")
-        assertTrue("cf-box" in html, "our own viewer code was not inlined")
+        assertTrue("cf-group" in html, "our own viewer code was not inlined")
         assertTrue("\"label\": \"methodC\"" in html, "the graph payload was not inlined")
         assertTrue("<script" in html && "</html>" in html, "the page is not a complete document")
     }

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PALETTE } from '../../../main/resources/viewer/theme.ts';
-import { captionParts } from '../../../main/resources/viewer/model.ts';
+import { captionParts } from '../../../main/resources/viewer/condensed.ts';
 
 // The boundary-order token's boxes are filled in the ORDER edges' purple, the same fill the Mermaid
 // document gives them - read from the Kotlin as text, since the two definitions live in two languages.

@@ -75,11 +75,10 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
   no write is a value with nothing flowing in. Do not widen either gate.
 - **Mermaid placement:** `MermaidExporter.placeEdges` writes each edge in the innermost block
   enclosing both endpoints, and `linkStyle` indexes are global — moving an edge renumbers the rest.
-- **Viewer: `model.ts` decides, the renderer draws.** Every visibility decision is a pure function
-  of `(payload, revealed)`; `revealed` is the only state. ELK options are **strings**. A parent node
-  must precede its children. → `docs/decisions/viewer.md`
-  The condensed view (`condensed.ts`) follows the same contract; a group is a boundary `method`
-  read off the box, never a label. Positions and motion are renderer state (`stabilise`,
+- **Viewer: `condensed.ts` decides, the renderer draws.** Every visibility decision is a pure function
+  of `(payload, revealed)`; `revealed` is the only state. ELK options are **strings**.
+  → `docs/decisions/viewer.md`
+  Condensed is the only view; a group is a boundary `method` read off the box, never a label. Positions and motion are renderer state (`stabilise`,
   `transition.ts`); `window.drawn` counts only once a click's move has ended.
 
 ## Adding a Java construct
@@ -119,7 +118,7 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
 |---|---|
 | `docs/decisions/toolchain.md` | the two JDKs, delombok, bundle and `package.json` |
 | `docs/decisions/pipeline.md` | the pipeline split, entry points, exporters, Mermaid placement |
-| `docs/decisions/viewer.md` | model/renderer split, progressive reveal, badges, stubs, `openBoxes` |
+| `docs/decisions/viewer.md` | condensed/renderer split, click rules, routes, motion |
 | `docs/decisions/attribution.md` | javac attribution without a classpath, kind checks, `Symbols` |
 | `docs/decisions/calls-and-dispatch.md` | per-call-site inlining, dispatch on the object, `--boundary` |
 | `docs/decisions/identity-and-objects.md` | `serial` vs `JNodeId`, `MemPos` sets |

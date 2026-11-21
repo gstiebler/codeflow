@@ -1,11 +1,11 @@
 /**
  * The renderer, and what --html emits.
  *
- * It derives nothing. Whether an edge is drawn, whether a box is drawn, which leaves are showing and
- * what each one is captioned are all fields on the view, and this file writes them out. That is the
- * whole boundary: a decision made here is a decision no test can reach without a browser.
+ * It derives nothing. Which nodes and lines are drawn, how each is captioned and which are faded are
+ * fields on the condensed view, and this file writes them out. That is the whole boundary: a decision
+ * made here is a decision no test can reach without a browser.
  *
- * Nothing here decides what is on screen. That is model.ts, where the tests are.
+ * Nothing here decides what is on screen. That is condensed.ts, where the tests are.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -15,24 +15,23 @@ import {
 } from '@xyflow/react';
 import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
-import { captionParts, opening, screen, tap } from './model.ts';
 import {
-  condensed, condensedCaption, condensedOpening, focusOf, focusPath, hoverText, tapCondensed, type Focus, type FocusPath,
+  captionParts, condensed, condensedCaption, condensedOpening, focusOf, focusPath, hoverText, tapCondensed, type Focus, type FocusPath,
 } from './condensed.ts';
 import { condensedMermaid } from './mermaid.ts';
 import {
-  captionAt, elkGraph, flatEdgeId, flatElkGraph, positions, roundedPath, routes, FOCUS_LANE, NODE_HEIGHT, TITLE_HEIGHT,
+  captionAt, flatEdgeId, flatElkGraph, positions, roundedPath, routes, FOCUS_LANE, NODE_HEIGHT,
   type Point, type Positioned,
 } from './layout.ts';
 import {
-  PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, edgeStyle, legend,
+  PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, legend,
   FOCUS_FILL, FOCUS_OUTLINE, DIM_OPACITY,
 } from './theme.ts';
 import {
   absolute, diffViews, easeOut, frame, HIGHLIGHT_MS, MOTION_CUTOFF, MOVE_MS, type Drawn,
 } from './transition.ts';
 import type {
-  CondensedNode, CondensedTarget, CondensedView, Id, Payload, View, ViewNode,
+  CondensedNode, CondensedTarget, CondensedView, Id, NodeType, Payload,
 } from './types.ts';
 
 /** The stylesheet arrives as text so the page stays one file. */
@@ -42,10 +41,6 @@ function installStyles() {
     .cf-node { border: 1px solid ${NODE_OUTLINE}; border-radius: 4px; font: 11px system-ui, sans-serif;
                display: flex; align-items: center; justify-content: center; box-sizing: border-box;
                width: 100%; height: 100%; }
-    .cf-box { border: 1px solid #999; border-radius: 4px; background: ${PALETTE.METHOD};
-              box-sizing: border-box; width: 100%; height: 100%; }
-    .cf-box > .cf-title { font: bold 11px system-ui, sans-serif; padding: 0 6px; box-sizing: border-box;
-                          height: ${TITLE_HEIGHT}px; line-height: ${TITLE_HEIGHT}px; }
     .cf-group { border: 2px solid ${GROUP_OUTLINE}; border-radius: 4px; background: ${GROUP_FILL};
                 font: bold 11px system-ui, sans-serif; display: flex; align-items: center;
                 justify-content: center; box-sizing: border-box; width: 100%; height: 100%; }
@@ -64,9 +59,6 @@ function installStyles() {
                   border: 1px solid #999; border-radius: 4px; padding: 4px 8px;
                   font: 11px ui-monospace, monospace; white-space: pre; box-shadow: 0 1px 4px #0003; }
     .react-flow__handle { opacity: 0; }
-    /* Boxes answers no click on an edge, and an edge drawn over a box's title - an entry point's event
-       into a closed callee's stub - would otherwise take the click the title is there for. */
-    .cf-boxes .react-flow__edge { pointer-events: none; }
     .react-flow__node.cf-new > * { animation: cf-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
     .react-flow__edge.cf-new .react-flow__edge-path { animation: cf-edge-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
     @keyframes cf-ring { from { box-shadow: 0 0 0 4px ${NEW_RING}; } to { box-shadow: 0 0 0 4px transparent; } }
@@ -85,79 +77,20 @@ function installStyles() {
 }
 
 /**
- * A leaf, its `lead` - if the payload gave it one - in bold. The caption is `badge`, never `label`: the hidden-neighbour counts are a property of the
- * current view rather than of the value, and every test that looks a node up by name needs the name
- * to go on being there.
- *
- * The handles are invisible and exist because React Flow will not draw an edge without them.
+ * A leaf, its `lead` - if the payload gave it one - in bold. The handles are invisible and exist
+ * because React Flow will not draw an edge without them.
  */
 function LeafNode({ data }: NodeProps) {
-  const node = data as unknown as ViewNode;
+  const node = data as unknown as CondensedNode & { badge: string };
   const caption = captionParts(node);
   return (
-    <div className="cf-node" style={{ background: PALETTE[node.type] ?? NODE_DEFAULT }}>
+    <div className="cf-node" style={{ background: PALETTE[node.type as NodeType] ?? NODE_DEFAULT }}>
       <Handle type="target" position={Position.Top} />
       {/* One span: as a flex item of its own, `rest` would lose its leading space - `callfetch`. */}
       <span>{caption.lead !== undefined && <strong>{caption.lead}</strong>}{caption.rest}</span>
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
-}
-
-/** A method. Captioned at the top, so an open box reads as a container rather than as a value. */
-function BoxNode({ data }: NodeProps) {
-  const node = data as unknown as ViewNode;
-  return <div className="cf-box"><div className="cf-title">{node.label}</div></div>;
-}
-
-const NODE_TYPES = { leaf: LeafNode, box: BoxNode };
-
-function edgesOf(view: View): Edge[] {
-  return view.edges.filter((edge) => edge.visible).map((edge) => {
-    const { colour, label, dashed } = edgeStyle(edge.kind);
-    return {
-      id: `${edge.source}->${edge.target}`,
-      source: edge.source,
-      target: edge.target,
-      label,
-      style: { stroke: colour, strokeWidth: 1.5, ...(dashed ? { strokeDasharray: '4 3' } : {}) },
-      markerEnd: { type: MarkerType.ArrowClosed, color: colour },
-    };
-  });
-}
-
-/**
- * Boxes first, then leaves.
- *
- * React Flow requires a parent to appear before its children in the array and silently drops a child
- * that arrives first. Sorting by depth is what guarantees it for a box nested inside a box.
- */
-function nodesOf(view: View, laid: Positioned[]): Node[] {
-  const at = new Map(laid.map((p) => [p.id, p]));
-  const byId = new Map(view.nodes.map((n) => [n.id, n]));
-  const depth = (id: Id): number => {
-    const parent = byId.get(id)?.parent;
-    return parent ? depth(parent) + 1 : 0;
-  };
-
-  return view.nodes
-    .filter((node) => node.visible && at.has(node.id))
-    .sort((a, b) => depth(a.id) - depth(b.id))
-    .map((node) => {
-      const p = at.get(node.id)!;
-      return {
-        id: node.id,
-        type: node.type === 'METHOD' ? 'box' : 'leaf',
-        position: { x: p.x, y: p.y },
-        data: node as unknown as Record<string, unknown>,
-        // No `extent: 'parent'`: nothing is draggable, and React Flow clamps a child to its parent's
-        // *measured* size, which a box that has just been resized does not have yet - every frame of
-        // a move would put its children in its corner.
-        ...(node.parent ? { parentId: node.parent } : {}),
-        style: { width: p.width, height: p.height || NODE_HEIGHT },
-        draggable: false,
-      };
-    });
 }
 
 /** A drawing as React Flow takes it: what a layout landed on, or a frame on the way there. */
@@ -187,7 +120,7 @@ function countDrawn() {
 }
 
 /**
- * From the drawing on screen to the next one, for both views: kept nodes glide, new ones grow out of
+ * From the drawing on screen to the next one, kept nodes glide, new ones grow out of
  * the clicked node and fade in, gone ones fade out where they were, and the viewport holds the clicked
  * node still on screen. transition.ts decides where each node is at each moment; this paints it.
  *
@@ -244,7 +177,7 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
     const freshEdges = new Set(prev ? next.edges.filter((e) => !oldEdges.has(e.id)).map((e) => e.id) : []);
     const ringed = (ring: boolean): Drawing => ({
       nodes: next.nodes.map((n) => ({
-        // The drawing's own class - the condensed view's `cf-dim` - kept under the rings.
+        // The drawing's own class - `cf-dim` - kept under the rings.
         ...n, className: classes(n.className ?? false, ring && fresh.has(n.id) && 'cf-new', n.id === outlined.current && 'cf-clicked'),
       })),
       edges: next.edges.map((e) => ({ ...e, className: classes(e.className ?? false, ring && freshEdges.has(e.id) && 'cf-new') })),
@@ -337,54 +270,6 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
 
 /** What a view is handed by the page: the payload and its own `revealed`, which the page keeps. */
 type Revealing = { payload: Payload; revealed: Set<Id>; setRevealed: Dispatch<SetStateAction<Set<Id>>> };
-
-function Graph({ payload, revealed, setRevealed }: Revealing) {
-  const [target, setTarget] = useState<Target | null>(null);
-  const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
-  const view = useMemo(() => screen(payload, revealed), [payload, revealed]);
-  const previous = useRef<Map<Id, Point>>(undefined);
-  const click = useRef<Click | undefined>(undefined);
-
-  useEffect(() => {
-    let current = true;
-    // No cast either way: layout.ts's ElkNode is assignable to the library's, and what comes back is
-    // assignable to positions(). Keeping the two types structurally compatible is what lets layout.ts
-    // stay importable without elkjs.
-    //
-    // Seeded from the last drawing, so that what was on screen stays roughly where it was - see
-    // `stabilise`. A view switch remounts this, so a switch lays out from scratch.
-    new ELK().layout(elkGraph(view, previous.current)).then((result) => {
-      if (!current) return;
-      const laid = positions(result);
-      previous.current = new Map(laid.map((p) => [p.id, { x: p.x, y: p.y }]));
-      setTarget({ drawing: { nodes: nodesOf(view, laid), edges: edgesOf(view) }, click: click.current });
-      click.current = undefined;
-    });
-    return () => { current = false; };
-  }, [view]);
-
-  // The old drawing stays on screen until the new one has a layout, then moves into it. A reveal
-  // the reader cannot see is the one thing progressive reveal cannot afford, so it refits when
-  // something new would land off screen.
-  const { drawing, moving } = useMotion(flow, target);
-
-  const onNodeClick = useCallback((_: unknown, node: Node) => {
-    click.current = { id: node.id };
-    setRevealed((was) => tap(payload, was, node.id));
-  }, [payload, setRevealed]);
-
-  // Something to inspect from the console when a page looks wrong. The browser tests deliberately do
-  // not read it: a page whose view is right and whose drawing is not is exactly what they are for.
-  (window as unknown as { view: View }).view = view;
-
-  return (
-    <ReactFlow nodes={drawing.nodes} edges={drawing.edges} nodeTypes={NODE_TYPES} onNodeClick={onNodeClick}
-               className={moving ? 'cf-boxes cf-moving' : 'cf-boxes'}
-               onInit={setFlow} minZoom={0.05} proOptions={{ hideAttribution: true }}>
-      <Background />
-    </ReactFlow>
-  );
-}
 
 /** A condensed leaf, drawn by LeafNode: its caption is its label, as it has no hidden-neighbour badge. */
 const asLeaf = (node: CondensedNode) => ({ ...node, badge: node.label });
@@ -500,8 +385,8 @@ function condensedEdgesOf(view: CondensedView, routed: Map<string, Point[]>, pat
 type Hover = { target: CondensedTarget; x: number; y: number };
 
 /**
- * The condensed view: flat, laid out by ELK like the boxed one, with a tooltip where the boxes would
- * have said where a node lives. Every decision is condensed.ts's; this writes it out.
+ * The view: flat, laid out by ELK, with a tooltip saying where a node lives. Every decision is
+ * condensed.ts's; this writes it out.
  */
 function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus }: Revealing & {
   view: CondensedView; focus: Focus | null; setFocus: Dispatch<SetStateAction<Focus | null>>;
@@ -528,7 +413,7 @@ function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus 
     return () => { current = false; };
   }, [view, path]);
 
-  // The boxed view's motion, refit and layout counter - see useMotion.
+  // Motion, refit and the layout counter - see useMotion.
   const { drawing, moving } = useMotion(flow, target);
   // While the nodes glide, each line follows its two ends (RoutedEdge without a route); the routes,
   // laid out for where the nodes are going, come back when the move ends.
@@ -585,8 +470,6 @@ function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus 
   );
 }
 
-type Mode = 'boxes' | 'condensed';
-
 /** The condensed view as a Mermaid document, fenced so it renders where it is opened, saved by the browser. */
 function download(view: CondensedView) {
   const blob = new Blob(['```mermaid\n', condensedMermaid(view), '```\n'], { type: 'text/markdown' });
@@ -598,8 +481,8 @@ function download(view: CondensedView) {
 }
 
 /** What each colour, outline and line on the page means - rows from theme.ts's `legend`. */
-function Legend({ payload, mode }: { payload: Payload; mode: Mode }) {
-  const { leaves, boxes, lines } = legend(payload, mode);
+function Legend({ payload }: { payload: Payload }) {
+  const { leaves, boxes, lines } = legend(payload);
   const swatch = (r: { name: string; fill: string; outline: string; meaning: string }, width: number) => (
     <div key={r.name} className="cf-legend-row">
       <div style={{ background: r.fill, border: `${width}px solid ${r.outline}` }} />
@@ -625,30 +508,23 @@ function Legend({ payload, mode }: { payload: Payload; mode: Mode }) {
 }
 
 /**
- * The two views and the switch between them. Each view's `revealed` lives here rather than in the
- * view, so that switching away and back returns to what the reader had opened. Boxes is the default,
- * and the page it draws is the one it drew before there was a switch.
+ * The page: the toolbar and the one view. `shown` and `focus` live here rather than in the view so
+ * that Reset and the Mermaid button reach them.
  */
 function Page({ payload }: { payload: Payload }) {
-  const [mode, setMode] = useState<Mode>('boxes');
   const [legendOpen, setLegendOpen] = useState(false);
-  const [boxed, setBoxed] = useState<Set<Id>>(() => opening(payload));
   const [shown, setShown] = useState<Set<Id>>(() => condensedOpening(payload));
-  // The condensed click's path - see focusPath. Here beside `shown` so that Reset clears both.
+  // The click's path - see focusPath. Here beside `shown` so that Reset clears both.
   const [focus, setFocus] = useState<Focus | null>(null);
   // Here rather than in CondensedGraph so that the Mermaid button exports the very view drawn.
   const condensedView = useMemo(() => condensed(payload, shown), [payload, shown]);
 
-  // Folding needs a box, so a sprawl inside the entry method has nothing to fold, and the condensed
-  // view folds nothing at all. Without this the only way back is a reload, which re-runs the whole
-  // layout.
+  // The condensed view folds nothing, so without this the only way back is a reload, which re-runs
+  // the whole layout.
   const reset = useCallback(() => {
-    if (mode === 'boxes') setBoxed(opening(payload));
-    else {
-      setShown(condensedOpening(payload));
-      setFocus(null);
-    }
-  }, [mode, payload]);
+    setShown(condensedOpening(payload));
+    setFocus(null);
+  }, [payload]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -661,17 +537,13 @@ function Page({ payload }: { payload: Payload }) {
   return (
     <>
       <div className="cf-toolbar">
-        <button type="button" aria-pressed={mode === 'boxes'} onClick={() => setMode('boxes')}>Boxes</button>
-        <button type="button" aria-pressed={mode === 'condensed'} onClick={() => setMode('condensed')}>Condensed</button>
         <button type="button" onClick={reset}>Reset</button>
-        {mode === 'condensed' && <button type="button" onClick={() => download(condensedView)}>Mermaid</button>}
+        <button type="button" onClick={() => download(condensedView)}>Mermaid</button>
         <button type="button" aria-pressed={legendOpen} onClick={() => setLegendOpen((open) => !open)}>Legend</button>
       </div>
-      {legendOpen && <Legend payload={payload} mode={mode} />}
-      {mode === 'boxes'
-        ? <Graph payload={payload} revealed={boxed} setRevealed={setBoxed} />
-        : <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={condensedView}
-                          focus={focus} setFocus={setFocus} />}
+      {legendOpen && <Legend payload={payload} />}
+      <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={condensedView}
+                      focus={focus} setFocus={setFocus} />
     </>
   );
 }

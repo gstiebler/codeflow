@@ -13,10 +13,6 @@ import { resolve } from 'node:path';
  * root, so a repo-relative path silently resolves to `app/app/...` and Files.walk throws.
  */
 /**
- * `member` earns its place beside `funcCall`: `app.func1()` passes no argument and returns nothing,
- * so not one edge crosses from `main` into `func1`, and the callee is reachable only through call
- * structure. It is the fixture where following dataflow finds nothing at all.
- *
  * `boundaryRoots` is drawn as its golden is, with its roots and `--boundary`: it is the page where a
  * boundary call's `call` is bold and the order token has its own fill.
  *
@@ -26,7 +22,6 @@ import { resolve } from 'node:path';
  */
 const FIXTURES = {
   funcCall: '',
-  member: '',
   boundaryRoots: '--from App#first --from App#second --boundary Store',
   boundary: '--from App#entrypoint --boundary Boundary',
 };

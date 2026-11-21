@@ -85,8 +85,6 @@ const offPane = (page: Drawn) => page.edges.flatMap((edge) =>
 /** A curve command: what React Flow's own bezier draws, and a routed line never does. */
 const curved = (d: string) => /C/.test(d);
 
-const condense = (page: Page) => drewAgain(page, () => page.getByRole('button', { name: 'Condensed', exact: true }).click());
-
 /**
  * Lines in the condensed view follow the routes ELK computed around the nodes it placed, rather than
  * a curve from one fixed handle to another - which cut through nodes, and looped a line going back
@@ -96,7 +94,6 @@ test.describe('boundary, condensed lines', () => {
   test.beforeEach(open('boundary'));
 
   test('the opening draws every line outside every node box but its own two ends', async ({ page }) => {
-    await condense(page);
     await expect(page.locator(NODE)).toHaveCount(5);
     const on = await drawn(page);
     // The pair: there are lines, each with a length to sample.
@@ -106,7 +103,6 @@ test.describe('boundary, condensed lines', () => {
   });
 
   test('the opening fits the whole drawing, every line on screen', async ({ page }) => {
-    await condense(page);
     await expect(page.locator(NODE)).toHaveCount(5);
     const on = await drawn(page);
     expect(on.edges.length).toBe(10);
@@ -115,7 +111,6 @@ test.describe('boundary, condensed lines', () => {
   });
 
   test('during the move lines follow the gliding nodes, and once it ends they are routed again', async ({ page }) => {
-    await condense(page);
     expect((await drawn(page)).edges.some((e) => curved(e.d))).toBe(false);
     // Every frame from the click until the layout is counted: is the page moving, and is any line a curve.
     await page.evaluate(() => {
@@ -147,7 +142,6 @@ test.describe('boundary, condensed lines', () => {
   // ELK gives a line inside the lane in the lane's frame; drawn without the lane's offset, each one
   // starts and ends short of its nodes, by however far the lane sits from the page's corner.
   test('with a path in its lane, every line meets its two nodes and runs clear of the rest', async ({ page }) => {
-    await condense(page);
     await drewAgain(page, () => page.locator(LEAF).filter({ hasText: EVENT }).click());
     await drewAgain(page, () => page.locator(LEAF).filter({ hasText: /^c$/ }).click());
     await expect(page.locator('.react-flow__node-focusLane')).toHaveCount(1);

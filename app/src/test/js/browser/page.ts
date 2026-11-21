@@ -14,7 +14,7 @@ declare global {
  *
  * Everything here goes through the DOM rather than through the `view` object the page publishes. A
  * page whose data is right and whose rendering is not would otherwise come out green, and the
- * rendering is the whole of what a page test can add over a unit test on model.ts.
+ * rendering is the whole of what a page test can add over a unit test on condensed.ts.
  */
 
 const at = (name: string) => pathToFileURL(resolve(`build/viewer-test/${name}.html`)).href;
@@ -27,6 +27,8 @@ export const open = (fixture: string) => async ({ page }: { page: Page }) => {
   // A node in the DOM, not a layout counted: there is no count from before the page loaded to
   // compare against, so the counter cannot say whether the opening view is on screen yet.
   await page.waitForSelector('.react-flow__node');
+  // And counted: a click made before the opening layout is counted would be answered by that count.
+  await page.waitForFunction(() => (window.drawn ?? 0) > 0);
   expect(errors, 'the page threw while loading').toEqual([]);
 };
 
@@ -50,9 +52,6 @@ export const captionsOf = async (from: Promise<string[]>, label: string) =>
 /** The drawn caption of every visible leaf - badges included, since a badge is drawn. */
 export const leafCaptions = (page: Page) => page.evaluate(() =>
   [...document.querySelectorAll('.react-flow__node .cf-node')].map((n) => n.textContent ?? ''));
-
-export const boxLabels = (page: Page) => page.evaluate(() =>
-  [...document.querySelectorAll('.react-flow__node .cf-title')].map((n) => n.textContent ?? ''));
 
 /**
  * Every gesture waits, and the waiting belongs here rather than in each test.
@@ -82,9 +81,9 @@ export const tapLeaf = (page: Page, label: string) => drewAgain(page, async () =
     .filter({ hasText: new RegExp(`^${label}( [↑↓].*)*$`) }).first().click();
 });
 
-export const tapBox = (page: Page, label: string) => drewAgain(page, async () => {
-  await page.locator('.react-flow__node .cf-title')
-    .filter({ hasText: new RegExp(`^${label}$`) }).first().click();
+/** Click a group by its label: `program`, or a boundary method. Its caption is `label (count)`. */
+export const tapGroup = (page: Page, label: string) => drewAgain(page, async () => {
+  await page.locator('.react-flow__node .cf-group').filter({ hasText: new RegExp(`^${label} \\(`) }).click();
 });
 
 /** Press R and let the page catch up. The one gesture that is not a click. */

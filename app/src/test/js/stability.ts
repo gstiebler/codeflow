@@ -5,10 +5,9 @@
  *
  *   node app/src/test/js/stability.ts
  *
- * Each fixture is walked as the reader would: in Boxes, every leaf on screen clicked until nothing
- * new appears; in Condensed, every display node until nothing is grouped. Each click that changes
- * what is drawn is laid out once per candidate, each seeded from its own previous drawing, and scored
- * on the nodes drawn both before and after it:
+ * Each fixture is walked as the reader would: every display node clicked until nothing is grouped.
+ * Each click that changes what is drawn is laid out once per candidate, each seeded from its own
+ * previous drawing, and scored on the nodes drawn both before and after it:
  *
  * - displacement: how far each moved, net of the clicked node's own move, since the page keeps the
  *   clicked node where it was on screen (raw, when the clicked node is gone);
@@ -16,32 +15,15 @@
  */
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { loadCorpus } from './unit/corpus.ts';
-import { opening, screen, tap } from '../../main/resources/viewer/model.ts';
 import { condensed, condensedCaption, condensedOpening, tapCondensed } from '../../main/resources/viewer/condensed.ts';
 import {
-  elkGraph, flatElkGraph, positions, stabilise, type ElkNode, type Point,
+  flatElkGraph, positions, stabilise, type ElkNode, type Point,
 } from '../../main/resources/viewer/layout.ts';
 import type { Id, Payload } from '../../main/resources/viewer/types.ts';
 
 /** One click: the ELK problem for the view after it, and the node clicked. */
 type Step = { problem: ElkNode; clicked: Id };
 type Walk = { first: ElkNode; steps: Step[] };
-
-function boxesWalk(payload: Payload): Walk {
-  let revealed = opening(payload);
-  const steps: Step[] = [];
-  const first = elkGraph(screen(payload, revealed));
-  for (;;) {
-    const before = screen(payload, revealed).showing;
-    for (const id of before) {
-      const was = screen(payload, revealed).showing.size;
-      revealed = tap(payload, revealed, id);
-      const view = screen(payload, revealed);
-      if (view.showing.size !== was) steps.push({ problem: elkGraph(view), clicked: id });
-    }
-    if (screen(payload, revealed).showing.size === before.size) return { first, steps };
-  }
-}
 
 function condensedWalk(payload: Payload): Walk {
   let revealed = condensedOpening(payload);
@@ -158,10 +140,4 @@ async function measure(walk: (p: Payload) => Walk, names: string[]) {
   }
 }
 
-console.log('Boxes');
-await measure(boxesWalk, ['none (before)', 'interactive (chosen)']);
-// Not run: ELK 0.9.3 throws inside a hierarchical layout given any considerModelOrder strategy, from
-// a timer, where no await can catch it - so trying it here ends the process.
-console.log('  model order            ELK 0.9.3 throws (considerModelOrder with INCLUDE_CHILDREN)');
-console.log('Condensed');
 await measure(condensedWalk, ['none (before)', 'model order', 'interactive (chosen)']);

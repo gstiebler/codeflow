@@ -82,29 +82,10 @@ format.
 
 Split by what they can actually catch:
 
-- `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `model.ts`.
-  `neighbourhood` is tested here: the depth bound, that a node reachable both ways is recorded at
-  the *short* distance so nodes past it stay in range, and that it terminates on a cycle.
+- `app/src/test/js/unit/` (`npm test`) — the pure functions, imported straight from `condensed.ts`.
 
   The corpus sweeps live here too, over the `graph.json` the golden suite writes beside each
-  fixture (gitignored, rewritten every run, like `ir.txt`). `invariants.test.ts` asserts that a box
-  offered to the reader has something showing inside it, that a box is visible exactly when some
-  descendant leaf is showing, and that the badges' hidden counts add up to the edges actually
-  crossing the screen edge. `reachability.test.ts` asserts the one that matters: from the opening
-  view, clicking what is on screen to a fixpoint reaches every leaf of every fixture. That property
-  was swept by hand once, when stubs were added, and was false again by the time anything re-checked
-  it — eight fixtures short, `member` worst at 5 of 23.
-
-  What it covers is reveal by *containment*, and only that: deleting the `neighbourhood` call from
-  `tap` entirely leaves it green at 63 of 63, because opening every box one level eventually reaches
-  every leaf anyway. The dataflow half of a click is covered by `tap.test.ts` alone, and by the one
-  case in it whose payload gives the clicked name an edge. A corpus sweep is a floor, not a spec.
-
-  This layer carries more weight than it used to. Two properties were held end to end by the
-  Cytoscape page, because that page *derived* them — a box drawn on the strength of a grandchild, and
-  the graph keeping every payload node however few are displayed. `a box whose only showing node is a
-  grandchild is visible` and `every payload node is described, visible or not` in `screen.test.ts`
-  are now the only statement of each.
+  fixture (gitignored, rewritten every run, like `ir.txt`).
 
   `corpus.mjs` fails when it finds fewer than 60 payloads rather than sweeping an empty list — a
   checkout that has not run `./gradlew test` has none, and a sweep over nothing passes every
@@ -112,11 +93,7 @@ Split by what they can actually catch:
 - `app/src/test/js/browser/` (`npm run test:browser`) — Playwright against pages built from real
   fixtures. `global-setup.mjs` runs `gradlew run --args="<fixture> --html"` per fixture, with an
   **absolute** path: the `run` task's working directory is `app/`, so a repo-relative one resolves
-  to `app/app/...` and `Files.walk` throws. Two fixtures are built, and which question each can
-  answer matters — `member` is the fixture where following dataflow finds nothing, and `funcCall` is
-  the only one nested deeply enough to tell a stub from an open box, since `member`'s `getMemberX`
-  has nothing in it *but* its RETURN node and the two look identical there. A depth test written
-  against that box passed against an implementation that opened one level too far.
+  to `app/app/...` and `Files.walk` throws. The fixtures built are listed in `global-setup.mjs`.
 
   `page.ts` is how the suite talks to the page, and everything in it goes through the **DOM** rather
   than through the `view` the page publishes: a page whose data is right and whose rendering is not

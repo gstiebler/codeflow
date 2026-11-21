@@ -2,8 +2,8 @@
  * The condensed view, decided without a browser: no method boxes, the graph gathered into a group
  * per boundary method plus one for everything else, opened up where the reader clicks.
  *
- * Same contract as model.ts: no imports beyond types, no DOM, and every function a pure function of
- * (payload, revealed). `revealed` is the set of leaves taken out of their groups and is the only
+ * No imports beyond types, no DOM: `node --test` reads this file directly, and the renderer's bundle
+ * imports it. Every function is a pure function of (payload, revealed). `revealed` is the set of leaves taken out of their groups and is the only
  * state; `condensed` derives everything drawn from it, so nothing can go stale between clicks.
  *
  * A leaf's group is computed from the payload, never guessed: it belongs to a boundary method's
@@ -14,6 +14,19 @@
 import type {
   CondensedEdge, CondensedNode, CondensedTarget, CondensedView, EdgeKind, Id, Payload, PayloadEdge, PayloadNode,
 } from './types.ts';
+
+/**
+ * A leaf's caption cut where the renderer changes weight: the node's `lead` and the rest of `badge`.
+ *
+ * The lead is the payload's, never a prefix found in the text - a source call named `call x` has
+ * none and stays plain. A badge that does not start with its lead is a payload this viewer was not
+ * written for, and it is drawn whole rather than with the wrong letters in bold.
+ */
+export function captionParts(node: { badge: string; lead?: string }): { lead?: string; rest: string } {
+  const { badge, lead } = node;
+  if (lead === undefined || !badge.startsWith(lead)) return { rest: badge };
+  return { lead, rest: badge.slice(lead.length) };
+}
 
 /** The group of every leaf that is not inside a boundary method's block. */
 export const PROGRAM = 'program';

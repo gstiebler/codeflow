@@ -20,10 +20,9 @@ test.describe('boundary, legend', () => {
     await expect(panel(page)).toHaveCount(0);
   });
 
-  test('in Condensed the legend lists the boundary outline', async ({ page }) => {
+  test('the legend lists the boundary outline, and no method box', async ({ page }) => {
     await button(page, 'Legend').click();
-    await expect(panel(page)).not.toContainText('boundary a boundary method');
-    await button(page, 'Condensed').click();
     await expect(panel(page)).toContainText('boundary a boundary method');
+    await expect(panel(page)).not.toContainText('a method body, inlined per call');
   });
 });

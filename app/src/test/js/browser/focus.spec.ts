@@ -14,7 +14,6 @@ test.describe('boundary, focus', () => {
   test.beforeEach(open('boundary'));
 
   test('a click lays its path out in a lane and fades the rest; Esc puts it back', async ({ page }) => {
-    await drewAgain(page, () => page.getByRole('button', { name: 'Condensed', exact: true }).click());
     await tap(page, 'event entrypoint');
     await tap(page, 'c');
     await expect(page.locator(LANE)).toHaveCount(1);
@@ -30,7 +29,6 @@ test.describe('boundary, focus', () => {
   });
 
   test('a click on the canvas clears the lane too', async ({ page }) => {
-    await drewAgain(page, () => page.getByRole('button', { name: 'Condensed', exact: true }).click());
     await tap(page, 'event entrypoint');
     await expect(page.locator(LANE)).toHaveCount(1);
     await drewAgain(page, () => page.locator('.react-flow__pane').click({ position: { x: 5, y: 300 } }));

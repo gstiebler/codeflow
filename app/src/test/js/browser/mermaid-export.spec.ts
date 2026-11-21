@@ -18,17 +18,7 @@ const unescape = (label: string) =>
 test.describe('boundary, Mermaid export', () => {
   test.beforeEach(open('boundary'));
 
-  test('the Mermaid button is there in Condensed and not in Boxes', async ({ page }) => {
-    await expect(button(page, 'Boxes')).toHaveAttribute('aria-pressed', 'true');
-    await expect(button(page, 'Mermaid')).toHaveCount(0);
-    await drewAgain(page, () => button(page, 'Condensed').click());
-    await expect(button(page, 'Mermaid')).toHaveCount(1);
-    await button(page, 'Boxes').click();
-    await expect(button(page, 'Mermaid')).toHaveCount(0);
-  });
-
   test('after a click, Mermaid downloads codeflow-condensed.md, fenced, with every node drawn', async ({ page }) => {
-    await drewAgain(page, () => button(page, 'Condensed').click());
     await drewAgain(page, () => page.locator(GROUP).filter({ hasText: /^program \(/ }).click());
     const drawn = await page.evaluate((selector) =>
       [...document.querySelectorAll(selector)].map((n) => (n.textContent ?? '').trim()).sort(), NODE);

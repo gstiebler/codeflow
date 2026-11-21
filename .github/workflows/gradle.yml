@@ -40,7 +40,7 @@ jobs:
         path: app/build/reports
 
   # The viewer's half. Gradle never runs npm - the bundles are committed so a checkout with no
-  # node_modules still builds a page - which means nothing above this job reads model.ts, the type
+  # node_modules still builds a page - which means nothing above this job reads the viewer sources, the type
   # annotations, or whether the committed bundles still match their sources.
   viewer:
 

@@ -24,20 +24,17 @@ const payload = (types: NodeType[], kinds: EdgeKind[]): Payload => ({
 });
 
 test('the legend lists only the leaf types and edge kinds the payload has', () => {
-  const rows = legend(payload(['RETURN', 'LITERAL', 'LITERAL'], ['FLOW']), 'boxes');
+  const rows = legend(payload(['RETURN', 'LITERAL', 'LITERAL'], ['FLOW']));
   assert.deepEqual(rows.leaves.map((r) => r.name), ['LITERAL', 'RETURN']);
   assert.deepEqual(rows.lines.map((r) => r.name), ['FLOW']);
   assert.equal(rows.leaves.find((r) => r.name === 'RETURN')!.fill, PALETTE.RETURN);
   // The pair: a payload with an ORDER edge lists it, dashed, in the colour it is painted in.
-  const order = legend(payload(['RETURN', 'LITERAL'], ['FLOW', 'ORDER']), 'boxes').lines.find((r) => r.name === 'ORDER');
+  const order = legend(payload(['RETURN', 'LITERAL'], ['FLOW', 'ORDER'])).lines.find((r) => r.name === 'ORDER');
   assert.deepEqual(order && { colour: order.colour, dashed: order.dashed }, { colour: '#7b1fa2', dashed: true });
 });
 
-test('Condensed lists the boundary group outline; Boxes lists the method box instead', () => {
-  const p = payload(['LITERAL', 'RETURN'], ['FLOW']);
-  const condensedRows = legend(p, 'condensed').boxes;
-  assert.ok(condensedRows.some((r) => r.outline === BOUNDARY_OUTLINE), 'no boundary outline in Condensed');
-  const boxesRows = legend(p, 'boxes').boxes;
-  assert.ok(!boxesRows.some((r) => r.outline === BOUNDARY_OUTLINE), 'a boundary outline in Boxes');
-  assert.ok(boxesRows.some((r) => r.name === 'method'), 'no method box in Boxes');
+test('the legend lists the boundary group outline and the path lane', () => {
+  const rows = legend(payload(['LITERAL', 'RETURN'], ['FLOW'])).boxes;
+  assert.ok(rows.some((r) => r.outline === BOUNDARY_OUTLINE), 'no boundary outline');
+  assert.ok(rows.some((r) => r.name === 'path'), 'no path lane');
 });

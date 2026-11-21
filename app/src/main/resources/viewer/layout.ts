@@ -8,10 +8,7 @@
  *
  * No imports beyond types, no DOM, no library: `node --test` reads this file directly.
  */
-import type { CondensedNode, CondensedView, Id, View } from './types.ts';
-
-/** How much of a box's top belongs to its caption rather than to what is inside it. */
-export const TITLE_HEIGHT = 22;
+import type { CondensedNode, CondensedView, Id } from './types.ts';
 
 /** One stretch of a routed edge, as ELK returns it: in the frame of the graph the edge is declared in. */
 export type ElkSection = { id: string; startPoint: Point; endPoint: Point; bendPoints?: Point[] };
@@ -30,28 +27,6 @@ export type ElkNode = {
 };
 
 /**
- * How the graph is laid out. One copy, applied to the root and to every box, since a box laid out
- * by different rules than its parent is a diagram that changes direction halfway down.
- *
- * As strings, which is not a style choice: the ELK API takes strings and drops a number silently -
- * the layout still runs, just without the spacing, which reads as ELK having ignored the request
- * rather than as a type error. An adapter that coerces numbers on the way through is what hid this
- * for as long as there was one.
- */
-const ELK_OPTIONS: Record<string, string> = {
-  algorithm: 'layered',
-  'elk.direction': 'DOWN',
-  'elk.layered.spacing.nodeNodeBetweenLayers': '40',
-  'elk.spacing.nodeNode': '25',
-  // Without this ELK lays each container out independently and the boxes overlap.
-  'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-  // Room at the top for the box's caption. A box means a method, so its name is the one label on the
-  // page that says which method a value lives in - and ELK's default padding is even on all four
-  // sides, which puts the first row of nodes straight over it.
-  'elk.padding': `[top=${TITLE_HEIGHT},left=12,bottom=12,right=12]`,
-};
-
-/**
  * A leaf's size, guessed from its caption.
  *
  * ELK has to be told a size before anything exists to measure, and the page draws nothing until ELK
@@ -66,55 +41,13 @@ export const NODE_HEIGHT = 26;
 export const nodeWidth = (badge: string) => Math.round(badge.length * CHAR_WIDTH) + PADDING;
 
 /**
- * The visible subgraph, nested, ready for ELK.
- *
- * Hidden nodes are left out rather than sized zero: ELK reserves space for anything it is given, so
- * a hidden node laid out is a hole in the diagram with nothing on the page to explain it.
- *
- * A box gets no width or height. ELK sizes a parent to fit its children, and a size of ours is
- * honoured instead - which is how a box ends up smaller than what it contains.
- *
- * Every edge is declared at the root, whatever it connects: ELK requires an edge to sit in a graph
- * enclosing both endpoints, and only the root always qualifies. GraphmlExporter has the same rule
- * for the same reason.
- */
-export function elkGraph(view: View, previous?: Map<Id, Point>): ElkNode {
-  const byParent = new Map<Id | undefined, ElkNode[]>();
-  const boxes: ElkNode[] = [];
-
-  for (const node of view.nodes) {
-    if (!node.visible) continue;
-    const elk: ElkNode = node.type === 'METHOD'
-      ? { id: node.id, layoutOptions: ELK_OPTIONS, children: [] }
-      : { id: node.id, width: nodeWidth(node.badge), height: NODE_HEIGHT };
-    if (node.type === 'METHOD') boxes.push(elk);
-    if (!byParent.has(node.parent)) byParent.set(node.parent, []);
-    byParent.get(node.parent)!.push(elk);
-  }
-
-  // One pass over the boxes rather than a recursion: every box already exists, and a box's children
-  // are whatever named it, so there is nothing to walk down to.
-  for (const box of boxes) box.children = byParent.get(box.id) ?? [];
-
-  const root: ElkNode = {
-    id: 'root',
-    layoutOptions: ELK_OPTIONS,
-    children: byParent.get(undefined) ?? [],
-    edges: view.edges
-      .filter((edge) => edge.visible)
-      .map((edge) => ({ id: `${edge.source}->${edge.target}`, sources: [edge.source], targets: [edge.target] })),
-  };
-  return previous ? stabilise(root, previous) : root;
-}
-
-/**
- * The condensed view, for ELK: one level, no boxes. Group and leaf alike are sized from the caption
+ * The view, for ELK: one level, no method boxes. Group and leaf alike are sized from the caption
  * they are drawn with, which the caller passes so that the two cannot drift - and so that this file
  * keeps importing nothing but types.
  *
- * The hierarchy options are left out because there is no hierarchy. The spacing is wider than the
- * boxed view's: a few nodes with long edges between them, each perhaps captioned `×N`, read as a
- * tangle packed into the boxed view's 40 px between layers.
+ * The hierarchy options are left out because there is no hierarchy (bar the focus lane). The spacing
+ * is wide: a few nodes with long edges between them, each perhaps captioned `×N`, read as a tangle
+ * when packed.
  *
  * Orthogonal routes, which the page draws instead of React Flow's handle-to-handle curves: ELK
  * routes around the nodes it placed, so a line never crosses a node, and a line going back up runs
@@ -141,7 +74,7 @@ const LANE_OPTIONS: Record<string, string> = { ...FLAT_OPTIONS, 'elk.padding': '
 /**
  * `lane`, when given and not empty, is the clicked path: its nodes go in one compound node, which ELK
  * places as a block, so the path reads as one piece beside the rest. Edges stay declared at the root -
- * the one graph enclosing every pair - which needs `INCLUDE_CHILDREN`, as in the boxed view.
+ * the one graph enclosing every pair - which needs `INCLUDE_CHILDREN`.
  */
 export function flatElkGraph(
   view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>, lane?: Set<Id>,
@@ -182,9 +115,9 @@ export const INTERACTIVE_OPTIONS: Record<string, string> = {
  * A node that was drawn starts where it was. One that was not starts half a pixel past its first
  * neighbour among its siblings that was - inside that neighbour's layer, just after it - or, with
  * none, wherever ELK puts a node it was given no position for. Siblings only: a position means
- * something only next to others in the same box.
+ * something only next to others in the same parent.
  *
- * A new tree: the input, and the option objects it shares with every other box, are left alone.
+ * A new tree: the input, and the option objects it shares with every other parent, are left alone.
  */
 export function stabilise(root: ElkNode, previous: Map<Id, Point>): ElkNode {
   const neighbours = new Map<Id, Id[]>();
@@ -223,7 +156,7 @@ export function stabilise(root: ElkNode, previous: Map<Id, Point>): ElkNode {
 export type Positioned ={ id: Id; x: number; y: number; width: number; height: number; parent?: Id };
 
 /**
- * The laid-out tree, flattened, each node remembering which box it came out of.
+ * The laid-out tree, flattened, each node remembering which parent it came out of.
  *
  * ELK returns a child's coordinates relative to its parent, which is already React Flow's `parentId`
  * convention - so nothing is re-based here, and re-basing it would be the bug.

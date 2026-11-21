@@ -2,20 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import {
-  captionAt, elkGraph, flatElkGraph, positions, roundedPath, routes, type ElkNode, type Point,
+  captionAt, flatElkGraph, positions, roundedPath, routes, type ElkNode, type Point,
 } from '../../../main/resources/viewer/layout.ts';
-import type { CondensedNode, CondensedView, View } from '../../../main/resources/viewer/types.ts';
+import type { CondensedNode, CondensedView } from '../../../main/resources/viewer/types.ts';
 
 const leaf = (id: string): CondensedNode => ({ id, label: id, type: 'VARIABLE' });
 const flow = (source: string, target: string) => ({ source, target, kinds: { FLOW: 1 }, count: 1 });
 
-// The condensed view asks ELK for orthogonal routes - a string, as every ELK option must be - and
-// the boxed view is left as it was.
-test('the condensed layout asks ELK for orthogonal routes, and the boxed one does not', () => {
+// The layout asks ELK for orthogonal routes - a string, as every ELK option must be.
+test('the layout asks ELK for orthogonal routes', () => {
   const flat = flatElkGraph({ nodes: [leaf('a')], edges: [] }, (n) => n.label);
   assert.equal(flat.layoutOptions!['elk.edgeRouting'], 'ORTHOGONAL');
-  const boxed: View = { showing: new Set(), stubs: new Set(), hidden: new Map(), nodes: [], edges: [] };
-  assert.equal(elkGraph(boxed).layoutOptions!['elk.edgeRouting'], undefined);
 });
 
 // A laid-out result as ELK returns it: `a` sits above `b`, and `b -> a` goes back up around the side,

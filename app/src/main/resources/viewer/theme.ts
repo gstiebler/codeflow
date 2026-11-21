@@ -29,7 +29,6 @@ export const PALETTE: Partial<Record<NodeType, string>> = {
   BOUNDARIES:   'rgba(123, 31, 162, 0.25)',
   // The entry point's event, in the EVENT edges' teal: what set the root going.
   EVENT:        'rgba(0, 137, 123, 0.25)',
-  METHOD:       'rgba(240, 240, 240, 0.60)',
 };
 
 /** What a node with no colour of its own is filled with. */
@@ -38,11 +37,11 @@ export const NODE_DEFAULT = '#ddd';
 /** A leaf's outline, 1 px, whatever its fill. */
 export const NODE_OUTLINE = '#999';
 
-/** A condensed-view group's fill: white, so its outline is what says whose it is. */
+/** A group's fill: white, so its outline is what says whose it is. */
 export const GROUP_FILL = '#fff';
 
 /**
- * A condensed-view group's outline: `program` grey, a boundary method's group in the boundaries
+ * A group's outline: `program` grey, a boundary method's group in the boundaries
  * purple - the same purple as the token and the ORDER edges, since all three are the boundary.
  */
 export const GROUP_OUTLINE = '#999';
@@ -113,7 +112,7 @@ export function condensedEdgeStyle(edge: CondensedEdge): { colour: string; label
 
 /**
  * What each leaf's fill means, beside the fills, so a new colour without a meaning shows in this one
- * file. METHOD is a box, not a leaf, and BASE is never emitted.
+ * file. METHOD is a group, not a leaf, and BASE is never emitted.
  */
 export const NODE_MEANINGS: Partial<Record<NodeType, string>> = {
   LITERAL:      'a constant written in the code',
@@ -144,29 +143,22 @@ export type LegendLine = { name: string; colour: string; dashed: boolean; meanin
 
 /**
  * The legend's rows, read off the same constants the renderer paints with: leaf fills and line
- * styles only for the types and kinds this payload has, the containers of the current view, and the
+ * styles only for the types and kinds this payload has, the groups and the path lane, and the
  * two marks a click leaves.
  */
-export function legend(payload: Payload, mode: 'boxes' | 'condensed'): { leaves: LegendLeaf[]; boxes: LegendLeaf[]; lines: LegendLine[] } {
+export function legend(payload: Payload): { leaves: LegendLeaf[]; boxes: LegendLeaf[]; lines: LegendLine[] } {
   const types = new Set(payload.nodes.map((n) => n.type));
   const kinds = new Set(payload.edges.map((e) => e.kind));
   const leaves: LegendLeaf[] = (Object.keys(NODE_MEANINGS) as NodeType[]).filter((t) => types.has(t)).map((t) => ({
     name: t, fill: PALETTE[t] ?? NODE_DEFAULT, outline: NODE_OUTLINE, meaning: NODE_MEANINGS[t]!,
   }));
-  const boxes: LegendLeaf[] = [];
-  if (mode === 'boxes') {
-    boxes.push({ name: 'method', fill: PALETTE.METHOD!, outline: NODE_OUTLINE, meaning: 'a method body, inlined per call; click to open or fold' });
-  } else {
-    boxes.push(
-      { name: 'method', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: "a method's calls gathered; click to open" },
-      { name: 'boundary', fill: GROUP_FILL, outline: BOUNDARY_OUTLINE, meaning: 'a boundary method: its body is not read' },
-      { name: 'path', fill: FOCUS_FILL, outline: FOCUS_OUTLINE, meaning: 'what flows into and out of the clicked node; the rest is faded. Esc clears' },
-    );
-  }
-  boxes.push(
+  const boxes: LegendLeaf[] = [
+    { name: 'method', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: "a method's calls gathered; click to open" },
+    { name: 'boundary', fill: GROUP_FILL, outline: BOUNDARY_OUTLINE, meaning: 'a boundary method: its body is not read' },
+    { name: 'path', fill: FOCUS_FILL, outline: FOCUS_OUTLINE, meaning: 'what flows into and out of the clicked node; the rest is faded. Esc clears' },
     { name: 'just appeared', fill: GROUP_FILL, outline: NEW_RING, meaning: 'new since the last click (fades)' },
     { name: 'clicked', fill: GROUP_FILL, outline: CLICKED_OUTLINE, meaning: 'the node last clicked' },
-  );
+  ];
   const lines = (Object.keys(EDGE_MEANINGS) as EdgeKind[]).filter((k) => kinds.has(k)).map((k) => {
     const { colour, dashed } = edgeStyle(k);
     return { name: k, colour, dashed, meaning: EDGE_MEANINGS[k] };

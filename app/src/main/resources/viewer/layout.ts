@@ -65,7 +65,7 @@ const FLAT_OPTIONS: Record<string, string> = {
 /** The condensed view draws one edge per ordered pair of display nodes, so the pair is its id. */
 export const flatEdgeId = (edge: { source: Id; target: Id }) => `${edge.source}->${edge.target}`;
 
-/** The compound node a clicked path is laid out in. Not a payload id: those are numbers and `program` / `boundary:...`. */
+/** The compound node a clicked path is laid out in. Not a payload id: those are box ids and leaf ids. */
 export const FOCUS_LANE = 'lane:focus';
 
 /** Room inside the lane, so its nodes do not sit on its outline. */

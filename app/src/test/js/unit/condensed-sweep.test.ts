@@ -89,20 +89,19 @@ test('the walk ends with every leaf on its own and every payload edge drawn once
   assert.deepEqual(short, [], short.join('\n'));
 });
 
-// The boundary fixtures are what the groups are for: one group per boundary method, whatever the
-// number of roots and call sites - `boundaryRoots` calls `save` from two roots - plus each root's
-// event, on its own, and the program.
-test('a boundary fixture opens on one group per boundary method, each event, and the program', () => {
+// One group per call-site box, so a boundary method called twice is two groups: `boundary` calls
+// boundaryfunc2 and boundaryfunc3 twice each. Each root's event is on its own beside them.
+test('a boundary fixture opens on one group per call-site box and each event', () => {
   const opening = (fixture: string) => {
     const { payload } = corpus.find((c) => c.name === fixture)!;
     return condensed(payload, condensedOpening(payload)).nodes.map((n) => `${n.label}:${n.type}`).sort();
   };
   assert.deepEqual(opening('boundary'), [
-    'boundaryfunc1:GROUP', 'boundaryfunc2:GROUP', 'boundaryfunc3:GROUP', 'event entrypoint:EVENT', 'program:GROUP',
+    'boundaryfunc1:GROUP', 'boundaryfunc2:GROUP', 'boundaryfunc2:GROUP', 'boundaryfunc3:GROUP', 'boundaryfunc3:GROUP',
+    'entrypoint:GROUP', 'event entrypoint:EVENT',
   ]);
   const roots = corpus.find((c) => c.name === 'boundaryRoots')!.payload;
-  const boundaryBoxes = roots.nodes.filter((n) => n.boundary).map((n) => n.method);
-  assert.ok(boundaryBoxes.length > new Set(boundaryBoxes).size, 'boundaryRoots has no boundary method with two blocks');
-  assert.equal(opening('boundaryRoots').length, new Set(boundaryBoxes).size + 2 + 1);
+  const boxes = roots.nodes.filter((n) => n.type === 'METHOD');
+  assert.equal(opening('boundaryRoots').length, boxes.length + 2);
   assert.deepEqual(opening('boundaryRoots').filter((n) => n.endsWith(':EVENT')), ['event first:EVENT', 'event second:EVENT']);
 });

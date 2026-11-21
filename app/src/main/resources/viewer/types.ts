@@ -83,7 +83,7 @@ export type CondensedNode = {
   type: NodeType | 'GROUP';
   /** On a group: how many of its leaves it still stands for. */
   members?: number;
-  /** On a group of a boundary method's blocks. */
+  /** On a group whose method box is a boundary method's block. */
   boundary?: boolean;
   /** On a leaf, as in the payload. */
   lead?: string;

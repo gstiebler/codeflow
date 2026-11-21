@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROGRAM, condensed, condensedCaption, condensedOpening, tapCondensed } from '../../../main/resources/viewer/condensed.ts';
+import { condensed, condensedCaption, condensedOpening, tapCondensed } from '../../../main/resources/viewer/condensed.ts';
 import { condensedMermaid, escapeLabel, hex } from '../../../main/resources/viewer/mermaid.ts';
 import {
   BOUNDARY_OUTLINE, GROUP_FILL, GROUP_OUTLINE, NODE_DEFAULT, NODE_OUTLINE, PALETTE, condensedEdgeStyle,
@@ -52,14 +52,14 @@ function assertMatches(view: CondensedView, text: string) {
   })));
 }
 
-test('the opening of boundary exports its 5 nodes and one line per drawn edge, ×N iff N > 1', () => {
+test('the opening of boundary exports its 7 nodes and one line per drawn edge, ×N iff N > 1', () => {
   const payload = boundary();
   const view = condensed(payload, condensedOpening(payload));
-  assert.equal(view.nodes.length, 5);
+  assert.equal(view.nodes.length, 7);
   const text = condensedMermaid(view);
   assertMatches(view, text);
   const { nodes, edges } = parse(text);
-  assert.equal(nodes.length, 5);
+  assert.equal(nodes.length, 7);
   assert.equal(edges.length, view.edges.length);
   // Both sorts are there, so the iff is tested both ways.
   assert.ok(edges.some((e) => e.caption !== undefined) && edges.some((e) => e.caption === undefined));
@@ -68,7 +68,7 @@ test('the opening of boundary exports its 5 nodes and one line per drawn edge, �
 test('after a click the export is the new view, not the opening', () => {
   const payload = boundary();
   const opening = condensed(payload, condensedOpening(payload));
-  const after = condensed(payload, tapCondensed(payload, condensedOpening(payload), { node: PROGRAM }));
+  const after = condensed(payload, tapCondensed(payload, condensedOpening(payload), { node: 'b0' }));
   assert.ok(after.nodes.length > opening.nodes.length);
   const text = condensedMermaid(after);
   assertMatches(after, text);
@@ -92,7 +92,7 @@ test('a label with " < > # comes out as Mermaid entities', () => {
 
 test('every linkStyle index is an edge of the colour and dash the page draws it in', () => {
   const payload = boundary();
-  const view = condensed(payload, tapCondensed(payload, condensedOpening(payload), { node: PROGRAM }));
+  const view = condensed(payload, tapCondensed(payload, condensedOpening(payload), { node: 'b0' }));
   const { edges, linkStyles } = parse(condensedMermaid(view));
   assert.deepEqual(linkStyles.map((s) => s.index), edges.map((_, i) => i));
   for (const { index, stroke, dashed } of linkStyles) {
@@ -106,7 +106,7 @@ test('every linkStyle index is an edge of the colour and dash the page draws it 
 
 test('every node is in one class, filled and outlined as the page draws it, one classDef per look', () => {
   const payload = boundary();
-  const view = condensed(payload, tapCondensed(payload, condensedOpening(payload), { node: PROGRAM }));
+  const view = condensed(payload, tapCondensed(payload, condensedOpening(payload), { node: 'b0' }));
   const { classDefs, classOf } = parse(condensedMermaid(view));
   const looks = new Set<string>();
   view.nodes.forEach((node, i) => {

@@ -1,17 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import ELK from 'elkjs/lib/elk.bundled.js';
-import { PROGRAM, condensed, focusOf, focusPath } from '../../../main/resources/viewer/condensed.ts';
+import { condensed, focusOf, focusPath } from '../../../main/resources/viewer/condensed.ts';
 import { FOCUS_LANE, flatElkGraph, positions, routes } from '../../../main/resources/viewer/layout.ts';
 import { diffViews, type Drawn } from '../../../main/resources/viewer/transition.ts';
 import type { EdgeKind, Id, Payload, PayloadNode } from '../../../main/resources/viewer/types.ts';
 
-const leaf = (id: string): PayloadNode => ({ id, label: id, type: 'VARIABLE' });
+const BOX = 'box';
+const leaf = (id: string): PayloadNode => ({ id, label: id, type: 'VARIABLE', parent: BOX });
 const edge = (source: string, target: string, kind: EdgeKind = 'FLOW') => ({ source, target, kind });
 
 /** The sketch: `top` feeds `a` and `b`, both feed `bottom`; `bottom` then runs before `later` (ORDER). */
 const DIAMOND: Payload = {
-  nodes: ['top', 'a', 'b', 'bottom', 'later'].map(leaf),
+  nodes: [{ id: BOX, label: 'main', type: 'METHOD', method: 'p.App#main()' }, ...['top', 'a', 'b', 'bottom', 'later'].map(leaf)],
   edges: [edge('top', 'a'), edge('top', 'b'), edge('a', 'bottom'), edge('b', 'bottom'), edge('bottom', 'later', 'ORDER')],
 };
 const ALL = new Set(['top', 'a', 'b', 'bottom', 'later']);
@@ -43,14 +44,14 @@ test('ORDER is not walked: it says which call ran first, not where a value goes'
 test('a leaf still in its group puts the group on the path, and the walk goes through it', () => {
   const revealed = new Set(['a', 'b', 'bottom', 'later']);
   const path = pathOf(revealed, { node: 'bottom' });
-  assert.deepEqual([...path.nodes].sort(), ['a', 'b', 'bottom', PROGRAM].sort());
+  assert.deepEqual([...path.nodes].sort(), ['a', 'b', 'bottom', BOX].sort());
   // Every node on the path is drawn: the lane holds nothing the view does not.
   const drawn = new Set(condensed(DIAMOND, revealed).nodes.map((n) => n.id));
   for (const id of path.nodes) assert.ok(drawn.has(id), `${id} is on the path but not drawn`);
 });
 
 test('a click on a group focuses nothing: it stands for values that need not be related', () => {
-  assert.equal(focusOf(DIAMOND, new Set(), { node: PROGRAM }), null);
+  assert.equal(focusOf(DIAMOND, new Set(), { node: BOX }), null);
   assert.notEqual(focusOf(DIAMOND, ALL, { node: 'a' }), null);
 });
 

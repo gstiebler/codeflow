@@ -1,15 +1,14 @@
 /**
- * The condensed view, decided without a browser: no method boxes, the graph gathered into a group
- * per boundary method plus one for everything else, opened up where the reader clicks.
+ * The condensed view, decided without a browser: the graph gathered into one group per call-site
+ * method box, opened up where the reader clicks.
  *
  * No imports beyond types, no DOM: `node --test` reads this file directly, and the renderer's bundle
  * imports it. Every function is a pure function of (payload, revealed). `revealed` is the set of leaves taken out of their groups and is the only
  * state; `condensed` derives everything drawn from it, so nothing can go stale between clicks.
  *
- * A leaf's group is computed from the payload, never guessed: it belongs to a boundary method's
- * group iff its nearest enclosing box is a block of that method (`boundary` and `method` on the box,
- * written by JsonExporter). Every block of one method - one per call site, across roots - carries the
- * same `method`, so they are one group. Everything else, a leaf with no box included, is `program`.
+ * A leaf's group is computed from the payload, never guessed: the METHOD box it sits directly in
+ * (`parent`). One group per box, so one per call site; boxes are flat, never inside one another. A
+ * leaf with no box is a payload this viewer was not written for, and throws.
  */
 import type {
   CondensedEdge, CondensedNode, CondensedTarget, CondensedView, EdgeKind, Id, Payload, PayloadEdge, PayloadNode,
@@ -28,9 +27,6 @@ export function captionParts(node: { badge: string; lead?: string }): { lead?: s
   return { lead, rest: badge.slice(lead.length) };
 }
 
-/** The group of every leaf that is not inside a boundary method's block. */
-export const PROGRAM = 'program';
-
 /** How many entries a group's or an edge's hover lists before `+N more`. */
 export const HOVER_CAP = 10;
 
@@ -44,7 +40,7 @@ type Index = {
   /** Every leaf, in payload order. */
   leaves: PayloadNode[];
   group: Map<Id, Id>;
-  /** Every group, `program` first, then the boundary methods in the order their first block appears. */
+  /** Every group, in the payload order of the boxes. */
   groups: Id[];
   label: Map<Id, string>;
   members: Map<Id, Id[]>;
@@ -63,26 +59,21 @@ function index(payload: Payload): Index {
   const byId = new Map(payload.nodes.map((n) => [n.id, n]));
   const leaves = payload.nodes.filter((n) => n.type !== 'METHOD');
   const group = new Map<Id, Id>();
-  const groups: Id[] = [PROGRAM];
-  const label = new Map<Id, string>([[PROGRAM, PROGRAM]]);
-  const members = new Map<Id, Id[]>([[PROGRAM, []]]);
+  const label = new Map<Id, string>();
+  const members = new Map<Id, Id[]>();
 
   for (const leaf of leaves) {
     const box = leaf.parent === undefined ? undefined : byId.get(leaf.parent);
-    let id = PROGRAM;
-    if (box?.boundary) {
-      if (box.method === undefined) throw new Error(`boundary box ${box.id} names no method`);
-      id = `boundary:${box.method}`;
-      if (!members.has(id)) {
-        groups.push(id);
-        // The box's caption is the method's simple name; the full `method` is in the hover.
-        label.set(id, box.label);
-        members.set(id, []);
-      }
+    if (box?.type !== 'METHOD') throw new Error(`leaf ${leaf.id} has no method box`);
+    if (!members.has(box.id)) {
+      // The box's caption is the method's simple name; the full `method` is in the hover.
+      label.set(box.id, box.label);
+      members.set(box.id, []);
     }
-    group.set(leaf.id, id);
-    members.get(id)!.push(leaf.id);
+    group.set(leaf.id, box.id);
+    members.get(box.id)!.push(leaf.id);
   }
+  const groups = payload.nodes.filter((n) => members.has(n.id)).map((n) => n.id);
 
   const touching = new Map<Id, PayloadEdge[]>();
   const touch = (id: Id, edge: PayloadEdge) => {
@@ -99,14 +90,14 @@ function index(payload: Payload): Index {
   return built;
 }
 
-/** Leaf -> `boundary:<method>` or `program`. Every leaf of the payload has exactly one. */
+/** Leaf -> the id of the METHOD box it sits in. Every leaf of the payload has exactly one. */
 export function groupOf(payload: Payload): Map<Id, Id> {
   return new Map(index(payload).group);
 }
 
 /**
  * What the condensed view opens on, and what Reset returns to: every entry point's event taken out of
- * its group, so the page shows where the program starts beside the boundary groups and `program`.
+ * its group, so the page shows where the program starts beside the method boxes.
  */
 export function condensedOpening(payload: Payload): Set<Id> {
   return new Set(payload.nodes.filter((n) => n.type === 'EVENT').map((n) => n.id));
@@ -145,7 +136,7 @@ export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
     const count = left.get(id) ?? 0;
     // A group whose last member came out is gone.
     if (count === 0) continue;
-    nodes.push({ id, label: ix.label.get(id)!, type: 'GROUP', members: count, ...(id === PROGRAM ? {} : { boundary: true }) });
+    nodes.push({ id, label: ix.label.get(id)!, type: 'GROUP', members: count, ...(ix.byId.get(id)!.boundary ? { boundary: true } : {}) });
   }
   for (const leaf of ix.leaves) {
     if (!revealed.has(leaf.id)) continue;
@@ -170,7 +161,7 @@ export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
 
 /**
  * What a display node is captioned: a leaf its label, a group its label and how many it stands for -
- * `program (42)` - so a click that takes members out visibly changes the group too.
+ * `fetch (42)` - so a click that takes members out visibly changes the group too.
  */
 export function condensedCaption(node: CondensedNode): string {
   return node.type === 'GROUP' ? `${node.label} (${node.members})` : node.label;
@@ -346,8 +337,8 @@ const capped = (entries: string[]) => entries.length <= HOVER_CAP
  *
  * - a leaf: its call stack, innermost first, one `Class#method  File.java:N  text` per frame - see
  *   [stackOf] - capped like the rest;
- * - a group: its member count, then each method its members come from with the range of their
- *   lines, first [HOVER_CAP] then `+N more`;
+ * - a group: its member count, then where its box was called when its source names a line, then
+ *   each method its members come from with the range of their lines, first [HOVER_CAP] then `+N more`;
  * - a drawn edge: the kinds it stands for with their counts (`flow ×3, order ×2`, in KIND_ORDER),
  *   since the line itself names none; then where the value arrives - its target's method and line -
  *   one entry per distinct line of the edges it stands for, capped the same way. The target is an
@@ -396,5 +387,6 @@ export function hoverText(payload: Payload, revealed: Set<Id>, target: Condensed
     if (Number.isNaN(low)) return head;
     return `${head}  ${name}:${low === high ? low : `${low}-${high}`}`;
   });
-  return [`${ix.label.get(target.node)}: ${inside.length} nodes`, ...capped(entries)];
+  const at = where(ix.byId.get(target.node)!.source);
+  return [`${ix.label.get(target.node)}: ${inside.length} nodes`, ...(at ? [`called at ${at.name}:${at.line}`] : []), ...capped(entries)];
 }

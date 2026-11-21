@@ -23,6 +23,7 @@ test.describe('boundary, legend', () => {
   test('the legend lists the method box and the boundary outline under "Method boxes"', async ({ page }) => {
     await button(page, 'Legend').click();
     await expect(panel(page).getByRole('heading', { name: 'Method boxes' })).toBeVisible();
+    await expect(panel(page)).toContainText('program everything not yet in a method box; click to open');
     await expect(panel(page)).toContainText("method a method call's body, folded; click to open");
     await expect(panel(page)).toContainText('boundary a boundary method');
   });

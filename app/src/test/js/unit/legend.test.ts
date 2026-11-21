@@ -43,3 +43,9 @@ test('the legend names the plain method box next to the boundary one', () => {
   const rows = legend(payload(['LITERAL', 'RETURN'], ['FLOW'])).boxes;
   assert.equal(rows.find((r) => r.name === 'method')?.meaning, "a method call's body, folded; click to open");
 });
+
+test('the legend lists the program box first', () => {
+  const rows = legend(payload(['LITERAL', 'RETURN'], ['FLOW'])).boxes;
+  assert.equal(rows[0].name, 'program');
+  assert.equal(rows[0].meaning, 'everything not yet in a method box; click to open');
+});

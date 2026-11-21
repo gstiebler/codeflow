@@ -41,7 +41,7 @@ export const NODE_OUTLINE = '#999';
 export const GROUP_FILL = '#fff';
 
 /**
- * A group's outline: a plain method box grey, a boundary box in the boundaries
+ * A group's outline: the program and method boxes grey, a boundary box in the boundaries
  * purple - the same purple as the token and the ORDER edges, since all three are the boundary.
  */
 export const GROUP_OUTLINE = '#999';
@@ -153,6 +153,7 @@ export function legend(payload: Payload): { leaves: LegendLeaf[]; boxes: LegendL
     name: t, fill: PALETTE[t] ?? NODE_DEFAULT, outline: NODE_OUTLINE, meaning: NODE_MEANINGS[t]!,
   }));
   const boxes: LegendLeaf[] = [
+    { name: 'program', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: 'everything not yet in a method box; click to open' },
     { name: 'method', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: "a method call's body, folded; click to open" },
     { name: 'boundary', fill: GROUP_FILL, outline: BOUNDARY_OUTLINE, meaning: 'a boundary method: its body is not read' },
     { name: 'path', fill: FOCUS_FILL, outline: FOCUS_OUTLINE, meaning: 'what flows into and out of the clicked node; the rest is faded. Esc clears' },

@@ -23,17 +23,18 @@ const EVENT = 'event entrypoint';
 
 /**
  * The page on `boundary`, asked of the DOM: three boundary methods called from five sites, so it
- * opens on seven nodes - one box per call site (`entrypoint` itself and the five calls), and the
- * entry point's event - and opens up where it is clicked.
+ * opens on seven nodes - the five boundary boxes, `entrypoint` (the event is its revealed member)
+ * and the event; every method here is boundary or holds the event, so `program` is empty and not
+ * drawn - and it opens up where it is clicked.
  */
 test.describe('boundary', () => {
   test.beforeEach(open('boundary'));
 
-  test('the page opens on one box per call site and the event', async ({ page }) => {
+  test('the page opens on the boundary boxes, the entry box and the event', async ({ page }) => {
     await expect(page.locator(NODE)).toHaveCount(7);
     expect(await groupLabels(page)).toEqual(OPENING);
     expect(await leafLabels(page)).toEqual([EVENT]);
-    // No method box: the one view has none.
+    // No method box: the one view has none, and `program` has nothing hidden.
     await expect(page.locator('.cf-box, .cf-title')).toHaveCount(0);
   });
 
@@ -75,8 +76,7 @@ test.describe('boundary', () => {
 
   // The opening used to draw 13 lines - one per kind per pair, ten of them captioned with a kind -
   // packed into 40 px between layers. Each ordered pair is now one line, captioned only by a count.
-  // Thirteen: one box per call site puts the calls in order, so the entry method's box is a hub the
-  // five calls each draw a line to or from.
+  // Thirteen: the entry method's box is a hub the five boundary calls each draw a line to or from.
   test('the opening draws one line per ordered pair, captioned only with counts', async ({ page }) => {
     await expect(page.locator(NODE)).toHaveCount(7);
     const ids = await page.evaluate(() =>

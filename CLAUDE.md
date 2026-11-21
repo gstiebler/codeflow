@@ -78,8 +78,8 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
 - **Viewer: `condensed.ts` decides, the renderer draws.** Every visibility decision is a pure function
   of `(payload, revealed)`; `revealed` is the only state. ELK options are **strings**.
   → `docs/decisions/viewer.md`
-  Condensed is the only view; a group is the call-site METHOD box a leaf sits directly in (flat, no
-  `program`), read off the payload, never a label. Positions and motion are renderer state
+  Condensed is the only view; a hidden leaf is in `program` until its call-site METHOD box is boundary
+  or open (flat), read off the payload, never a label. Positions and motion are renderer state
   (`stabilise`, `transition.ts`); `window.drawn` counts only once a click's move has ended.
 
 ## Adding a Java construct

@@ -85,21 +85,27 @@ The only view (a boxed view, one box per method, was removed). Spec: `docs/super
 `(payload, revealed)`, types the only import. `R` and the `Reset` button reset to the opening.
 
 **It opens on what happens and what is outside.** `condensedOpening(payload)` is the ids of the
-payload's `EVENT` leaves - one per root, see `calls-and-dispatch.md` - so the first page is one
-box per call site (a method's box, flat), each root's event on its own (`boundary`: seven nodes).
+payload's `EVENT` leaves - one per root, see `calls-and-dispatch.md` - so the first page is the
+events plus one `program` box holding everything else, and a call site's method box only where it is
+boundary or open (see below). Each root's event is drawn on its own, and its own call-site box is
+drawn too, since the event is a revealed member of it.
 Reset asks for the opening again, so it returns to the same set. The event is a leaf like any other:
 its edges into a group are one drawn edge with a count, and clicking it reveals what it
 starts. A leaf click is one hop, and a group's frontier gains the event's targets, which the event, drawn outside, makes
 members with an outside edge - one hop, as clicking the event would.
 
-**Groups are read from the payload, never guessed.** A leaf belongs to the group of the METHOD box it sits
-directly in (`leaf.parent`): one group per call-site box, id = the box's payload id, caption the method's
-simple name with the member count, in payload order. Flat: a nested call's box is a sibling of its caller's
-box, never inside it; the edges between them show the call. A box that is a boundary call keeps `boundary:
-true` (the purple outline). Merging a method's call sites into one group was rejected: it draws paths that
-do not exist (call 1's argument appears to reach call 2's result). There is no `program` bucket: a leaf with
-no parent box is an error, thrown. No leaf is ever dropped, and the corpus sweep holds that at every step of
-a click-everything walk. Hover names the method and `called at File.java:N`.
+**Groups are read from the payload, never guessed.** `groupOf(payload, revealed)` puts every hidden leaf in
+`program` or in the METHOD box it sits directly in (`leaf.parent`; group id = the box's payload id,
+caption the method's simple name with the member count, payload order, `program` first). A box is drawn
+when it is `boundary` (purple outline, always), when a member is revealed, or when a hidden member has a
+non-EVENT edge to a revealed leaf (open); otherwise its members stay in `program`. An EVENT edge alone
+opens nothing. Revealing the member that touched the screen keeps the box drawn. A nested call's box opens
+on its own contacts, so two call sites of one method can differ. Flat: a nested call's box is a sibling of
+its caller's, never inside it. Merging a method's call sites into one group was rejected: it draws paths
+that do not exist (call 1's argument appears to reach call 2's result). A leaf with no parent box is an
+error, thrown. No leaf is ever dropped; the corpus sweep holds that at every step of a click-everything
+walk, and a `program` click with no frontier reveals all its members so the walk ends. Hover names the
+method and `called at File.java:N`.
 
 **Click rules** (`tapCondensed`; each only adds to `revealed`):
 - a leaf → its neighbours in both directions;

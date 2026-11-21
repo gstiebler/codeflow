@@ -63,7 +63,7 @@ export function diffViews(prev: Drawn, next: Drawn, clicked?: Id): Diff {
     if (start.has(id)) return start.get(id)!;
     const was = prev.get(id);
     let at: Point;
-    // A kept node that changed box - into or out of the condensed view's focus lane - starts where it
+    // A kept node that changed box - into or out of a compound node - starts where it
     // was on the page, made relative to its new box; its old relative place means nothing there.
     if (was && was.parent === next.get(id)!.parent) at = { x: was.x, y: was.y };
     else if (was) {

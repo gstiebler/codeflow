@@ -45,7 +45,7 @@ export const nodeWidth = (caption: string) => Math.round(caption.length * CHAR_W
  * they are drawn with, which the caller passes so that the two cannot drift - and so that this file
  * keeps importing nothing but types.
  *
- * The hierarchy options are left out because there is no hierarchy (bar the focus lane). The spacing
+ * The hierarchy options are left out because there is no hierarchy. The spacing
  * is wide: a few nodes with long edges between them, each perhaps captioned `×N`, read as a tangle
  * when packed.
  *
@@ -68,35 +68,18 @@ export type LineStyle = 'square' | 'curved';
 /** The condensed view draws one edge per ordered pair of display nodes, so the pair is its id. */
 export const flatEdgeId = (edge: { source: Id; target: Id }) => `${edge.source}->${edge.target}`;
 
-/** The compound node a clicked path is laid out in. Not a payload id: those are box ids and leaf ids. */
-export const FOCUS_LANE = 'lane:focus';
-
-/** Room inside the lane, so its nodes do not sit on its outline. */
-const LANE_OPTIONS: Record<string, string> = { ...FLAT_OPTIONS, 'elk.padding': '[top=16,left=16,bottom=16,right=16]' };
-
 /**
- * `lane`, when given and not empty, is the clicked path: its nodes go in one compound node, which ELK
- * places as a block, so the path reads as one piece beside the rest. Edges stay declared at the root -
- * the one graph enclosing every pair - which needs `INCLUDE_CHILDREN`.
+ * The view, for ELK, flat: every node a child of the root.
  */
 export function flatElkGraph(
-  view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>, lane?: Set<Id>,
+  view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>,
   style: LineStyle = 'square',
 ): ElkNode {
-  const leaf = (node: CondensedNode): ElkNode => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT });
-  const inLane = lane !== undefined && lane.size > 0 ? lane : undefined;
-  // The lane's own layout is routed the same way, or its inner lines would stay square.
   const options = { ...FLAT_OPTIONS, 'elk.edgeRouting': style === 'curved' ? 'SPLINES' : 'ORTHOGONAL' };
-  const laneOptions = { ...LANE_OPTIONS, 'elk.edgeRouting': options['elk.edgeRouting'] };
   const root: ElkNode = {
     id: 'root',
-    layoutOptions: inLane ? { ...options, 'elk.hierarchyHandling': 'INCLUDE_CHILDREN' } : options,
-    children: inLane
-      ? [
-        ...view.nodes.filter((n) => !inLane.has(n.id)).map(leaf),
-        { id: FOCUS_LANE, layoutOptions: laneOptions, children: view.nodes.filter((n) => inLane.has(n.id)).map(leaf) },
-      ]
-      : view.nodes.map(leaf),
+    layoutOptions: options,
+    children: view.nodes.map((node) => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT })),
     edges: view.edges.map((edge) => ({ id: flatEdgeId(edge), sources: [edge.source], targets: [edge.target] })),
   };
   return previous ? stabilise(root, previous) : root;
@@ -185,8 +168,7 @@ export function positions(laidOut: ElkNode, parent?: Id, into: Positioned[] = []
 
 /**
  * Every root edge's route, by edge id: start, each bend in order, end - in the frame of the root,
- * which is the frame React Flow draws lines in. A line inside the focus lane comes back in the lane's
- * frame and is moved out by the lane's place.
+ * which is the frame React Flow draws lines in.
  *
  * An edge with no section, or with more than one, is an error rather than a straight line. A simple
  * edge in a flat layered graph always comes back as exactly one section; anything else means the
@@ -194,8 +176,8 @@ export function positions(laidOut: ElkNode, parent?: Id, into: Positioned[] = []
  * prevent - drawn with nothing on the page to say it was guessed.
  */
 export function routes(laidOut: ElkNode): Map<string, Point[]> {
-  // ELK gives an edge it placed inside a compound node - the focus lane - in that node's frame, and
-  // says which in `container`: added back here, or the line is drawn off by the lane's offset.
+  // ELK gives an edge it placed inside a compound node in that node's frame, and says which in
+  // `container`: added back here, or the line is drawn off by the node's offset.
   const frame = new Map<Id, Point>([[laidOut.id, { x: 0, y: 0 }]]);
   for (const child of laidOut.children ?? []) frame.set(child.id, { x: child.x ?? 0, y: child.y ?? 0 });
   const into = new Map<string, Point[]>();

@@ -21,7 +21,7 @@ test.describe('funcCall', () => {
     await expect(page.locator('.react-flow__node .cf-group').filter({ hasText: /^program \(28\)/ })).toHaveCount(1);
     await tapLeafAll(page, 'event main');
     // Without this, the reset below would pass on a page where clicking never revealed anything.
-    await expect(page.locator(NODE)).toHaveCount(18);
+    await expect(page.locator(NODE)).toHaveCount(17);
 
     await reset(page);
     await expect(page.locator(NODE)).toHaveCount(5);

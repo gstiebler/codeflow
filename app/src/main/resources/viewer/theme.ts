@@ -53,11 +53,6 @@ export const BOUNDARY_OUTLINE = '#7b1fa2';
  */
 export const NEW_RING = '#1e88e5';
 export const CLICKED_OUTLINE = '#212121';
-/** The lane a condensed click lays its path out in: a pale fill, so it reads as a region, not a node. */
-export const FOCUS_FILL = '#fff8e1';
-export const FOCUS_OUTLINE = '#f9a825';
-/** How visible what is off the clicked path stays: there for context, out of the way. */
-export const DIM_OPACITY = 0.25;
 
 // The same strokes MermaidExporter uses, so one graph does not change colour between the two
 // renderings. FLOW is absent on purpose - it keeps the default grey, and it is nearly every edge.
@@ -143,7 +138,7 @@ export type LegendLine = { name: string; colour: string; dashed: boolean; meanin
 
 /**
  * The legend's rows, read off the same constants the renderer paints with: leaf fills and line
- * styles only for the types and kinds this payload has, the groups and the path lane, and the
+ * styles only for the types and kinds this payload has, the groups, and the
  * two marks a click leaves.
  */
 export function legend(payload: Payload): { leaves: LegendLeaf[]; boxes: LegendLeaf[]; lines: LegendLine[] } {
@@ -156,7 +151,6 @@ export function legend(payload: Payload): { leaves: LegendLeaf[]; boxes: LegendL
     { name: 'program', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: 'everything not yet in a method box; click to open' },
     { name: 'method', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: "a method call's body, folded; click to open" },
     { name: 'boundary', fill: GROUP_FILL, outline: BOUNDARY_OUTLINE, meaning: 'a boundary method: its body is not read' },
-    { name: 'path', fill: FOCUS_FILL, outline: FOCUS_OUTLINE, meaning: 'what flows into and out of the clicked node; the rest is faded. Esc clears' },
     { name: 'just appeared', fill: GROUP_FILL, outline: NEW_RING, meaning: 'new since the last click (fades)' },
     { name: 'clicked', fill: GROUP_FILL, outline: CLICKED_OUTLINE, meaning: 'the node last clicked' },
   ];

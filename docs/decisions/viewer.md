@@ -60,23 +60,9 @@ means. The meanings live in `theme.ts` beside the colours (`NODE_MEANINGS`, `EDG
 cannot drift from the page. It lists only the leaf types and edge kinds the payload has: a reference
 of colours that are not on screen is noise. Spec: `docs/superpowers/specs/2026-11-17-legend-design.md`.
 
-## The focus lane
+## The focus lane (removed)
 
-A condensed click on a leaf or a line also focuses it: `focusPath` (condensed.ts) is everything that
-flows into it, back to the entry point, and everything it flows into, on to the boundaries. The page
-lays that path out in one ELK compound node, `lane:focus`, and fades the rest to `DIM_OPACITY`. Esc,
-a click on the canvas or the lane, Reset, or a click on a group clears it.
-
-- **Walked over payload edges, not drawn ones.** A group is a hub on the page; walking through it
-  put most of the graph on the path. A leaf still in its group puts the group on the path.
-- **ORDER is not walked.** It says which call ran first; following it pulls in every later call.
-- **A group click focuses nothing**: it stands for values that need not be related.
-- **ELK gives a line inside the lane in the lane's frame** (`container` on the edge). `routes` adds
-  the lane's place back; without it every lane line starts and ends short of its nodes.
-- **A node changing box starts where it was on the page** (`diffViews`), not at its old relative
-  place, or it jumps into the lane at the start of the move.
-
-Spec: `docs/superpowers/specs/2026-11-17-focus-path-design.md`.
+A click used to lay its path out in a `lane:focus` compound node and fade the rest. Removed: the user did not want the highlight. The `cf-new` ring and the `cf-clicked` outline stay.
 
 ## The condensed view
 
@@ -132,8 +118,7 @@ leaves, so it cannot be.
 point (kept inside the window) instead of revealing: a title (the clicked caption), one heading per
 section, a checkbox per choice with its source line's text (`choiceText`, from the payload's `lines`), a
 filter box past 10 rows, and `Show selected (n)` (disabled at 0) and `Show all`. Nothing is ticked by
-default. Escape, `x`, a pane click and either button close it. Applying a pick sets the focus (`focusOf`)
-and the click anchor exactly as a plain click does; 3 or fewer choices skip the popup and show them all.
+default. Escape, `x`, a pane click and either button close it. Applying a pick sets the click anchor exactly as a plain click does; 3 or fewer choices skip the popup and show them all.
 The `R` key is ignored while typing in the filter. `condensed-sweep.test.ts` walks the corpus twice, once
 taking everything a click offers and once only its first choice, and both must end with every leaf drawn.
 
@@ -142,7 +127,7 @@ panel under it: `boundaryChoices(payload, revealed)`, one `Choice` per METHOD bo
 call site), sectioned by the declaring class (read from the box's `method`), payload order. Unlike `tapChoices` it
 keeps boxes already drawn; `boundaryDrawn` says whether one is (a group in `condensed`, or a member out as a leaf)
 and the row then shows muted with a check, not clickable. A click adds `revealed ∪ {box id}` (a METHOD id opens the
-box, nested ones too), sets focus and click anchor as a click on that group would, and **leaves the panel open**.
+box, nested ones too), sets the click anchor as a click on that group would, and **leaves the panel open**.
 Closes on Escape, `x` or the button, not on a pane click; Reset leaves it open. It shares the picker's `Popup` frame
 (title, filter past 10 rows, list). Why: the opening is small and a Fineract graph has 14-30 boundary call sites.
 
@@ -167,7 +152,7 @@ already placed every node and, asked for `elk.edgeRouting: ORTHOGONAL`, routes e
 them; so the condensed view draws that route (`routes(laidOut)` in `layout.ts`, a `routed` edge type in the renderer: the polyline
 with ~6 px rounded corners, the arrow at its end, `×N` at the middle of its longest segment).
 Orthogonal over splines because right angles are the easiest to follow from one end to the other.
-The `Curved` toolbar toggle (page state `lineStyle`, not remembered) swaps to `elk.edgeRouting: SPLINES`, drawn by `curvedPath` as ELK's cubic Beziers (still one section, 1+3k points), so curves also clear the nodes; the toggle re-lays-out and keeps `shown` and `focus`.
+The `Curved` toolbar toggle (page state `lineStyle`, not remembered) swaps to `elk.edgeRouting: SPLINES`, drawn by `curvedPath` as ELK's cubic Beziers (still one section, 1+3k points), so curves also clear the nodes; the toggle re-lays-out and keeps `shown`.
 A flat graph's routes come back in the frame of its nodes, so nothing is re-based. An edge ELK gave
 no section, or more than one, **throws** - a straight line drawn instead would be a guess through
 whatever lies between its ends, with nothing on the page to say so. The fit includes the routes.

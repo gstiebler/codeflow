@@ -33,10 +33,9 @@ test('the legend lists only the leaf types and edge kinds the payload has', () =
   assert.deepEqual(order && { colour: order.colour, dashed: order.dashed }, { colour: '#7b1fa2', dashed: true });
 });
 
-test('the legend lists the boundary group outline and the path lane', () => {
+test('the legend lists the boundary group outline', () => {
   const rows = legend(payload(['LITERAL', 'RETURN'], ['FLOW'])).boxes;
   assert.ok(rows.some((r) => r.outline === BOUNDARY_OUTLINE), 'no boundary outline');
-  assert.ok(rows.some((r) => r.name === 'path'), 'no path lane');
 });
 
 test('the legend names the plain method box next to the boundary one', () => {

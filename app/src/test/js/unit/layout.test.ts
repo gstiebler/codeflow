@@ -45,8 +45,8 @@ test('flatElkGraph routes square by default and curved on request', () => {
   const view = { nodes: [{ id: 'a', label: 'a', type: 'VARIABLE' as const }], edges: [] };
   const routing = (root: ElkNode) => root.layoutOptions!['elk.edgeRouting'];
   assert.equal(routing(flatElkGraph(view, (n) => n.label)), 'ORTHOGONAL');
-  assert.equal(routing(flatElkGraph(view, (n) => n.label, undefined, undefined, 'square')), 'ORTHOGONAL');
-  assert.equal(routing(flatElkGraph(view, (n) => n.label, undefined, undefined, 'curved')), 'SPLINES');
+  assert.equal(routing(flatElkGraph(view, (n) => n.label, undefined, 'square')), 'ORTHOGONAL');
+  assert.equal(routing(flatElkGraph(view, (n) => n.label, undefined, 'curved')), 'SPLINES');
 });
 
 // ELK's SPLINES section, recorded from elkjs 0.9.3 (a -> b, one layer apart): startPoint, then

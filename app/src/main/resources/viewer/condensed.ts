@@ -9,7 +9,8 @@
  * never drawn or counted as a leaf.
  *
  * A click is first a list - `tapChoices`, what it could show, by section - and the page lets the reader pick from
- * it when it is longer than `PICK_AT`; `tapCondensed` is the whole list at once.
+ * it when it is longer than `PICK_AT`; `tapCondensed` is the whole list at once. `boundaryChoices` is the other
+ * list: every boundary call site, to add one box at a time from the toolbar.
  *
  * A hidden leaf is drawn in its call-site box (the METHOD box it sits directly in, `parent`) when the
  * box is an entry point's (no parent) or is open - a member is revealed,
@@ -273,6 +274,38 @@ export function tapChoices(payload: Payload, revealed: Set<Id>, target: Condense
     (ix.touching.get(m) ?? []).some((e) => shown(e.source === m ? e.target : e.source) !== id));
   for (const m of frontier.length > 0 ? frontier : inside) add(m, 'values');
   return choices;
+}
+
+/**
+ * Every boundary call site, for the toolbar's Boundaries list: one choice per METHOD box with
+ * `boundary: true`, in payload order, sectioned by the class that declares the method (first
+ * appearance). Unlike `tapChoices` it keeps what is already on screen - see `boundaryDrawn`.
+ * Revealing a choice's `reveal` (the box id) opens that box, nested or not.
+ */
+export function boundaryChoices(payload: Payload, _revealed: Set<Id>): Choice[] {
+  const rows = payload.nodes.filter((n) => n.type === 'METHOD' && n.boundary === true).map((box) => {
+    if (box.method === undefined) throw new Error(`boundary box ${box.id} has no method`);
+    const owner = box.method.split('(')[0].split('#')[0];
+    return {
+      id: box.id, label: box.label, section: owner.slice(owner.lastIndexOf('.') + 1),
+      ...(box.source === undefined ? {} : { source: box.source }), reveal: [box.id],
+    };
+  });
+  const sections = [...new Set(rows.map((c) => c.section))];
+  return sections.flatMap((section) => rows.filter((c) => c.section === section));
+}
+
+/** Whether a boundary choice's box is on screen: a group in `condensed`, or its members all out as leaves. */
+export function boundaryDrawn(payload: Payload, revealed: Set<Id>, choice: Choice): boolean {
+  const members = index(payload).members.get(choice.id) ?? [];
+  const groups = groupOf(payload, revealed);
+  return members.some((m) => revealed.has(m) || groups.get(m) === choice.id);
+}
+
+/** The call site a choice names as `File.java:N`; null when it names none. */
+export function choiceAt(choice: Choice): string | null {
+  const at = where(choice.source);
+  return at === null ? null : `${at.name}:${at.line}`;
 }
 
 /** The source line a choice names, as the payload has its text; null when it has none. */

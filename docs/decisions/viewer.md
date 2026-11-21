@@ -137,6 +137,15 @@ and the click anchor exactly as a plain click does; 3 or fewer choices skip the 
 The `R` key is ignored while typing in the filter. `condensed-sweep.test.ts` walks the corpus twice, once
 taking everything a click offers and once only its first choice, and both must end with every leaf drawn.
 
+**Boundaries list.** The toolbar's `Boundaries` button (disabled when the payload has no boundary box) opens a
+panel under it: `boundaryChoices(payload, revealed)`, one `Choice` per METHOD box with `boundary: true` (one per
+call site), sectioned by the declaring class (read from the box's `method`), payload order. Unlike `tapChoices` it
+keeps boxes already drawn; `boundaryDrawn` says whether one is (a group in `condensed`, or a member out as a leaf)
+and the row then shows muted with a check, not clickable. A click adds `revealed ∪ {box id}` (a METHOD id opens the
+box, nested ones too), sets focus and click anchor as a click on that group would, and **leaves the panel open**.
+Closes on Escape, `x` or the button, not on a pane click; Reset leaves it open. It shares the picker's `Popup` frame
+(title, filter past 10 rows, list). Why: the opening is small and a Fineract graph has 14-30 boundary call sites.
+
 **Edges: one per ordered pair.** Each payload edge is drawn between `shown(u)` and `shown(v)` (the
 leaf if revealed, else its group) and dropped when both land on one display node. Every edge onto
 one ordered pair is **one** drawn edge, whatever its kinds (`A→B` and `B→A` stay two), carrying a

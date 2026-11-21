@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  condensed, condensedCaption, condensedOpening, groupOf, hoverText, tapCondensed, tapChoices, choiceText, PICK_AT,
+  boundaryChoices, boundaryDrawn, condensed, condensedCaption, condensedOpening, groupOf, hoverText, tapCondensed, tapChoices, choiceText, PICK_AT,
 } from '../../../main/resources/viewer/condensed.ts';
 import type { CondensedView, EdgeKind, Payload, PayloadNode } from '../../../main/resources/viewer/types.ts';
 import { loadCorpus } from './corpus.ts';
@@ -602,4 +602,52 @@ test('tapCondensed is the revealed set plus every choice', () => {
       assert.deepEqual([...tapCondensed(PAYLOAD, revealed, target)].sort(), [...all].sort());
     }
   }
+});
+
+// The Boundaries list: every boundary call site, by the class that declares it.
+test('boundaryChoices lists every boundary box by declaring class, in payload order, and not a plain box', () => {
+  const rows = boundaryChoices(PAYLOAD, new Set());
+  assert.deepEqual(rows.map((c) => [c.section, c.id, c.label, c.source, c.reveal]), [
+    ['Gw', 'b1', 'fetch', undefined, ['b1']],
+    ['Gw', 'b2', 'fetch', undefined, ['b2']],
+    ['Gw', 'b3', 'save', undefined, ['b3']],
+    ['Gw', 'b5', 'fetch', undefined, ['b5']],
+  ]);
+  assert.ok(!rows.some((c) => c.id === 'b4'), 'helper is not a boundary');
+});
+
+test('boundaryChoices: sections follow first appearance and a box is a row at each call site', () => {
+  const payload: Payload = {
+    nodes: [
+      box('r', 'main', 'p.App#main()'),
+      { ...box('c1', 'save', 'org.x.Repo#save(int)', 'r', true), source: 'p/App.java:5:9' },
+      { ...box('c2', 'check', 'org.x.Outer.Validator#check()', 'r', true), source: 'p/App.java:6:9' },
+      { ...box('c3', 'save', 'org.x.Repo#save(int)', 'r', true), source: 'p/App.java:7:9' },
+    ],
+    edges: [],
+  };
+  assert.deepEqual(boundaryChoices(payload, new Set()).map((c) => `${c.section}/${c.id}/${c.source}`), [
+    'Repo/c1/p/App.java:5:9', 'Repo/c3/p/App.java:7:9', 'Validator/c2/p/App.java:6:9',
+  ]);
+});
+
+test('a boundary row is drawn when its box is a group: not at the opening, yes once its id is revealed', () => {
+  const [first] = boundaryChoices(PAYLOAD, new Set());
+  assert.equal(boundaryDrawn(PAYLOAD, condensedOpening(PAYLOAD), first), false);
+  const revealed = new Set([...condensedOpening(PAYLOAD), ...first.reveal]);
+  assert.equal(boundaryDrawn(PAYLOAD, revealed, first), true);
+  // And the list keeps the row.
+  assert.equal(boundaryChoices(PAYLOAD, revealed).length, 4);
+});
+
+test('revealing a nested boundary box draws it as a group and no leaf of it', () => {
+  const nested = boundaryChoices(PAYLOAD, new Set()).find((c) => c.id === 'b5')!;
+  const opening = condensedOpening(PAYLOAD);
+  assert.equal(boundaryDrawn(PAYLOAD, opening, nested), false);
+  const revealed = new Set([...opening, ...nested.reveal]);
+  const view = condensed(PAYLOAD, revealed);
+  assert.equal(view.nodes.find((n) => n.id === 'b5')?.type, 'GROUP');
+  assert.equal(boundaryDrawn(PAYLOAD, revealed, nested), true);
+  const was = new Set(condensed(PAYLOAD, opening).nodes.map((n) => n.id));
+  assert.deepEqual(view.nodes.filter((n) => !was.has(n.id)).map((n) => n.id), ['b5']);
 });

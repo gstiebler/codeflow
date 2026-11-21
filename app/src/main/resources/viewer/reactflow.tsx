@@ -7,7 +7,7 @@
  *
  * Nothing here decides what is on screen. That is condensed.ts, where the tests are.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Background, BaseEdge, getBezierPath, Handle, MarkerType, Position, ReactFlow,
@@ -16,7 +16,7 @@ import {
 import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import {
-  captionParts, choiceText, condensed, condensedCaption, condensedOpening, focusOf, focusPath, hoverText, PICK_AT, tapChoices,
+  boundaryChoices, boundaryDrawn, captionParts, choiceAt, choiceText, condensed, condensedCaption, condensedOpening, focusOf, focusPath, hoverText, PICK_AT, tapChoices,
   type Choice, type Focus, type FocusPath,
 } from './condensed.ts';
 import { condensedMermaid } from './mermaid.ts';
@@ -75,6 +75,9 @@ function installStyles() {
     .cf-picker-row { display: flex; align-items: baseline; gap: 6px; padding: 1px 0; cursor: pointer; }
     .cf-picker-row input { flex: none; }
     .cf-picker-src { color: #888; font: 10px ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .cf-boundary-row { width: 100%; border: 0; background: none; text-align: left; font: inherit; }
+    .cf-boundary-row:disabled { color: #888; cursor: default; }
+    .cf-boundary-mark { flex: none; width: 12px; }
     .cf-picker-foot { display: flex; gap: 6px; justify-content: flex-end; padding: 6px 8px; border-top: 1px solid #ddd; }
     .cf-picker-foot button { font: 12px system-ui, sans-serif; padding: 3px 10px; border: 1px solid #999; border-radius: 4px;
                              background: #fff; cursor: pointer; }
@@ -406,6 +409,33 @@ type Hover = { target: CondensedTarget; x: number; y: number };
 type Pick = { n: number; target: CondensedTarget; title: string; choices: Choice[]; x: number; y: number };
 
 /**
+ * The frame both popups share: a title and `x`, a filter box past 10 rows, a scrolling list and an
+ * optional footer. Where it sits is the caller's; `fit` keeps it inside the window.
+ */
+function Popup({ label, title, x, y, rows, onClose, children, foot }: {
+  label: string; title: string; x: number; y: number; rows: number; onClose: () => void;
+  children: (wanted: string) => ReactNode; foot?: ReactNode;
+}) {
+  const [query, setQuery] = useState('');
+  const height = Math.min(PICKER_HEIGHT, window.innerHeight - 16);
+  const left = Math.max(8, Math.min(x, window.innerWidth - PICKER_WIDTH - 8));
+  const top = Math.max(8, Math.min(y, window.innerHeight - height - 8));
+  return (
+    <div className="cf-picker" role="dialog" aria-label={label} style={{ left, top, maxHeight: height }}>
+      <div className="cf-picker-head">
+        <b>{title}</b>
+        <button type="button" aria-label="Close" onClick={onClose}>×</button>
+      </div>
+      {rows > 10 && (
+        <input type="search" placeholder="Filter" aria-label="Filter" value={query} onChange={(e) => setQuery(e.target.value)} />
+      )}
+      <div className="cf-picker-list">{children(query.trim().toLowerCase())}</div>
+      {foot}
+    </div>
+  );
+}
+
+/**
  * The popup a long click opens: what the click could show, by section, to tick. Rows are filtered by
  * label (search box past 10 rows); `Show selected` and `Show all` both close it, as do `x` and the
  * page's Escape and pane click.
@@ -414,30 +444,26 @@ function Picker({ payload, pick, onShow, onClose }: {
   payload: Payload; pick: Pick; onShow: (ids: Id[]) => void; onClose: () => void;
 }) {
   const [ticked, setTicked] = useState<Set<Id>>(new Set());
-  const [query, setQuery] = useState('');
   const { choices } = pick;
-  const wanted = query.trim().toLowerCase();
-  const rows = choices.filter((c) => c.label.toLowerCase().includes(wanted));
-  const sections = [...new Set(rows.map((c) => c.section))];
   const tick = (id: Id) => setTicked((was) => {
     const next = new Set(was);
     if (!next.delete(id)) next.add(id);
     return next;
   });
-  const height = Math.min(PICKER_HEIGHT, window.innerHeight - 16);
-  const left = Math.max(8, Math.min(pick.x, window.innerWidth - PICKER_WIDTH - 8));
-  const top = Math.max(8, Math.min(pick.y, window.innerHeight - height - 8));
+  const foot = (
+    <div className="cf-picker-foot">
+      <button type="button" disabled={ticked.size === 0}
+              onClick={() => onShow(choices.filter((c) => ticked.has(c.id)).flatMap((c) => c.reveal))}>
+        Show selected ({ticked.size})
+      </button>
+      <button type="button" onClick={() => onShow(choices.flatMap((c) => c.reveal))}>Show all</button>
+    </div>
+  );
   return (
-    <div className="cf-picker" role="dialog" aria-label="Choose what to show" style={{ left, top, maxHeight: height }}>
-      <div className="cf-picker-head">
-        <b>{pick.title}</b>
-        <button type="button" aria-label="Close" onClick={onClose}>×</button>
-      </div>
-      {choices.length > 10 && (
-        <input type="search" placeholder="Filter" aria-label="Filter" value={query} onChange={(e) => setQuery(e.target.value)} />
-      )}
-      <div className="cf-picker-list">
-        {sections.map((section) => (
+    <Popup label="Choose what to show" title={pick.title} x={pick.x} y={pick.y} rows={choices.length} onClose={onClose} foot={foot}>
+      {(wanted) => {
+        const rows = choices.filter((c) => c.label.toLowerCase().includes(wanted));
+        return [...new Set(rows.map((c) => c.section))].map((section) => (
           <div key={section}>
             <h4>{section}</h4>
             {rows.filter((c) => c.section === section).map((c) => {
@@ -451,16 +477,46 @@ function Picker({ payload, pick, onShow, onClose }: {
               );
             })}
           </div>
-        ))}
-      </div>
-      <div className="cf-picker-foot">
-        <button type="button" disabled={ticked.size === 0}
-                onClick={() => onShow(choices.filter((c) => ticked.has(c.id)).flatMap((c) => c.reveal))}>
-          Show selected ({ticked.size})
-        </button>
-        <button type="button" onClick={() => onShow(choices.flatMap((c) => c.reveal))}>Show all</button>
-      </div>
-    </div>
+        ));
+      }}
+    </Popup>
+  );
+}
+
+/**
+ * The toolbar's Boundaries list: every boundary call site by class, one click adding that box. A
+ * row already on screen is muted with a check mark and does nothing; the panel stays open, so the
+ * reader can add several while watching the graph.
+ */
+function Boundaries({ payload, revealed, onAdd, onClose }: {
+  payload: Payload; revealed: Set<Id>; onAdd: (id: Id) => void; onClose: () => void;
+}) {
+  const choices = useMemo(() => boundaryChoices(payload, revealed), [payload, revealed]);
+  return (
+    <Popup label="Boundaries" title={`Boundaries (${choices.length})`} x={8} y={40} rows={choices.length} onClose={onClose}>
+      {(wanted) => {
+        const rows = choices.filter((c) => c.label.toLowerCase().includes(wanted) || c.section.toLowerCase().includes(wanted));
+        return [...new Set(rows.map((c) => c.section))].map((section) => (
+          <div key={section}>
+            <h4>{section}</h4>
+            {rows.filter((c) => c.section === section).map((c) => {
+              const drawn = boundaryDrawn(payload, revealed, c);
+              const text = choiceText(payload, c);
+              const at = choiceAt(c);
+              return (
+                <button key={c.id} type="button" className="cf-picker-row cf-boundary-row" disabled={drawn}
+                        aria-label={drawn ? `${c.label} (on screen)` : c.label} onClick={() => onAdd(c.id)}>
+                  <span className="cf-boundary-mark">{drawn ? '✓' : ''}</span>
+                  <span>{c.label}</span>
+                  {text !== null && <span className="cf-picker-src" title={text}>{text}</span>}
+                  {at !== null && <span className="cf-picker-src">{at}</span>}
+                </button>
+              );
+            })}
+          </div>
+        ));
+      }}
+    </Popup>
   );
 }
 
@@ -468,8 +524,8 @@ function Picker({ payload, pick, onShow, onClose }: {
  * The view: flat, laid out by ELK, with a tooltip saying where a node lives. Every decision is
  * condensed.ts's; this writes it out.
  */
-function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus, lineStyle }: Revealing & {
-  lineStyle: LineStyle; view: CondensedView; focus: Focus | null; setFocus: Dispatch<SetStateAction<Focus | null>>;
+function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus, lineStyle, boundaries, closeBoundaries }: Revealing & {
+  lineStyle: LineStyle; boundaries: boolean; closeBoundaries: () => void; view: CondensedView; focus: Focus | null; setFocus: Dispatch<SetStateAction<Focus | null>>;
 }) {
   // Null until ELK first answers, so that the layout counter counts only real layouts: a probe
   // waiting for the condensed view to be drawn must not be satisfied by the empty first render.
@@ -538,10 +594,14 @@ function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus,
     setFocus(null);
   }, [focus, setFocus]);
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') unfocus(); };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      unfocus();
+      closeBoundaries();
+    };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [unfocus]);
+  }, [unfocus, closeBoundaries]);
 
   const edgeTarget = (edge: Edge): CondensedTarget => ({ edge: [edge.source, edge.target] });
 
@@ -562,6 +622,7 @@ function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus,
         <Background />
       </ReactFlow>
       {pick && <Picker key={pick.n} payload={payload} pick={pick} onShow={(ids) => show(pick.target, ids)} onClose={() => setPick(null)} />}
+      {boundaries && <Boundaries payload={payload} revealed={revealed} onAdd={(id) => show({ node: id }, [id])} onClose={closeBoundaries} />}
       {hover && (
         <div className="cf-tooltip" style={{ left: hover.x + 12, top: hover.y + 12 }}>
           {hoverText(payload, revealed, hover.target).map((line, i) => <div key={i}>{line}</div>)}
@@ -614,6 +675,9 @@ function Legend({ payload }: { payload: Payload }) {
  */
 function Page({ payload }: { payload: Payload }) {
   const [legendOpen, setLegendOpen] = useState(false);
+  const [boundariesOpen, setBoundariesOpen] = useState(false);
+  const closeBoundaries = useCallback(() => setBoundariesOpen(false), []);
+  const hasBoundaries = useMemo(() => boundaryChoices(payload, new Set()).length > 0, [payload]);
   // Square or curved lines; changing it re-lays-out the same view, so `shown` and `focus` stay.
   const [lineStyle, setLineStyle] = useState<LineStyle>('square');
   const [shown, setShown] = useState<Set<Id>>(() => condensedOpening(payload));
@@ -644,12 +708,15 @@ function Page({ payload }: { payload: Payload }) {
         <button type="button" onClick={reset}>Reset</button>
         <button type="button" onClick={() => download(condensedView)}>Mermaid</button>
         <button type="button" aria-pressed={legendOpen} onClick={() => setLegendOpen((open) => !open)}>Legend</button>
+        <button type="button" aria-pressed={boundariesOpen} disabled={!hasBoundaries}
+                onClick={() => setBoundariesOpen((open) => !open)}>Boundaries</button>
         <button type="button" aria-pressed={lineStyle === 'curved'}
                 onClick={() => setLineStyle((style) => (style === 'curved' ? 'square' : 'curved'))}>Curved</button>
       </div>
       {legendOpen && <Legend payload={payload} />}
       <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={condensedView}
-                      focus={focus} setFocus={setFocus} lineStyle={lineStyle} />
+                      focus={focus} setFocus={setFocus} lineStyle={lineStyle}
+                      boundaries={boundariesOpen} closeBoundaries={closeBoundaries} />
     </>
   );
 }

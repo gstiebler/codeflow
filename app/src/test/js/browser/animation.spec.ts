@@ -145,7 +145,7 @@ test.describe('boundary, reset', () => {
   test('Reset fits what is left on screen, wherever the reader had panned to', async ({ page }) => {
     await tapGroupAll(page, 'entrypoint');
     const grown = await page.locator('.react-flow__node').count();
-    expect(grown).toBeGreaterThan(12);
+    expect(grown).toBeGreaterThan(11);
 
     // Drag the pane from its bottom-right corner far up and left: the drawing goes with it.
     const box = (await page.locator('.react-flow').boundingBox())!;
@@ -156,8 +156,8 @@ test.describe('boundary, reset', () => {
     expect(await outside(page)).toBeGreaterThan(0);
 
     await drewAgain(page, () => page.getByRole('button', { name: 'Reset', exact: true }).click());
-    // Six boxes - the entry method and its five calls - and the entry point's event.
-    await expect(page.locator('.react-flow__node')).toHaveCount(12);
+    // The entry method's box and the five boundary boxes the parameters flow into, and five leaves on their own.
+    await expect(page.locator('.react-flow__node')).toHaveCount(11);
     expect(await outside(page)).toBe(0);
   });
 });

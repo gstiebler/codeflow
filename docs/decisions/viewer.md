@@ -84,22 +84,25 @@ The only view (a boxed view, one box per method, was removed). Spec: `docs/super
 `condensed.ts` holds the rules as pure functions of
 `(payload, revealed)`, types the only import. `R` and the `Reset` button reset to the opening.
 
-**It opens on the entry method and what it calls directly.** A *root box* is a METHOD node with no
+**It opens on the entry's event, parameters and return.** A *root box* is a METHOD node with no
 `parent` - one per entry point, see `calls-and-dispatch.md`. `condensedOpening(payload)` reveals, per
-root: its `EVENT` leaf, every `RETURN` leaf of the root box, and every target of an `EVENT` edge that
-sits in the root box (the variables, fields and literals the entry initializes directly). The root
-box and the boxes called directly by it are drawn; everything deeper is in one `program` box until
-clicked. Boundary boxes got no special case: 14-30 of them on Fineract made the old opening too wide.
-Reset asks for the opening again, so it returns to the same set. The event is a leaf like any other:
-its edges into a group are one drawn edge with a count, and clicking it reveals what it
-starts. A leaf click is one hop, and a group's frontier gains the event's targets, which the event, drawn outside, makes
+root: its `EVENT` leaf, every `RETURN` leaf of the root box and every `FUNC_PARAM` leaf of the root box
+(the entry's parameters) - no longer the targets of `EVENT` edges. The root box is drawn; a called box
+is drawn only when a revealed leaf touches it, everything else is in one `program` box until clicked.
+The reader picks calls and values from the entry box's picker (`tapChoices`, `PICK_AT`), so the opening
+can be small: 14 nodes on Fineract's repayment (7 groups, event, return, 5 parameters), 11 on
+capitalized-income and buy-down-fee, 17 on repayment-domain, against 43-50 when it also drew every direct
+call and what the event starts. Reset asks for the opening again, so it returns to the same set.
+The event is a leaf like any other: its edges into a group are one drawn edge with a count, and
+clicking it reveals what it starts. A leaf click is one hop, and a group's frontier gains the event's targets, which the event, drawn outside, makes
 members with an outside edge - one hop, as clicking the event would.
 
 **Groups are read from the payload, never guessed.** `groupOf(payload, revealed)` puts every hidden leaf in
 `program` or in the METHOD box it sits directly in (`leaf.parent`; group id = the box's payload id,
 caption the method's simple name with the member count, payload order, `program` first). A box is drawn
-when it is a root box or a direct callee of one, when a member is revealed, or when a hidden member has a
-non-EVENT edge (either direction) to a revealed leaf (open); otherwise its members stay in `program`. A drawn boundary box keeps its purple outline. An EVENT edge alone
+when it is a root box, when a member is revealed, or when a hidden member has a
+non-EVENT edge (either direction) to a revealed leaf (open); a direct callee with no contact is not drawn
+(it is listed under `calls` in the root box's picker); otherwise its members stay in `program`. A drawn boundary box keeps its purple outline. An EVENT edge alone
 opens nothing. Revealing the member that touched the screen keeps the box drawn. A nested call's box opens
 on its own contacts, so two call sites of one method can differ. Flat: a nested call's box is a sibling of
 its caller's, never inside it. Merging a method's call sites into one group was rejected: it draws paths

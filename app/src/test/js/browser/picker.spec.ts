@@ -10,7 +10,7 @@ const POPUP = PICKER;
 const leafLabels = (page: Page) => page.evaluate((selector) =>
   [...document.querySelectorAll(selector)].map((n) => (n.textContent ?? '').trim()).sort(), LEAF);
 
-const OPENING_LEAVES = ['0', 'a', 'b', 'c', 'entrypoint', 'event entrypoint'];
+const OPENING_LEAVES = ['a', 'b', 'c', 'entrypoint', 'event entrypoint'];
 
 /**
  * On `boundary`: `a` flows into five values (`x`, `>`, `y`, `x`, `y`) and `b` into three, so a click
@@ -29,7 +29,7 @@ test.describe('the picker', () => {
     await expect(popup.getByRole('checkbox', { checked: true })).toHaveCount(0);
     await expect(popup.getByRole('button', { name: 'Show selected (0)' })).toBeDisabled();
     // Nothing was shown yet, and five rows is too few for a search box.
-    await expect(page.locator(LEAF)).toHaveCount(6);
+    await expect(page.locator(LEAF)).toHaveCount(5);
     await expect(popup.getByRole('searchbox')).toHaveCount(0);
   });
 
@@ -40,7 +40,7 @@ test.describe('the picker', () => {
     await expect(popup.getByRole('button', { name: 'Show selected (1)' })).toBeEnabled();
     await drewAgain(page, () => popup.getByRole('button', { name: 'Show selected (1)' }).click());
     await expect(popup).toHaveCount(0);
-    await expect(page.locator(LEAF)).toHaveCount(7);
+    await expect(page.locator(LEAF)).toHaveCount(6);
     await expect(page.locator(GROUP)).toHaveCount(6);
     expect(await leafLabels(page)).toEqual(['>', ...OPENING_LEAVES].sort());
   });
@@ -49,14 +49,14 @@ test.describe('the picker', () => {
     await page.locator(LEAF).filter({ hasText: /^a$/ }).click();
     await drewAgain(page, () => page.locator(POPUP).getByRole('button', { name: 'Show all', exact: true }).click());
     await expect(page.locator(POPUP)).toHaveCount(0);
-    await expect(page.locator(LEAF)).toHaveCount(11);
+    await expect(page.locator(LEAF)).toHaveCount(10);
     await expect(page.locator(GROUP)).toHaveCount(6);
     expect(await leafLabels(page)).toEqual([...OPENING_LEAVES, '>', 'x', 'x', 'y', 'y'].sort());
   });
 
   test('a click that could show three or fewer shows them with no popup', async ({ page }) => {
     await tapLeaf(page, 'b');
-    await expect(page.locator(LEAF)).toHaveCount(9);
+    await expect(page.locator(LEAF)).toHaveCount(8);
     await expect(page.locator(GROUP)).toHaveCount(6);
     expect(await leafLabels(page)).toEqual([...OPENING_LEAVES, '>', 'y', 'y'].sort());
     await expect(page.locator(POPUP)).toHaveCount(0);
@@ -79,8 +79,8 @@ test.describe('the picker', () => {
     await page.locator('.react-flow__pane').click({ position: { x: 5, y: 300 } });
     await expect(page.locator(POPUP)).toHaveCount(0);
     // The pair: nothing was shown by any of the three.
-    await expect(page.locator(LEAF)).toHaveCount(6);
-    await expect(page.locator(NODE)).toHaveCount(12);
+    await expect(page.locator(LEAF)).toHaveCount(5);
+    await expect(page.locator(NODE)).toHaveCount(11);
   });
 
   test('the popup opens inside the window', async ({ page }) => {

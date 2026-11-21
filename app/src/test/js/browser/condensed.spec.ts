@@ -20,21 +20,21 @@ const leafLabels = (page: Page) => page.evaluate((selector) =>
   [...document.querySelectorAll(selector)].map((n) => (n.textContent ?? '').trim()).sort(), LEAF);
 
 const EVENT = 'event entrypoint';
-/** The leaves the opening draws on their own: the event, the entry's return and what the event starts. */
-const OPENING_LEAVES = ['0', 'a', 'b', 'c', 'entrypoint', EVENT];
+/** The leaves the opening draws on their own: the event, the entry's return and the entry's parameters. */
+const OPENING_LEAVES = ['a', 'b', 'c', 'entrypoint', EVENT];
 
 /**
  * The page on `boundary`, asked of the DOM: three boundary methods called from five sites, directly
- * by the entry method, so it opens on twelve nodes - the five boundary boxes, `entrypoint` (which
- * still hides most of its members), and on their own the event, the entry's return and what the
- * event starts there (`0`, `a`, `b`, `c`); every method here is a direct callee of the entry, so
- * `program` is empty and not drawn - and it opens up where it is clicked.
+ * by the entry method, so it opens on eleven nodes - `entrypoint` (which still hides most of its
+ * members), the five boundary boxes the parameters flow into, and on their own the event, the
+ * entry's return and the parameters (`a`, `b`, `c`); every method here is a direct callee of the
+ * entry, and `program` is empty and not drawn - and it opens up where it is clicked.
  */
 test.describe('boundary', () => {
   test.beforeEach(open('boundary'));
 
-  test('the page opens on the boundary boxes, the entry box, the event and what it starts', async ({ page }) => {
-    await expect(page.locator(NODE)).toHaveCount(12);
+  test('the page opens on the entry box, the event, the parameters and the boxes they flow into', async ({ page }) => {
+    await expect(page.locator(NODE)).toHaveCount(11);
     expect(await groupLabels(page)).toEqual(OPENING);
     expect(await leafLabels(page)).toEqual(OPENING_LEAVES);
     // No method box: the one view has none, and `program` has nothing hidden.
@@ -48,10 +48,10 @@ test.describe('boundary', () => {
   });
 
   test('clicking the entry method box takes nodes out of it, and the boundary boxes stay', async ({ page }) => {
-    await expect(page.locator(LEAF)).toHaveCount(6);
+    await expect(page.locator(LEAF)).toHaveCount(5);
     await tapGroupAll(page, 'entrypoint');
-    expect(await page.locator(NODE).count()).toBeGreaterThan(12);
-    expect(await page.locator(LEAF).count()).toBeGreaterThan(6);
+    expect(await page.locator(NODE).count()).toBeGreaterThan(11);
+    expect(await page.locator(LEAF).count()).toBeGreaterThan(5);
     expect(await groupLabels(page)).toEqual(expect.arrayContaining(BOUNDARY_GROUPS));
   });
 
@@ -70,8 +70,8 @@ test.describe('boundary', () => {
   test('clicking the event takes what it starts out of their groups', async ({ page }) => {
     expect(await leafLabels(page)).toEqual(OPENING_LEAVES);
     await drewAgain(page, () => page.locator(LEAF).filter({ hasText: EVENT }).click());
-    expect(await page.locator(NODE).count()).toBeGreaterThan(12);
-    expect(await page.locator(LEAF).count()).toBeGreaterThan(6);
+    expect(await page.locator(NODE).count()).toBeGreaterThan(11);
+    expect(await page.locator(LEAF).count()).toBeGreaterThan(5);
     // The pair: the event is still drawn, and so is every boundary group.
     expect(await leafLabels(page)).toContain(EVENT);
     expect(await groupLabels(page)).toEqual(expect.arrayContaining(BOUNDARY_GROUPS));
@@ -79,12 +79,12 @@ test.describe('boundary', () => {
 
   // The opening used to draw 13 lines - one per kind per pair, ten of them captioned with a kind -
   // packed into 40 px between layers. Each ordered pair is now one line, captioned only by a count.
-  // Twenty-seven: the opening now holds the entry's own leaves, each with its lines to the boundary calls.
+  // Twenty-six: the entry's own leaves, each with its lines to the boundary calls.
   test('the opening draws one line per ordered pair, captioned only with counts', async ({ page }) => {
-    await expect(page.locator(NODE)).toHaveCount(12);
+    await expect(page.locator(NODE)).toHaveCount(11);
     const ids = await page.evaluate(() =>
       [...document.querySelectorAll('.react-flow__edge')].map((e) => e.getAttribute('aria-label')));
-    expect(ids.length).toBe(27);
+    expect(ids.length).toBe(26);
     expect(new Set(ids).size).toBe(ids.length);
     const captions = await page.locator('.react-flow__edge-text').allTextContents();
     // The pair: there are captions, and every one is a count.
@@ -114,9 +114,9 @@ test.describe('boundary', () => {
 
   test('Reset returns the condensed view to its opening', async ({ page }) => {
     await tapGroupAll(page, 'entrypoint');
-    expect(await page.locator(NODE).count()).toBeGreaterThan(12);
+    expect(await page.locator(NODE).count()).toBeGreaterThan(11);
     await drewAgain(page, () => button(page, 'Reset').click());
-    await expect(page.locator(NODE)).toHaveCount(12);
+    await expect(page.locator(NODE)).toHaveCount(11);
     expect(await groupLabels(page)).toEqual(OPENING);
     expect(await leafLabels(page)).toEqual(OPENING_LEAVES);
   });

@@ -58,16 +58,18 @@ const sorted = (view: CondensedView) => ({
   edges: view.edges.map((e) => `${e.source}->${e.target}:${kindsOf(e)}`).sort(),
 });
 
-// Boxes only when needed: everything hidden is in `program`, a box is drawn when it is boundary,
-// has a revealed member, or a hidden member has a non-EVENT edge to a revealed leaf.
+// Boxes only when needed: everything hidden is in `program`, a box is drawn when it is an entry box
+// or called directly by one, has a revealed member, or a hidden member has a non-EVENT edge to a
+// revealed leaf.
 const groupsOf = (p: Payload, revealed: string[]) =>
   condensed(p, new Set(revealed)).nodes.filter((n) => n.type === 'GROUP').map((n) => [n.id, n.members]);
 
-/** `e` (box b0) starts `x`; `x` and `y` sit in the plain box b1. */
+/** `e` (box b0) starts `x`; `x` and `y` sit in the plain box b1, two calls down (b0 -> bm -> b1). */
 const eventPayload = (extra: ReturnType<typeof edge>[] = []): Payload => ({
   nodes: [
     box('b0', 'main', 'p.A#main()'), leaf('e', 'event', 'b0', 'p/A.java:1:1', 'EVENT'),
-    box('b1', 'f', 'p.A#f()', 'b0'), leaf('x', 'x', 'b1', 'p/A.java:2:1'), leaf('y', 'y', 'b1', 'p/A.java:3:1'),
+    box('bm', 'm', 'p.A#m()', 'b0'),
+    box('b1', 'f', 'p.A#f()', 'bm'), leaf('x', 'x', 'b1', 'p/A.java:2:1'), leaf('y', 'y', 'b1', 'p/A.java:3:1'),
   ],
   edges: [edge('e', 'x', 'EVENT'), ...extra],
 });
@@ -90,7 +92,7 @@ test('an open box stays drawn after its contact is revealed', () => {
   assert.deepEqual(groupsOf(eventPayload([edge('e', 'y')]), ['e', 'y']), [['b1', 1]]);
 });
 
-test('a boundary box is drawn from the start', () => {
+test('a root boundary box is drawn from the start', () => {
   const p: Payload = { nodes: [box('b1', 'fetch', 'p.G#fetch()', undefined, true), leaf('x', 'x', 'b1', 'p/G.java:1:1')], edges: [] };
   assert.deepEqual(condensed(p, new Set()).nodes, [{ id: 'b1', label: 'fetch', type: 'GROUP', members: 1, boundary: true }]);
 });
@@ -104,6 +106,7 @@ test('a nested box opens on its own contacts', () => {
     ],
     edges: [edge('e', 'x')],
   };
+  // `outer` is called by the entry, so it is drawn; `inner` is two down and stays in program.
   assert.deepEqual(groupsOf(p, ['e']), [['program', 2], ['b1', 1]]);
 });
 
@@ -111,8 +114,9 @@ test('one call site open, the other in program', () => {
   const p: Payload = {
     nodes: [
       box('b0', 'main', 'p.A#main()'), leaf('e', 'event', 'b0', 'p/A.java:1:1', 'EVENT'),
-      box('b1', 'f', 'p.A#f()', 'b0'), leaf('x', 'x', 'b1', 'p/A.java:2:1'),
-      box('b2', 'f', 'p.A#f()', 'b0'), leaf('y', 'y', 'b2', 'p/A.java:2:1'),
+      box('bm', 'm', 'p.A#m()', 'b0'),
+      box('b1', 'f', 'p.A#f()', 'bm'), leaf('x', 'x', 'b1', 'p/A.java:2:1'),
+      box('b2', 'f', 'p.A#f()', 'bm'), leaf('y', 'y', 'b2', 'p/A.java:2:1'),
     ],
     edges: [edge('e', 'x')],
   };
@@ -121,7 +125,8 @@ test('one call site open, the other in program', () => {
 
 test('clicking program with no frontier reveals all its members', () => {
   const p: Payload = {
-    nodes: [box('b0', 'main', 'p.A#main()'), leaf('x', 'x', 'b0', 'p/A.java:1:1'), leaf('y', 'y', 'b0', 'p/A.java:2:1')],
+    nodes: [box('b0', 'main', 'p.A#main()'), box('bm', 'm', 'p.A#m()', 'b0'), box('b1', 'f', 'p.A#f()', 'bm'),
+      leaf('x', 'x', 'b1', 'p/A.java:1:1'), leaf('y', 'y', 'b1', 'p/A.java:2:1')],
     edges: [],
   };
   assert.deepEqual([...tapCondensed(p, new Set(), { node: 'program' })].sort(), ['x', 'y']);
@@ -131,30 +136,31 @@ test('the program hover has no called line', () => {
   assert.deepEqual(hoverText(eventPayload(), new Set(['e']), { node: 'program' }), ['program: 2 nodes', 'A#f  A.java:2-3']);
 });
 
-// Boundary boxes are one group per call site - `fetch` is three (b1, b2, b5) - and `main` and
-// `helper`, plain and untouched, are `program` together.
-test('the condensed view opens on program and one node per boundary call-site box', () => {
+// `main` (b0) is the entry box and `fetch` x2, `save` and `helper` are called by it: all drawn. `fetch`
+// in `helper` (b5) is two calls down and untouched, so its leaf is in `program`.
+test('the condensed view opens on the entry box, its direct callees and program', () => {
   assert.deepEqual(sorted(condensed(PAYLOAD, condensedOpening(PAYLOAD))).nodes, [
+    { id: 'b0', label: 'main', type: 'GROUP', members: 4 },
     { id: 'b1', label: 'fetch', type: 'GROUP', members: 3, boundary: true },
     { id: 'b2', label: 'fetch', type: 'GROUP', members: 2, boundary: true },
     { id: 'b3', label: 'save', type: 'GROUP', members: 1, boundary: true },
-    { id: 'b5', label: 'fetch', type: 'GROUP', members: 1, boundary: true },
-    { id: 'program', label: 'program', type: 'GROUP', members: 5 },
+    { id: 'b4', label: 'helper', type: 'GROUP', members: 1 },
+    { id: 'program', label: 'program', type: 'GROUP', members: 1 },
   ]);
 });
 
-// Boundary boxes are always drawn, so `n12` stays in `fetch`'s b5; the plain boxes are `program` until
-// one of their leaves is revealed (`n1` opens `main`, which holds `n10`).
-test('a hidden leaf belongs to its boundary box, to its open box, or to program', () => {
+test('a hidden leaf belongs to a drawn entry or callee box, to its open box, or to program', () => {
   const none = groupOf(PAYLOAD, new Set());
-  assert.equal(none.get('n12'), 'b5');
-  assert.equal(none.get('n11'), 'program');
-  assert.equal(none.get('n10'), 'program');
+  assert.equal(none.get('n12'), 'program');
+  assert.equal(none.get('n11'), 'b4');
+  assert.equal(none.get('n10'), 'b0');
+  assert.equal(none.get('n4'), 'b1');
   assert.equal(none.size, 12);
-  const opened = groupOf(PAYLOAD, new Set(['n1']));
-  assert.equal(opened.get('n10'), 'b0');
-  assert.ok(!opened.has('n1'));
+  const opened = groupOf(PAYLOAD, new Set(['n11']));
+  assert.equal(opened.get('n12'), 'b5');
+  assert.ok(!opened.has('n11'));
   assert.equal(opened.size, 11);
+  assert.equal(groupOf(PAYLOAD, new Set(['n1'])).get('n10'), 'b0');
 });
 
 test('a boundary method called twice is two groups', () => {
@@ -185,11 +191,12 @@ test('a boundary box keeps the boundary look', () => {
   assert.ok(!('boundary' in nodes.find((n) => n.id === 'program')!));
 });
 
-// Inside `fetch` (b1): n4->n5, n5->n6; inside b2: n7->n8. None drawn; every crossing one is.
+// Inside `fetch` (b1): n4->n5, n5->n6; inside b2: n7->n8. None drawn; every crossing one is. `n11` (in
+// `helper`, b4) reaches `n12`, which is in program: two calls down and untouched.
 test('an edge between two members of one group is not drawn, and every crossing edge is', () => {
   assert.deepEqual(sorted(condensed(PAYLOAD, new Set())).edges, [
-    'program->b1:FLOW1x1', 'b1->program:FLOW1x1', 'program->b2:FLOW1x1', 'b1->b2:ORDER1x1',
-    'b2->program:TRUE1x1', 'program->b3:FLOW1x1', 'b1->b3:ORDER1x1', 'program->b5:FLOW1x1',
+    'b0->b1:FLOW1x1', 'b1->b0:FLOW1x1', 'b0->b2:FLOW1x1', 'b1->b2:ORDER1x1',
+    'b2->b0:TRUE1x1', 'b0->b3:FLOW1x1', 'b1->b3:ORDER1x1', 'b4->program:FLOW1x1',
   ].sort());
 });
 
@@ -236,10 +243,10 @@ test('clicking a leaf takes out its direct neighbours, in and out, and nothing f
   assert.deepEqual([...after].sort(), ['n2', 'n6', 'n8', 'n9']);
 });
 
-// From the opening: a, b and h have edges to boundary boxes; c and the orphan do not.
+// From the opening: a and b have edges to the boundary boxes; c and the orphan do not.
 test('clicking a group takes out its frontier only', () => {
-  const after = tapCondensed(PAYLOAD, new Set(), { node: 'program' });
-  assert.deepEqual([...after].sort(), ['n1', 'n11', 'n2']);
+  const after = tapCondensed(PAYLOAD, new Set(), { node: 'b0' });
+  assert.deepEqual([...after].sort(), ['n1', 'n2']);
 });
 
 // What is left of `main` after its frontier came out touches nothing, so a click takes it all.
@@ -249,14 +256,14 @@ test('clicking a group with no frontier takes out every member', () => {
 });
 
 test('clicking a drawn edge takes out the endpoints of the edges it stands for', () => {
-  assert.deepEqual([...tapCondensed(PAYLOAD, new Set(), { edge: ['program', 'b1'] })].sort(), ['n1', 'n4']);
-  assert.deepEqual([...tapCondensed(PAYLOAD, new Set(), { edge: ['b1', 'program'] })].sort(), ['n2', 'n6']);
+  assert.deepEqual([...tapCondensed(PAYLOAD, new Set(), { edge: ['b0', 'b1'] })].sort(), ['n1', 'n4']);
+  assert.deepEqual([...tapCondensed(PAYLOAD, new Set(), { edge: ['b1', 'b0'] })].sort(), ['n2', 'n6']);
 });
 
 // `save` has one member; once it is out the group is gone and its edges land on the leaf.
 test('a group whose last member came out is gone, and its edges arrive at the member', () => {
   const view = sorted(condensed(PAYLOAD, new Set(['n9'])));
-  assert.deepEqual(view.nodes.map((n) => n.id), ['b0', 'b1', 'b2', 'b5', 'n9', 'program']);
+  assert.deepEqual(view.nodes.map((n) => n.id), ['b0', 'b1', 'b2', 'b4', 'n9', 'program']);
   assert.deepEqual(view.nodes.find((n) => n.id === 'n9'), { id: 'n9', label: 'x', type: 'FUNC_PARAM' });
   assert.ok(view.edges.includes('b1->n9:ORDER1x1'));
   assert.ok(view.edges.includes('b0->n9:FLOW1x1'), view.edges.join(' '));
@@ -275,8 +282,9 @@ test('reset returns to the opening view', () => {
   assert.deepEqual(condensed(PAYLOAD, condensedOpening(PAYLOAD)), condensed(PAYLOAD, new Set()));
 });
 
-// Two roots, two events: each event is taken out of its group from the start, beside the call-site
-// groups - and Reset, which asks for the opening again, comes back to the same page.
+// Two roots, two events: each event is taken out of its group from the start with what it starts in
+// its own box (`n1`, `n3`, `n13`), beside the entry boxes and their direct callees - and Reset, which
+// asks for the opening again, comes back to the same page.
 test('the condensed view opens with every entry point\'s event on its own, and Reset returns to it', () => {
   const events: Payload = {
     ...PAYLOAD,
@@ -290,13 +298,12 @@ test('the condensed view opens with every entry point\'s event on its own, and R
     edges: [...PAYLOAD.edges, edge('e1', 'n1', 'EVENT'), edge('e1', 'n3', 'EVENT'), edge('e2', 'n13', 'EVENT')],
   };
   const opening = condensedOpening(events);
-  assert.deepEqual([...opening].sort(), ['e1', 'e2']);
+  assert.deepEqual([...opening].sort(), ['e1', 'e2', 'n1', 'n13', 'n3']);
   const view = sorted(condensed(events, opening));
-  assert.deepEqual(view.nodes.map((n) => `${n.id}:${n.type}`), ['b0', 'b1', 'b2', 'b3', 'b5', 'b6', 'e1', 'e2', 'program'].map((id) =>
-    `${id}:${id.startsWith('e') ? 'EVENT' : 'GROUP'}`).sort());
-  // The pair: the event's targets stay in their group, which the event points into.
-  assert.ok(!view.nodes.some((n) => n.id === 'n1' || n.id === 'n13'));
-  assert.ok(view.edges.includes('e1->b0:EVENT2x2'), view.edges.join(' '));
+  assert.deepEqual(view.nodes.map((n) => n.id), ['b0', 'b1', 'b2', 'b3', 'b4', 'e1', 'e2', 'n1', 'n13', 'n3', 'program']);
+  // The pair: what the event starts is drawn on its own, with its EVENT edge.
+  assert.ok(view.edges.includes('e1->n1:EVENT1x1'), view.edges.join(' '));
+  assert.ok(view.edges.includes('e2->n13:EVENT1x1'), view.edges.join(' '));
 
   let revealed = tapCondensed(events, opening, { node: 'b0' });
   assert.notDeepEqual(condensed(events, revealed), condensed(events, opening));
@@ -349,9 +356,9 @@ test('the group hover names the call site', () => {
 
 // b0 -> b1 is the one edge n1 -> n4, arriving on line 3 of Gw.java.
 test('hovering a drawn edge lists the distinct lines its values arrive on, after its kinds', () => {
-  assert.deepEqual(hoverText(PAYLOAD, new Set(), { edge: ['program', 'b1'] }),
+  assert.deepEqual(hoverText(PAYLOAD, new Set(), { edge: ['b0', 'b1'] }),
     ['flow ×1', 'Gw#fetch  Gw.java:3  static int fetch(int x) {']);
-  assert.deepEqual(hoverText(PAYLOAD, new Set(), { edge: ['b1', 'program'] }),
+  assert.deepEqual(hoverText(PAYLOAD, new Set(), { edge: ['b1', 'b0'] }),
     ['flow ×1', 'App#main  App.java:6  int b = fetch(a);']);
 });
 
@@ -404,4 +411,70 @@ test('a group\'s and an edge\'s hover list the first ten entries, then how many 
 test('a group is captioned with its member count, a leaf with its label', () => {
   assert.equal(condensedCaption({ id: 'b0', label: 'fetch', type: 'GROUP', members: 3 }), 'fetch (3)');
   assert.equal(condensedCaption({ id: 'n1', label: 'total', type: 'VARIABLE' }), 'total');
+});
+
+// The opening: the entry method and what it calls directly. A root box is a METHOD with no parent.
+test('opening reveals the event, the entry return and what the event starts in the entry box', () => {
+  const p: Payload = {
+    nodes: [
+      box('R', 'main', 'p.A#main()'), leaf('e', 'event', 'R', 'p/A.java:1:1', 'EVENT'),
+      leaf('ret', 'return', 'R', 'p/A.java:2:1', 'RETURN'), leaf('v', 'v', 'R', 'p/A.java:3:1'), leaf('w', 'w', 'R', 'p/A.java:4:1'),
+      box('C', 'f', 'p.A#f()', 'R'), leaf('c', 'c', 'C', 'p/A.java:5:1'),
+    ],
+    edges: [edge('e', 'v', 'EVENT'), edge('e', 'c', 'EVENT'), edge('v', 'w')],
+  };
+  assert.deepEqual([...condensedOpening(p)].sort(), ['e', 'ret', 'v']);
+});
+
+test('the entry box and its direct callees are drawn', () => {
+  const p: Payload = {
+    nodes: [
+      box('R', 'main', 'p.A#main()'), leaf('e', 'event', 'R', 'p/A.java:1:1', 'EVENT'), leaf('r1', 'r1', 'R', 'p/A.java:2:1'),
+      box('C', 'f', 'p.A#f()', 'R'), leaf('c', 'c', 'C', 'p/A.java:3:1'),
+      box('D', 'g', 'p.A#g()', 'C'), leaf('d', 'd', 'D', 'p/A.java:4:1'),
+    ],
+    edges: [edge('e', 'c', 'EVENT')],
+  };
+  assert.deepEqual(groupsOf(p, ['e']), [['program', 1], ['R', 1], ['C', 1]]);
+  assert.equal(groupOf(p, new Set(['e'])).get('d'), 'program');
+});
+
+test('a boundary box is not drawn until it is open', () => {
+  const p: Payload = {
+    nodes: [
+      box('R', 'main', 'p.A#main()'), leaf('e', 'event', 'R', 'p/A.java:1:1', 'EVENT'), leaf('a', 'a', 'R', 'p/A.java:2:1'),
+      box('C', 'f', 'p.A#f()', 'R'), leaf('c', 'c', 'C', 'p/A.java:3:1'),
+      box('B', 'fetch', 'p.G#fetch()', 'C', true), leaf('x', 'x', 'B', 'p/G.java:1:1', 'FUNC_PARAM'),
+    ],
+    edges: [edge('a', 'x')],
+  };
+  assert.equal(groupOf(p, new Set(['e'])).get('x'), 'program');
+  assert.ok(!groupsOf(p, ['e']).some(([id]) => id === 'B'));
+  const opened = condensed(p, new Set(['e', 'a'])).nodes.find((n) => n.id === 'B');
+  assert.deepEqual(opened, { id: 'B', label: 'fetch', type: 'GROUP', members: 1, boundary: true });
+});
+
+test('a boundary box called directly by the entry is drawn', () => {
+  const p: Payload = {
+    nodes: [
+      box('R', 'main', 'p.A#main()'), leaf('e', 'event', 'R', 'p/A.java:1:1', 'EVENT'),
+      box('B', 'fetch', 'p.G#fetch()', 'R', true), leaf('x', 'x', 'B', 'p/G.java:1:1', 'FUNC_PARAM'),
+    ],
+    edges: [],
+  };
+  assert.deepEqual(condensed(p, new Set(['e'])).nodes.find((n) => n.id === 'B'),
+    { id: 'B', label: 'fetch', type: 'GROUP', members: 1, boundary: true });
+});
+
+test('two entry points each draw their direct callees', () => {
+  const p: Payload = {
+    nodes: [
+      box('R1', 'one', 'p.A#one()'), leaf('e1', 'event', 'R1', 'p/A.java:1:1', 'EVENT'),
+      box('C1', 'f', 'p.A#f()', 'R1'), leaf('c1', 'c1', 'C1', 'p/A.java:2:1'),
+      box('R2', 'two', 'p.A#two()'), leaf('e2', 'event', 'R2', 'p/A.java:3:1', 'EVENT'),
+      box('C2', 'g', 'p.A#g()', 'R2'), leaf('c2', 'c2', 'C2', 'p/A.java:4:1'),
+    ],
+    edges: [],
+  };
+  assert.deepEqual(groupsOf(p, ['e1', 'e2']).map(([id]) => id), ['C1', 'C2']);
 });

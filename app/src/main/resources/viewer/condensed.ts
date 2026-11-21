@@ -7,8 +7,9 @@
  * state; `condensed` derives everything drawn from it, so nothing can go stale between clicks.
  *
  * A hidden leaf is drawn in its call-site box (the METHOD box it sits directly in, `parent`) when the
- * box is boundary or open - a member is revealed, or a hidden member has an edge of any kind but
- * EVENT to a revealed leaf (either direction) - and in `program` otherwise. Boxes are flat, never inside one another. A
+ * box is an entry point's (no parent), is called directly by one, or is open - a member is revealed,
+ * or a hidden member has an edge of any kind but EVENT to a revealed leaf (either direction) - and in
+ * `program` otherwise. A boundary box is no exception: it is drawn when open, with its own look. Boxes are flat, never inside one another. A
  * leaf with no box is a payload this viewer was not written for, and throws.
  */
 import type {
@@ -94,7 +95,7 @@ function index(payload: Payload): Index {
 }
 
 /**
- * Hidden leaf -> where it is drawn: its box when that is boundary or open, else `program`. Revealed
+ * Hidden leaf -> where it is drawn: its box when that is an entry box, a direct callee of one, or open, else `program`. Revealed
  * leaves are absent. A box is open when a leaf of it is revealed, or a hidden leaf of it has an edge
  * of any kind but EVENT to a revealed leaf, either direction (EVENT edges fan out from the entry event to nearly
  * everything it starts, and would open the whole opening).
@@ -112,11 +113,15 @@ export function groupOf(payload: Payload, revealed: Set<Id>): Map<Id, Id> {
     if (a && !b) open.add(ix.box.get(e.target)!);
     else if (b && !a) open.add(ix.box.get(e.source)!);
   }
+  // The entry method's box and the methods it calls directly are drawn from the start.
+  const isRoot = (box: PayloadNode) => box.parent === undefined;
   const groups = new Map<Id, Id>();
   for (const leaf of ix.leaves) {
     if (revealed.has(leaf.id)) continue;
     const box = ix.box.get(leaf.id)!;
-    groups.set(leaf.id, open.has(box) || ix.byId.get(box)!.boundary ? box : PROGRAM);
+    const node = ix.byId.get(box)!;
+    const up = node.parent === undefined ? undefined : ix.byId.get(node.parent);
+    groups.set(leaf.id, open.has(box) || isRoot(node) || (up !== undefined && isRoot(up)) ? box : PROGRAM);
   }
   return groups;
 }
@@ -125,11 +130,20 @@ export function groupOf(payload: Payload, revealed: Set<Id>): Map<Id, Id> {
 const isGroup = (ix: Index, id: Id) => id === PROGRAM || ix.members.has(id);
 
 /**
- * What the condensed view opens on, and what Reset returns to: every entry point's event taken out of
- * its group, so the page shows where the program starts.
+ * What the condensed view opens on, and what Reset returns to: per entry point (a METHOD with no
+ * parent) its event, the returns of its own box, and what its event starts in its own box - the
+ * variables, fields and literals the entry initializes directly.
  */
 export function condensedOpening(payload: Payload): Set<Id> {
-  return new Set(payload.nodes.filter((n) => n.type === 'EVENT').map((n) => n.id));
+  const byId = new Map(payload.nodes.map((n) => [n.id, n]));
+  const inRoot = (id: Id) => {
+    const parent = byId.get(id)?.parent;
+    return parent !== undefined && byId.get(parent)?.parent === undefined;
+  };
+  const opening = new Set<Id>();
+  for (const n of payload.nodes) if (n.type === 'EVENT' || (n.type === 'RETURN' && inRoot(n.id))) opening.add(n.id);
+  for (const e of payload.edges) if (e.kind === 'EVENT' && inRoot(e.target)) opening.add(e.target);
+  return opening;
 }
 
 /** Where a leaf is drawn: on its own once revealed, else as its group. */

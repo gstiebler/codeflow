@@ -79,8 +79,8 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
   of `(payload, revealed)`; `revealed` is the only state. ELK options are **strings**.
   Lines are square (ELK ORTHOGONAL) or, via the `Curved` toolbar toggle, ELK SPLINES drawn by `curvedPath`.
   → `docs/decisions/viewer.md`
-  Condensed is the only view; a hidden leaf is in `program` until its call-site METHOD box is boundary
-  or open (flat), read off the payload, never a label. Positions and motion are renderer state
+  Condensed is the only view, opening on the entry method and its direct calls; a hidden leaf is in `program` until its
+  call-site METHOD box is the entry's, called by it, or open (flat), read off the payload, never a label. Positions and motion are renderer state
   (`stabilise`, `transition.ts`); `window.drawn` counts only once a click's move has ended.
 
 ## Adding a Java construct

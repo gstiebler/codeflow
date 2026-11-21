@@ -52,14 +52,14 @@ function assertMatches(view: CondensedView, text: string) {
   })));
 }
 
-test('the opening of boundary exports its 7 nodes and one line per drawn edge, ×N iff N > 1', () => {
+test('the opening of boundary exports its 12 nodes and one line per drawn edge, ×N iff N > 1', () => {
   const payload = boundary();
   const view = condensed(payload, condensedOpening(payload));
-  assert.equal(view.nodes.length, 7);
+  assert.equal(view.nodes.length, 12);
   const text = condensedMermaid(view);
   assertMatches(view, text);
   const { nodes, edges } = parse(text);
-  assert.equal(nodes.length, 7);
+  assert.equal(nodes.length, 12);
   assert.equal(edges.length, view.edges.length);
   // Both sorts are there, so the iff is tested both ways.
   assert.ok(edges.some((e) => e.caption !== undefined) && edges.some((e) => e.caption === undefined));

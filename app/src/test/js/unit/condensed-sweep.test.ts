@@ -86,19 +86,21 @@ test('the walk ends with every leaf on its own and every payload edge drawn once
   assert.deepEqual(short, [], short.join('\n'));
 });
 
-// The opening is the boundary boxes plus the event's box, so a boundary method called twice is two groups:
-// `boundary` calls boundaryfunc2 and boundaryfunc3 twice each. Each root's event is on its own beside them.
-test('a boundary fixture opens on its boundary boxes and each event', () => {
+// The opening is the entry box, its direct callees (a boundary method called twice is two groups: `boundary`
+// calls boundaryfunc2 and boundaryfunc3 twice each), the event on its own, the entry's return and
+// what the event starts in the entry box (here a literal and the three parameters).
+test('a boundary fixture opens on the entry box, its direct callees and each event', () => {
   const opening = (fixture: string) => {
     const { payload } = corpus.find((c) => c.name === fixture)!;
     return condensed(payload, condensedOpening(payload)).nodes.map((n) => `${n.label}:${n.type}`).sort();
   };
   assert.deepEqual(opening('boundary'), [
+    '0:LITERAL', 'a:FUNC_PARAM', 'b:FUNC_PARAM',
     'boundaryfunc1:GROUP', 'boundaryfunc2:GROUP', 'boundaryfunc2:GROUP', 'boundaryfunc3:GROUP', 'boundaryfunc3:GROUP',
-    'entrypoint:GROUP', 'event entrypoint:EVENT',
+    'c:FUNC_PARAM', 'entrypoint:GROUP', 'entrypoint:RETURN', 'event entrypoint:EVENT',
   ]);
-  const roots = corpus.find((c) => c.name === 'boundaryRoots')!.payload;
-  const boxes = roots.nodes.filter((n) => n.type === 'METHOD');
-  assert.equal(opening('boundaryRoots').length, boxes.length + 2);
-  assert.deepEqual(opening('boundaryRoots').filter((n) => n.endsWith(':EVENT')), ['event first:EVENT', 'event second:EVENT']);
+  assert.deepEqual(opening('boundaryRoots'), [
+    'a:FUNC_PARAM', 'b:FUNC_PARAM', 'event first:EVENT', 'event second:EVENT', 'first:GROUP', 'first:RETURN',
+    'later:FUNC_PARAM', 'load:GROUP', 'save:GROUP', 'save:GROUP', 'second:GROUP', 'second:RETURN',
+  ]);
 });

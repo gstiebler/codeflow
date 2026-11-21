@@ -78,9 +78,10 @@ test.describe('funcCall, a click animated', () => {
   test('what a click brought in is ringed, then the ring comes off; what was there is not ringed', async ({ page }) => {
     await tapLeaf(page, 'event main');
     const fresh = await ringed(page, '.react-flow__node');
-    expect(fresh).toContain('args');
-    expect(fresh).toContain('main');
-    expect(fresh).not.toContain('event');
+    expect(fresh).toContain('11');
+    expect(fresh).not.toContain('args');
+    expect(fresh).not.toContain('main');
+    expect(fresh).not.toContain('event main');
     expect(await page.locator('.react-flow__edge.cf-new').count()).toBeGreaterThan(0);
     await expect(page.locator('.react-flow__node.cf-new')).toHaveCount(0, { timeout: 5000 });
     await expect(page.locator('.react-flow__edge.cf-new')).toHaveCount(0);
@@ -113,7 +114,7 @@ test.describe('funcCall, a click not animated', () => {
       expect(frames.filter((f) => f.moving)).toEqual([]);
       // Two places at most - before and after - for the node in the drawing: no frame in between.
       expect(new Set(frames.map((f) => f.transform)).size).toBeLessThanOrEqual(2);
-      expect(await ringed(page, '.react-flow__node')).toContain('args');
+      expect(await ringed(page, '.react-flow__node')).toContain('11');
     });
   }
 
@@ -144,7 +145,7 @@ test.describe('boundary, reset', () => {
   test('Reset fits what is left on screen, wherever the reader had panned to', async ({ page }) => {
     await drewAgain(page, () => page.locator('.react-flow__node .cf-group').filter({ hasText: /^entrypoint \(/ }).click());
     const grown = await page.locator('.react-flow__node').count();
-    expect(grown).toBeGreaterThan(7);
+    expect(grown).toBeGreaterThan(12);
 
     // Drag the pane from its bottom-right corner far up and left: the drawing goes with it.
     const box = (await page.locator('.react-flow').boundingBox())!;
@@ -156,7 +157,7 @@ test.describe('boundary, reset', () => {
 
     await drewAgain(page, () => page.getByRole('button', { name: 'Reset', exact: true }).click());
     // Six boxes - the entry method and its five calls - and the entry point's event.
-    await expect(page.locator('.react-flow__node')).toHaveCount(7);
+    await expect(page.locator('.react-flow__node')).toHaveCount(12);
     expect(await outside(page)).toBe(0);
   });
 });

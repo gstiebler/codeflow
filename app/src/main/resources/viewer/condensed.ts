@@ -1,13 +1,14 @@
 /**
- * The condensed view, decided without a browser: the graph gathered into one group per call-site
- * method box, opened up where the reader clicks.
+ * The condensed view, decided without a browser: the hidden leaves gathered into `program`, with a
+ * call-site method box drawn only when needed, opened up where the reader clicks.
  *
  * No imports beyond types, no DOM: `node --test` reads this file directly, and the renderer's bundle
  * imports it. Every function is a pure function of (payload, revealed). `revealed` is the set of leaves taken out of their groups and is the only
  * state; `condensed` derives everything drawn from it, so nothing can go stale between clicks.
  *
- * A leaf's group is computed from the payload, never guessed: the METHOD box it sits directly in
- * (`parent`). One group per box, so one per call site; boxes are flat, never inside one another. A
+ * A hidden leaf is drawn in its call-site box (the METHOD box it sits directly in, `parent`) when the
+ * box is boundary or open - a member is revealed, or a hidden member has an edge of any kind but
+ * EVENT to a revealed leaf - and in `program` otherwise. Boxes are flat, never inside one another. A
  * leaf with no box is a payload this viewer was not written for, and throws.
  */
 import type {
@@ -27,6 +28,9 @@ export function captionParts(node: { label: string; lead?: string }): { lead?: s
   return { lead, rest: label.slice(lead.length) };
 }
 
+/** The group of every hidden leaf no box is drawn for; also its label. */
+export const PROGRAM = 'program';
+
 /** How many entries a group's or an edge's hover lists before `+N more`. */
 export const HOVER_CAP = 10;
 
@@ -39,10 +43,10 @@ type Index = {
   byId: Map<Id, PayloadNode>;
   /** Every leaf, in payload order. */
   leaves: PayloadNode[];
-  group: Map<Id, Id>;
-  /** Every group, in the payload order of the boxes. */
-  groups: Id[];
+  /** Leaf -> the box it sits directly in. */
+  box: Map<Id, Id>;
   label: Map<Id, string>;
+  /** Box -> its leaves, in payload order. */
   members: Map<Id, Id[]>;
   /** Every edge at a leaf, either direction. */
   touching: Map<Id, PayloadEdge[]>;
@@ -58,22 +62,21 @@ function index(payload: Payload): Index {
 
   const byId = new Map(payload.nodes.map((n) => [n.id, n]));
   const leaves = payload.nodes.filter((n) => n.type !== 'METHOD');
-  const group = new Map<Id, Id>();
-  const label = new Map<Id, string>();
+  const box = new Map<Id, Id>();
+  const label = new Map<Id, string>([[PROGRAM, PROGRAM]]);
   const members = new Map<Id, Id[]>();
 
   for (const leaf of leaves) {
-    const box = leaf.parent === undefined ? undefined : byId.get(leaf.parent);
-    if (box?.type !== 'METHOD') throw new Error(`leaf ${leaf.id} has no method box`);
-    if (!members.has(box.id)) {
+    const parent = leaf.parent === undefined ? undefined : byId.get(leaf.parent);
+    if (parent?.type !== 'METHOD') throw new Error(`leaf ${leaf.id} has no method box`);
+    if (!members.has(parent.id)) {
       // The box's caption is the method's simple name; the full `method` is in the hover.
-      label.set(box.id, box.label);
-      members.set(box.id, []);
+      label.set(parent.id, parent.label);
+      members.set(parent.id, []);
     }
-    group.set(leaf.id, box.id);
-    members.get(box.id)!.push(leaf.id);
+    box.set(leaf.id, parent.id);
+    members.get(parent.id)!.push(leaf.id);
   }
-  const groups = payload.nodes.filter((n) => members.has(n.id)).map((n) => n.id);
 
   const touching = new Map<Id, PayloadEdge[]>();
   const touch = (id: Id, edge: PayloadEdge) => {
@@ -85,29 +88,55 @@ function index(payload: Payload): Index {
     if (edge.target !== edge.source) touch(edge.target, edge);
   }
 
-  const built = { byId, leaves, group, groups, label, members, touching };
+  const built = { byId, leaves, box, label, members, touching };
   indexes.set(payload, built);
   return built;
 }
 
-/** Leaf -> the id of the METHOD box it sits in. Every leaf of the payload has exactly one. */
-export function groupOf(payload: Payload): Map<Id, Id> {
-  return new Map(index(payload).group);
+/**
+ * Hidden leaf -> where it is drawn: its box when that is boundary or open, else `program`. Revealed
+ * leaves are absent. A box is open when a leaf of it is revealed, or a hidden leaf of it has an edge
+ * of any kind but EVENT to a revealed leaf (EVENT edges fan out from the entry event to nearly
+ * everything it starts, and would open the whole opening).
+ */
+export function groupOf(payload: Payload, revealed: Set<Id>): Map<Id, Id> {
+  const ix = index(payload);
+  const open = new Set<Id>();
+  for (const id of revealed) {
+    const box = ix.box.get(id);
+    if (box !== undefined) open.add(box);
+  }
+  for (const e of payload.edges) {
+    if (e.kind === 'EVENT') continue;
+    const [a, b] = [revealed.has(e.source), revealed.has(e.target)];
+    if (a && !b) open.add(ix.box.get(e.target)!);
+    else if (b && !a) open.add(ix.box.get(e.source)!);
+  }
+  const groups = new Map<Id, Id>();
+  for (const leaf of ix.leaves) {
+    if (revealed.has(leaf.id)) continue;
+    const box = ix.box.get(leaf.id)!;
+    groups.set(leaf.id, open.has(box) || ix.byId.get(box)!.boundary ? box : PROGRAM);
+  }
+  return groups;
 }
+
+/** Whether a display id is a group, drawn or not: `program` or a method box. */
+const isGroup = (ix: Index, id: Id) => id === PROGRAM || ix.members.has(id);
 
 /**
  * What the condensed view opens on, and what Reset returns to: every entry point's event taken out of
- * its group, so the page shows where the program starts beside the method boxes.
+ * its group, so the page shows where the program starts.
  */
 export function condensedOpening(payload: Payload): Set<Id> {
   return new Set(payload.nodes.filter((n) => n.type === 'EVENT').map((n) => n.id));
 }
 
 /** Where a leaf is drawn: on its own once revealed, else as its group. */
-function shownAs(ix: Index, revealed: Set<Id>) {
+function shownAs(groups: Map<Id, Id>, revealed: Set<Id>) {
   return (id: Id): Id => {
     if (revealed.has(id)) return id;
-    const group = ix.group.get(id);
+    const group = groups.get(id);
     if (group === undefined) throw new Error(`edge endpoint ${id} is not a leaf of the payload`);
     return group;
   };
@@ -124,19 +153,18 @@ function shownAs(ix: Index, revealed: Set<Id>) {
  */
 export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
   const ix = index(payload);
-  const shown = shownAs(ix, revealed);
+  const groups = groupOf(payload, revealed);
+  const shown = shownAs(groups, revealed);
 
   const left = new Map<Id, number>();
-  for (const leaf of ix.leaves) {
-    if (!revealed.has(leaf.id)) left.set(ix.group.get(leaf.id)!, (left.get(ix.group.get(leaf.id)!) ?? 0) + 1);
-  }
+  for (const group of groups.values()) left.set(group, (left.get(group) ?? 0) + 1);
 
   const nodes: CondensedNode[] = [];
-  for (const id of ix.groups) {
+  // `program` first, then the boxes in payload order; a group with no hidden member is not drawn.
+  for (const id of [PROGRAM, ...ix.members.keys()]) {
     const count = left.get(id) ?? 0;
-    // A group whose last member came out is gone.
     if (count === 0) continue;
-    nodes.push({ id, label: ix.label.get(id)!, type: 'GROUP', members: count, ...(ix.byId.get(id)!.boundary ? { boundary: true } : {}) });
+    nodes.push({ id, label: ix.label.get(id)!, type: 'GROUP', members: count, ...(ix.byId.get(id)?.boundary ? { boundary: true } : {}) });
   }
   for (const leaf of ix.leaves) {
     if (!revealed.has(leaf.id)) continue;
@@ -169,7 +197,7 @@ export function condensedCaption(node: CondensedNode): string {
 
 /** The payload edges a drawn edge stands for, of every kind. */
 function underlying(payload: Payload, revealed: Set<Id>, [source, target]: [Id, Id]): PayloadEdge[] {
-  const shown = shownAs(index(payload), revealed);
+  const shown = shownAs(groupOf(payload, revealed), revealed);
   return payload.edges.filter((e) => shown(e.source) === source && shown(e.target) === target);
 }
 
@@ -194,8 +222,7 @@ export function tapCondensed(payload: Payload, revealed: Set<Id>, target: Conden
   }
 
   const id = target.node;
-  const members = ix.members.get(id);
-  if (members === undefined) {
+  if (!isGroup(ix, id)) {
     for (const edge of ix.touching.get(id) ?? []) {
       next.add(edge.source);
       next.add(edge.target);
@@ -203,8 +230,9 @@ export function tapCondensed(payload: Payload, revealed: Set<Id>, target: Conden
     return next;
   }
 
-  const shown = shownAs(ix, revealed);
-  const inside = members.filter((m) => !revealed.has(m));
+  const groups = groupOf(payload, revealed);
+  const shown = shownAs(groups, revealed);
+  const inside = [...groups].filter(([, g]) => g === id).map(([m]) => m);
   const frontier = inside.filter((m) =>
     (ix.touching.get(m) ?? []).some((e) => shown(e.source === m ? e.target : e.source) !== id));
   for (const m of frontier.length > 0 ? frontier : inside) next.add(m);
@@ -224,7 +252,7 @@ export function focusOf(payload: Payload, revealed: Set<Id>, target: CondensedTa
     const edges = underlying(payload, revealed, target.edge);
     return { up: edges.map((e) => e.source), down: edges.map((e) => e.target) };
   }
-  if (index(payload).members.has(target.node)) return null;
+  if (isGroup(index(payload), target.node)) return null;
   return { up: [target.node], down: [target.node] };
 }
 
@@ -265,7 +293,7 @@ export function focusPath(payload: Payload, revealed: Set<Id>, focus: Focus): Fo
   const seedUp = new Set(focus.up);
   const seedDown = new Set(focus.down);
 
-  const shown = shownAs(ix, revealed);
+  const shown = shownAs(groupOf(payload, revealed), revealed);
   const nodes = new Set([...up, ...down].map(shown));
   const edges = new Map<Id, Set<Id>>();
   for (const e of payload.edges) {
@@ -337,7 +365,7 @@ const capped = (entries: string[]) => entries.length <= HOVER_CAP
  *
  * - a leaf: its call stack, innermost first, one `Class#method  File.java:N  text` per frame - see
  *   [stackOf] - capped like the rest;
- * - a group: its member count, then where its box was called (the box's `called`) when that names a line, then
+ * - a group: its member count, then (a box, not `program`) where its box was called (the box's `called`) when that names a line, then
  *   each method its members come from with the range of their lines, first [HOVER_CAP] then `+N more`;
  * - a drawn edge: the kinds it stands for with their counts (`flow ×3, order ×2`, in KIND_ORDER),
  *   since the line itself names none; then where the value arrives - its target's method and line -
@@ -360,14 +388,13 @@ export function hoverText(payload: Payload, revealed: Set<Id>, target: Condensed
     return [counts.join(', '), ...capped([...entries])];
   }
 
-  const members = ix.members.get(target.node);
-  if (members === undefined) {
+  if (!isGroup(ix, target.node)) {
     const leaf = ix.byId.get(target.node);
     if (leaf === undefined) throw new Error(`no node ${target.node} in the payload`);
     return capped(stackOf(payload, ix, leaf));
   }
 
-  const inside = members.filter((m) => !revealed.has(m));
+  const inside = [...groupOf(payload, revealed)].filter(([, g]) => g === target.node).map(([m]) => m);
   // Per method and file, in the order first met: the lowest and highest line its members name.
   const ranges = new Map<string, { head: string; name: string; low: number; high: number }>();
   for (const id of inside) {
@@ -387,6 +414,6 @@ export function hoverText(payload: Payload, revealed: Set<Id>, target: Condensed
     if (Number.isNaN(low)) return head;
     return `${head}  ${name}:${low === high ? low : `${low}-${high}`}`;
   });
-  const at = where(ix.byId.get(target.node)!.called);
+  const at = where(ix.byId.get(target.node)?.called);
   return [`${ix.label.get(target.node)}: ${inside.length} nodes`, ...(at ? [`called at ${at.name}:${at.line}`] : []), ...capped(entries)];
 }

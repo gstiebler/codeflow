@@ -13,17 +13,14 @@ const corpus = loadCorpus();
  */
 function faults(payload: Payload, revealed: Set<Id>, view: CondensedView): string[] {
   const found: string[] = [];
-  const groups = groupOf(payload);
+  const groups = groupOf(payload, revealed);
   const ids = view.nodes.map((n) => n.id);
   if (new Set(ids).size !== ids.length) found.push('a display node is drawn twice');
 
   const shouldCount = new Map<Id, number>();
-  for (const [leaf, group] of groups) {
-    if (revealed.has(leaf)) {
-      if (!ids.includes(leaf)) found.push(`revealed ${leaf} is not drawn`);
-    } else {
-      shouldCount.set(group, (shouldCount.get(group) ?? 0) + 1);
-    }
+  for (const group of groups.values()) shouldCount.set(group, (shouldCount.get(group) ?? 0) + 1);
+  for (const leaf of revealed) {
+    if (!ids.includes(leaf)) found.push(`revealed ${leaf} is not drawn`);
   }
   for (const node of view.nodes) {
     if (node.type === 'GROUP') {

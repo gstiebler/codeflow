@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { SURFACE, open, reset, tapLeaf } from './page.ts';
+import { SURFACE, open, reset, tapLeafAll } from './page.ts';
 
 const NODE = '.react-flow__node';
 
@@ -19,7 +19,7 @@ test.describe('funcCall', () => {
   test('R returns to the opening set', async ({ page }) => {
     await expect(page.locator(NODE)).toHaveCount(10);
     await expect(page.locator('.react-flow__node .cf-group').filter({ hasText: /^program \(18\)/ })).toHaveCount(1);
-    await tapLeaf(page, 'event main');
+    await tapLeafAll(page, 'event main');
     // Without this, the reset below would pass on a page where clicking never revealed anything.
     await expect(page.locator(NODE)).toHaveCount(18);
 

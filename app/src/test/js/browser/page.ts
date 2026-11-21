@@ -74,6 +74,18 @@ export const tapLeaf = (page: Page, label: string) => drewAgain(page, async () =
     .filter({ hasText: new RegExp(`^${label}$`) }).first().click();
 });
 
+/** The popup a click with more than three choices opens. */
+export const PICKER = '.cf-picker';
+
+/**
+ * Click a leaf whose click has more than three choices and answer the popup with `Show all`: what
+ * the click did before the popup. Counts as one drawing, like `tapLeaf`.
+ */
+export const tapLeafAll = (page: Page, label: string) => drewAgain(page, async () => {
+  await page.locator('.react-flow__node .cf-node').filter({ hasText: new RegExp(`^${label}$`) }).first().click();
+  await page.locator(PICKER).getByRole('button', { name: 'Show all', exact: true }).click();
+});
+
 /** Click a group by its label - a method's name; the first, when a method is called from several places. Its caption is `label (count)`. */
 export const tapGroup = (page: Page, label: string) => drewAgain(page, async () => {
   await page.locator('.react-flow__node .cf-group').filter({ hasText: new RegExp(`^${label} \\(`) }).first().click();
@@ -81,3 +93,12 @@ export const tapGroup = (page: Page, label: string) => drewAgain(page, async () 
 
 /** Press R and let the page catch up. The one gesture that is not a click. */
 export const reset = (page: Page) => drewAgain(page, () => page.keyboard.press('r'));
+
+/**
+ * Click a group whose click has more than three choices and answer the popup with `Show all`: what
+ * the click did before the popup. Counts as one drawing, like `tapGroup`.
+ */
+export const tapGroupAll = (page: Page, label: string) => drewAgain(page, async () => {
+  await page.locator('.react-flow__node .cf-group').filter({ hasText: new RegExp(`^${label} \\(`) }).first().click();
+  await page.locator(PICKER).getByRole('button', { name: 'Show all', exact: true }).click();
+});

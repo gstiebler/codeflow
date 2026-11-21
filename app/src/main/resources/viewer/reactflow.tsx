@@ -16,7 +16,8 @@ import {
 import css from '@xyflow/react/dist/style.css';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import {
-  captionParts, condensed, condensedCaption, condensedOpening, focusOf, focusPath, hoverText, tapCondensed, type Focus, type FocusPath,
+  captionParts, choiceText, condensed, condensedCaption, condensedOpening, focusOf, focusPath, hoverText, PICK_AT, tapChoices,
+  type Choice, type Focus, type FocusPath,
 } from './condensed.ts';
 import { condensedMermaid } from './mermaid.ts';
 import {
@@ -33,6 +34,10 @@ import {
 import type {
   CondensedNode, CondensedTarget, CondensedView, Id, NodeType, Payload,
 } from './types.ts';
+
+/** The popup's width and tallest height, in pixels; where it opens is kept inside the window by these. */
+const PICKER_WIDTH = 340;
+const PICKER_HEIGHT = 400;
 
 /** The stylesheet arrives as text so the page stays one file. */
 function installStyles() {
@@ -58,6 +63,22 @@ function installStyles() {
     .cf-tooltip { position: fixed; z-index: 20; pointer-events: none; background: #fff;
                   border: 1px solid #999; border-radius: 4px; padding: 4px 8px;
                   font: 11px ui-monospace, monospace; white-space: pre; box-shadow: 0 1px 4px #0003; }
+    .cf-picker { position: fixed; z-index: 25; width: ${PICKER_WIDTH}px; box-sizing: border-box; display: flex;
+                 flex-direction: column; background: #fff; border: 1px solid #999; border-radius: 4px;
+                 font: 12px system-ui, sans-serif; box-shadow: 0 2px 8px #0004; }
+    .cf-picker-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid #ddd; }
+    .cf-picker-head b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cf-picker-head button { border: 0; background: none; font-size: 16px; line-height: 1; cursor: pointer; }
+    .cf-picker input[type="search"] { margin: 6px 8px 0; padding: 3px 6px; font: inherit; }
+    .cf-picker-list { flex: 1; overflow-y: auto; padding: 0 8px 4px; }
+    .cf-picker-list h4 { margin: 8px 0 2px; font-size: 11px; text-transform: uppercase; color: #666; }
+    .cf-picker-row { display: flex; align-items: baseline; gap: 6px; padding: 1px 0; cursor: pointer; }
+    .cf-picker-row input { flex: none; }
+    .cf-picker-src { color: #888; font: 10px ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .cf-picker-foot { display: flex; gap: 6px; justify-content: flex-end; padding: 6px 8px; border-top: 1px solid #ddd; }
+    .cf-picker-foot button { font: 12px system-ui, sans-serif; padding: 3px 10px; border: 1px solid #999; border-radius: 4px;
+                             background: #fff; cursor: pointer; }
+    .cf-picker-foot button:disabled { opacity: 0.5; cursor: default; }
     .react-flow__handle { opacity: 0; }
     .react-flow__node.cf-new > * { animation: cf-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
     .react-flow__edge.cf-new .react-flow__edge-path { animation: cf-edge-ring ${HIGHLIGHT_MS}ms ease-out forwards; }
@@ -381,6 +402,68 @@ function condensedEdgesOf(view: CondensedView, routed: Map<string, Point[]>, pat
 
 type Hover = { target: CondensedTarget; x: number; y: number };
 
+/** A click that could show more than PICK_AT things, waiting on the reader. `n` tells one popup from the next. */
+type Pick = { n: number; target: CondensedTarget; title: string; choices: Choice[]; x: number; y: number };
+
+/**
+ * The popup a long click opens: what the click could show, by section, to tick. Rows are filtered by
+ * label (search box past 10 rows); `Show selected` and `Show all` both close it, as do `x` and the
+ * page's Escape and pane click.
+ */
+function Picker({ payload, pick, onShow, onClose }: {
+  payload: Payload; pick: Pick; onShow: (ids: Id[]) => void; onClose: () => void;
+}) {
+  const [ticked, setTicked] = useState<Set<Id>>(new Set());
+  const [query, setQuery] = useState('');
+  const { choices } = pick;
+  const wanted = query.trim().toLowerCase();
+  const rows = choices.filter((c) => c.label.toLowerCase().includes(wanted));
+  const sections = [...new Set(rows.map((c) => c.section))];
+  const tick = (id: Id) => setTicked((was) => {
+    const next = new Set(was);
+    if (!next.delete(id)) next.add(id);
+    return next;
+  });
+  const height = Math.min(PICKER_HEIGHT, window.innerHeight - 16);
+  const left = Math.max(8, Math.min(pick.x, window.innerWidth - PICKER_WIDTH - 8));
+  const top = Math.max(8, Math.min(pick.y, window.innerHeight - height - 8));
+  return (
+    <div className="cf-picker" role="dialog" aria-label="Choose what to show" style={{ left, top, maxHeight: height }}>
+      <div className="cf-picker-head">
+        <b>{pick.title}</b>
+        <button type="button" aria-label="Close" onClick={onClose}>×</button>
+      </div>
+      {choices.length > 10 && (
+        <input type="search" placeholder="Filter" aria-label="Filter" value={query} onChange={(e) => setQuery(e.target.value)} />
+      )}
+      <div className="cf-picker-list">
+        {sections.map((section) => (
+          <div key={section}>
+            <h4>{section}</h4>
+            {rows.filter((c) => c.section === section).map((c) => {
+              const text = choiceText(payload, c);
+              return (
+                <label key={c.id} className="cf-picker-row">
+                  <input type="checkbox" aria-label={c.label} checked={ticked.has(c.id)} onChange={() => tick(c.id)} />
+                  <span>{c.label}</span>
+                  {text !== null && <span className="cf-picker-src" title={text}>{text}</span>}
+                </label>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="cf-picker-foot">
+        <button type="button" disabled={ticked.size === 0}
+                onClick={() => onShow(choices.filter((c) => ticked.has(c.id)).flatMap((c) => c.reveal))}>
+          Show selected ({ticked.size})
+        </button>
+        <button type="button" onClick={() => onShow(choices.flatMap((c) => c.reveal))}>Show all</button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The view: flat, laid out by ELK, with a tooltip saying where a node lives. Every decision is
  * condensed.ts's; this writes it out.
@@ -393,6 +476,8 @@ function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus,
   const [target, setTarget] = useState<Target | null>(null);
   const [flow, setFlow] = useState<ReactFlowInstance | null>(null);
   const [hover, setHover] = useState<Hover | null>(null);
+  const [pick, setPick] = useState<Pick | null>(null);
+  const picks = useRef(0);
   const previous = useRef<Map<Id, Point>>(undefined);
   const click = useRef<Click | undefined>(undefined);
   const path = useMemo(() => (focus === null ? null : focusPath(payload, revealed, focus)), [payload, revealed, focus]);
@@ -421,15 +506,33 @@ function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus,
 
   // A click changes what is under the pointer, so the tooltip it was showing may describe something
   // gone; it comes back on the next hover.
-  const tapOn = useCallback((on: CondensedTarget) => {
+  const show = useCallback((on: CondensedTarget, ids: Id[]) => {
     setHover(null);
+    setPick(null);
     click.current = 'node' in on ? { id: on.node } : {};
     setFocus(focusOf(payload, revealed, on));
-    setRevealed((was) => tapCondensed(payload, was, on));
+    setRevealed((was) => new Set([...was, ...ids]));
   }, [payload, revealed, setRevealed, setFocus]);
+
+  // A click that could show more than PICK_AT things asks which; otherwise it shows them all.
+  const tapOn = useCallback((on: CondensedTarget, at: { clientX: number; clientY: number }) => {
+    const choices = tapChoices(payload, revealed, on);
+    if (choices.length <= PICK_AT) return show(on, choices.flatMap((c) => c.reveal));
+    const caption = (id: Id) => {
+      const node = view.nodes.find((n) => n.id === id);
+      return node === undefined ? id : condensedCaption(node);
+    };
+    setHover(null);
+    picks.current += 1;
+    setPick({
+      n: picks.current, target: on, choices, x: at.clientX, y: at.clientY,
+      title: 'node' in on ? caption(on.node) : `${caption(on.edge[0])} → ${caption(on.edge[1])}`,
+    });
+  }, [payload, revealed, view, show]);
 
   // Back to the whole graph, where it is: no click to anchor on, and nothing new to refit for.
   const unfocus = useCallback(() => {
+    setPick(null);
     if (focus === null) return;
     click.current = {};
     setFocus(null);
@@ -446,8 +549,8 @@ function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus,
     <>
       <ReactFlow nodes={drawing.nodes} edges={edges} nodeTypes={CONDENSED_TYPES} edgeTypes={CONDENSED_EDGE_TYPES}
                  className={moving ? 'cf-moving' : undefined}
-                 onNodeClick={(_, node) => (node.id === FOCUS_LANE ? unfocus() : tapOn({ node: node.id }))}
-                 onEdgeClick={(_, edge) => tapOn(edgeTarget(edge))}
+                 onNodeClick={(event, node) => (node.id === FOCUS_LANE ? unfocus() : tapOn({ node: node.id }, event))}
+                 onEdgeClick={(event, edge) => tapOn(edgeTarget(edge), event)}
                  onPaneClick={unfocus}
                  onNodeMouseEnter={(event, node) => {
                    if (node.id !== FOCUS_LANE) setHover({ target: { node: node.id }, x: event.clientX, y: event.clientY });
@@ -458,6 +561,7 @@ function CondensedGraph({ payload, revealed, setRevealed, view, focus, setFocus,
                  onInit={setFlow} minZoom={0.05} proOptions={{ hideAttribution: true }}>
         <Background />
       </ReactFlow>
+      {pick && <Picker key={pick.n} payload={payload} pick={pick} onShow={(ids) => show(pick.target, ids)} onClose={() => setPick(null)} />}
       {hover && (
         <div className="cf-tooltip" style={{ left: hover.x + 12, top: hover.y + 12 }}>
           {hoverText(payload, revealed, hover.target).map((line, i) => <div key={i}>{line}</div>)}
@@ -527,7 +631,8 @@ function Page({ payload }: { payload: Payload }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'r' || event.key === 'R') reset();
+      // Not while typing in the popup's filter.
+      if ((event.key === 'r' || event.key === 'R') && !(event.target instanceof HTMLInputElement)) reset();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);

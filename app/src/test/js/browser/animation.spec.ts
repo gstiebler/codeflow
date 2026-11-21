@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { drewAgain, open, tapLeaf } from './page.ts';
+import { drewAgain, open, tapGroupAll, tapLeaf, tapLeafAll } from './page.ts';
 
 const leaf = (page: Page, label: string) =>
   page.locator('.react-flow__node').filter({ has: page.locator('.cf-node', { hasText: new RegExp(`^${label}( [↑↓].*)*$`) }) }).first();
@@ -54,7 +54,7 @@ test.describe('funcCall, a click animated', () => {
   test('the clicked node stays within 40 px of where it was on screen while the drawing moves', async ({ page }) => {
     const x = (await idOf(page, 'event main'))!;
     await watch(page, x);
-    await tapLeaf(page, 'event main');
+    await tapLeafAll(page, 'event main');
     const frames = await seen(page);
     const moving = frames.filter((f) => f.moving);
     expect(moving.length, 'the page never said it was moving').toBeGreaterThan(2);
@@ -68,7 +68,7 @@ test.describe('funcCall, a click animated', () => {
 
   test('the layout is counted once the move has ended, not while it runs', async ({ page }) => {
     await watch(page, (await idOf(page, 'event main'))!);
-    await tapLeaf(page, 'event main');
+    await tapLeafAll(page, 'event main');
     const frames = await seen(page);
     expect(frames.some((f) => f.moving)).toBe(true);
     const counted = frames.find((f) => f.drawn > frames[0].drawn)!;
@@ -76,7 +76,7 @@ test.describe('funcCall, a click animated', () => {
   });
 
   test('what a click brought in is ringed, then the ring comes off; what was there is not ringed', async ({ page }) => {
-    await tapLeaf(page, 'event main');
+    await tapLeafAll(page, 'event main');
     const fresh = await ringed(page, '.react-flow__node');
     expect(fresh).toContain('11');
     expect(fresh).not.toContain('args');
@@ -89,7 +89,7 @@ test.describe('funcCall, a click animated', () => {
   });
 
   test('the last node clicked is outlined until the next click', async ({ page }) => {
-    await tapLeaf(page, 'event main');
+    await tapLeafAll(page, 'event main');
     await expect(page.locator('.react-flow__node.cf-clicked')).toHaveCount(1);
     await expect(leaf(page, 'event main')).toHaveClass(/cf-clicked/);
     await tapLeaf(page, 'main');
@@ -109,7 +109,7 @@ test.describe('funcCall, a click not animated', () => {
       await setUp(page);
       const x = (await idOf(page, 'event main'))!;
       await watch(page, x);
-      await tapLeaf(page, 'event main');
+      await tapLeafAll(page, 'event main');
       const frames = await seen(page);
       expect(frames.filter((f) => f.moving)).toEqual([]);
       // Two places at most - before and after - for the node in the drawing: no frame in between.
@@ -121,7 +121,7 @@ test.describe('funcCall, a click not animated', () => {
   test('with reduced motion the ring holds still rather than fading', async ({ page }) => {
     await open('funcCall')({ page });
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await drewAgain(page, () => leaf(page, 'event main').click());
+    await tapLeafAll(page, 'event main');
     const ring = page.locator('.react-flow__node.cf-new > *').first();
     await expect(ring).toHaveCSS('animation-name', 'none');
     await expect(ring).not.toHaveCSS('box-shadow', 'none');
@@ -143,7 +143,7 @@ test.describe('boundary, reset', () => {
   test.beforeEach(open('boundary'));
 
   test('Reset fits what is left on screen, wherever the reader had panned to', async ({ page }) => {
-    await drewAgain(page, () => page.locator('.react-flow__node .cf-group').filter({ hasText: /^entrypoint \(/ }).click());
+    await tapGroupAll(page, 'entrypoint');
     const grown = await page.locator('.react-flow__node').count();
     expect(grown).toBeGreaterThan(12);
 

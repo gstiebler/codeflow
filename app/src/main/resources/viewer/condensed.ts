@@ -4,7 +4,12 @@
  *
  * No imports beyond types, no DOM: `node --test` reads this file directly, and the renderer's bundle
  * imports it. Every function is a pure function of (payload, revealed). `revealed` is the set of leaves taken out of their groups and is the only
- * state; `condensed` derives everything drawn from it, so nothing can go stale between clicks.
+ * state; `condensed` derives everything drawn from it, so nothing can go stale between clicks. It holds leaves and,
+ * as the one exception, the ids of method boxes: a METHOD id in it means "this box is open" (`groupOf`) and is
+ * never drawn or counted as a leaf.
+ *
+ * A click is first a list - `tapChoices`, what it could show, by section - and the page lets the reader pick from
+ * it when it is longer than `PICK_AT`; `tapCondensed` is the whole list at once.
  *
  * A hidden leaf is drawn in its call-site box (the METHOD box it sits directly in, `parent`) when the
  * box is an entry point's (no parent), is called directly by one, or is open - a member is revealed,
@@ -104,7 +109,8 @@ export function groupOf(payload: Payload, revealed: Set<Id>): Map<Id, Id> {
   const ix = index(payload);
   const open = new Set<Id>();
   for (const id of revealed) {
-    const box = ix.box.get(id);
+    // A leaf opens its box; a method id is a box opened on its own.
+    const box = ix.box.get(id) ?? (ix.byId.get(id)?.type === 'METHOD' ? id : undefined);
     if (box !== undefined) open.add(box);
   }
   for (const e of payload.edges) {
@@ -215,41 +221,77 @@ function underlying(payload: Payload, revealed: Set<Id>, [source, target]: [Id, 
   return payload.edges.filter((e) => shown(e.source) === source && shown(e.target) === target);
 }
 
+/** More than this many choices and a click asks which to show. */
+export const PICK_AT = 3;
+
+/** One thing a click could show: a leaf, or a method box to open (then `reveal` is the box's id). */
+export type Choice = { id: Id; label: string; section: string; source?: string; reveal: Id[] };
+
 /**
- * What a click takes out of the groups. Only ever adds: nothing already shown changes.
+ * What a click could show, by section, only what is not on screen, each id once (the first section
+ * to name it wins), in payload order within a section.
  *
- * - a leaf: its direct neighbours, in and out;
- * - a group: its frontier - members with an edge to something drawn outside the group - or, when it
- *   has none, every member, so that a click on a group always does something;
- * - a drawn edge: the endpoints of every payload edge it stands for, of every kind.
+ * - a leaf: `comes from` - the hidden sources of the edges into it - and `goes to` - the hidden targets
+ *   of the edges out of it;
+ * - a method box: `calls` - the boxes it called that are not drawn - then `values` - its frontier (the
+ *   hidden members with an edge to something drawn outside the box) or, with none, every hidden member,
+ *   so that a click on a group always has something to show;
+ * - `program`: `methods` - every box whose hidden members it holds - then `values`, the same;
+ * - a drawn edge: `values` - the hidden endpoints of every payload edge it stands for.
  */
-export function tapCondensed(payload: Payload, revealed: Set<Id>, target: CondensedTarget): Set<Id> {
+export function tapChoices(payload: Payload, revealed: Set<Id>, target: CondensedTarget): Choice[] {
   const ix = index(payload);
-  const next = new Set(revealed);
+  const choices: Choice[] = [];
+  const listed = new Set<Id>();
+  const add = (id: Id, section: string) => {
+    if (listed.has(id) || revealed.has(id)) return;
+    listed.add(id);
+    const { label, source } = ix.byId.get(id)!;
+    choices.push({ id, label, section, ...(source === undefined ? {} : { source }), reveal: [id] });
+  };
 
   if ('edge' in target) {
     for (const edge of underlying(payload, revealed, target.edge)) {
-      next.add(edge.source);
-      next.add(edge.target);
+      add(edge.source, 'values');
+      add(edge.target, 'values');
     }
-    return next;
+    return choices;
   }
 
   const id = target.node;
   if (!isGroup(ix, id)) {
-    for (const edge of ix.touching.get(id) ?? []) {
-      next.add(edge.source);
-      next.add(edge.target);
-    }
-    return next;
+    const edges = ix.touching.get(id) ?? [];
+    for (const edge of edges) if (edge.target === id) add(edge.source, 'comes from');
+    for (const edge of edges) if (edge.source === id) add(edge.target, 'goes to');
+    return choices;
   }
 
   const groups = groupOf(payload, revealed);
   const shown = shownAs(groups, revealed);
+  const inProgram = (box: PayloadNode) => (ix.members.get(box.id) ?? []).some((m) => groups.get(m) === PROGRAM);
+  const boxes = payload.nodes.filter((n) => n.type === 'METHOD' && inProgram(n) && (id === PROGRAM || n.parent === id));
+  for (const box of boxes) add(box.id, id === PROGRAM ? 'methods' : 'calls');
+
   const inside = [...groups].filter(([, g]) => g === id).map(([m]) => m);
   const frontier = inside.filter((m) =>
     (ix.touching.get(m) ?? []).some((e) => shown(e.source === m ? e.target : e.source) !== id));
-  for (const m of frontier.length > 0 ? frontier : inside) next.add(m);
+  for (const m of frontier.length > 0 ? frontier : inside) add(m, 'values');
+  return choices;
+}
+
+/** The source line a choice names, as the payload has its text; null when it has none. */
+export function choiceText(payload: Payload, choice: Choice): string | null {
+  const at = where(choice.source);
+  return at === null ? null : (payload.lines?.[at.file]?.[at.line] ?? null);
+}
+
+/**
+ * What a click takes out of the groups, when it takes everything it could (the popup's `Show all`):
+ * `revealed` plus every choice's `reveal`. Only ever adds: nothing already shown changes.
+ */
+export function tapCondensed(payload: Payload, revealed: Set<Id>, target: CondensedTarget): Set<Id> {
+  const next = new Set(revealed);
+  for (const choice of tapChoices(payload, revealed, target)) for (const id of choice.reveal) next.add(id);
   return next;
 }
 

@@ -108,12 +108,31 @@ error, thrown. No leaf is ever dropped; the corpus sweep holds that at every ste
 walk, and a `program` click with no frontier reveals all its members so the walk ends. Hover names the
 method and `called at File.java:N`.
 
-**Click rules** (`tapCondensed`; each only adds to `revealed`):
-- a leaf → its neighbours in both directions;
-- a group → its *frontier*, the members with an edge to something drawn outside the group; with no
-  frontier, every member, so a group click always does something — without that fallback the walk
-  stalls on a group with no outside edge;
-- a drawn edge → the endpoints of every payload edge it stands for, of every kind.
+**Click rules.** A click is first a list: `tapChoices(payload, revealed, target)` returns what it could
+show, as `Choice`s (`id`, `label`, `section`, `source`, `reveal`), only what is not on screen, each id once
+(the first section to name it wins), payload order inside a section:
+- a leaf: `comes from` (hidden sources of the edges into it), then `goes to` (hidden targets of the edges out);
+- a method box: `calls` (boxes it called that are not drawn, with hidden members in `program`), then
+  `values` - its *frontier*, the members with an edge to something drawn outside the box; with no frontier,
+  every member, so a group click always has something to show - without that the walk stalls on a group
+  with no outside edge;
+- `program`: `methods` (every box whose hidden members it holds), then `values` as for a box;
+- a drawn edge: `values`, the hidden endpoints of every payload edge it stands for, of every kind.
+
+`tapCondensed` is `revealed` plus every choice's `reveal` ("Show all"); it only adds. **A METHOD id in
+`revealed` means "this box is open"** (`groupOf`): a `calls`/`methods` choice reveals the box id, which
+draws the box as a group without revealing any leaf. A method id is never drawn or counted as a leaf;
+everything that reads `revealed` as leaves (`condensed`, `shownAs`, the sweep's checks) goes through
+leaves, so it cannot be.
+
+**The picker.** When a click has more than `PICK_AT` (3) choices the page opens a popup at the click
+point (kept inside the window) instead of revealing: a title (the clicked caption), one heading per
+section, a checkbox per choice with its source line's text (`choiceText`, from the payload's `lines`), a
+filter box past 10 rows, and `Show selected (n)` (disabled at 0) and `Show all`. Nothing is ticked by
+default. Escape, `x`, a pane click and either button close it. Applying a pick sets the focus (`focusOf`)
+and the click anchor exactly as a plain click does; 3 or fewer choices skip the popup and show them all.
+The `R` key is ignored while typing in the filter. `condensed-sweep.test.ts` walks the corpus twice, once
+taking everything a click offers and once only its first choice, and both must end with every leaf drawn.
 
 **Edges: one per ordered pair.** Each payload edge is drawn between `shown(u)` and `shown(v)` (the
 leaf if revealed, else its group) and dropped when both land on one display node. Every edge onto

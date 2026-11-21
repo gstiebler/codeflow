@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { drewAgain, open, tapGroup } from './page.ts';
+import { drewAgain, open, tapGroupAll } from './page.ts';
 
 const NODE = '.react-flow__node';
 const GROUP = '.react-flow__node .cf-group';
@@ -49,14 +49,14 @@ test.describe('boundary', () => {
 
   test('clicking the entry method box takes nodes out of it, and the boundary boxes stay', async ({ page }) => {
     await expect(page.locator(LEAF)).toHaveCount(6);
-    await tapGroup(page, 'entrypoint');
+    await tapGroupAll(page, 'entrypoint');
     expect(await page.locator(NODE).count()).toBeGreaterThan(12);
     expect(await page.locator(LEAF).count()).toBeGreaterThan(6);
     expect(await groupLabels(page)).toEqual(expect.arrayContaining(BOUNDARY_GROUPS));
   });
 
   test('hovering a leaf shows the method it was created in and its line', async ({ page }) => {
-    await tapGroup(page, 'entrypoint');
+    await tapGroupAll(page, 'entrypoint');
     // Off the drawing first: the pointer is still where `entrypoint` was clicked, and a line routed
     // through that spot after the move is hovered there, as it should be.
     await page.mouse.move(1, 1);
@@ -113,7 +113,7 @@ test.describe('boundary', () => {
   });
 
   test('Reset returns the condensed view to its opening', async ({ page }) => {
-    await tapGroup(page, 'entrypoint');
+    await tapGroupAll(page, 'entrypoint');
     expect(await page.locator(NODE).count()).toBeGreaterThan(12);
     await drewAgain(page, () => button(page, 'Reset').click());
     await expect(page.locator(NODE)).toHaveCount(12);

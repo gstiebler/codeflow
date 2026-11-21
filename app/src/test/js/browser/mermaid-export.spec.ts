@@ -1,9 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { test, expect, type Page } from '@playwright/test';
-import { drewAgain, open } from './page.ts';
+import { open, tapGroupAll } from './page.ts';
 
 const NODE = '.react-flow__node';
-const GROUP = '.react-flow__node .cf-group';
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 
@@ -19,7 +18,7 @@ test.describe('boundary, Mermaid export', () => {
   test.beforeEach(open('boundary'));
 
   test('after a click, Mermaid downloads codeflow-condensed.md, fenced, with every node drawn', async ({ page }) => {
-    await drewAgain(page, () => page.locator(GROUP).filter({ hasText: /^entrypoint \(/ }).click());
+    await tapGroupAll(page, 'entrypoint');
     const drawn = await page.evaluate((selector) =>
       [...document.querySelectorAll(selector)].map((n) => (n.textContent ?? '').trim()).sort(), NODE);
     // More than the opening's seven, or exporting the opening would pass.

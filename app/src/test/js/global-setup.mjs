@@ -24,6 +24,7 @@ const FIXTURES = {
   funcCall: '',
   boundaryRoots: '--from App#first --from App#second --boundary Store',
   boundary: '--from App#entrypoint --boundary Boundary',
+  boundaryBranch: '--from App#entrypoint --boundary Port',
 };
 
 export default function globalSetup() {

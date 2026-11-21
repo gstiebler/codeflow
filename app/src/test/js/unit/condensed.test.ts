@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  condensed, condensedCaption, condensedOpening, groupOf, hoverText, tapCondensed,
+  condensed, condensedCaption, condensedOpening, groupOf, hoverText, tapCondensed, tapChoices, choiceText, PICK_AT,
 } from '../../../main/resources/viewer/condensed.ts';
 import type { CondensedView, EdgeKind, Payload, PayloadNode } from '../../../main/resources/viewer/types.ts';
 import { loadCorpus } from './corpus.ts';
@@ -129,7 +129,8 @@ test('clicking program with no frontier reveals all its members', () => {
       leaf('x', 'x', 'b1', 'p/A.java:1:1'), leaf('y', 'y', 'b1', 'p/A.java:2:1')],
     edges: [],
   };
-  assert.deepEqual([...tapCondensed(p, new Set(), { node: 'program' })].sort(), ['x', 'y']);
+  // `f` is a box nothing draws, so the click opens it and takes every member out.
+  assert.deepEqual([...tapCondensed(p, new Set(), { node: 'program' })].sort(), ['b1', 'x', 'y']);
 });
 
 test('the program hover has no called line', () => {
@@ -477,4 +478,101 @@ test('two entry points each draw their direct callees', () => {
     edges: [],
   };
   assert.deepEqual(groupsOf(p, ['e1', 'e2']).map(([id]) => id), ['C1', 'C2']);
+});
+
+
+// ---- what a click could show ----
+
+/** `c` has `i1`, `i2` flowing in and `o1`, `o2` flowing out; all of them in the entry box. */
+const NEIGHBOURS: Payload = {
+  nodes: [
+    box('b0', 'main', 'p.A#main()'),
+    leaf('c', 'centre', 'b0', 'p/A.java:1:1'),
+    leaf('i1', 'in1', 'b0', 'p/A.java:2:1'), leaf('i2', 'in2', 'b0', 'p/A.java:3:1'),
+    leaf('o1', 'out1', 'b0', 'p/A.java:4:1'), leaf('o2', 'out2', 'b0', 'p/A.java:5:1'),
+  ],
+  edges: [edge('i1', 'c'), edge('i2', 'c'), edge('c', 'o1'), edge('c', 'o2')],
+  lines: { 'p/A.java': { 2: 'int in1 = 1;', 4: 'use(centre);' } },
+};
+
+/** The choices as `section:id:label`, in order. */
+const listed = (p: Payload, revealed: string[], target: Parameters<typeof tapChoices>[2]) =>
+  tapChoices(p, new Set(revealed), target).map((c) => `${c.section}:${c.id}:${c.label}`);
+
+test('PICK_AT is three', () => assert.equal(PICK_AT, 3));
+
+test('a leaf lists its hidden sources under comes from and its hidden targets under goes to', () => {
+  assert.deepEqual(listed(NEIGHBOURS, ['c'], { node: 'c' }),
+    ['comes from:i1:in1', 'comes from:i2:in2', 'goes to:o1:out1', 'goes to:o2:out2']);
+  const [first] = tapChoices(NEIGHBOURS, new Set(['c']), { node: 'c' });
+  assert.deepEqual(first, { id: 'i1', label: 'in1', section: 'comes from', source: 'p/A.java:2:1', reveal: ['i1'] });
+  assert.equal(choiceText(NEIGHBOURS, first), 'int in1 = 1;');
+  assert.equal(choiceText(NEIGHBOURS, tapChoices(NEIGHBOURS, new Set(['c']), { node: 'c' })[1]), null);
+});
+
+test('a leaf leaves out the neighbours already on screen', () => {
+  assert.deepEqual(listed(NEIGHBOURS, ['c', 'i2', 'o1'], { node: 'c' }), ['comes from:i1:in1', 'goes to:o2:out2']);
+  assert.deepEqual(listed(NEIGHBOURS, ['c', 'i1', 'i2', 'o1', 'o2'], { node: 'c' }), []);
+});
+
+test('a neighbour that is both a source and a target is listed once, under comes from', () => {
+  const both: Payload = { ...NEIGHBOURS, edges: [edge('i1', 'c'), edge('c', 'i1'), edge('c', 'o1')] };
+  assert.deepEqual(listed(both, ['c'], { node: 'c' }), ['comes from:i1:in1', 'goes to:o1:out1']);
+});
+
+/**
+ * `main` (b0) calls `m` (bm, drawn from the start), which calls `f` (b1, two leaves, in program),
+ * `g` (b2, whose `z` is on screen, so the box is drawn) and `leaf` (b3, no leaves).
+ */
+const NESTED: Payload = {
+  nodes: [
+    box('b0', 'main', 'p.A#main()'), leaf('e', 'event', 'b0', 'p/A.java:1:1', 'EVENT'),
+    box('bm', 'm', 'p.A#m()', 'b0'), leaf('m1', 'm1', 'bm', 'p/A.java:2:1'),
+    box('b1', 'f', 'p.A#f()', 'bm'), leaf('x', 'x', 'b1', 'p/A.java:3:1'), leaf('y', 'y', 'b1', 'p/A.java:4:1'),
+    box('b2', 'g', 'p.A#g()', 'bm'), leaf('z', 'z', 'b2', 'p/A.java:5:1'), leaf('w', 'w', 'b2', 'p/A.java:6:1'),
+    box('b3', 'empty', 'p.A#empty()', 'bm'),
+  ],
+  edges: [],
+};
+
+test('a box lists the callee boxes not drawn under calls, then its own hidden values', () => {
+  assert.deepEqual(listed(NESTED, ['e', 'z'], { node: 'bm' }), ['calls:b1:f', 'values:m1:m1']);
+});
+
+test('picking a callee box draws it as a group and draws no leaf for the method id', () => {
+  assert.deepEqual(groupsOf(NESTED, ['e', 'z']), [['program', 2], ['bm', 1], ['b2', 1]]);
+  const after = condensed(NESTED, new Set(['e', 'z', 'b1']));
+  assert.deepEqual(after.nodes.filter((n) => n.type === 'GROUP').map((n) => [n.id, n.members]), [['bm', 1], ['b1', 2], ['b2', 1]]);
+  assert.deepEqual(after.nodes.filter((n) => n.type !== 'GROUP').map((n) => n.id), ['e', 'z']);
+});
+
+test('a method id in revealed is not a leaf anywhere', () => {
+  const revealed = new Set(['e', 'b1']);
+  assert.deepEqual(condensed(NESTED, revealed).nodes.filter((n) => n.type !== 'GROUP').map((n) => n.id), ['e']);
+  assert.deepEqual(hoverText(NESTED, revealed, { node: 'b1' }), ['f: 2 nodes', 'A#f  A.java:3-4']);
+});
+
+test('program lists the boxes whose members it holds under methods, then its values', () => {
+  assert.deepEqual(listed(NESTED, ['e'], { node: 'program' }),
+    ['methods:b1:f', 'methods:b2:g', 'values:x:x', 'values:y:y', 'values:z:z', 'values:w:w']);
+});
+
+test('a drawn edge lists the hidden endpoints of the edges it stands for', () => {
+  assert.deepEqual(listed(PAYLOAD, [], { edge: ['b0', 'b1'] }), ['values:n1:a', 'values:n4:x']);
+  assert.deepEqual(listed(PAYLOAD, ['n1'], { edge: ['n1', 'b1'] }), ['values:n4:x']);
+});
+
+test('a click that stands for nothing lists nothing', () => {
+  assert.deepEqual(listed(PAYLOAD, [], { edge: ['b0', 'nowhere'] }), []);
+});
+
+test('tapCondensed is the revealed set plus every choice', () => {
+  const opening = condensedOpening(PAYLOAD);
+  for (const revealed of [new Set<string>(), opening, new Set(['n2', 'b5'])]) {
+    for (const target of [{ node: 'b0' }, { node: 'b1' }, { node: 'program' }, { node: 'n2' }, { node: 'n1' }, { edge: ['b0', 'b1'] as [string, string] }]) {
+      const all = new Set(revealed);
+      for (const c of tapChoices(PAYLOAD, revealed, target)) for (const id of c.reveal) all.add(id);
+      assert.deepEqual([...tapCondensed(PAYLOAD, revealed, target)].sort(), [...all].sort());
+    }
+  }
 });

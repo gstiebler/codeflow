@@ -38,3 +38,8 @@ test('the legend lists the boundary group outline and the path lane', () => {
   assert.ok(rows.some((r) => r.outline === BOUNDARY_OUTLINE), 'no boundary outline');
   assert.ok(rows.some((r) => r.name === 'path'), 'no path lane');
 });
+
+test('the legend names the plain method box next to the boundary one', () => {
+  const rows = legend(payload(['LITERAL', 'RETURN'], ['FLOW'])).boxes;
+  assert.equal(rows.find((r) => r.name === 'method')?.meaning, "a method call's body, folded; click to open");
+});

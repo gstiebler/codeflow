@@ -3,8 +3,8 @@
  * where each starts, and where it is at any moment of the move.
  *
  * Renderer state, not model state. condensed.ts decides what is on screen and know
- * nothing of motion; this compares two drawings by node id - payload ids, and `program` /
- * `boundary:<method>` for a condensed group, all stable across clicks - and the renderer tweens.
+ * nothing of motion; this compares two drawings by node id - payload ids, a condensed
+ * group's being its box's - all stable across clicks - and the renderer tweens.
  *
  * No imports beyond types, no DOM, no library: `node --test` reads this file directly.
  */

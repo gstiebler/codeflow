@@ -493,7 +493,7 @@ function Legend({ payload }: { payload: Payload }) {
     <div className="cf-legend" role="dialog" aria-label="Legend">
       <h4>Values</h4>
       {leaves.map((r) => swatch(r, 1))}
-      <h4>Boxes</h4>
+      <h4>Method boxes</h4>
       {boxes.map((r) => swatch(r, 2))}
       <h4>Lines</h4>
       {lines.map((r) => (

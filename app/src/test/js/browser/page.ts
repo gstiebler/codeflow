@@ -81,9 +81,9 @@ export const tapLeaf = (page: Page, label: string) => drewAgain(page, async () =
     .filter({ hasText: new RegExp(`^${label}( [↑↓].*)*$`) }).first().click();
 });
 
-/** Click a group by its label: `program`, or a boundary method. Its caption is `label (count)`. */
+/** Click a group by its label - a method's name; the first, when a method is called from several places. Its caption is `label (count)`. */
 export const tapGroup = (page: Page, label: string) => drewAgain(page, async () => {
-  await page.locator('.react-flow__node .cf-group').filter({ hasText: new RegExp(`^${label} \\(`) }).click();
+  await page.locator('.react-flow__node .cf-group').filter({ hasText: new RegExp(`^${label} \\(`) }).first().click();
 });
 
 /** Press R and let the page catch up. The one gesture that is not a click. */

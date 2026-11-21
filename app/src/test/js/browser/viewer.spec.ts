@@ -5,7 +5,7 @@ const NODE = '.react-flow__node';
 
 /**
  * The page on `funcCall`, asked of the DOM rather than of the view: it draws, and R brings back the
- * opening - `program` and the entry point's event.
+ * opening - the call-site boxes and the entry point's event.
  */
 test.describe('funcCall', () => {
   test.beforeEach(open('funcCall'));
@@ -17,12 +17,12 @@ test.describe('funcCall', () => {
   });
 
   test('R returns to the opening set', async ({ page }) => {
-    await expect(page.locator(NODE)).toHaveCount(2);
+    await expect(page.locator(NODE)).toHaveCount(6);
     await tapLeaf(page, 'event main');
     // Without this, the reset below would pass on a page where clicking never revealed anything.
-    expect(await page.locator(NODE).count()).toBeGreaterThan(2);
+    expect(await page.locator(NODE).count()).toBeGreaterThan(6);
 
     await reset(page);
-    await expect(page.locator(NODE)).toHaveCount(2);
+    await expect(page.locator(NODE)).toHaveCount(6);
   });
 });

@@ -46,7 +46,7 @@ const ringed = (page: Page, selector: string) => page.evaluate((selector) =>
  * A click moves the drawing rather than replacing it: what the reader was looking at stays put on
  * screen, what is new is marked, and the tests' layout counter waits for all of it. Asked of the DOM,
  * frame by frame, from funcCall's `event main`, whose click takes the entry method's nodes out of
- * `program`.
+ * its box.
  */
 test.describe('funcCall, a click animated', () => {
   test.beforeEach(open('funcCall'));
@@ -142,9 +142,9 @@ test.describe('boundary, reset', () => {
   test.beforeEach(open('boundary'));
 
   test('Reset fits what is left on screen, wherever the reader had panned to', async ({ page }) => {
-    await drewAgain(page, () => page.locator('.react-flow__node .cf-group').filter({ hasText: /^program \(/ }).click());
+    await drewAgain(page, () => page.locator('.react-flow__node .cf-group').filter({ hasText: /^entrypoint \(/ }).click());
     const grown = await page.locator('.react-flow__node').count();
-    expect(grown).toBeGreaterThan(5);
+    expect(grown).toBeGreaterThan(7);
 
     // Drag the pane from its bottom-right corner far up and left: the drawing goes with it.
     const box = (await page.locator('.react-flow').boundingBox())!;
@@ -155,8 +155,8 @@ test.describe('boundary, reset', () => {
     expect(await outside(page)).toBeGreaterThan(0);
 
     await drewAgain(page, () => page.getByRole('button', { name: 'Reset', exact: true }).click());
-    // Three boundary groups, the entry point's event, and the program.
-    await expect(page.locator('.react-flow__node')).toHaveCount(5);
+    // Six boxes - the entry method and its five calls - and the entry point's event.
+    await expect(page.locator('.react-flow__node')).toHaveCount(7);
     expect(await outside(page)).toBe(0);
   });
 });

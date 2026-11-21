@@ -86,7 +86,7 @@ The only view (a boxed view, one box per method, was removed). Spec: `docs/super
 
 **It opens on what happens and what is outside.** `condensedOpening(payload)` is the ids of the
 payload's `EVENT` leaves - one per root, see `calls-and-dispatch.md` - so the first page is one
-group per boundary method, each root's event on its own, and `program` (`boundary`: five nodes).
+box per call site (a method's box, flat), each root's event on its own (`boundary`: seven nodes).
 Reset asks for the opening again, so it returns to the same set. The event is a leaf like any other:
 its edges into a group are one drawn edge with a count, and clicking it reveals what it
 starts. **The event is not a hub.** `tap` follows an `EVENT` edge only from the clicked node:
@@ -95,12 +95,14 @@ three-hop click next to any literal reached every unfed node of the root, callee
 (`funcCall`: clicking `x` opened both `methodC` boxes). A leaf click is one hop, and a group's frontier gains the event's targets, which the event, drawn outside, makes
 members with an outside edge - one hop, as clicking the event would.
 
-**Groups are read from the payload, never guessed.** A leaf belongs to a boundary method's group iff
-its *nearest* enclosing box carries `boundary: true`; the group is keyed by that box's `method`
-(`pkg.Class#name(ParamTypes)`, JsonExporter's `Method.key()`), which is what makes every block of
-one method — one per call site, across roots — a single group. Keyed by box id instead, `boundary`
-would open on seven nodes, not five. Everything else, including a leaf with no box, is `program`; no
-leaf is ever dropped, and the corpus sweep holds that at every step of a click-everything walk.
+**Groups are read from the payload, never guessed.** A leaf belongs to the group of the METHOD box it sits
+directly in (`leaf.parent`): one group per call-site box, id = the box's payload id, caption the method's
+simple name with the member count, in payload order. Flat: a nested call's box is a sibling of its caller's
+box, never inside it; the edges between them show the call. A box that is a boundary call keeps `boundary:
+true` (the purple outline). Merging a method's call sites into one group was rejected: it draws paths that
+do not exist (call 1's argument appears to reach call 2's result). There is no `program` bucket: a leaf with
+no parent box is an error, thrown. No leaf is ever dropped, and the corpus sweep holds that at every step of
+a click-everything walk. Hover names the method and `called at File.java:N`.
 
 **Click rules** (`tapCondensed`; each only adds to `revealed`):
 - a leaf → its neighbours in both directions;
@@ -211,8 +213,8 @@ anchors the reader, who may have panned anywhere). An edge click has no anchor e
 off-screen rule. A second click mid-move starts from the positions on screen, minus the nodes that
 were fading out - they are gone already, and starting from them would draw them whole and fade them
 again. Positions are renderer state: `condensed.ts` decides what is on screen and know
-nothing of motion, and `transition.ts` compares two drawings by node id (payload ids, `program`,
-`boundary:<method>`, all stable across clicks) with no DOM, so `node --test` covers the arithmetic.
+nothing of motion, and `transition.ts` compares two drawings by node id (payload ids, a group's being
+its box's, all stable across clicks) with no DOM, so `node --test` covers the arithmetic.
 
 What appeared gets a fading ring (`cf-new`, `NEW_RING`, 1.5 s), nodes and edges alike; the node last
 clicked keeps a steady outline (`cf-clicked`) until the next click (an edge click clears it).

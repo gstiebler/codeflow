@@ -19,11 +19,11 @@ test.describe('boundary, Mermaid export', () => {
   test.beforeEach(open('boundary'));
 
   test('after a click, Mermaid downloads codeflow-condensed.md, fenced, with every node drawn', async ({ page }) => {
-    await drewAgain(page, () => page.locator(GROUP).filter({ hasText: /^program \(/ }).click());
+    await drewAgain(page, () => page.locator(GROUP).filter({ hasText: /^entrypoint \(/ }).click());
     const drawn = await page.evaluate((selector) =>
       [...document.querySelectorAll(selector)].map((n) => (n.textContent ?? '').trim()).sort(), NODE);
-    // More than the opening's five, or exporting the opening would pass.
-    expect(drawn.length).toBeGreaterThan(5);
+    // More than the opening's seven, or exporting the opening would pass.
+    expect(drawn.length).toBeGreaterThan(7);
 
     const [download] = await Promise.all([page.waitForEvent('download'), button(page, 'Mermaid').click()]);
     expect(download.suggestedFilename()).toBe('codeflow-condensed.md');

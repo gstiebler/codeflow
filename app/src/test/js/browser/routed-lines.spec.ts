@@ -94,18 +94,18 @@ test.describe('boundary, condensed lines', () => {
   test.beforeEach(open('boundary'));
 
   test('the opening draws every line outside every node box but its own two ends', async ({ page }) => {
-    await expect(page.locator(NODE)).toHaveCount(5);
+    await expect(page.locator(NODE)).toHaveCount(7);
     const on = await drawn(page);
     // The pair: there are lines, each with a length to sample.
-    expect(on.edges.length).toBe(10);
+    expect(on.edges.length).toBe(13);
     for (const edge of on.edges) expect(edge.points.length, edge.id).toBeGreaterThan(5);
     expect(crossings(on)).toEqual([]);
   });
 
   test('the opening fits the whole drawing, every line on screen', async ({ page }) => {
-    await expect(page.locator(NODE)).toHaveCount(5);
+    await expect(page.locator(NODE)).toHaveCount(7);
     const on = await drawn(page);
-    expect(on.edges.length).toBe(10);
+    expect(on.edges.length).toBe(13);
     expect(on.nodes.every((n) => inside({ x: n.box.x + 1, y: n.box.y + 1 }, on.pane, -1))).toBe(true);
     expect(offPane(on)).toEqual([]);
   });

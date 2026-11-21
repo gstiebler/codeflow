@@ -337,7 +337,7 @@ const capped = (entries: string[]) => entries.length <= HOVER_CAP
  *
  * - a leaf: its call stack, innermost first, one `Class#method  File.java:N  text` per frame - see
  *   [stackOf] - capped like the rest;
- * - a group: its member count, then where its box was called when its source names a line, then
+ * - a group: its member count, then where its box was called (the box's `called`) when that names a line, then
  *   each method its members come from with the range of their lines, first [HOVER_CAP] then `+N more`;
  * - a drawn edge: the kinds it stands for with their counts (`flow ×3, order ×2`, in KIND_ORDER),
  *   since the line itself names none; then where the value arrives - its target's method and line -
@@ -387,6 +387,6 @@ export function hoverText(payload: Payload, revealed: Set<Id>, target: Condensed
     if (Number.isNaN(low)) return head;
     return `${head}  ${name}:${low === high ? low : `${low}-${high}`}`;
   });
-  const at = where(ix.byId.get(target.node)!.source);
+  const at = where(ix.byId.get(target.node)!.called);
   return [`${ix.label.get(target.node)}: ${inside.length} nodes`, ...(at ? [`called at ${at.name}:${at.line}`] : []), ...capped(entries)];
 }

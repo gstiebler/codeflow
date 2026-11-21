@@ -6,8 +6,8 @@ import {
 import type { CondensedView, EdgeKind, Payload, PayloadNode } from '../../../main/resources/viewer/types.ts';
 import { loadCorpus } from './corpus.ts';
 
-const box = (id: string, label: string, method: string, parent?: string, boundary = false, source?: string): PayloadNode =>
-  ({ id, label, type: 'METHOD', method, ...(parent ? { parent } : {}), ...(boundary ? { boundary } : {}), ...(source ? { source } : {}) });
+const box = (id: string, label: string, method: string, parent?: string, boundary = false, called?: string): PayloadNode =>
+  ({ id, label, type: 'METHOD', method, ...(parent ? { parent } : {}), ...(boundary ? { boundary } : {}), ...(called ? { called } : {}) });
 const leaf = (id: string, label: string, parent: string | undefined, source: string, type: PayloadNode['type'] = 'VARIABLE'): PayloadNode =>
   ({ id, label, type, source, ...(parent ? { parent } : {}) });
 const edge = (source: string, target: string, kind: EdgeKind = 'FLOW') => ({ source, target, kind });
@@ -264,6 +264,9 @@ test('the group hover names the call site', () => {
     edges: [],
   };
   assert.deepEqual(hoverText(p, new Set(), { node: 'b1' }), ['f: 1 nodes', 'called at A.java:12', 'A#f  A.java:13']);
+  // A root has no `called`, so no line.
+  const root: Payload = { nodes: [box('r', 'f', 'p.A#f()'), leaf('x', 'x', 'r', 'p/A.java:13:1')], edges: [] };
+  assert.deepEqual(hoverText(root, new Set(), { node: 'r' }), ['f: 1 nodes', 'A#f  A.java:13']);
 });
 
 // b0 -> b1 is the one edge n1 -> n4, arriving on line 3 of Gw.java.

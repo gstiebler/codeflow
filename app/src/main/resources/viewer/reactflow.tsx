@@ -498,6 +498,8 @@ function Boundaries({ payload, revealed, onAdd, onClose }: {
   payload: Payload; revealed: Set<Id>; onAdd: (id: Id) => void; onClose: () => void;
 }) {
   const choices = useMemo(() => boundaryChoices(payload, revealed), [payload, revealed]);
+  // Once per drawing, not per render: the page renders on every animation frame.
+  const drawn = useMemo(() => new Set(choices.filter((c) => boundaryDrawn(payload, revealed, c)).map((c) => c.id)), [choices, payload, revealed]);
   return (
     <Popup label="Boundaries" title={`Boundaries (${choices.length})`} x={8} y={40} rows={choices.length} onClose={onClose}>
       {(wanted) => {
@@ -506,13 +508,13 @@ function Boundaries({ payload, revealed, onAdd, onClose }: {
           <div key={section}>
             <h4>{section}</h4>
             {rows.filter((c) => c.section === section).map((c) => {
-              const drawn = boundaryDrawn(payload, revealed, c);
+              const on = drawn.has(c.id);
               const text = choiceText(payload, c);
               const at = choiceAt(c);
               return (
-                <button key={c.id} type="button" className="cf-picker-row cf-boundary-row" disabled={drawn}
-                        aria-label={drawn ? `${c.label} (on screen)` : c.label} onClick={() => onAdd(c.id)}>
-                  <span className="cf-boundary-mark">{drawn ? '✓' : ''}</span>
+                <button key={c.id} type="button" className="cf-picker-row cf-boundary-row" disabled={on}
+                        aria-label={on ? `${c.label} (on screen)` : c.label} onClick={() => onAdd(c.id)}>
+                  <span className="cf-boundary-mark">{on ? '✓' : ''}</span>
                   <span>{c.label}</span>
                   {text !== null && <span className="cf-picker-src" title={text}>{text}</span>}
                   {at !== null && <span className="cf-picker-src">{at}</span>}

@@ -154,7 +154,7 @@ tangle - 13 lines, 10 captions; now captions are counts only (the opening is sev
 moved one hover away. `condensedEdgeStyle` (`theme.ts`): a single-kind edge keeps that kind's colour
 and dash, so colour still says the kind when there is one; a mixed edge is drawn as FLOW (grey,
 solid), since no one kind's look would be true of it. The caption is `×N` when N > 1, never a kind
-word, on the page's white (`LABEL_BG`). The hover starts with the kinds and counts in `EdgeKind`
+word, on the page's white (`LABEL_BG`). While the pointer is over an edge its line is drawn at 3px (from 1.5) with a soft glow and its caption goes bold, so the tooltip's subject is visible (CSS `:hover`; colour and dash unchanged). The hover starts with the kinds and counts in `EdgeKind`
 order (`flow ×1, false ×1`). Spacing is 70 px between layers, 40 between nodes. A group whose last member came out is not drawn. The layout is
 flat except for frames (`flatElkGraph`); an edge's id is its pair.
 

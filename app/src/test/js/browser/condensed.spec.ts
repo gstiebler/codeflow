@@ -129,6 +129,35 @@ test.describe('boundary', () => {
     await expect(page.locator('.cf-tooltip')).toContainText('Boundary#boundaryfunc2');
   });
 
+  // The tooltip names an edge only by hover; the line must say which one it is about.
+  test('the edge under the pointer is drawn thicker, and only that one', async ({ page }) => {
+    const paths = page.locator('.react-flow__edge .react-flow__edge-path');
+    expect(await paths.count()).toBeGreaterThanOrEqual(2);
+    const widths = () => paths.evaluateAll((ps) => ps.map((p) => getComputedStyle(p).strokeWidth));
+    const rest = (n: number) => Array.from({ length: n }, () => '1.5px');
+    await page.mouse.move(1, 1);
+    expect(await widths()).toEqual(rest(await paths.count()));
+
+    // A point a third along the first edge, in page pixels, so the real mouse lands on it.
+    const at = await paths.first().evaluate((p: SVGPathElement) => {
+      const m = p.getScreenCTM()!;
+      const pt = p.getPointAtLength(p.getTotalLength() / 3).matrixTransform(m);
+      return { x: pt.x, y: pt.y };
+    });
+    await page.mouse.move(at.x, at.y);
+    const n = await paths.count();
+    expect(await widths()).toEqual(['3px', ...rest(n - 1)]);
+    // A captioned edge's caption goes bold while it is hovered, and only then.
+    const caption = page.locator('.react-flow__edge-text').first();
+    await page.mouse.move(1, 1);
+    await expect(caption).toHaveCSS('font-weight', '400');
+    await page.locator('.react-flow__edge-textwrapper').first().hover();
+    await expect(caption).toHaveCSS('font-weight', '700');
+
+    await page.mouse.move(1, 1);
+    expect(await widths()).toEqual(rest(n));
+  });
+
   test('Reset returns the condensed view to its opening', async ({ page }) => {
     await tapGroupAll(page, 'entrypoint');
     await expect(page.locator(NODE)).toHaveCount(17);

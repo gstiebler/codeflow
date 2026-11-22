@@ -709,6 +709,9 @@ svg.react-flow__connectionline {
     .react-flow__handle { opacity: 0; }
     .react-flow__node.cf-new > * { animation: cf-ring ${1500}ms ease-out forwards; }
     .react-flow__edge.cf-new .react-flow__edge-path { animation: cf-edge-ring ${1500}ms ease-out forwards; }
+    /* The edge under the pointer: thicker (beats the inline width) and glowing; colour and dash stay the kind's. */
+    .react-flow__edge:hover .react-flow__edge-path { stroke-width: 3px !important; filter: drop-shadow(0 0 3px #0006); }
+    .react-flow__edge:hover .react-flow__edge-text { font-weight: bold; }
     /* A frame appears with its first value, which carries the ring; the frame itself does not. */
     .react-flow__node-condensedFrame.cf-new > * { animation: none; box-shadow: none; }
     @keyframes cf-ring { from { box-shadow: 0 0 0 4px ${hT}; } to { box-shadow: 0 0 0 4px transparent; } }

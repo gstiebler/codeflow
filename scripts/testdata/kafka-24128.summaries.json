@@ -4,7 +4,7 @@
  "trimmed": "codeflow --summaries over ConsumerGroup.java, ShareGroup.java and ModernGroup.java of apache/kafka at 8e75faf (the parent of the fix for #24128); 5 of 132 method entries kept, each as printed",
  "counts": {
   "methods": 5,
-  "pairs": 99,
+  "pairs": 151,
   "gaps": {
    "dispatch": 3
   }
@@ -31,7 +31,15 @@
     ],
     [
      "P0",
+     "ext-arg:Builder@ConsumerGroup.java:269:16"
+    ],
+    [
+     "P0",
      "ext-arg:UnknownMemberIdException@ConsumerGroup.java:264:19"
+    ],
+    [
+     "P0",
+     "ext-arg:build@ConsumerGroup.java:269:16"
     ],
     [
      "P0",
@@ -40,6 +48,14 @@
     [
      "P0",
      "ext-arg:get@ConsumerGroup.java:260:38"
+    ],
+    [
+     "ext:Builder@ConsumerGroup.java:269:16",
+     "RET"
+    ],
+    [
+     "ext:Builder@ConsumerGroup.java:269:16",
+     "ext-arg:build@ConsumerGroup.java:269:16"
     ],
     [
      "ext:build@ConsumerGroup.java:269:16",
@@ -82,7 +98,23 @@
     ],
     [
      "P0",
+     "ext-arg:Builder@ShareGroup.java:220:18"
+    ],
+    [
+     "P0",
      "ext-arg:UnknownMemberIdException@ShareGroup.java:216:19"
+    ],
+    [
+     "P0",
+     "ext-arg:build@ShareGroup.java:220:18"
+    ],
+    [
+     "P0",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "P0",
+     "ext-arg:forEach@ModernGroup.java:395:13"
     ],
     [
      "P0",
@@ -93,8 +125,64 @@
      "ext-arg:get@ShareGroup.java:212:35"
     ],
     [
+     "P0",
+     "ext-arg:memberId@ShareGroup.java:236:50"
+    ],
+    [
+     "P0",
+     "ext-arg:put@ShareGroup.java:236:38"
+    ],
+    [
+     "P0",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
+    ],
+    [
+     "P0",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:395:13"
+    ],
+    [
+     "ext:Builder@ShareGroup.java:220:18",
+     "RET"
+    ],
+    [
+     "ext:Builder@ShareGroup.java:220:18",
+     "ext-arg:build@ShareGroup.java:220:18"
+    ],
+    [
+     "ext:Builder@ShareGroup.java:220:18",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:Builder@ShareGroup.java:220:18",
+     "ext-arg:forEach@ModernGroup.java:395:13"
+    ],
+    [
+     "ext:Builder@ShareGroup.java:220:18",
+     "ext-arg:memberId@ShareGroup.java:236:50"
+    ],
+    [
+     "ext:Builder@ShareGroup.java:220:18",
+     "ext-arg:put@ShareGroup.java:236:38"
+    ],
+    [
+     "ext:Builder@ShareGroup.java:220:18",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:Builder@ShareGroup.java:220:18",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:395:13"
+    ],
+    [
      "ext:build@ShareGroup.java:220:18",
      "RET"
+    ],
+    [
+     "ext:build@ShareGroup.java:220:18",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:build@ShareGroup.java:220:18",
+     "ext-arg:forEach@ModernGroup.java:395:13"
     ],
     [
      "ext:build@ShareGroup.java:220:18",
@@ -103,6 +191,14 @@
     [
      "ext:build@ShareGroup.java:220:18",
      "ext-arg:put@ShareGroup.java:236:38"
+    ],
+    [
+     "ext:build@ShareGroup.java:220:18",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:build@ShareGroup.java:220:18",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:395:13"
     ],
     [
      "ext:byNameCount@ModernGroup.java:463:17",
@@ -134,11 +230,35 @@
     ],
     [
      "ext:memberId@ShareGroup.java:236:50",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:memberId@ShareGroup.java:236:50",
      "ext-arg:put@ShareGroup.java:236:38"
+    ],
+    [
+     "ext:memberId@ShareGroup.java:236:50",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:put@ShareGroup.java:236:38",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:put@ShareGroup.java:236:38",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
     ],
     [
      "ext:size@ModernGroup.java:360:69",
      "ext-arg:set@ModernGroup.java:360:9"
+    ],
+    [
+     "ext:subscribedTopicNames@ModernGroup.java:389:13",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:subscribedTopicNames@ModernGroup.java:395:13",
+     "ext-arg:forEach@ModernGroup.java:395:13"
     ],
     [
      "ext:values@ModernGroup.java:462:50",
@@ -159,6 +279,10 @@
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
      "RET"
+    ],
+    [
+     "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
+     "ext-arg:forEach@ModernGroup.java:389:13"
     ],
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
@@ -183,6 +307,10 @@
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
      "ext-arg:size@ModernGroup.java:360:69"
+    ],
+    [
+     "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
     ],
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.subscribedTopicNames",
@@ -239,7 +367,15 @@
    "flows": [
     [
      "P0",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "P0",
      "ext-arg:remove@ShareGroup.java:249:38"
+    ],
+    [
+     "P0",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
     ],
     [
      "ext:byNameCount@ModernGroup.java:463:17",
@@ -262,8 +398,24 @@
      "ext-arg:set@ShareGroup.java:343:9"
     ],
     [
+     "ext:remove@ShareGroup.java:249:38",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:remove@ShareGroup.java:249:38",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
+    ],
+    [
      "ext:size@ModernGroup.java:360:69",
      "ext-arg:set@ModernGroup.java:360:9"
+    ],
+    [
+     "ext:subscribedTopicNames@ModernGroup.java:389:13",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:subscribedTopicNames@ModernGroup.java:395:13",
+     "ext-arg:forEach@ModernGroup.java:395:13"
     ],
     [
      "ext:values@ModernGroup.java:462:50",
@@ -272,6 +424,10 @@
     [
      "ext:values@ModernGroup.java:462:50",
      "ext-arg:set@ModernGroup.java:360:9"
+    ],
+    [
+     "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
+     "ext-arg:forEach@ModernGroup.java:389:13"
     ],
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
@@ -292,6 +448,10 @@
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
      "ext-arg:size@ModernGroup.java:360:69"
+    ],
+    [
+     "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
     ],
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.subscribedTopicNames",
@@ -348,11 +508,27 @@
    "flows": [
     [
      "P0",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "P0",
+     "ext-arg:forEach@ModernGroup.java:395:13"
+    ],
+    [
+     "P0",
      "ext-arg:memberId@ShareGroup.java:236:50"
     ],
     [
      "P0",
      "ext-arg:put@ShareGroup.java:236:38"
+    ],
+    [
+     "P0",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
+    ],
+    [
+     "P0",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:395:13"
     ],
     [
      "ext:byNameCount@ModernGroup.java:463:17",
@@ -376,11 +552,35 @@
     ],
     [
      "ext:memberId@ShareGroup.java:236:50",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:memberId@ShareGroup.java:236:50",
      "ext-arg:put@ShareGroup.java:236:38"
+    ],
+    [
+     "ext:memberId@ShareGroup.java:236:50",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:put@ShareGroup.java:236:38",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:put@ShareGroup.java:236:38",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
     ],
     [
      "ext:size@ModernGroup.java:360:69",
      "ext-arg:set@ModernGroup.java:360:9"
+    ],
+    [
+     "ext:subscribedTopicNames@ModernGroup.java:389:13",
+     "ext-arg:forEach@ModernGroup.java:389:13"
+    ],
+    [
+     "ext:subscribedTopicNames@ModernGroup.java:395:13",
+     "ext-arg:forEach@ModernGroup.java:395:13"
     ],
     [
      "ext:values@ModernGroup.java:462:50",
@@ -389,6 +589,10 @@
     [
      "ext:values@ModernGroup.java:462:50",
      "ext-arg:set@ModernGroup.java:360:9"
+    ],
+    [
+     "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
+     "ext-arg:forEach@ModernGroup.java:389:13"
     ],
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
@@ -409,6 +613,10 @@
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
      "ext-arg:size@ModernGroup.java:360:69"
+    ],
+    [
+     "this.org.apache.kafka.coordinator.group.modern.ModernGroup.members",
+     "ext-arg:subscribedTopicNames@ModernGroup.java:389:13"
     ],
     [
      "this.org.apache.kafka.coordinator.group.modern.ModernGroup.subscribedTopicNames",

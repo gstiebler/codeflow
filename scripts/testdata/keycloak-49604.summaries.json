@@ -4,7 +4,7 @@
  "trimmed": "codeflow --summaries over SP.java, DefaultSamlDeployment.java and DeploymentBuilder.java of keycloak/keycloak at the parent of the fix for #49604; SP, its nested classes and DeploymentBuilder#build kept (38 of 127 entries), each as printed",
  "counts": {
   "methods": 38,
-  "pairs": 222,
+  "pairs": 386,
   "gaps": {
    "depth": 15,
    "unmodelled": 15
@@ -432,6 +432,14 @@
    "flows": [
     [
      "P0",
+     "ext-arg:get@DeploymentBuilder.java:69:17"
+    ],
+    [
+     "P0",
+     "ext-arg:getSps@DeploymentBuilder.java:69:17"
+    ],
+    [
+     "P0",
      "ext-arg:parse@DeploymentBuilder.java:68:61"
     ],
     [
@@ -529,6 +537,22 @@
     [
      "ext:HashSet<>@DeploymentBuilder.java:96:33",
      "ext-arg:add@DeploymentBuilder.java:97:13"
+    ],
+    [
+     "ext:HttpClientBuilder@DeploymentBuilder.java:215:30",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.client"
+    ],
+    [
+     "ext:HttpClientBuilder@DeploymentBuilder.java:215:30",
+     "ext-arg:SamlDescriptorPublicKeyLocator@DefaultSamlDeployment.java:267:19"
+    ],
+    [
+     "ext:HttpClientBuilder@DeploymentBuilder.java:215:30",
+     "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "ext:HttpClientBuilder@DeploymentBuilder.java:215:30",
+     "ext-arg:build@DeploymentBuilder.java:215:30"
     ],
     [
      "ext:KeyPair@DeploymentBuilder.java:137:39",
@@ -643,6 +667,10 @@
      "ext-arg:toMillis@DeploymentBuilder.java:226:36"
     ],
     [
+     "ext:getAssertionConsumerServiceUrl@DeploymentBuilder.java:180:19",
+     "ext-arg:endsWith@DeploymentBuilder.java:180:19"
+    ],
+    [
      "ext:getAssertionConsumerServiceUrl@DeploymentBuilder.java:183:59",
      "ext-arg:create@DeploymentBuilder.java:183:48"
     ],
@@ -709,6 +737,34 @@
     [
      "ext:getCertificateAlias@DeploymentBuilder.java:243:48",
      "ext-arg:getPublicKey@DeploymentBuilder.java:252:25"
+    ],
+    [
+     "ext:getCertificatePem@DeploymentBuilder.java:268:63",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getCertificatePem@DeploymentBuilder.java:268:63",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getCertificatePem@DeploymentBuilder.java:268:63",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getCertificatePem@DeploymentBuilder.java:268:63",
+     "ext-arg:checkValidity@DeploymentBuilder.java:270:17"
+    ],
+    [
+     "ext:getCertificatePem@DeploymentBuilder.java:268:63",
+     "ext-arg:decodeCertificate@DeploymentBuilder.java:268:36"
+    ],
+    [
+     "ext:getCertificatePem@DeploymentBuilder.java:268:63",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:274:25"
+    ],
+    [
+     "ext:getCertificatePem@DeploymentBuilder.java:268:63",
+     "ext-arg:trim@DeploymentBuilder.java:268:63"
     ],
     [
      "ext:getEntityID@DeploymentBuilder.java:168:32",
@@ -803,6 +859,18 @@
      "ext-arg:load@DeploymentBuilder.java:306:13"
     ],
     [
+     "ext:getInstance@DeploymentBuilder.java:68:61",
+     "ext-arg:get@DeploymentBuilder.java:69:17"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:68:61",
+     "ext-arg:getSps@DeploymentBuilder.java:69:17"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:68:61",
+     "ext-arg:parse@DeploymentBuilder.java:68:61"
+    ],
+    [
      "ext:getKey@DeploymentBuilder.java:118:55",
      "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
     ],
@@ -816,7 +884,51 @@
     ],
     [
      "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:File@DeploymentBuilder.java:290:23"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:FileInputStream@DeploymentBuilder.java:294:22"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:RuntimeException@DeploymentBuilder.java:296:23"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:RuntimeException@DeploymentBuilder.java:302:23"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
      "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:checkValidity@DeploymentBuilder.java:245:21"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:checkValidity@DeploymentBuilder.java:270:17"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:decodeCertificate@DeploymentBuilder.java:268:36"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:decodePublicKey@DeploymentBuilder.java:266:25"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:exists@DeploymentBuilder.java:291:18"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getCertificate@DeploymentBuilder.java:243:24"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getCertificateAlias@DeploymentBuilder.java:243:48"
     ],
     [
      "ext:getKeys@DeploymentBuilder.java:208:28",
@@ -824,7 +936,71 @@
     ],
     [
      "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getCertificatePem@DeploymentBuilder.java:268:63"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getFile@DeploymentBuilder.java:289:13"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getFile@DeploymentBuilder.java:290:32"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getFile@DeploymentBuilder.java:296:58"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getInstance@DeploymentBuilder.java:284:24"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
      "ext-arg:getKeystore@DeploymentBuilder.java:239:13"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getKeystore@DeploymentBuilder.java:243:48"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getKeystore@DeploymentBuilder.java:280:23"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getKeystore@DeploymentBuilder.java:289:13"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getKeystore@DeploymentBuilder.java:290:32"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getKeystore@DeploymentBuilder.java:296:58"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getKeystore@DeploymentBuilder.java:300:53"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getKeystore@DeploymentBuilder.java:302:58"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getKeystore@DeploymentBuilder.java:306:35"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getPassword@DeploymentBuilder.java:306:35"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:252:25"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:274:25"
     ],
     [
      "ext:getKeys@DeploymentBuilder.java:208:28",
@@ -836,7 +1012,43 @@
     ],
     [
      "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getPublicKeyPem@DeploymentBuilder.java:266:50"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getResource@DeploymentBuilder.java:300:53"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getResource@DeploymentBuilder.java:302:58"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getResourceAsStream@DeploymentBuilder.java:300:18"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getType@DeploymentBuilder.java:280:23"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
      "ext-arg:isSigning@DeploymentBuilder.java:209:21"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:toCharArray@DeploymentBuilder.java:306:35"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:trim@DeploymentBuilder.java:266:50"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:trim@DeploymentBuilder.java:268:63"
     ],
     [
      "ext:getKeystore@DeploymentBuilder.java:109:25",
@@ -847,12 +1059,256 @@
      "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
     ],
     [
+     "ext:getKeystore@DeploymentBuilder.java:113:64",
+     "ext-arg:debugf@DeploymentBuilder.java:113:29"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:113:64",
+     "ext-arg:getCertificateAlias@DeploymentBuilder.java:113:64"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:114:60",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:114:60",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:114:60",
+     "ext-arg:getCertificate@DeploymentBuilder.java:114:36"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:114:60",
+     "ext-arg:getCertificateAlias@DeploymentBuilder.java:114:60"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:114:60",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:119:41"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:116:87",
+     "ext-arg:errorf@DeploymentBuilder.java:116:33"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:116:87",
+     "ext-arg:getCertificateAlias@DeploymentBuilder.java:116:87"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:118:111",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:118:111",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:118:111",
+     "ext-arg:getKey@DeploymentBuilder.java:118:55"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:118:111",
+     "ext-arg:getPrivateKeyPassword@DeploymentBuilder.java:118:111"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:118:111",
+     "ext-arg:toCharArray@DeploymentBuilder.java:118:111"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:118:71",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:118:71",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:118:71",
+     "ext-arg:getKey@DeploymentBuilder.java:118:55"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:118:71",
+     "ext-arg:getPrivateKeyAlias@DeploymentBuilder.java:118:71"
+    ],
+    [
      "ext:getKeystore@DeploymentBuilder.java:142:25",
      "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
     ],
     [
+     "ext:getKeystore@DeploymentBuilder.java:146:122",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:146:122",
+     "ext-arg:getKey@DeploymentBuilder.java:146:66"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:146:122",
+     "ext-arg:getPrivateKeyPassword@DeploymentBuilder.java:146:122"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:146:122",
+     "ext-arg:toCharArray@DeploymentBuilder.java:146:122"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:146:82",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:146:82",
+     "ext-arg:getKey@DeploymentBuilder.java:146:66"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:146:82",
+     "ext-arg:getPrivateKeyAlias@DeploymentBuilder.java:146:82"
+    ],
+    [
      "ext:getKeystore@DeploymentBuilder.java:239:13",
      "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:243:48",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:243:48",
+     "ext-arg:checkValidity@DeploymentBuilder.java:245:21"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:243:48",
+     "ext-arg:getCertificate@DeploymentBuilder.java:243:24"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:243:48",
+     "ext-arg:getCertificateAlias@DeploymentBuilder.java:243:48"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:243:48",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:252:25"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:checkValidity@DeploymentBuilder.java:245:21"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:getCertificate@DeploymentBuilder.java:114:36"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:getCertificate@DeploymentBuilder.java:243:24"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:getInstance@DeploymentBuilder.java:284:24"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:getKey@DeploymentBuilder.java:118:55"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:getKey@DeploymentBuilder.java:146:66"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:119:41"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:252:25"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:getType@DeploymentBuilder.java:280:23"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:280:23",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:289:13",
+     "ext-arg:getFile@DeploymentBuilder.java:289:13"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:289:13",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:290:32",
+     "ext-arg:File@DeploymentBuilder.java:290:23"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:290:32",
+     "ext-arg:FileInputStream@DeploymentBuilder.java:294:22"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:290:32",
+     "ext-arg:exists@DeploymentBuilder.java:291:18"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:290:32",
+     "ext-arg:getFile@DeploymentBuilder.java:290:32"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:290:32",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:296:58",
+     "ext-arg:RuntimeException@DeploymentBuilder.java:296:23"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:296:58",
+     "ext-arg:getFile@DeploymentBuilder.java:296:58"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:300:53",
+     "ext-arg:getResource@DeploymentBuilder.java:300:53"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:300:53",
+     "ext-arg:getResourceAsStream@DeploymentBuilder.java:300:18"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:300:53",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:302:58",
+     "ext-arg:RuntimeException@DeploymentBuilder.java:302:23"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:302:58",
+     "ext-arg:getResource@DeploymentBuilder.java:302:58"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:306:35",
+     "ext-arg:getPassword@DeploymentBuilder.java:306:35"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:306:35",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:306:35",
+     "ext-arg:toCharArray@DeploymentBuilder.java:306:35"
     ],
     [
      "ext:getMetadataUrl@DeploymentBuilder.java:214:35",
@@ -865,6 +1321,14 @@
     [
      "ext:getMetadataUrl@DeploymentBuilder.java:214:35",
      "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "ext:getPassword@DeploymentBuilder.java:306:35",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getPassword@DeploymentBuilder.java:306:35",
+     "ext-arg:toCharArray@DeploymentBuilder.java:306:35"
     ],
     [
      "ext:getPrivateKeyAlias@DeploymentBuilder.java:118:71",
@@ -885,6 +1349,62 @@
     [
      "ext:getPrivateKeyAlias@DeploymentBuilder.java:146:82",
      "ext-arg:getKey@DeploymentBuilder.java:146:66"
+    ],
+    [
+     "ext:getPrivateKeyPassword@DeploymentBuilder.java:118:111",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getPrivateKeyPassword@DeploymentBuilder.java:118:111",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getPrivateKeyPassword@DeploymentBuilder.java:118:111",
+     "ext-arg:getKey@DeploymentBuilder.java:118:55"
+    ],
+    [
+     "ext:getPrivateKeyPassword@DeploymentBuilder.java:118:111",
+     "ext-arg:toCharArray@DeploymentBuilder.java:118:111"
+    ],
+    [
+     "ext:getPrivateKeyPassword@DeploymentBuilder.java:146:122",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getPrivateKeyPassword@DeploymentBuilder.java:146:122",
+     "ext-arg:getKey@DeploymentBuilder.java:146:66"
+    ],
+    [
+     "ext:getPrivateKeyPassword@DeploymentBuilder.java:146:122",
+     "ext-arg:toCharArray@DeploymentBuilder.java:146:122"
+    ],
+    [
+     "ext:getPrivateKeyPem@DeploymentBuilder.java:128:68",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getPrivateKeyPem@DeploymentBuilder.java:128:68",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getPrivateKeyPem@DeploymentBuilder.java:128:68",
+     "ext-arg:decodePrivateKey@DeploymentBuilder.java:128:42"
+    ],
+    [
+     "ext:getPrivateKeyPem@DeploymentBuilder.java:128:68",
+     "ext-arg:trim@DeploymentBuilder.java:128:68"
+    ],
+    [
+     "ext:getPrivateKeyPem@DeploymentBuilder.java:156:79",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getPrivateKeyPem@DeploymentBuilder.java:156:79",
+     "ext-arg:decodePrivateKey@DeploymentBuilder.java:156:53"
+    ],
+    [
+     "ext:getPrivateKeyPem@DeploymentBuilder.java:156:79",
+     "ext-arg:trim@DeploymentBuilder.java:156:79"
     ],
     [
      "ext:getPublicKey@DeploymentBuilder.java:119:41",
@@ -921,6 +1441,26 @@
     [
      "ext:getPublicKeyPem@DeploymentBuilder.java:265:13",
      "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getPublicKeyPem@DeploymentBuilder.java:266:50",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getPublicKeyPem@DeploymentBuilder.java:266:50",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getPublicKeyPem@DeploymentBuilder.java:266:50",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getPublicKeyPem@DeploymentBuilder.java:266:50",
+     "ext-arg:decodePublicKey@DeploymentBuilder.java:266:25"
+    ],
+    [
+     "ext:getPublicKeyPem@DeploymentBuilder.java:266:50",
+     "ext-arg:trim@DeploymentBuilder.java:266:50"
     ],
     [
      "ext:getRequestBinding@DeploymentBuilder.java:170:13",
@@ -979,6 +1519,114 @@
      "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signatureCanonicalizationMethod"
     ],
     [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:189:28",
+     "ext-arg:isSignRequest@DeploymentBuilder.java:189:28"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:190:29",
+     "ext-arg:isSignResponse@DeploymentBuilder.java:190:29"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:191:42",
+     "ext-arg:isValidateResponseSignature@DeploymentBuilder.java:191:42"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:192:41",
+     "ext-arg:isValidateRequestSignature@DeploymentBuilder.java:192:41"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:194:13",
+     "ext-arg:getRequestBinding@DeploymentBuilder.java:194:13"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:194:13",
+     "ext-arg:parseBinding@DeploymentBuilder.java:193:31"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:196:13",
+     "ext-arg:getResponseBinding@DeploymentBuilder.java:196:13"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:196:13",
+     "ext-arg:parseBinding@DeploymentBuilder.java:195:32"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:198:38",
+     "ext-arg:getPostBindingUrl@DeploymentBuilder.java:198:38"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:200:38",
+     "ext-arg:getRedirectBindingUrl@DeploymentBuilder.java:200:38"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:203:39",
+     "ext-arg:getPostBindingUrl@DeploymentBuilder.java:203:39"
+    ],
+    [
+     "ext:getSingleLogoutService@DeploymentBuilder.java:205:39",
+     "ext-arg:getRedirectBindingUrl@DeploymentBuilder.java:205:39"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:170:13",
+     "ext-arg:getRequestBinding@DeploymentBuilder.java:170:13"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:170:13",
+     "ext-arg:parseBinding@DeploymentBuilder.java:169:31"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:171:34",
+     "ext-arg:getBindingUrl@DeploymentBuilder.java:171:34"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:172:13",
+     "ext-arg:getResponseBinding@DeploymentBuilder.java:172:13"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:174:17",
+     "ext-arg:getResponseBinding@DeploymentBuilder.java:174:17"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:174:17",
+     "ext-arg:parseBinding@DeploymentBuilder.java:173:36"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:179:13",
+     "ext-arg:getAssertionConsumerServiceUrl@DeploymentBuilder.java:179:13"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:180:19",
+     "ext-arg:endsWith@DeploymentBuilder.java:180:19"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:180:19",
+     "ext-arg:getAssertionConsumerServiceUrl@DeploymentBuilder.java:180:19"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:183:59",
+     "ext-arg:create@DeploymentBuilder.java:183:48"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:183:59",
+     "ext-arg:getAssertionConsumerServiceUrl@DeploymentBuilder.java:183:59"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:185:28",
+     "ext-arg:isSignRequest@DeploymentBuilder.java:185:28"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:186:42",
+     "ext-arg:isValidateResponseSignature@DeploymentBuilder.java:186:42"
+    ],
+    [
+     "ext:getSingleSignOnService@DeploymentBuilder.java:187:43",
+     "ext-arg:isValidateAssertionSignature@DeploymentBuilder.java:187:43"
+    ],
+    [
+     "ext:getSps@DeploymentBuilder.java:69:17",
+     "ext-arg:get@DeploymentBuilder.java:69:17"
+    ],
+    [
      "ext:getType@DeploymentBuilder.java:280:23",
      "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
     ],
@@ -1029,6 +1677,14 @@
     [
      "ext:getType@DeploymentBuilder.java:280:23",
      "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:parse@DeploymentBuilder.java:68:61",
+     "ext-arg:get@DeploymentBuilder.java:69:17"
+    ],
+    [
+     "ext:parse@DeploymentBuilder.java:68:61",
+     "ext-arg:getSps@DeploymentBuilder.java:69:17"
     ],
     [
      "ext:toCharArray@DeploymentBuilder.java:118:111",

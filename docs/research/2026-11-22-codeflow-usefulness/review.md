@@ -15,6 +15,10 @@ Kafka sibling cases: **2 found, 1 found in part, 1 split visible, 2 missed.** Th
 engine. See [the runs](#diverges-built-and-run-on-the-six-kafka-cases) and
 [the bug](#a-bug-found-while-measuring-a-chained-call-loses-its-receiver).
 
+**And then: the bug is fixed** (`d66e869`). It was hiding about 60% of the flows in Kafka's
+`GroupMetadataManager` with no gap. Re-run: **3 found, 1 split visible, 2 missed.** See
+[what the fix changed](#fixed-in-d66e869-and-what-moved).
+
 Written by the same rater that wrote the study, a few hours later, after re-running cases instead of judging them.
 
 ## What was checked, and what came out
@@ -88,6 +92,8 @@ field reads and writes through an object the summary cannot name, and they are 5
 `scripts/diverges.py` reads the `--summaries` JSON and nothing else. Per case, with the pre-fix files and the
 commands: [kafka-sibling-paths.md](kafka-sibling-paths.md#measured-scriptsdivergespy-on-the-six-cases).
 
+Results at `5cc92f4`, before the receiver fix. After it: [what moved](#fixed-in-d66e869-and-what-moved).
+
 | Case | Family | Result |
 |---|---|---|
 | 1 #24108 | four handlers, named | **Found.** `in 1,2,4, not in 3: 72 effects`, firm. The fix's calls are in it. |
@@ -108,8 +114,8 @@ commands: [kafka-sibling-paths.md](kafka-sibling-paths.md#measured-scriptsdiverg
   what", not "what does each call site pass as argument 3".
 - **`anchor:` and `cowrite:` were not built.** #4 needs gates and order; #6 needs effects across several calls
   of one root. Neither is in the JSON, so a script would be guessing.
-- **Where the script stops, by case:** the receiver bug (#3, #5), feeds per argument (#3), gates (#4), effects
-  across calls (#6).
+- **Where the script stops, by case:** the receiver bug (#3, #5; fixed since), feeds per argument (#3), gates
+  (#4), effects across calls (#6).
 
 ### A bug found while measuring: a chained call loses its receiver
 
@@ -131,10 +137,49 @@ the sources:
   kind expected. For a call on a receiver whose type is an error, javac hands back an `Element` of kind
   `CLASS` (`Symbols.element` documents it). So `p.a()` is taken for a type name, like the `Math` of
   `Math.abs`, and is never evaluated.
-- **What it puts in doubt.** Every absence. A `diverges` row is firm when the sibling has no gaps, and this
-  drops flows without a gap. The found cases above were checked against the source, so they stand.
+- **What it put in doubt.** Every absence. A `diverges` row is firm when the sibling has no gaps, and this
+  dropped flows without a gap. The found cases above were checked against the source, so they stood.
 - The second review ([review-2.md](review-2.md), written in parallel) found the same bug from the Fineract
   side and counts it: 120 of 1,604 call sites in one file.
+
+#### Fixed in `d66e869`, and what moved
+
+- **The cause was wider than the call.** A javac probe showed the same `CLASS`-kind element on everything on
+  an unresolved type: `p.a()`, `p.f`, `new Unknown()`, `(p.a())`, and the name `Unknown` itself.
+- **The rule.** javac's kind is believed only where the grammar allows a type name: an identifier, or a select
+  on a type name or package. A call, a `new`, parentheses or a select on a value is a value. Written up in
+  [`attribution.md`](../../decisions/attribution.md).
+- **Tests first.** Four tests failed for the stated reason before the change, on the graph, the instruction
+  list and the summary. Seven wrong versions of the fix were each run against them; every one fails at least
+  four tests. One guard was removed: a summary cannot see a type name drawn as a value, so it could not fail.
+- **No golden moved.** No fixture had the shape. `unresolvedChain` is the fixture now.
+
+| Corpus | Pairs before | Pairs after | Gaps |
+|---|---|---|---|
+| Kafka `GroupMetadataManager` (#24108's ref) | 133,890 | 336,669 | 48, unchanged |
+| Kafka `GMM` + `ConsumerGroup` (#24187's ref) | 139,802 | 393,182 | 544 → 546 |
+| Kafka #24128's three files | 2,318 | 5,931 | 5 → 6 |
+| Keycloak SAML, three files | 432 | 734 | 30, unchanged |
+| Fineract progressive-loan, smoke | 860,619 | 2,799,736 | 35,483 → 38,957 rows |
+
+- **Fineract's smoke still passes:** 658 of 658 roots, exit 0, no unmodelled construct, the same 24,944 of
+  44,139 references unresolved. The `--summaries` document grew from 242 MB to 767 MB and takes 10 s, not 4.
+- **The gaps that appeared were always there.** They sit on receivers that used not to be evaluated.
+
+| Case | Before | After |
+|---|---|---|
+| 1 #24108 | Found. First group 72 rows. | **Found.** First group 199 rows, still firm. The fix's calls sit lower in it. |
+| 2 #24128 | Found. 24 effects. | **Found.** 27 effects. `put(members)` still the second row. |
+| 3 #23856 | Split visible, by `orElse()` and `get()`. | **Split visible, timeouts named.** `onLoaded` alone feeds `consumerGroupSessionTimeoutMs()` only; the classic handlers feed `classicProtocolSessionTimeout()`. |
+| 4 #24155 | Missed. | **Missed.** Same output. |
+| 5 #24187 | Found in part: one `get()`. | **Found.** `iterator(), next()` against `get(), protocolName()`. |
+| 6 #23530 | Missed. | **Missed.** `subscribeGroupToTopic` now shows; still no method with both effects. |
+| Keycloak #49604 | Found. | **Found.** Same output. |
+
+- **A truer summary is a longer one.** #1's answer is still in the first group, but `hasMetadataExpired` went
+  from row 35 to row 76 of it. Ordering inside a group is now the next thing #1 asks for.
+- **What is still unknown about absences.** A bare or qualified unresolved name stays a type name. Nothing
+  flows out of such a name, so no pair is lost by it.
 
 ## What I learned
 
@@ -163,12 +208,14 @@ the sources:
 
 In order. Each is a leaning with its evidence, not a decision.
 
-0. **Fix the receiver bug first.** New, from the runs. It is a wrong graph with no gap, and everything below
-   reads absences. Small: only a name can be a type name; a call, a `new` or a select on a variable is a value.
+0. **Fix the receiver bug first. Done** (`d66e869`). It was a wrong graph with no gap, and everything below
+   reads absences. Small, as expected: only a name can be a type name; a call, a `new` or a select on a
+   variable is a value. Larger in effect than expected: 2.5 times the pairs on Kafka, 3.3 times on Fineract.
 1. **Build `diverges` first, as a script over `--summaries` JSON. Done.** Two real bugs came out of today's
    output with under 20 lines each: Kafka #24128 (`overrides:`) and Keycloak #49604 (a new family, `fields:`).
-   Run on the other five Kafka cases, as planned: three more results a person can use (#1 found, #5 in part,
-   #3 a split), two misses. It stays a script until a case needs the engine to say something the JSON does not.
+   Run on the other five Kafka cases, as planned: three more results a person can use (#1 found, #5 in part
+   and found once the receiver bug was fixed, #3 a split), two misses. It stays a script until a case needs
+   the engine to say something the JSON does not.
 2. **Treat a read through an unnamed object as a read fact.** Smallest step: give it its own gap kind
    (`origin`) so `unmodelled` means a construct again and the numbers can be read. Larger step: keep the value,
    as an atom naming the origin and the field, so `sp.isX()` flows into `setX`. That would turn the largest gap
@@ -212,4 +259,5 @@ python3 -m unittest discover -s scripts -p '*_test.py'          # its tests, on 
 ```
 
 - **The receiver bug:** a file with `class B { static Object call(Unknown p) { return p.a().b(); } }` and no
-  `Unknown` in the directory. `--summaries` prints `ext:b → RET` and no `P0 → RET`.
+  `Unknown` in the directory. Before `d66e869`, `--summaries` printed `ext:b → RET` and no `P0 → RET`. Now it
+  prints the six pairs of the two-statement form.

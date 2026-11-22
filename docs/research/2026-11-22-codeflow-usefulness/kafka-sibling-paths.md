@@ -8,15 +8,19 @@ right argument, a listener notification. The path that misses it is the **rarer*
 load, downgrade, not-in-group. Finding them needs a `diverges` query over per-root effect sets; reachability
 alone is not enough for #4.
 
-**Measured since** (`scripts/diverges.py` over `--summaries` of the pre-fix files): **2 found, 1 found in part,
-1 split visible, 2 missed.** Table and commands: [Measured](#measured-scriptsdivergespy-on-the-six-cases).
+**Measured since** (`scripts/diverges.py` over `--summaries` of the pre-fix files): **3 found, 1 split visible,
+2 missed.** That is with the engine's receiver fix (`d66e869`). Before it the count was 2 found, 1 found in
+part, 1 split visible, 2 missed. Table and commands: [Measured](#measured-scriptsdivergespy-on-the-six-cases).
 
 **Method.**
 - Every PR was squash-merged, so the pre-fix code is the merge commit's parent, fetched with
   `gh api repos/apache/kafka/contents/<path>?ref=<parent>`.
 - Line numbers refer to that ref.
 - **The "Predicted" paragraphs were written before any run**, from reading the code and the summary format.
-  Each is followed by **Measured**: what the script printed on that case.
+  Each is followed by **Measured**: what the script printed on that case, at `5cc92f4`.
+- **After the receiver fix** follows where `d66e869` changed what is printed. The engine was dropping the
+  receiver of a call chained on a type outside the sources, with no gap. The "Measured" text is left as it
+  was run.
 - Dropped from the earlier pass: #24153. It is a performance refactor, not a fix. Its review exposed a latent
   NPE in `StreamsGroup.removeMember` that nobody fixed.
 
@@ -112,6 +116,13 @@ noise (regex, static members, assignors).
 - The other eight groups (854 effects) are what one protocol does and another does not. The grouping is what
   keeps them out of the way.
 
+**After the receiver fix: still found, in a longer list.** 336,669 pairs, the same 48 gaps.
+- 1,839 effects are not in all four. The first group is `in 1,2,4, not in 3: 199 effects`, still firm, and
+  every call of the fix is still in it.
+- It reads worse. Builder chains now carry what flows through them (`add(config)`, `setMemberId(time)`, …),
+  so `addOrUpdateMember` is row 18 of the group (was 6) and `hasMetadataExpired` row 76 (was 35).
+- So the truer summary asks more of the ordering inside a group than the mutator list gives.
+
 ---
 
 ## 2. `ShareGroup.getOrMaybeCreateMember` inserts the member; `ConsumerGroup`'s only builds it
@@ -173,6 +184,9 @@ needs the mutator vocabulary. Details in [review.md](review.md#kafka-24128-run-o
 **With the script: found.** `overrides:getOrMaybeCreateMember`: 24 effects, all `in 2, not in 1`.
 `call put(ModernGroup.members)` at `ShareGroup.java:236:38` is among the first, and `ConsumerGroup`'s override
 has no gaps, so its absence is firm.
+
+**After the receiver fix: the same, with three more rows.** 27 effects, all `in 2, not in 1`; `put(members)` is
+still the second row. The document went from 2,318 pairs to 5,931, and from 5 gaps to 6.
 
 ---
 
@@ -240,6 +254,18 @@ alone: 284 methods, 131,592 pairs, 51 gaps. 13 methods reach that call, fed 8 wa
 - A sink merges its arguments: the feeds of `groupId`, `memberId` and the timeout are one set.
 - Corrected above while measuring: the l.1493 site is in `convertToConsumerGroup`, not in
   `throwIfClassicMemberCannotJoinConsumerGroup` as this page said.
+
+**After the receiver fix: the two timeouts are named.** 335,866 pairs, the same 51 gaps. Still 13 methods, fed
+8 ways, but the feeds now say which timeout:
+- `onLoaded` (no gaps): `consumerGroupSessionTimeoutMs(), flatMap(), groupConfig(), orElse()` and the field
+  `groupConfigManager`. The consumer-protocol timeout, and nothing else. The 2-argument overload it calls has
+  the same feeds plus a parameter.
+- The classic sync and heartbeat handlers: `classicProtocolSessionTimeout()`, with `groupId(), memberId(),
+  groupInstanceId(), staticMember()`. The member's own timeout. `convertToConsumerGroup` has it too.
+- Both `consumerGroupHeartbeat`: both timeouts.
+- So `onLoaded` is the one entry point that schedules with the consumer timeout alone. That is the bug's
+  shape, spelled. **Still not a verdict:** the output does not say `onLoaded` also sees classic members.
+- The sink still merges its arguments.
 
 ---
 
@@ -354,6 +380,15 @@ There is no exception-edge model, so the `catch` difference is invisible.
   [the receiver bug](review.md#a-bug-found-while-measuring-a-chained-call-loses-its-receiver). The `catch`
   difference is invisible, as predicted.
 
+**After the receiver fix: found.** 393,182 pairs, 546 gaps (544 before). 8 methods, now fed 5 ways.
+- In all: `a parameter, metadata(), wrap()`.
+- `iterator(), next()`: `deserializeSubscription`, and with `protocols()` the two `classicGroupJoin` methods
+  that reach it. That is A's `protocols.iterator().next().metadata()`.
+- `get(), protocolName()`: `fromClassicGroup` and the four methods that reach it (three of them add
+  `groups` or `groupId()`). That is B's `metadata(classicGroup.protocolName().get())`.
+- Both reads are spelled, side by side, and the two methods that make them have no gaps. The `catch`
+  difference is still invisible.
+
 ---
 
 ## 6. Removing a group without replay leaves it in the `groupsByTopics` index
@@ -408,6 +443,9 @@ pairing the roots needs co-occurrence mining over effects.
 - The two sets do not overlap. The rule holds across separate `replay` calls, never inside one method, so there
   is no co-occurrence in a method's effects to mine. `cowrite:` was not built.
 
+**After the receiver fix: still missed.** 340,393 pairs, the same 54 gaps. One more method touches
+`groupsByTopics`: `subscribeGroupToTopic`, whose chain was dropped before. The two sets still do not overlap.
+
 ---
 
 ## Spec sketch: `--diverges`
@@ -460,20 +498,24 @@ pairing the roots needs co-occurrence mining over effects.
 The script reads today's `--summaries` JSON and nothing else. Design:
 [the design page](../../superpowers/specs/2026-11-22-diverges-script-design.md).
 
-| Case | Query | Result |
-|---|---|---|
-| 1 #24108 | the four handlers, named | **Found.** The fix's calls are in the first group, firmly absent in B. |
-| 2 #24128 | `overrides:getOrMaybeCreateMember` | **Found.** `call put(ModernGroup.members)`, firmly absent in `ConsumerGroup`. |
-| 3 #23856 | `sink:schedule@…:5509:9` | **Split visible.** Config-fed against member-fed. Not which config-fed caller is wrong. |
-| 4 #24155 | the two methods, named | **Missed.** Both reach the effect; the difference is a gate. |
-| 5 #24187 | `sink:deserializeConsumerProtocolSubscription` | **Found in part.** B's extra `get()`. The chains before it are lost. |
-| 6 #23530 | effects of every method | **Missed.** The rule spans calls; no method holds both effects. |
+The table is the result **with the receiver fix** (`d66e869`). What it was before is in the last column.
+
+| Case | Query | Result | Before the fix |
+|---|---|---|---|
+| 1 #24108 | the four handlers, named | **Found.** The fix's calls are in the first group, firmly absent in B. | Found. The group was 72 rows, now 199. |
+| 2 #24128 | `overrides:getOrMaybeCreateMember` | **Found.** `call put(ModernGroup.members)`, firmly absent in `ConsumerGroup`. | Found. |
+| 3 #23856 | `sink:schedule@…:5509:9` | **Split visible, timeouts named.** `onLoaded` alone schedules with the consumer timeout only. Not a verdict. | Split visible: config-fed against member-fed, by `orElse()` and `get()`. |
+| 4 #24155 | the two methods, named | **Missed.** Both reach the effect; the difference is a gate. | Missed. Same output. |
+| 5 #24187 | `sink:deserializeConsumerProtocolSubscription` | **Found.** `iterator(), next()` against `get(), protocolName()`. | Found in part: B's `get()` only. |
+| 6 #23530 | effects of every method | **Missed.** The rule spans calls; no method holds both effects. | Missed. |
 
 **What the misses ask of the engine**, in the order the cases needed them:
-1. **The receiver of a chained call on a type outside the sources** (#3, #5). A bug, not a feature:
-   [review.md](review.md#a-bug-found-while-measuring-a-chained-call-loses-its-receiver).
+1. ~~The receiver of a chained call on a type outside the sources (#3, #5).~~ **Fixed in `d66e869`.** It was a
+   bug, not a feature: [review.md](review.md#a-bug-found-while-measuring-a-chained-call-loses-its-receiver).
+   It moved #5 to found and named #3's timeouts.
 2. **Feeds per argument**, not per call (#3).
-3. **In-source callee names** in a summary (#1 reads better with them; found without).
+3. **In-source callee names** in a summary (#1 reads better with them; found without). **Order inside a
+   group** belongs here too: the fix made #1's first group 199 rows.
 4. **Gates on an effect** (#4).
 5. **Effects across calls of one root** (#6). The furthest from today.
 

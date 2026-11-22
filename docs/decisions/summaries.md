@@ -162,6 +162,12 @@ progressive-loan at `e048ee8b2b`, 2026-11-15.
 - **After casts were modelled** (`d449caa`, CI smoke of 2026-11-22): 860,619 pairs (+1,464) and 35,483
   gap rows, of which 18,742 `unmodelled` (−452). Every other kind is unchanged, and the graph run
   reports no unmodelled construct. The table above is the earlier measurement.
+- **After a receiver on an unresolved type was kept** (`d66e869`, run locally on the same commit):
+  2,799,736 pairs (3.3 times) and 38,957 gap rows: 20,802 `unmodelled`, 10,331 `depth`, 5,596 `escape`,
+  1,350 `alias`, 878 `dispatch`. The document is 767 MB and takes 10 s. 658 of 658 roots are still graphed
+  and the graph run still reports no unmodelled construct. Nothing was added: `widget.frame().width()` used
+  to drop everything before `width` with no gap (see `attribution.md`), so the pairs and the gaps on those
+  receivers were missing, not absent. The lines below are the measurement before it.
 - **So `unmodelled` counts no construct here.** Its 18,742 rows, 53% of all gap rows, are field
   reads and writes through an object with no tracked origin, and callee effects on an object the
   caller cannot name. The kind's name misleads when the numbers are read. A kind of its own is

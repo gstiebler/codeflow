@@ -59,7 +59,7 @@ Read off its `flows` and `gaps`, nothing else:
 
 ## Output
 - **Families.** One row per effect that at least one sibling lacks, grouped by who lacks it:
-  `in 1,2,4, not in 3: 72 effects`, then the rows with up to three positions from the siblings that have it.
+  `in 1,2,4, not in 3: 199 effects`, then the rows with up to three positions from the siblings that have it.
   - Groups lacking in the fewest siblings come first (the majority vote); a firm absence before an unknown
     one; inside a group, writes, mutator calls, other calls, reads.
   - **Absent behind a gap is unknown.** A sibling with any gap gets `?` on every absence, and its line in the
@@ -71,16 +71,20 @@ Read off its `flows` and `gaps`, nothing else:
   way adding least comes first.
 - `--json` holds the same, with every gap count.
 
-**"Firm" is as firm as the summary.** A call chained on a type outside the sources loses its receiver with no
-gap counted (`Lowering.isTypeName`, found while measuring; see
-`docs/research/2026-11-22-codeflow-usefulness/review.md`). Until that is fixed, a sibling with no gaps can
-still be missing a flow.
+**"Firm" is as firm as the summary.** A call chained on a type outside the sources used to lose its receiver
+with no gap counted (`Lowering.isTypeName`, found while measuring; see
+`docs/research/2026-11-22-codeflow-usefulness/review.md`), so a sibling with no gaps could still be missing a
+flow. Fixed in `d66e869`. The rule stands for the next bug of that kind: a firm absence is a claim about the
+summary, checked against the source before it is believed.
 
 ## Test
-- Real output, trimmed: `scripts/testdata/` holds three documents as `--summaries` printed them.
+- Real output, trimmed: `scripts/testdata/` holds three documents as `--summaries` printed them. Printed
+  again after `d66e869`, which changed all three; each file's `trimmed` field says what was kept.
   - #24128: `call put(ModernGroup.members)` is present in `ShareGroup`, absent (firm) in `ConsumerGroup`.
   - #49604: `build` misses exactly `turnOffChangeSessionIdOnLogin`.
-  - #24187: the two deserialising methods share `metadata()` and `wrap()`; `fromClassicGroup` adds `get()`.
+  - #24187: both deserialising methods are fed `a parameter`, `metadata()` and `wrap()`; one adds
+    `iterator(), next()`, and `fromClassicGroup` adds `get(), protocolName()`. Of `fromClassicGroup`'s 3,247
+    flows only the 5 into the call are kept: whole, the file would be 390 KB.
 - Hand-made documents for the rules: `?` when the absent sibling has a gap; majority order with three
   siblings; an ambiguous or empty selector fails; a wrong `format` fails; a `sink:` position names one call.
 - Each rule was checked by changing the script and watching a test fail.

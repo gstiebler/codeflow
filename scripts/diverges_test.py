@@ -294,16 +294,20 @@ class Fields(unittest.TestCase):
 
 class Kafka24187(unittest.TestCase):
     """Two paths deserialize a classic member's subscription, and one reads it through the group's selected
-    protocol: `metadata(protocolName().get())` where the other has `iterator().next().metadata()`."""
+    protocol: `metadata(protocolName().get())` where the other has `iterator().next().metadata()`.
+
+    Both chains are on types outside the two files. Until `Lowering` kept such a receiver, the summary held
+    only `fromClassicGroup`'s `get()`, and this fixture with it."""
 
     def setUp(self):
         self.found = diverges.sink(diverges.load(KAFKA_FEEDS), 'deserializeConsumerProtocolSubscription')
 
-    def test_both_paths_feed_it_the_wrapped_metadata(self):
-        self.assertEqual(['metadata()', 'wrap()'], self.found.common)
+    def test_both_paths_feed_it_the_wrapped_metadata_of_a_parameter(self):
+        self.assertEqual(['a parameter', 'metadata()', 'wrap()'], self.found.common)
 
-    def test_only_from_classic_group_feeds_it_a_get(self):
-        self.assertEqual([([], ['deserializeSubscription']), (['get()'], ['fromClassicGroup'])],
+    def test_each_path_spells_its_own_read_of_the_protocol(self):
+        self.assertEqual([(['get()', 'protocolName()'], ['fromClassicGroup']),
+                          (['iterator()', 'next()'], ['deserializeSubscription'])],
                          [(way.feeds, [diverges.simple_name(m) for m in way.methods]) for way in self.found.ways])
 
 
@@ -392,7 +396,7 @@ class CommandLine(unittest.TestCase):
         self.assertEqual((0, ''), (done.returncode, done.stderr))
         self.assertRegex(done.stdout, r'(?m)^1 = ConsumerGroup#getOrMaybeCreateMember\(java\.lang\.String,boolean\) +ConsumerGroup\.java:255:5 +no gaps$')
         self.assertRegex(done.stdout, r'(?m)^2 = ShareGroup#getOrMaybeCreateMember\(java\.lang\.String,boolean\) +ShareGroup\.java:207:5 +1 gap: 1 dispatch$')
-        self.assertRegex(done.stdout, r'(?m)^in 2, not in 1: 24 effects$')
+        self.assertRegex(done.stdout, r'(?m)^in 2, not in 1: 27 effects$')
         self.assertRegex(done.stdout, r'(?m)^  call put\(ModernGroup\.members\) +ShareGroup\.java:236:38$')
 
     def test_an_unknown_absence_is_printed_with_a_question_mark(self):
@@ -424,24 +428,24 @@ class CommandLine(unittest.TestCase):
         self.assertEqual((0, ''), (done.returncode, done.stderr))
         self.assertEqual("""diverges sink:deserializeConsumerProtocolSubscription: 2 methods, fed 2 ways
 
-in all of them: metadata(), wrap()
+in all of them: a parameter, metadata(), wrap()
 
-1 = nothing else
-  GroupMetadataManager#deserializeSubscription(JoinGroupRequestProtocolCollection)  GroupMetadataManager.java:2071:5  no gaps
-
-2 = get()
+1 = get(), protocolName()
   ConsumerGroup#fromClassicGroup(LogContext,SnapshotRegistry,ClassicGroup,java.util.Map,CoordinatorMetadataImage)  ConsumerGroup.java:1253:5  no gaps
+
+2 = iterator(), next()
+  GroupMetadataManager#deserializeSubscription(JoinGroupRequestProtocolCollection)  GroupMetadataManager.java:2071:5  no gaps
 """, done.stdout)
 
     def test_sink_as_json(self):
         done = self.run_script(KAFKA_FEEDS, 'sink:deserializeConsumerProtocolSubscription', '--json')
         self.assertEqual((0, ''), (done.returncode, done.stderr))
         result = json.loads(done.stdout)
-        self.assertEqual(['metadata()', 'wrap()'], result['all'])
-        self.assertEqual([[], ['get()']], [way['feeds'] for way in result['ways']])
+        self.assertEqual(['a parameter', 'metadata()', 'wrap()'], result['all'])
+        self.assertEqual([['get()', 'protocolName()'], ['iterator()', 'next()']], [way['feeds'] for way in result['ways']])
         self.assertEqual([{'method': 'org.apache.kafka.coordinator.group.GroupMetadataManager'
                                      '#deserializeSubscription(JoinGroupRequestProtocolCollection)',
-                           'at': 'GroupMetadataManager.java:2071:5', 'gaps': 0}], result['ways'][0]['methods'])
+                           'at': 'GroupMetadataManager.java:2071:5', 'gaps': 0}], result['ways'][1]['methods'])
 
     def test_a_document_on_stdin_and_the_gaps_of_a_method_a_call_is_fed_in(self):
         document = doc(method('a.C#one()', [('P0', 'ext-arg:f@X.java:9:9')], gaps=[gap('C#g on this', 'dispatch')]))

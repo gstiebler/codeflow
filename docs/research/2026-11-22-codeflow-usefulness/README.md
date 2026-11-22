@@ -22,6 +22,10 @@ not hide Keycloak #49604), and the order to build in changed. Corrections are ma
 **Built since: [`scripts/diverges.py`](../../../scripts/diverges.py).** Run on the six Kafka sibling cases: 2 found,
 1 found in part, 1 split visible, 2 missed. Per case: [kafka-sibling-paths.md](kafka-sibling-paths.md#measured-scriptsdivergespy-on-the-six-cases).
 
+**Fixed since: the bug those runs found in the tool** (`d66e869`). A call chained on a type outside the corpus
+dropped its receiver with no gap counted. Re-run: 3 found, 1 split visible, 2 missed.
+[What moved](review.md#fixed-in-d66e869-and-what-moved).
+
 ## Sample
 
 | Repo | Kind | Census | Deep-dived items | Review comments |

@@ -28,11 +28,20 @@ the same object, and anything else leaves `((Square) shape).edges` reading a fie
 `square.sides()` with nothing to dispatch on — an `UnOp` drops the objects a `Val` carries. A
 **primitive** cast `(int) ratio` converts (`(int) 7.9` is 7), so it is a `UnOp` labelled `to int`,
 or the graph would say the variable holds the double. The split is syntax (`PrimitiveTypeTree`), so
-it needs no symbol lookup. The cast's type is not narrowed into dispatch: a `(Square)` on an object
-of unknown type does not make it a `Square`, because a cast that would fail at run time is exactly
-what a reader is checking for. With casts in, every value-producing `Tree.Kind` is modelled; the
-gap left is the record deconstruction pattern (`instanceof P(int x)`, `case P(int x)`), which the
-`unsupported` fixture now holds.
+it needs no symbol lookup. The cast's type is not narrowed into dispatch: `Frame.resolve` asks the
+object's *constructed* type, and a cast is the author's claim about an object, not a construction,
+so an object of unknown type stays `EXTERNAL` under a `(Square)` as it does without one
+(`calls-and-dispatch.md`). With casts in, every value-producing `Tree.Kind` is modelled.
+
+The gap left is the record deconstruction pattern (`instanceof P(int x)`, `case P(int x)`), which
+the `unsupported` fixture holds. It is an `UNMODELLED` node with the tested value flowing in, and
+**the names it binds are values out of that node** (`Lowering.bindPattern`, every nested name, each
+an object of its own as a loop element is). Until 2026-11-22 the pattern named itself and bound
+nothing: a body that read `x` ended the run with a `GraphException` at the read and no document,
+which is the failure the node exists to prevent — and the fixture read no binding, so nothing
+showed it. Two rules come out of that. A gap that binds names must bind them to the gap: to
+nothing, the run dies; to the tested value, `shape` is drawn as being `x`. And a fixture for a
+binding construct must read what it binds.
 
 The failure that stays hard is the one that really is the analysis having lost something: a local
 read with no reaching definition (`unassigned`). See "A name with no value" above.

@@ -948,7 +948,24 @@ class AppTest {
         val edges = edgeLabels(graph)
         assertTrue("DECONSTRUCTION_PATTERN" to "UNMODELLED" in types, "the pattern is not drawn as unmodelled: $types")
         assertTrue("shape" to "DECONSTRUCTION_PATTERN" in edges, "the tested value does not reach the pattern: $edges")
-        assertTrue("\"point\"" to "println" in edges, "the run stopped at the gap: $edges")
+        assertTrue("+" to "println" in edges, "the run stopped at the gap: $edges")
+    }
+
+    /**
+     * The names an unmodelled pattern binds are values out of the gap.
+     *
+     * Naming the gap and binding nothing left `x` with no definition, so the first read of it ended
+     * the run with a `GraphException` and no document - the failure the node exists to prevent.
+     * Binding them to the tested value instead would draw `shape` as being `x`, which is the
+     * readable, wrong graph: what `x` is depends on a construct nobody modelled.
+     */
+    @Test
+    fun theNamesAnUnmodelledPatternBindsComeOutOfTheGap() {
+        val edges = edgeLabels(buildGraph("unsupported", listOf("App.java")))
+        assertTrue("DECONSTRUCTION_PATTERN" to "x" in edges, "x does not come out of the gap: $edges")
+        assertTrue("DECONSTRUCTION_PATTERN" to "y" in edges, "y does not come out of the gap: $edges")
+        assertTrue("x" to "+" in edges && "y" to "+" in edges, "the bound names are not what is read: $edges")
+        assertFalse("shape" to "x" in edges, "the tested value is drawn as its own component: $edges")
     }
 
     /**

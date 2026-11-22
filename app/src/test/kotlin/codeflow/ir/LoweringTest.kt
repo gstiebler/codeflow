@@ -569,6 +569,9 @@ class LoweringTest {
      * hands back one of their results turns `(int) 3L` into the literal, and nothing downstream can
      * tell that a cast was there. Drawn, that is a diagram which reads fine and is wrong. Casts are
      * modelled now; a record deconstruction pattern is the construct left, so it stands in here.
+     *
+     * The names it binds read the instruction (`bind x <- 5`), not the value tested (`4`): binding
+     * them to `shape` is the same mistake one level down, and binding nothing ends the run at `x + y`.
      */
     @Test
     fun anUnmodelledConstructIsAnInstructionRatherThanOneOfItsChildren() {
@@ -580,14 +583,16 @@ class LoweringTest {
                 "3: call println on 1 2",
                 "4: write shape <- 0",
                 "5: unmodelled DECONSTRUCTION_PATTERN 4",
-                "6: unOp instanceof 4",
-                "7: fieldFork if ? 6 [true, false]",
-                "8: readField static.out",
-                "9: const \"point\"",
-                "10: call println on 8 9",
-                "11: fieldArm 7",
-                "12: fieldArm 7",
-                "13: fieldJoin 7 arms=[0, 1] if ? 6 [true, false] close"
+                "6: bind x <- 5",
+                "7: bind y <- 5",
+                "8: unOp instanceof 4",
+                "9: fieldFork if ? 8 [true, false]",
+                "10: readField static.out",
+                "11: binOp + 6 7",
+                "12: call println on 10 11",
+                "13: fieldArm 9",
+                "14: fieldArm 9",
+                "15: fieldJoin 9 arms=[0, 1] if ? 8 [true, false] close"
             ),
             lower("unsupported", listOf("App.java"), "App#main")
         )

@@ -253,7 +253,15 @@ class SummarizerTest {
     fun anUnmodelledConstructIsAGap() =
         assertEquals(
             setOf("unmodelled"),
-            summarise("record P(int x) {} class A { int f(Object o) { if (o instanceof P(int x)) return 1; return 0; } }", "A#f").gaps.map { it.kind }.toSet()
+            summarise("record P(int x) {} class A { int f(Object o) { if (o instanceof P(int x)) return x; return 0; } }", "A#f").gaps.map { it.kind }.toSet()
+        )
+
+    /** The same in a `case` label whose arm reads the name: the gap, not a body that failed to lower. */
+    @Test
+    fun anUnmodelledPatternInACaseLabelIsAGap() =
+        assertEquals(
+            setOf("unmodelled"),
+            summarise("record P(int x) {} class A { int f(Object o) { return switch (o) { case P(int x) -> x; default -> 0; }; } }", "A#f").gaps.map { it.kind }.toSet()
         )
 
     @Test

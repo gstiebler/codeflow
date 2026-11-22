@@ -1,5 +1,5 @@
 /*
- * A construct codeflow does not model: a record deconstruction pattern.
+ * A construct codeflow does not model: a record deconstruction pattern, whose names the body reads.
  *
  * It is drawn rather than thrown on. Silently scanning through an unmodelled construct and
  * returning one of its children produces a graph that reads fine and is wrong, which is worse than
@@ -16,7 +16,7 @@ public class App {
         System.out.println("x");
         Object shape = args;
         if (shape instanceof Point(int x, int y)) {
-            System.out.println("point");
+            System.out.println(x + y);
         }
     }
 }

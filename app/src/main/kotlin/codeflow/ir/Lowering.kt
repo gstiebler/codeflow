@@ -729,20 +729,31 @@ class Lowering(
         /**
          * A pattern binds a name to the value it was tested against.
          *
-         * A record deconstruction pattern binds one name per component and is not modelled. Left
-         * alone it binds nothing, and the components are read further down as names that resolve to
-         * nothing - so it is named here, at the pattern's own line, which is the whole point of the
-         * gate reaching past expressions.
+         * A record deconstruction pattern binds one name per component and is not modelled, so it
+         * is named here, at the pattern's own line. Naming it is not enough: the names it binds
+         * are read further down, and a name with no definition ends the run at that read. They
+         * bind to the gap - what each one holds is the construct's business, and the tested value
+         * reaches them only through it. A component is not its record, so each is an object of
+         * its own, as a loop element is.
          */
         private fun bindPattern(pattern: PatternTree?, value: Val, ctx: ProcessorContext) {
-            if (pattern == null) return
-            val variable = (pattern as? BindingPatternTree)?.variable
-            if (variable == null) {
-                unmodelled(pattern, listOf(value), ctx)
-                return
+            when (pattern) {
+                null -> Unit
+                is BindingPatternTree -> bind(pattern.variable, value, Identity.OfValue, ctx)
+                else -> {
+                    val gap = unmodelled(pattern, listOf(value), ctx)
+                    boundBy(pattern).forEach { bind(it, gap, Identity.Fresh, ctx) }
+                }
             }
-            bind(variable, value, Identity.OfValue, ctx)
         }
+
+        /** Every name a pattern binds, however deep: `Line(Point(int x, int y), Point end)` binds three. */
+        private fun boundBy(pattern: PatternTree): List<VariableTree> =
+            when (pattern) {
+                is BindingPatternTree -> listOf(pattern.variable)
+                is DeconstructionPatternTree -> pattern.nestedPatterns.flatMap(::boundBy)
+                else -> emptyList()
+            }
 
         /**
          * `k -> new MathContext(...)`, a function value.

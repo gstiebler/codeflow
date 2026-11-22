@@ -8,12 +8,15 @@ right argument, a listener notification. The path that misses it is the **rarer*
 load, downgrade, not-in-group. Finding them needs a `diverges` query over per-root effect sets; reachability
 alone is not enough for #4.
 
+**Measured since** (`scripts/diverges.py` over `--summaries` of the pre-fix files): **2 found, 1 found in part,
+1 split visible, 2 missed.** Table and commands: [Measured](#measured-scriptsdivergespy-on-the-six-cases).
+
 **Method.**
 - Every PR was squash-merged, so the pre-fix code is the merge commit's parent, fetched with
   `gh api repos/apache/kafka/contents/<path>?ref=<parent>`.
 - Line numbers refer to that ref.
-- **The "Today?" paragraphs are predictions** from reading the code and the summary format. Only case 2 was
-  run ([review.md](review.md)); the other five were not.
+- **The "Predicted" paragraphs were written before any run**, from reading the code and the summary format.
+  Each is followed by **Measured**: what the script printed on that case.
 - Dropped from the earlier pass: #24153. It is a performance refactor, not a fix. Its review exposed a latent
   NPE in `StreamsGroup.removeMember` that nobody fixed.
 
@@ -93,8 +96,21 @@ handlers. Three reach `hasMetadataExpired`, `updateSubscriptionMetadata` and `ma
 reaches none. A majority vote over the family flags B. A plain A/B diff would drown it in protocol-specific
 noise (regex, static members, assignors).
 
-**Today?** Mostly yes. The receivers are concrete classes, so dispatch resolves. `records.add` is a `java.util`
-sink. The generated `*RequestData` classes go `EXTERNAL`, which does not matter for this comparison.
+**Predicted.** Mostly yes. The receivers are concrete classes, so dispatch resolves. `records.add` is a
+`java.util` sink. The generated `*RequestData` classes go `EXTERNAL`, which does not matter for this comparison.
+
+**Measured: found, with the four siblings named.** `GMM` alone: 284 methods, 133,890 pairs, 48 gaps.
+- 926 effects are not in all four. The first group is `in 1,2,4, not in 3: 72 effects`, and 3 is B, with no
+  gaps, so the absence is firm.
+- That group holds the fix: `hasMetadataExpired`, `setMetadataRefreshDeadline`, `computeSubscribedTopicNames`,
+  `UpdateTargetAssignmentResult<>`, `targetAssignmentEpoch`, `addOrUpdateMember`,
+  `newConsumerGroupMemberSubscriptionRecord`.
+- **Wrong in the prediction:** `updateSubscriptionMetadata` and `maybeUpdateTargetAssignment` are never named.
+  An in-source callee is inlined into its caller, so only the opaque calls it makes are left.
+- **`stem:*GroupHeartbeat*` is the wrong family:** 16 methods, among them overloads and the classic-group
+  handlers. The reviewer knew which four were siblings; the name does not say it.
+- The other eight groups (854 effects) are what one protocol does and another does not. The grouping is what
+  keeps them out of the way.
 
 ---
 
@@ -143,7 +159,7 @@ no session timeout, and it counts toward `group.share.max.size`.
 **What `diverges` compares.** The effects on `this` of every override of one method. B mutates `this.members`
 and reaches three `maybeUpdate*` methods; A only reads.
 
-**Today?** Very nearly. Summaries are keyed per receiver class, so each override has its own. The catch:
+**Predicted.** Very nearly. Summaries are keyed per receiver class, so each override has its own. The catch:
 `TimelineHashMap` is in `server-common`, so without those sources the write is `ext-arg:put` on
 `this.members`, not a field effect. The query must count "an opaque mutator on a `this.<field>` receiver" as a
 write.
@@ -153,6 +169,10 @@ write.
 `values`, `forEach`, `memberId`, `byNameCount`). `ConsumerGroup`'s override has none of its own. Field writes
 are empty for both, as predicted. So the omission shows today, but 6 of the 9 rows are noise: a raw sink diff
 needs the mutator vocabulary. Details in [review.md](review.md#kafka-24128-run-on-the-pre-fix-sources).
+
+**With the script: found.** `overrides:getOrMaybeCreateMember`: 24 effects, all `in 2, not in 1`.
+`call put(ModernGroup.members)` at `ShareGroup.java:236:38` is among the first, and `ConsumerGroup`'s override
+has no gaps, so its absence is firm.
 
 ---
 
@@ -165,7 +185,7 @@ needs the mutator vocabulary. Details in [review.md](review.md#kafka-24128-run-o
 **Path A: the classic-member call sites** of `scheduleConsumerGroupSessionTimeout` pass the member's own
 timeout:
 ```java
-// throwIfClassicMemberCannotJoinConsumerGroup l.1493, classicGroupSyncToConsumerGroup l.8540,
+// convertToConsumerGroup l.1493 (in a forEach lambda), classicGroupSyncToConsumerGroup l.8540,
 // classicGroupHeartbeatToConsumerGroup l.8772:
 scheduleConsumerGroupSessionTimeout(groupId, memberId, member.classicProtocolSessionTimeout().get());
 // classicGroupJoinToConsumerGroup l.2957, in the appendFuture.whenComplete lambda:
@@ -201,11 +221,25 @@ session timeout".
 - Telling the two apart needs a population hint: `onLoaded` iterates over all members without branching on
   `useClassicProtocol()`.
 
-**Today?** Partly.
+**Predicted.** Partly.
 - Argument origins into an `EXTERNAL` sink (`timer.schedule`) are what summaries' `sinks` already record.
 - `forEach((id, member) -> …)` lambda parameters bind `Identity.Unknown`, so the fixed code's `member.…` has no
   origin.
 - Overloads share one `Class#method` name in `--from`.
+
+**Measured: the split shows, the verdict does not.** `sink:schedule@GroupMetadataManager.java:5509:9`, `GMM`
+alone: 284 methods, 131,592 pairs, 51 gaps. 13 methods reach that call, fed 8 ways.
+- `onLoaded` (no gaps) is fed by `consumerGroupSessionTimeoutMs(), orElse()`: group config. The 2-argument
+  overload and both `consumerGroupHeartbeat` have the same two feeds.
+- The classic sync and heartbeat handlers, which pass the member's own timeout, do not have them
+  (`a parameter, groupId(), memberId()`). Nor does `convertToConsumerGroup`.
+- So config-fed and member-fed are told apart. `onLoaded` and the correct `consumerGroupHeartbeat` are not: that
+  needs the population hint, as predicted.
+- `member.classicProtocolSessionTimeout().get()` shows only as `get()`, which every method has. Its receiver
+  chain is lost to [the receiver bug](review.md#a-bug-found-while-measuring-a-chained-call-loses-its-receiver).
+- A sink merges its arguments: the feeds of `groupId`, `memberId` and the timeout are one set.
+- Corrected above while measuring: the l.1493 site is in `convertToConsumerGroup`, not in
+  `throwIfClassicMemberCannotJoinConsumerGroup` as this page said.
 
 ---
 
@@ -257,9 +291,14 @@ how other places that change the assignment do it".
 gates**. Reachability alone sees `notifyAssignmentChange` in both and reports nothing. The row that matters is:
 ungated in A, gated in B by `hasAutoAssignedPartitions()`, read after `unsubscribe()` on the same receiver.
 
-**Today?** Weakly. `subscriptions` is an interface with two implementations, so its calls are `EXTERNAL` and the
-dead guard cannot be derived. The honest output is the gate difference, which `CONDITION` edges can carry if the
-query compares gates.
+**Predicted.** Weakly. `subscriptions` is an interface with two implementations, so its calls are `EXTERNAL`
+and the dead guard cannot be derived. The honest output is the gate difference, which `CONDITION` edges can
+carry if the query compares gates.
+
+**Measured: missed, as predicted.** `AbstractMembershipManager` and the two subscription-state classes: 221
+methods, 3,303 pairs, 296 gaps. `leaveGroup(boolean)` against `clearAssignmentAndLeaveGroup()`: 12 effects, all
+`in 1, not in 2?` (logging, `leaveGroupInProgress`, `state`). Nothing on `notifyAssignmentChange`: both reach
+it, and a summary holds no gates. `anchor:` was not built, because the JSON cannot answer it.
 
 ---
 
@@ -302,8 +341,18 @@ Either way the upgrading consumer gets a fatal `UNKNOWN_SERVER_ERROR`.
   `protocolName → get → metadata(String)`.
 - The error handling around the sink: A catches `SchemaException`, B does not.
 
-**Today?** Partly. Sink-argument origins come from summaries. The lambda parameter is `Identity.Unknown`. There
-is no exception-edge model, so the `catch` difference is invisible.
+**Predicted.** Partly. Sink-argument origins come from summaries. The lambda parameter is `Identity.Unknown`.
+There is no exception-edge model, so the `catch` difference is invisible.
+
+**Measured: found in part.** `sink:deserializeConsumerProtocolSubscription`, `GMM` and `CG`: 356 methods,
+139,802 pairs, 544 gaps. 8 methods reach the call, fed 2 ways.
+- In all: `metadata(), wrap()`.
+- Way 1, nothing else: `deserializeSubscription` and the two methods that reach it.
+- Way 2, `get()`: `fromClassicGroup` and the four methods that reach it. That `get()` is
+  `protocolName().get()`, the bug.
+- Not shown: `iterator().next()` on A's side and `protocolName()` on B's, both lost to
+  [the receiver bug](review.md#a-bug-found-while-measuring-a-chained-call-loses-its-receiver). The `catch`
+  difference is invisible, as predicted.
 
 ---
 
@@ -350,8 +399,14 @@ is no exception-edge model, so the `catch` difference is invisible.
 group's or member's life. The rule to mine is "whoever removes from `groups` or members also updates
 `groupsByTopics`". It holds on replay and is missing on three direct paths.
 
-**Today?** No. The effects are visible as `ext-arg` sinks on `this.groups` and `this.groupsByTopics`, but
+**Predicted.** No. The effects are visible as `ext-arg` sinks on `this.groups` and `this.groupsByTopics`, but
 pairing the roots needs co-occurrence mining over effects.
+
+**Measured: missed, and for a stronger reason.** `GMM` alone: 284 methods, 135,059 pairs, 54 gaps.
+- 55 methods have `call remove(GroupMetadataManager.groups)`. 8 touch `groupsByTopics`: four `replay`
+  overloads, `unsubscribeGroupFromTopic`, `updateGroupsByTopics`, and two readers.
+- The two sets do not overlap. The rule holds across separate `replay` calls, never inside one method, so there
+  is no co-occurrence in a method's effects to mine. `cowrite:` was not built.
 
 ---
 
@@ -359,15 +414,15 @@ pairing the roots needs co-occurrence mining over effects.
 
 **Families**, from the most explicit to the most inferred:
 
-| Selector | Siblings are | Example |
-|---|---|---|
-| `--diverges A B` | two named roots | any |
-| `overrides:M` | every override of one method | #2 |
-| `callers:M` | every call site of one callee, compared per argument | #3, #5 |
-| `stem:*GroupHeartbeat*` | name-stem siblings in one class | #1 |
-| `anchor:M` | blocks that call one anchor; compare what follows it | #4 |
-| `cowrite:F` | writers of field F; mine effects that co-occur in ≥ k of n | #6 |
-| `fields:C` | the fields of class C, compared by which of them one method reads | Keycloak #49604 ([review.md](review.md)) |
+| Selector | Siblings are | Example | In `scripts/diverges.py` |
+|---|---|---|---|
+| `--diverges A B` | two named roots | any | yes, any number; found #1 |
+| `overrides:M` | every override of one method | #2 | yes, as same name and parameter list; found #2 |
+| `callers:M` | every call site of one callee, compared per argument | #3, #5 | as `sink:LABEL[@AT]`: per call, arguments merged |
+| `stem:*GroupHeartbeat*` | name-stem siblings in one class | #1 | yes; too wide on #1 |
+| `anchor:M` | blocks that call one anchor; compare what follows it | #4 | no: needs gates and order |
+| `cowrite:F` | writers of field F; mine effects that co-occur in ≥ k of n | #6 | no: nothing co-occurs in one method |
+| `fields:C` | the fields of class C, compared by which of them one method reads | Keycloak #49604 ([review.md](review.md)) | yes; found it |
 
 **Effect vocabulary per root.** Transitive, read from summaries, instantiated through in-source callees:
 1. In-source methods reached, by `Element`.
@@ -397,3 +452,45 @@ pairing the roots needs co-occurrence mining over effects.
 4. **Interfaces with two implementations** (`subscriptions`) are reported as gaps, not as absence.
 5. **Gates are compared, not only reachability.** #4 needs it.
 6. **No Scala needed.** Only `core`'s integration tests are Scala.
+
+---
+
+## Measured: `scripts/diverges.py` on the six cases
+
+The script reads today's `--summaries` JSON and nothing else. Design:
+[the design page](../../superpowers/specs/2026-11-22-diverges-script-design.md).
+
+| Case | Query | Result |
+|---|---|---|
+| 1 #24108 | the four handlers, named | **Found.** The fix's calls are in the first group, firmly absent in B. |
+| 2 #24128 | `overrides:getOrMaybeCreateMember` | **Found.** `call put(ModernGroup.members)`, firmly absent in `ConsumerGroup`. |
+| 3 #23856 | `sink:schedule@…:5509:9` | **Split visible.** Config-fed against member-fed. Not which config-fed caller is wrong. |
+| 4 #24155 | the two methods, named | **Missed.** Both reach the effect; the difference is a gate. |
+| 5 #24187 | `sink:deserializeConsumerProtocolSubscription` | **Found in part.** B's extra `get()`. The chains before it are lost. |
+| 6 #23530 | effects of every method | **Missed.** The rule spans calls; no method holds both effects. |
+
+**What the misses ask of the engine**, in the order the cases needed them:
+1. **The receiver of a chained call on a type outside the sources** (#3, #5). A bug, not a feature:
+   [review.md](review.md#a-bug-found-while-measuring-a-chained-call-loses-its-receiver).
+2. **Feeds per argument**, not per call (#3).
+3. **In-source callee names** in a summary (#1 reads better with them; found without).
+4. **Gates on an effect** (#4).
+5. **Effects across calls of one root** (#6). The furthest from today.
+
+**Reproduce.** JDK 25, `./gradlew installDist`, `APP=app/build/install/app/bin/app`. Each case's files, at its
+pre-fix ref, go in their own empty directory.
+
+```shell
+$APP <dir> --summaries > sum.json
+# 1: GMM at 146cf78
+scripts/diverges.py sum.json 'consumerGroupHeartbeat(AuthorizableRequestContext,java.lang.String' \
+    classicGroupJoinToConsumerGroup classicGroupHeartbeatToConsumerGroup 'shareGroupHeartbeat(java.lang.String'
+# 2: CG, SG, ModernGroup at 8e75faf
+scripts/diverges.py sum.json overrides:getOrMaybeCreateMember
+# 3: GMM at a3444d8
+scripts/diverges.py sum.json sink:schedule@GroupMetadataManager.java:5509:9
+# 4: AbstractMembershipManager, AbstractSubscriptionState, ConsumerSubscriptionState at 62dca4d
+scripts/diverges.py sum.json 'AbstractMembershipManager#leaveGroup(boolean' AbstractMembershipManager#clearAssignmentAndLeaveGroup
+# 5: GMM, CG at 4b2ad74
+scripts/diverges.py sum.json sink:deserializeConsumerProtocolSubscription
+```

@@ -1,0 +1,1320 @@
+{
+ "format": "codeflow-summaries",
+ "version": 1,
+ "trimmed": "codeflow --summaries over SP.java, DefaultSamlDeployment.java and DeploymentBuilder.java of keycloak/keycloak at the parent of the fix for #49604; SP, its nested classes and DeploymentBuilder#build kept (38 of 127 entries), each as printed",
+ "counts": {
+  "methods": 38,
+  "pairs": 222,
+  "gaps": {
+   "depth": 15,
+   "unmodelled": 15
+  }
+ },
+ "methods": [
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#getEntityID()",
+   "at": "SP.java:95:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.entityID",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#getIdp()",
+   "at": "SP.java:183:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.idp",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#getKeys()",
+   "at": "SP.java:143:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.keys",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#getLogoutPage()",
+   "at": "SP.java:191:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.logoutPage",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#getNameIDPolicyFormat()",
+   "at": "SP.java:151:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.nameIDPolicyFormat",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#getPrincipalNameMapping()",
+   "at": "SP.java:159:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.principalNameMapping",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#getRoleAttributes()",
+   "at": "SP.java:167:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.roleAttributes",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#getRoleMappingsProviderConfig()",
+   "at": "SP.java:175:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.roleMappingsProviderConfig",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#getSslPolicy()",
+   "at": "SP.java:103:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.sslPolicy",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#isAutodetectBearerOnly()",
+   "at": "SP.java:199:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.autodetectBearerOnly",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#isForceAuthentication()",
+   "at": "SP.java:111:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.forceAuthentication",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#isIsPassive()",
+   "at": "SP.java:119:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.isPassive",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#isKeepDOMAssertion()",
+   "at": "SP.java:135:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.keepDOMAssertion",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#isTurnOffChangeSessionIdOnLogin()",
+   "at": "SP.java:127:5",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.turnOffChangeSessionIdOnLogin",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setAutodetectBearerOnly(java.lang.Boolean)",
+   "at": "SP.java:203:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.autodetectBearerOnly"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setEntityID(java.lang.String)",
+   "at": "SP.java:99:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.entityID"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setForceAuthentication(java.lang.Boolean)",
+   "at": "SP.java:115:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.forceAuthentication"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setIdp(IDP)",
+   "at": "SP.java:187:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.idp"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setIsPassive(java.lang.Boolean)",
+   "at": "SP.java:123:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.isPassive"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setKeepDOMAssertion(java.lang.Boolean)",
+   "at": "SP.java:139:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.keepDOMAssertion"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setKeys(java.util.List)",
+   "at": "SP.java:147:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.keys"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setLogoutPage(java.lang.String)",
+   "at": "SP.java:195:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.logoutPage"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setNameIDPolicyFormat(java.lang.String)",
+   "at": "SP.java:155:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.nameIDPolicyFormat"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setPrincipalNameMapping(org.keycloak.adapters.saml.config.SP.PrincipalNameMapping)",
+   "at": "SP.java:163:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.principalNameMapping"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setRoleAttributes(java.util.Set)",
+   "at": "SP.java:171:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.roleAttributes"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setRoleMappingsProviderConfig(org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig)",
+   "at": "SP.java:179:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.roleMappingsProviderConfig"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setSslPolicy(java.lang.String)",
+   "at": "SP.java:107:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.sslPolicy"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP#setTurnOffChangeSessionIdOnLogin(java.lang.Boolean)",
+   "at": "SP.java:131:5",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.turnOffChangeSessionIdOnLogin"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP.PrincipalNameMapping#getAttributeName()",
+   "at": "SP.java:42:9",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.PrincipalNameMapping.attributeName",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP.PrincipalNameMapping#getPolicy()",
+   "at": "SP.java:34:9",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.PrincipalNameMapping.policy",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP.PrincipalNameMapping#setAttributeName(java.lang.String)",
+   "at": "SP.java:46:9",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.PrincipalNameMapping.attributeName"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP.PrincipalNameMapping#setPolicy(java.lang.String)",
+   "at": "SP.java:38:9",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.PrincipalNameMapping.policy"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig#addConfigurationProperty(java.lang.String,java.lang.String)",
+   "at": "SP.java:75:9",
+   "flows": [
+    [
+     "P0",
+     "ext-arg:setProperty@SP.java:76:13"
+    ],
+    [
+     "P1",
+     "ext-arg:setProperty@SP.java:76:13"
+    ],
+    [
+     "this.org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig.configuration",
+     "ext-arg:setProperty@SP.java:76:13"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig#getConfiguration()",
+   "at": "SP.java:67:9",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig.configuration",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig#getId()",
+   "at": "SP.java:59:9",
+   "flows": [
+    [
+     "this.org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig.id",
+     "RET"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig#setConfiguration(java.util.Properties)",
+   "at": "SP.java:71:9",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig.configuration"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig#setId(java.lang.String)",
+   "at": "SP.java:63:9",
+   "flows": [
+    [
+     "P0",
+     "this.org.keycloak.adapters.saml.config.SP.RoleMappingsProviderConfig.id"
+    ]
+   ],
+   "gaps": []
+  },
+  {
+   "method": "org.keycloak.adapters.saml.config.parsers.DeploymentBuilder#build(java.io.InputStream,ResourceLoader)",
+   "at": "DeploymentBuilder.java:60:5",
+   "flows": [
+    [
+     "P0",
+     "ext-arg:parse@DeploymentBuilder.java:68:61"
+    ],
+    [
+     "P1",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.roleMappingsProvider"
+    ],
+    [
+     "P1",
+     "ext-arg:bootstrapRoleMappingsProvider@DeploymentBuilder.java:219:44"
+    ],
+    [
+     "P1",
+     "ext-arg:getResourceAsStream@DeploymentBuilder.java:300:18"
+    ],
+    [
+     "P1",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:CompositeKeyLocator@DefaultSamlDeployment.java:204:75",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.signatureValidationKeyLocator"
+    ],
+    [
+     "ext:CompositeKeyLocator@DefaultSamlDeployment.java:204:75",
+     "ext-arg:add@DefaultSamlDeployment.java:263:17"
+    ],
+    [
+     "ext:CompositeKeyLocator@DefaultSamlDeployment.java:204:75",
+     "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "ext:CompositeKeyLocator@DefaultSamlDeployment.java:204:75",
+     "ext-arg:clear@DefaultSamlDeployment.java:259:13"
+    ],
+    [
+     "ext:DefaultIDP@DeploymentBuilder.java:62:55",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp"
+    ],
+    [
+     "ext:DefaultSamlDeployment@DeploymentBuilder.java:61:44",
+     "RET"
+    ],
+    [
+     "ext:DefaultSamlDeployment@DeploymentBuilder.java:61:44",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.roleMappingsProvider"
+    ],
+    [
+     "ext:DefaultSamlDeployment@DeploymentBuilder.java:61:44",
+     "ext-arg:bootstrapRoleMappingsProvider@DeploymentBuilder.java:219:44"
+    ],
+    [
+     "ext:DefaultSingleLogoutService@DeploymentBuilder.java:64:64",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleLogoutService"
+    ],
+    [
+     "ext:DefaultSingleSignOnService@DeploymentBuilder.java:63:64",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleSignOnService"
+    ],
+    [
+     "ext:DefaultSingleSignOnService@DeploymentBuilder.java:63:64",
+     "ext-arg:SamlDescriptorPublicKeyLocator@DefaultSamlDeployment.java:267:19"
+    ],
+    [
+     "ext:DefaultSingleSignOnService@DeploymentBuilder.java:63:64",
+     "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "ext:DefaultSingleSignOnService@DeploymentBuilder.java:63:64",
+     "ext-arg:getRequestBindingUrl@DefaultSamlDeployment.java:283:42"
+    ],
+    [
+     "ext:File@DeploymentBuilder.java:290:23",
+     "ext-arg:FileInputStream@DeploymentBuilder.java:294:22"
+    ],
+    [
+     "ext:File@DeploymentBuilder.java:290:23",
+     "ext-arg:exists@DeploymentBuilder.java:291:18"
+    ],
+    [
+     "ext:File@DeploymentBuilder.java:290:23",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:FileInputStream@DeploymentBuilder.java:294:22",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:HardcodedKeyLocator@DefaultSamlDeployment.java:263:56",
+     "ext-arg:add@DefaultSamlDeployment.java:263:17"
+    ],
+    [
+     "ext:HashSet<>@DeploymentBuilder.java:96:33",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.roleAttributeNames"
+    ],
+    [
+     "ext:HashSet<>@DeploymentBuilder.java:96:33",
+     "ext-arg:add@DeploymentBuilder.java:97:13"
+    ],
+    [
+     "ext:KeyPair@DeploymentBuilder.java:137:39",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:LinkedList<>@DefaultSamlDeployment.java:207:65",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.signatureValidationKeys"
+    ],
+    [
+     "ext:LinkedList<>@DefaultSamlDeployment.java:207:65",
+     "ext-arg:HardcodedKeyLocator@DefaultSamlDeployment.java:263:56"
+    ],
+    [
+     "ext:LinkedList<>@DefaultSamlDeployment.java:207:65",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:LinkedList<>@DefaultSamlDeployment.java:207:65",
+     "ext-arg:add@DefaultSamlDeployment.java:263:17"
+    ],
+    [
+     "ext:LinkedList<>@DefaultSamlDeployment.java:207:65",
+     "ext-arg:isEmpty@DefaultSamlDeployment.java:262:19"
+    ],
+    [
+     "ext:SamlDescriptorPublicKeyLocator@DefaultSamlDeployment.java:267:19",
+     "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "ext:bootstrapRoleMappingsProvider@DeploymentBuilder.java:219:44",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.roleMappingsProvider"
+    ],
+    [
+     "ext:build@DeploymentBuilder.java:215:30",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.client"
+    ],
+    [
+     "ext:build@DeploymentBuilder.java:215:30",
+     "ext-arg:SamlDescriptorPublicKeyLocator@DefaultSamlDeployment.java:267:19"
+    ],
+    [
+     "ext:build@DeploymentBuilder.java:215:30",
+     "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "ext:decodeCertificate@DeploymentBuilder.java:268:36",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:decodeCertificate@DeploymentBuilder.java:268:36",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:decodeCertificate@DeploymentBuilder.java:268:36",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:decodeCertificate@DeploymentBuilder.java:268:36",
+     "ext-arg:checkValidity@DeploymentBuilder.java:270:17"
+    ],
+    [
+     "ext:decodeCertificate@DeploymentBuilder.java:268:36",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:274:25"
+    ],
+    [
+     "ext:decodePrivateKey@DeploymentBuilder.java:128:42",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:decodePrivateKey@DeploymentBuilder.java:128:42",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:decodePrivateKey@DeploymentBuilder.java:156:53",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:decodePublicKey@DeploymentBuilder.java:266:25",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:decodePublicKey@DeploymentBuilder.java:266:25",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:decodePublicKey@DeploymentBuilder.java:266:25",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getAllowedClockSkew@DeploymentBuilder.java:177:69",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.allowedClockSkew"
+    ],
+    [
+     "ext:getAllowedClockSkew@DeploymentBuilder.java:177:69",
+     "ext-arg:info@DeploymentBuilder.java:232:17"
+    ],
+    [
+     "ext:getAllowedClockSkew@DeploymentBuilder.java:177:69",
+     "ext-arg:toMillis@DeploymentBuilder.java:226:36"
+    ],
+    [
+     "ext:getAllowedClockSkewUnit@DeploymentBuilder.java:177:96",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.allowedClockSkew"
+    ],
+    [
+     "ext:getAllowedClockSkewUnit@DeploymentBuilder.java:177:96",
+     "ext-arg:info@DeploymentBuilder.java:232:17"
+    ],
+    [
+     "ext:getAllowedClockSkewUnit@DeploymentBuilder.java:177:96",
+     "ext-arg:toMillis@DeploymentBuilder.java:226:36"
+    ],
+    [
+     "ext:getAssertionConsumerServiceUrl@DeploymentBuilder.java:183:59",
+     "ext-arg:create@DeploymentBuilder.java:183:48"
+    ],
+    [
+     "ext:getCertificate@DeploymentBuilder.java:114:36",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getCertificate@DeploymentBuilder.java:114:36",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getCertificate@DeploymentBuilder.java:114:36",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:119:41"
+    ],
+    [
+     "ext:getCertificate@DeploymentBuilder.java:243:24",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getCertificate@DeploymentBuilder.java:243:24",
+     "ext-arg:checkValidity@DeploymentBuilder.java:245:21"
+    ],
+    [
+     "ext:getCertificate@DeploymentBuilder.java:243:24",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:252:25"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:113:64",
+     "ext-arg:debugf@DeploymentBuilder.java:113:29"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:114:60",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:114:60",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:114:60",
+     "ext-arg:getCertificate@DeploymentBuilder.java:114:36"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:114:60",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:119:41"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:116:87",
+     "ext-arg:errorf@DeploymentBuilder.java:116:33"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:243:48",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:243:48",
+     "ext-arg:checkValidity@DeploymentBuilder.java:245:21"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:243:48",
+     "ext-arg:getCertificate@DeploymentBuilder.java:243:24"
+    ],
+    [
+     "ext:getCertificateAlias@DeploymentBuilder.java:243:48",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:252:25"
+    ],
+    [
+     "ext:getEntityID@DeploymentBuilder.java:168:32",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.entityID"
+    ],
+    [
+     "ext:getFile@DeploymentBuilder.java:289:13",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getFile@DeploymentBuilder.java:290:32",
+     "ext-arg:File@DeploymentBuilder.java:290:23"
+    ],
+    [
+     "ext:getFile@DeploymentBuilder.java:290:32",
+     "ext-arg:FileInputStream@DeploymentBuilder.java:294:22"
+    ],
+    [
+     "ext:getFile@DeploymentBuilder.java:290:32",
+     "ext-arg:exists@DeploymentBuilder.java:291:18"
+    ],
+    [
+     "ext:getFile@DeploymentBuilder.java:290:32",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getFile@DeploymentBuilder.java:296:58",
+     "ext-arg:RuntimeException@DeploymentBuilder.java:296:23"
+    ],
+    [
+     "ext:getHttpClientConfig@DeploymentBuilder.java:215:60",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.client"
+    ],
+    [
+     "ext:getHttpClientConfig@DeploymentBuilder.java:215:60",
+     "ext-arg:SamlDescriptorPublicKeyLocator@DefaultSamlDeployment.java:267:19"
+    ],
+    [
+     "ext:getHttpClientConfig@DeploymentBuilder.java:215:60",
+     "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "ext:getHttpClientConfig@DeploymentBuilder.java:215:60",
+     "ext-arg:build@DeploymentBuilder.java:215:30"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:checkValidity@DeploymentBuilder.java:245:21"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:getCertificate@DeploymentBuilder.java:114:36"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:getCertificate@DeploymentBuilder.java:243:24"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:getKey@DeploymentBuilder.java:118:55"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:getKey@DeploymentBuilder.java:146:66"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:119:41"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:252:25"
+    ],
+    [
+     "ext:getInstance@DeploymentBuilder.java:284:24",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getKey@DeploymentBuilder.java:118:55",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getKey@DeploymentBuilder.java:118:55",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getKey@DeploymentBuilder.java:146:66",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getCertificatePem@DeploymentBuilder.java:254:50"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getKeystore@DeploymentBuilder.java:239:13"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getPublicKeyPem@DeploymentBuilder.java:254:17"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:getPublicKeyPem@DeploymentBuilder.java:265:13"
+    ],
+    [
+     "ext:getKeys@DeploymentBuilder.java:208:28",
+     "ext-arg:isSigning@DeploymentBuilder.java:209:21"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:109:25",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:109:25",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:142:25",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getKeystore@DeploymentBuilder.java:239:13",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getMetadataUrl@DeploymentBuilder.java:214:35",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.metadataUrl"
+    ],
+    [
+     "ext:getMetadataUrl@DeploymentBuilder.java:214:35",
+     "ext-arg:SamlDescriptorPublicKeyLocator@DefaultSamlDeployment.java:267:19"
+    ],
+    [
+     "ext:getMetadataUrl@DeploymentBuilder.java:214:35",
+     "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "ext:getPrivateKeyAlias@DeploymentBuilder.java:118:71",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getPrivateKeyAlias@DeploymentBuilder.java:118:71",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getPrivateKeyAlias@DeploymentBuilder.java:118:71",
+     "ext-arg:getKey@DeploymentBuilder.java:118:55"
+    ],
+    [
+     "ext:getPrivateKeyAlias@DeploymentBuilder.java:146:82",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getPrivateKeyAlias@DeploymentBuilder.java:146:82",
+     "ext-arg:getKey@DeploymentBuilder.java:146:66"
+    ],
+    [
+     "ext:getPublicKey@DeploymentBuilder.java:119:41",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getPublicKey@DeploymentBuilder.java:119:41",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getPublicKey@DeploymentBuilder.java:252:25",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getPublicKey@DeploymentBuilder.java:274:25",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getPublicKey@DeploymentBuilder.java:274:25",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getPublicKey@DeploymentBuilder.java:274:25",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getPublicKeyPem@DeploymentBuilder.java:265:13",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getPublicKeyPem@DeploymentBuilder.java:265:13",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getPublicKeyPem@DeploymentBuilder.java:265:13",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getRequestBinding@DeploymentBuilder.java:170:13",
+     "ext-arg:parseBinding@DeploymentBuilder.java:169:31"
+    ],
+    [
+     "ext:getRequestBinding@DeploymentBuilder.java:194:13",
+     "ext-arg:parseBinding@DeploymentBuilder.java:193:31"
+    ],
+    [
+     "ext:getRequestBindingUrl@DefaultSamlDeployment.java:283:42",
+     "ext-arg:SamlDescriptorPublicKeyLocator@DefaultSamlDeployment.java:267:19"
+    ],
+    [
+     "ext:getRequestBindingUrl@DefaultSamlDeployment.java:283:42",
+     "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "ext:getResource@DeploymentBuilder.java:300:53",
+     "ext-arg:getResourceAsStream@DeploymentBuilder.java:300:18"
+    ],
+    [
+     "ext:getResource@DeploymentBuilder.java:300:53",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getResource@DeploymentBuilder.java:302:58",
+     "ext-arg:RuntimeException@DeploymentBuilder.java:302:23"
+    ],
+    [
+     "ext:getResourceAsStream@DeploymentBuilder.java:300:18",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:getResponseBinding@DeploymentBuilder.java:174:17",
+     "ext-arg:parseBinding@DeploymentBuilder.java:173:36"
+    ],
+    [
+     "ext:getResponseBinding@DeploymentBuilder.java:196:13",
+     "ext-arg:parseBinding@DeploymentBuilder.java:195:32"
+    ],
+    [
+     "ext:getSignatureAlgorithm@DeploymentBuilder.java:86:13",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signatureAlgorithm"
+    ],
+    [
+     "ext:getSignatureAlgorithm@DeploymentBuilder.java:87:73",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signatureAlgorithm"
+    ],
+    [
+     "ext:getSignatureAlgorithm@DeploymentBuilder.java:87:73",
+     "ext-arg:valueOf@DeploymentBuilder.java:87:46"
+    ],
+    [
+     "ext:getSignatureCanonicalizationMethod@DeploymentBuilder.java:82:55",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signatureCanonicalizationMethod"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:checkValidity@DeploymentBuilder.java:245:21"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:getCertificate@DeploymentBuilder.java:114:36"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:getCertificate@DeploymentBuilder.java:243:24"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:getInstance@DeploymentBuilder.java:284:24"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:getKey@DeploymentBuilder.java:118:55"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:getKey@DeploymentBuilder.java:146:66"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:119:41"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:252:25"
+    ],
+    [
+     "ext:getType@DeploymentBuilder.java:280:23",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:toCharArray@DeploymentBuilder.java:118:111",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:toCharArray@DeploymentBuilder.java:118:111",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:toCharArray@DeploymentBuilder.java:118:111",
+     "ext-arg:getKey@DeploymentBuilder.java:118:55"
+    ],
+    [
+     "ext:toCharArray@DeploymentBuilder.java:146:122",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:toCharArray@DeploymentBuilder.java:146:122",
+     "ext-arg:getKey@DeploymentBuilder.java:146:66"
+    ],
+    [
+     "ext:toCharArray@DeploymentBuilder.java:306:35",
+     "ext-arg:load@DeploymentBuilder.java:306:13"
+    ],
+    [
+     "ext:toMillis@DeploymentBuilder.java:226:36",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.allowedClockSkew"
+    ],
+    [
+     "ext:toMillis@DeploymentBuilder.java:226:36",
+     "ext-arg:info@DeploymentBuilder.java:232:17"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:128:68",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:128:68",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:128:68",
+     "ext-arg:decodePrivateKey@DeploymentBuilder.java:128:42"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:156:79",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.decryptionKey"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:156:79",
+     "ext-arg:decodePrivateKey@DeploymentBuilder.java:156:53"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:266:50",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:266:50",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:266:50",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:266:50",
+     "ext-arg:decodePublicKey@DeploymentBuilder.java:266:25"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:268:63",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signingKeyPair"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:268:63",
+     "ext-arg:KeyPair@DeploymentBuilder.java:137:39"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:268:63",
+     "ext-arg:add@DefaultSamlDeployment.java:247:13"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:268:63",
+     "ext-arg:checkValidity@DeploymentBuilder.java:270:17"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:268:63",
+     "ext-arg:decodeCertificate@DeploymentBuilder.java:268:36"
+    ],
+    [
+     "ext:trim@DeploymentBuilder.java:268:63",
+     "ext-arg:getPublicKey@DeploymentBuilder.java:274:25"
+    ],
+    [
+     "ext:valueOf@DeploymentBuilder.java:101:31",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.sslRequired"
+    ],
+    [
+     "ext:valueOf@DeploymentBuilder.java:87:46",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.signatureAlgorithm"
+    ],
+    [
+     "ext:valueOf@DeploymentBuilder.java:90:57",
+     "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.principalNamePolicy"
+    ],
+    [
+     "static.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.DEFAULT_CACHE_TTL",
+     "ext-arg:SamlDescriptorPublicKeyLocator@DefaultSamlDeployment.java:267:19"
+    ],
+    [
+     "static.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.DEFAULT_CACHE_TTL",
+     "ext-arg:add@DefaultSamlDeployment.java:269:17"
+    ],
+    [
+     "static.org.keycloak.adapters.saml.config.parsers.DeploymentBuilder.log",
+     "ext-arg:debugf@DeploymentBuilder.java:113:29"
+    ],
+    [
+     "static.org.keycloak.adapters.saml.config.parsers.DeploymentBuilder.log",
+     "ext-arg:errorf@DeploymentBuilder.java:116:33"
+    ],
+    [
+     "static.org.keycloak.adapters.saml.config.parsers.DeploymentBuilder.log",
+     "ext-arg:info@DeploymentBuilder.java:232:17"
+    ],
+    [
+     "static.org.keycloak.adapters.saml.config.parsers.DeploymentBuilder.log",
+     "ext-arg:warn@DeploymentBuilder.java:230:17"
+    ],
+    [
+     "static.org.keycloak.adapters.saml.config.parsers.DeploymentBuilder.log",
+     "ext-arg:warnf@DeploymentBuilder.java:75:13"
+    ]
+   ],
+   "gaps": [
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:100:13",
+     "detail": "org.keycloak.adapters.saml.config.SP.sslPolicy read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:104:13",
+     "detail": "org.keycloak.adapters.saml.config.SP.keys read on an object with no tracked origin"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:169:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleSignOnService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleSignOnService.requestBinding"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:171:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleSignOnService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleSignOnService.requestBindingUrl"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:173:13",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleSignOnService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleSignOnService.responseBinding"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:183:13",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleSignOnService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleSignOnService.assertionConsumerServiceUrl"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:185:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleSignOnService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleSignOnService.signRequest"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:186:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleSignOnService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleSignOnService.validateResponseSignature"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:187:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleSignOnService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleSignOnService.validateAssertionSignature"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:189:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleLogoutService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleLogoutService.signRequest"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:190:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleLogoutService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleLogoutService.signResponse"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:191:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleLogoutService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleLogoutService.validateResponseSignature"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:192:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleLogoutService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleLogoutService.validateRequestSignature"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:193:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleLogoutService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleLogoutService.requestBinding"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:195:9",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleLogoutService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleLogoutService.responseBinding"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:198:13",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleLogoutService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleLogoutService.requestBindingUrl"
+    },
+    {
+     "kind": "depth",
+     "at": "DeploymentBuilder.java:203:13",
+     "detail": "RET.org.keycloak.adapters.saml.DefaultSamlDeployment.idp.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultIDP.singleLogoutService.org.keycloak.adapters.saml.DefaultSamlDeployment.DefaultSingleLogoutService.responseBindingUrl"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:220:17",
+     "detail": "org.keycloak.adapters.saml.config.SP.roleMappingsProviderConfig read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:71:32",
+     "detail": "org.keycloak.adapters.saml.config.SP.entityID read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:77:43",
+     "detail": "org.keycloak.adapters.saml.config.SP.forceAuthentication read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:78:33",
+     "detail": "org.keycloak.adapters.saml.config.SP.isPassive read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:79:42",
+     "detail": "org.keycloak.adapters.saml.config.SP.nameIDPolicyFormat read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:80:34",
+     "detail": "org.keycloak.adapters.saml.config.SP.logoutPage read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:81:19",
+     "detail": "org.keycloak.adapters.saml.config.SP.idp read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:83:44",
+     "detail": "org.keycloak.adapters.saml.config.SP.autodetectBearerOnly read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:84:40",
+     "detail": "org.keycloak.adapters.saml.config.SP.keepDOMAssertion read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:89:13",
+     "detail": "org.keycloak.adapters.saml.config.SP.principalNameMapping read on an object with no tracked origin"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:90:100",
+     "detail": "this.org.keycloak.adapters.saml.config.SP.PrincipalNameMapping.policy read by PrincipalNameMapping#getPolicy on no object this can name"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:92:50",
+     "detail": "this.org.keycloak.adapters.saml.config.SP.PrincipalNameMapping.attributeName read by PrincipalNameMapping#getAttributeName on no object this can name"
+    },
+    {
+     "kind": "unmodelled",
+     "at": "DeploymentBuilder.java:94:42",
+     "detail": "org.keycloak.adapters.saml.config.SP.roleAttributes read on an object with no tracked origin"
+    }
+   ]
+  }
+ ]
+}

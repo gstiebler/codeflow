@@ -19,6 +19,9 @@ All scores are one model rater's judgement against [RUBRIC.md](RUBRIC.md). Codef
 **Reviewed the same day: [review.md](review.md).** It re-ran three cases. One claim here was wrong (casts did
 not hide Keycloak #49604), and the order to build in changed. Corrections are marked in place below.
 
+**Built since: [`scripts/diverges.py`](../../../scripts/diverges.py).** Run on the six Kafka sibling cases: 2 found,
+1 found in part, 1 split visible, 2 missed. Per case: [kafka-sibling-paths.md](kafka-sibling-paths.md#measured-scriptsdivergespy-on-the-six-cases).
+
 ## Sample
 
 | Repo | Kind | Census | Deep-dived items | Review comments |

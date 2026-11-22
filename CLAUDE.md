@@ -23,6 +23,8 @@ UPDATE_SNAPSHOTS=1 ./gradlew test    # rewrite the golden files
 ./gradlew run --args="path/to/java/dir --pure Parser"          # as --boundary, but its calls stay out of the order chain (no writes, no throws)
 ./gradlew run --args="path/to/java/dir @roots.args --html"     # @file: its lines' arguments in place (# comments, blank lines skipped)
 scripts/smoke.sh app/build/install/app/bin/app path/to/java/dir  # every method a root; fails on a crash or a skipped root
+scripts/diverges.py summaries.json overrides:NAME                # what one sibling does and another does not; also stem:, fields:, sink:, or methods named
+python3 -m unittest discover -s scripts -p '*_test.py'           # the script's tests
 
 npm test                             # typecheck, bundle freshness, viewer unit tests + corpus sweeps
 npm run test:browser                 # the exported page, in a real browser (Playwright)
@@ -37,6 +39,9 @@ npm run check:bundle                 # committed bundle matches its sources
   names. → `docs/decisions/toolchain.md`
 - `scripts/smoke.sh` is CI's real-corpus check (`.github/workflows/smoke.yml`, Fineract at a pinned SHA). It
   needs `./gradlew installDist` first. Unmodelled counts are reported, not failed on.
+- `scripts/diverges.py` reads a `--summaries` document and nothing else (Python 3, standard library). An
+  absence in a sibling with gaps is printed as unknown (`?`), never as absent.
+  → `docs/superpowers/specs/2026-11-22-diverges-script-design.md`
 - `scripts/delombok.sh <src> [out]` preprocesses a Lombok corpus; codeflow parses with `-proc:none`
   and no classpath and never runs Lombok itself.
 - The viewer bundle (`app/src/main/resources/viewer/reactflow.bundle.js`) is **committed**; Gradle

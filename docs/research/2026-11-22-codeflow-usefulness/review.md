@@ -10,6 +10,11 @@ changed what I would build first:
   in `5ab6ba3`.
 - **`diverges` already works as a short script over `--summaries`** on two real bugs, so I would start there.
 
+**Since then: `diverges` is built** ([`scripts/diverges.py`](../../../scripts/diverges.py)) and was run on all six
+Kafka sibling cases: **2 found, 1 found in part, 1 split visible, 2 missed.** The runs also found a bug in the
+engine. See [the runs](#diverges-built-and-run-on-the-six-kafka-cases) and
+[the bug](#a-bug-found-while-measuring-a-chained-call-loses-its-receiver).
+
 Written by the same rater that wrote the study, a few hours later, after re-running cases instead of judging them.
 
 ## What was checked, and what came out
@@ -22,7 +27,7 @@ Written by the same rater that wrote the study, a few hours later, after re-runn
 | The record pattern is "the gap left", drawn as a node | `if (o instanceof Point(int x, int y)) { … x + y … }` exited 1 with a `GraphException` and no document. | **Wrong**, fixed |
 | Quotes in [kafka-sibling-paths.md](kafka-sibling-paths.md) | All seven match GitHub (`gh api`). | Confirmed |
 | Diffs in [never-sees.md](never-sees.md) | All ten match `gh api …/pulls/<n>/files`. | Confirmed |
-| The other five Kafka "Today?" paragraphs | Not run. They are predictions from reading the code. | **Unverified** |
+| The other five Kafka "Today?" paragraphs | Run with the script. 1 found, 1 in part, 1 split visible, 2 missed. Two predictions were wrong in their detail. See [below](#diverges-built-and-run-on-the-six-kafka-cases). | **Measured** |
 | The proposal's acceptance cases | Not run. | **Unverified** |
 | The scores | One rater's judgement. Unchanged. | Unverified |
 
@@ -78,6 +83,59 @@ CI smoke, before (`e2945d3`) and after casts (`9b32bfa`):
 Every other gap kind is unchanged. So none of the remaining 18,742 rows is an unmodelled construct. They are
 field reads and writes through an object the summary cannot name, and they are 53% of the corpus's gap rows.
 
+### `diverges`, built and run on the six Kafka cases
+
+`scripts/diverges.py` reads the `--summaries` JSON and nothing else. Per case, with the pre-fix files and the
+commands: [kafka-sibling-paths.md](kafka-sibling-paths.md#measured-scriptsdivergespy-on-the-six-cases).
+
+| Case | Family | Result |
+|---|---|---|
+| 1 #24108 | four handlers, named | **Found.** `in 1,2,4, not in 3: 72 effects`, firm. The fix's calls are in it. |
+| 2 #24128 | `overrides:` | **Found.** `call put(ModernGroup.members)`, firm. |
+| 3 #23856 | `sink:` | **Split visible.** Config-fed against member-fed callers. Not which one is wrong. |
+| 4 #24155 | two methods, named | **Missed.** Both reach the effect; the difference is a gate. |
+| 5 #24187 | `sink:` | **Found in part.** One extra `get()`. The chains before it are lost to the bug below. |
+| 6 #23530 | effects of every method | **Missed.** No method holds both effects. |
+| Keycloak #49604 | `fields:SP` | **Found.** `build` touches 13 of 14 fields and misses `turnOffChangeSessionIdOnLogin`, printed with a `?` because `build` has gaps. |
+
+- **What was wrong in the predictions.** #1 said the row would name `updateSubscriptionMetadata` and
+  `maybeUpdateTargetAssignment`. It cannot: an in-source callee is inlined, and only its opaque calls remain.
+  The bug is found by those instead. #1 also said `stem:` was the family: it selects 16 methods.
+- **Grouping is what made #1 readable.** 926 effects differ among the four. Grouped by who lacks them, the
+  first 72 are the answer and the other 854 are protocol differences.
+- **`sink:` replaced `callers:`.** A summary lists what reaches a call, merged over its arguments, and inlines
+  a callee's calls into every caller. So the question it can answer is "which methods feed this call, and with
+  what", not "what does each call site pass as argument 3".
+- **`anchor:` and `cowrite:` were not built.** #4 needs gates and order; #6 needs effects across several calls
+  of one root. Neither is in the JSON, so a script would be guessing.
+- **Where the script stops, by case:** the receiver bug (#3, #5), feeds per argument (#3), gates (#4), effects
+  across calls (#6).
+
+### A bug found while measuring: a chained call loses its receiver
+
+Case 5's summary had `ext:metadata → ext-arg:wrap` and nothing before `metadata`. `Unknown` is a type outside
+the sources:
+
+| Written as | Summary | |
+|---|---|---|
+| `p.b()` | `P0 → ext-arg:b`, `P0 → RET`, `ext:b → RET` | correct |
+| `var x = p.a(); return x.b();` | `P0 → ext-arg:a`, `ext:a → ext-arg:b`, `P0 → RET`, … | correct |
+| `p.a().b()` | `ext:b → RET` only | **`p` and `a` are gone** |
+| `p.f.b()` | `ext:b → RET` only | **`p` is gone** |
+| `new Unknown().a().b()` | `ext:b → RET` only | **`a` is gone** |
+| `List<String> p`: `p.iterator().next().trim()` | every link | correct |
+
+- **0 gaps, exit 0.** The Mermaid graph draws `b → return` with nothing leaving `p`. This is the silently wrong
+  graph, not a gap.
+- **Cause.** `Lowering.receiverOf` asks `isTypeName` first, which reads `symbols.element(tree)?.kind` with no
+  kind expected. For a call on a receiver whose type is an error, javac hands back an `Element` of kind
+  `CLASS` (`Symbols.element` documents it). So `p.a()` is taken for a type name, like the `Math` of
+  `Math.abs`, and is never evaluated.
+- **What it puts in doubt.** Every absence. A `diverges` row is firm when the sibling has no gaps, and this
+  drops flows without a gap. The found cases above were checked against the source, so they stand.
+- The second review ([review-2.md](review-2.md), written in parallel) found the same bug from the Fineract
+  side and counts it: 120 of 1,604 call sites in one file.
+
 ## What I learned
 
 - **A blocker is proven by removing it and re-running, not by reading stderr.** I ranked casts first because a
@@ -93,6 +151,10 @@ field reads and writes through an object the summary cannot name, and they are 5
 - **Choose the assertion by trying the wrong implementations.** Binding the pattern's names to nothing, or
   straight to the tested value, both pass the summary's pair assertion, because the `instanceof` gate already
   carries `P0 > RET`. Only the graph's edge assertion tells the three apart.
+- **A prediction about a tool's output is wrong in the details even when right in the verdict.** Case 1 was
+  "mostly yes" and is found, by different rows and a different family than predicted.
+- **Measuring on real code finds engine bugs that fixtures do not.** The receiver bug needs a type outside the
+  sources, and every fixture is a closed corpus.
 - **Casts were still worth it,** for a different reason than the one given. Fineract's smoke reports no
   unmodelled construct any more (22 before) and its summaries gained 1,464 pairs: flows through a cast used to
   stop at a node.
@@ -101,10 +163,12 @@ field reads and writes through an object the summary cannot name, and they are 5
 
 In order. Each is a leaning with its evidence, not a decision.
 
-1. **Build `diverges` first, as a script over `--summaries` JSON.** Two real bugs came out of today's output
-   with under 20 lines each: Kafka #24128 (`overrides:`) and Keycloak #49604 (a new family, `fields:`). That is
-   two measured hits against zero for the PR check, which the main report put first on judged evidence. Run it
-   on the other five Kafka cases before writing any engine.
+0. **Fix the receiver bug first.** New, from the runs. It is a wrong graph with no gap, and everything below
+   reads absences. Small: only a name can be a type name; a call, a `new` or a select on a variable is a value.
+1. **Build `diverges` first, as a script over `--summaries` JSON. Done.** Two real bugs came out of today's
+   output with under 20 lines each: Kafka #24128 (`overrides:`) and Keycloak #49604 (a new family, `fields:`).
+   Run on the other five Kafka cases, as planned: three more results a person can use (#1 found, #5 in part,
+   #3 a split), two misses. It stays a script until a case needs the engine to say something the JSON does not.
 2. **Treat a read through an unnamed object as a read fact.** Smallest step: give it its own gap kind
    (`origin`) so `unmodelled` means a construct again and the numbers can be read. Larger step: keep the value,
    as an atom naming the origin and the field, so `sp.isX()` flows into `setX`. That would turn the largest gap
@@ -138,3 +202,14 @@ In order. Each is a leaning with its evidence, not a decision.
   `ext-arg:` targets of the two `getOrMaybeCreateMember` entries.
 - **Keycloak #49604:** `SP.java`, `DefaultSamlDeployment.java`, `DeploymentBuilder.java` at the parent of the
   fix. Take `DeploymentBuilder#build`'s gaps, keep `SP.<field> read on …`, subtract from `SP`'s declared fields.
+
+Both readings are now `scripts/diverges.py`:
+
+```shell
+scripts/diverges.py out.json overrides:getOrMaybeCreateMember   # Kafka #24128
+scripts/diverges.py out.json fields:SP                          # Keycloak #49604
+python3 -m unittest discover -s scripts -p '*_test.py'          # its tests, on the trimmed real outputs
+```
+
+- **The receiver bug:** a file with `class B { static Object call(Unknown p) { return p.a().b(); } }` and no
+  `Unknown` in the directory. `--summaries` prints `ext:b → RET` and no `P0 → RET`.

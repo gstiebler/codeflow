@@ -32,6 +32,9 @@ jobs:
         cache: 'gradle'
     - name: Build with Gradle
       run: ./gradlew build
+    # scripts/diverges.py reads the --summaries JSON; its tests run on trimmed real outputs in scripts/testdata.
+    - name: Test the scripts
+      run: python3 -m unittest discover -s scripts -p '*_test.py'
     - name: Archive test results
       if: always()
       uses: actions/upload-artifact@v4

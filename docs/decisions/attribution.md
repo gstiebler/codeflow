@@ -36,6 +36,30 @@ the object a field was read from is the only thing on the page saying where the 
 dropping it would also leave the receiver reaching nothing. `inheritedField` is the fixture and
 `aFieldInheritedFromOutsideTheSourcesIsExternalRatherThanAFailure` the assertion.
 
+It holds at a **receiver** too, and there the miss was silent. `Lowering.isTypeName` decides whether
+the left of a dot is a type (`Math.abs`: nothing to evaluate) or a value (`order.total()`: evaluate
+it, and it flows into the call). It read the element's kind with no kind expected. javac marks
+*everything* on a type outside the sources with that same `ClassSymbol`, kind `CLASS`: the type's
+name, and also `widget.frame()`, `widget.panel`, `new Widget()` and `(widget.edge())`. So each of
+those was read as a type name and never evaluated, and `widget.frame().width()` lost everything
+before `width`: no edge out of `widget`, no `frame`, no gap, exit 0. On real code it was most of the
+graph: Kafka's `GroupMetadataManager` went from 133,890 summary pairs to 336,669 with the same 48
+gaps, and Fineract's progressive-loan from 860,619 to 2,799,736.
+- **The rule.** javac's kind is believed only where Java's grammar allows a type name at all
+  (JLS 6.5): an identifier, or a select on something that is itself a type name or a package. A call,
+  a `new`, parentheses, an array access or a select on a value is a value whatever its element says.
+  This is the grammar on top of javac's answer, not instead of it: the kind is still asked first.
+- **What stays a type name.** An unresolved bare name (`Widget.create(n)`), and a qualified one
+  (`com.missing.Widget.create(n)`, `Widget.CONST.b()`). javac cannot tell a missing type from a
+  missing variable there. Nothing is lost by it: such a name is `Opaque` with nothing flowing in, so
+  drawing it as a value would add a box and no flow.
+- **Why no golden moved.** No fixture had a chain on a type outside its sources; every fixture is a
+  closed corpus. `unresolvedChain` is the fixture now,
+  `aCallChainedOnAnUnresolvableTypeKeepsItsReceiver` the assertion on the graph, and
+  `aReceiverOnATypeOutsideTheSourcesIsAValueUnlessItIsTheTypesName` the one on the instructions.
+- **A summary cannot see the opposite mistake.** A type name wrongly drawn as a value is an `Opaque`
+  with no inputs, which adds no pair. That half is asserted on the graph and the instruction list.
+
 One name resolves the other way round, and it is the only place a *name* is trusted over an element:
 a class whose supertype is outside the corpus has its signature attributed and its body not, so a
 parameter's declaration resolves to a `PARAMETER` and every read of it resolves to nothing — two keys

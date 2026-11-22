@@ -2786,6 +2786,38 @@ class AppTest {
     }
 
     /**
+     * And a chain on such a type keeps every link: `widget.frame().width()`.
+     *
+     * javac hands back kind `CLASS` for *anything* on an error type, so the receiver `widget.frame()`
+     * read as a type name - the `Math` of `Math.abs` - and was never evaluated. `width` was drawn
+     * with nothing flowing in and no gap said so, which is the silently wrong graph on exactly the
+     * input the tool exists for. Each form the receiver can take is asserted, because a fix for the
+     * call alone leaves the field, the `new` and the parentheses as they were.
+     *
+     * The last three lines are the half that must not move: the type's own name, qualified or not,
+     * is still no value. A summary cannot say this - a name drawn as a value has nothing flowing
+     * into it, so it adds no pair - which is why it is asserted on the graph and in [codeflow.ir.LoweringTest].
+     */
+    @Test
+    fun aCallChainedOnAnUnresolvableTypeKeepsItsReceiver() {
+        val graph = buildGraph("unresolvedChain", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue("widget" to "frame" in edges, "the receiver does not reach the first call: $edges")
+        assertTrue("frame" to "width" in edges, "a call's result is not the receiver of the next: $edges")
+        assertTrue("widget" to "panel" in edges, "the object a field is read from does not reach it: $edges")
+        assertTrue("panel" to "height" in edges, "a field is not the receiver of the call on it: $edges")
+        assertTrue("border" to "depth" in edges, "a call on a new object is not the receiver of the next: $edges")
+        assertTrue("edge" to "length" in edges, "parentheses hide the receiver inside them: $edges")
+        assertTrue(reaches(graph, "5", "viaCall"), "the chain of calls is broken: $graph")
+        assertTrue(reaches(graph, "5", "viaField"), "the chain through a field is broken: $graph")
+        assertTrue(reaches(graph, "5", "viaNew"), "the chain from a construction is broken: $graph")
+        assertTrue(reaches(graph, "5", "viaParens"), "the chain through parentheses is broken: $graph")
+        assertTrue("size" to "create" in edges, "argument does not reach the call on the type name: $edges")
+        assertTrue("create" to "other" in edges, "the call on the qualified type name is not drawn: $edges")
+        assertTrue(edges.none { it.second == "create" && it.first != "size" }, "a type name is drawn as a value: $edges")
+    }
+
+    /**
      * outer() and inner() each declare a local `amount` on the same instance. They are two
      * variables, and the value read back in outer() is the one outer() assigned.
      *
@@ -3206,6 +3238,7 @@ class AppTest {
     @Test fun unsupported() = codeflow("unsupported", listOf("App.java"))
     @Test fun unsupportedAssignment() = codeflow("unsupportedAssignment", listOf("App.java"))
     @Test fun unmodelledReceiver() = codeflow("unmodelledReceiver", listOf("App.java"))
+    @Test fun unresolvedChain() = codeflow("unresolvedChain", listOf("App.java"))
     @Test fun fieldIf() = codeflow("fieldIf", listOf("App.java"))
     @Test fun fieldSwitch() = codeflow("fieldSwitch", listOf("App.java"))
     @Test fun fieldTry() = codeflow("fieldTry", listOf("App.java"))

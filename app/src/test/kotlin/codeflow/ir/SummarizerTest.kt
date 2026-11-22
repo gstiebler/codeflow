@@ -249,6 +249,34 @@ class SummarizerTest {
         assertTrue("P0>RET" in p, "$p")
     }
 
+    /**
+     * A chain on a type outside the sources spells what the same calls spell with a local between
+     * them. The receiver `p.a()` comes back from javac as kind `CLASS`, as a type name does, and
+     * read as one it left `ext:b>RET` as the whole summary: no parameter, no first call, no gap.
+     */
+    @Test
+    fun aCallChainedOnATypeOutsideTheSourcesKeepsItsReceiver() {
+        val chained = pairs("class A { Object f(Unknown p) { return p.a().b(); } }", "A#f")
+        assertEquals(
+            setOf("P0>RET", "P0>ext-arg:a@_", "P0>ext-arg:b@_", "ext:a@_>RET", "ext:a@_>ext-arg:b@_", "ext:b@_>RET"),
+            chained.toSet()
+        )
+        assertEquals(pairs("class A { Object f(Unknown p) { var x = p.a(); return x.b(); } }", "A#f").toSet(), chained.toSet())
+    }
+
+    /** The same receiver as a field, as a construction and in parentheses: each is a value, none a type name. */
+    @Test
+    fun aFieldOrANewOfATypeOutsideTheSourcesIsAReceiverToo() {
+        val direct = setOf("P0>RET", "P0>ext-arg:b@_", "ext:b@_>RET")
+        assertEquals(direct, pairs("class A { Object f(Unknown p) { return p.f.b(); } }", "A#f").toSet())
+        assertEquals(direct, pairs("class A { Object f(Unknown p) { return (p).b(); } }", "A#f").toSet())
+        val made = pairs("class A { Object f(int n) { return new Unknown(n).a().b(); } }", "A#f")
+        assertTrue("P0>RET" in made, "$made")
+        assertTrue("ext:a@_>ext-arg:b@_" in made, "$made")
+        val wrapped = pairs("class A { Object f(Unknown p) { return (p.a()).b(); } }", "A#f")
+        assertTrue("ext:a@_>ext-arg:b@_" in wrapped && "P0>RET" in wrapped, "$wrapped")
+    }
+
     @Test
     fun anUnmodelledConstructIsAGap() =
         assertEquals(

@@ -367,10 +367,22 @@ class Lowering(
          * Asked of what javac resolved, not of the shape of the tree: `of(x).getAmount()` and
          * `charges[0].getAmount()` are receivers that name no variable at all, so a test for one
          * would drop the edge carrying them into the call.
+         *
+         * And believed only of a name, which is the wrong-kind rule at a receiver. javac marks
+         * *everything* on a type outside the sources with an `Element` of kind `CLASS` - the type's
+         * name, and also `widget.frame()`, `widget.panel` and `new Widget()` - so the kind alone
+         * read each of those as a type name, never evaluated it, and `widget.frame().width()` lost
+         * everything before `width` with no gap counted. A type name is an identifier or a select on
+         * one (JLS 6.5); a call, a `new`, parentheses or a select on a value can only be a value.
          */
         private fun isTypeName(tree: ExpressionTree): Boolean {
             val kind = symbols.element(tree)?.kind ?: return false
-            return kind.isClass || kind.isInterface || kind == ElementKind.PACKAGE
+            if (!kind.isClass && !kind.isInterface && kind != ElementKind.PACKAGE) return false
+            return when (tree) {
+                is IdentifierTree -> true
+                is MemberSelectTree -> isTypeName(tree.expression)
+                else -> false
+            }
         }
 
         override fun visitVariable(node: VariableTree, ctx: ProcessorContext): Val? {

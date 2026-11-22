@@ -276,6 +276,44 @@ class LoweringTest {
     }
 
     /**
+     * And a receiver that is itself a call, a field or a `new` on a type outside the sources is a
+     * value, with an instruction of its own that the next call names.
+     *
+     * javac marks all of them as it marks the type's name - kind `CLASS` - so the kind alone read
+     * `widget.frame()` as a type name and `width` was lowered `call width on static`: instructions
+     * 7, 10, 13, 14 and 17 were not in the list at all. `Widget` in `Widget.create(size)` is the name,
+     * qualified or not, and stays `static` with no instruction of its own.
+     */
+    @Test
+    fun aReceiverOnATypeOutsideTheSourcesIsAValueUnlessItIsTheTypesName() {
+        assertEquals(
+            listOf(
+                "0: param args",
+                "1: const 5",
+                "2: write size <- 1",
+                "3: call create on static 2",
+                "4: write widget <- 3",
+                "5: call create on static 2",
+                "6: write other <- 5",
+                "7: call frame on 4",
+                "8: call width on 7",
+                "9: write viaCall <- 8",
+                "10: opaque panel 4",
+                "11: call height on 10",
+                "12: write viaField <- 11",
+                "13: new Widget 2",
+                "14: call border on 13",
+                "15: call depth on 14",
+                "16: write viaNew <- 15",
+                "17: call edge on 4",
+                "18: call length on 17",
+                "19: write viaParens <- 18"
+            ),
+            lower("unresolvedChain", listOf("App.java"), "App#main")
+        )
+    }
+
+    /**
      * `new X(...)` is one instruction that both creates the object and produces it as a value.
      *
      * Those used to be separate: the object came from a scanner run as a side effect of an

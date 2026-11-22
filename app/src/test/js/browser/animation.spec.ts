@@ -79,7 +79,8 @@ test.describe('funcCall, a click animated', () => {
     await tapLeafAll(page, 'event main');
     const fresh = await ringed(page, '.react-flow__node');
     expect(fresh).toContain('11');
-    expect(fresh).not.toContain('args');
+    // The parameters are not in the opening, so the click brings `args` in too.
+    expect(fresh).toContain('args');
     expect(fresh).not.toContain('main');
     expect(fresh).not.toContain('event main');
     expect(await page.locator('.react-flow__edge.cf-new').count()).toBeGreaterThan(0);
@@ -145,7 +146,7 @@ test.describe('boundary, reset', () => {
   test('Reset fits what is left on screen, wherever the reader had panned to', async ({ page }) => {
     await tapGroupAll(page, 'entrypoint');
     const grown = await page.locator('.react-flow__node:not(.react-flow__node-condensedFrame)').count();
-    expect(grown).toBeGreaterThan(11);
+    expect(grown).toBe(17);
 
     // Drag the pane from its bottom-right corner far up and left: the drawing goes with it.
     const box = (await page.locator('.react-flow').boundingBox())!;
@@ -156,8 +157,8 @@ test.describe('boundary, reset', () => {
     expect(await outside(page)).toBeGreaterThan(0);
 
     await drewAgain(page, () => page.getByRole('button', { name: 'Reset', exact: true }).click());
-    // The entry method's box and the five boundary boxes the parameters flow into, and five leaves on their own.
-    await expect(page.locator('.react-flow__node:not(.react-flow__node-condensedFrame)')).toHaveCount(11);
+    // The opening: the program, the entry method's rest node, the event and its return.
+    await expect(page.locator('.react-flow__node:not(.react-flow__node-condensedFrame)')).toHaveCount(4);
     expect(await outside(page)).toBe(0);
   });
 });

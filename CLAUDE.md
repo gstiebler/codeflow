@@ -82,8 +82,10 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
   A box with a value out is a frame (`CondensedView.frames`) holding its values and its `N more` rest node; boxes stay side by side.
   → `docs/decisions/viewer.md`
   A click lists what it would show (`tapChoices`); more than `PICK_AT` (3) opens a popup to tick from, else all shows. A METHOD id in `revealed` means that box is open, never a leaf.
-  Condensed is the only view, opening on the entry's event, parameters and return; a hidden leaf is in `program` until its
-  call-site METHOD box is the entry's or open (flat), read off the payload, never a label. Positions and motion are renderer state
+  Condensed is the only view, opening on the entry's event and return: one edge leaves the event (into the entry's `N more`;
+  an EVENT edge into a hidden leaf elsewhere is not drawn, `counts`), its click lists parameters first. A hidden leaf is in
+  `program` until its call-site METHOD box is the entry's or open (flat), read off the payload, never a label; a boundary box
+  opens only on request (Boundaries list, picker, or one of its leaves revealed), never by a flow into it. Positions and motion are renderer state
   (`stabilise`, `transition.ts`); `window.drawn` counts only once a click's move has ended.
 
 ## Adding a Java construct

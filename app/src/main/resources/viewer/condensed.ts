@@ -13,10 +13,15 @@
  * list: every boundary call site, to add one box at a time from the toolbar.
  *
  * A hidden leaf is drawn in its call-site box (the METHOD box it sits directly in, `parent`) when the
- * box is an entry point's (no parent) or is open - a member is revealed,
- * or a hidden member has an edge of any kind but EVENT to a revealed leaf (either direction) - and in
- * `program` otherwise. A boundary box is no exception: it is drawn when open, with its own look. Boxes are flat, never inside one another. A
+ * box is an entry point's (no parent) or is open - a member is revealed, or the box's own id is, or (a box that
+ * is not a boundary) a hidden member has an edge of any kind but EVENT to a revealed leaf (either direction) -
+ * and in `program` otherwise. A boundary box opens only on request: its id or one of its leaves revealed (the
+ * Boundaries list, the picker); it is drawn with its own look. Boxes are flat, never inside one another. A
  * leaf with no box is a payload this viewer was not written for, and throws.
+ *
+ * An EVENT edge is drawn only when it says something the reader can follow (`counts`): its target is revealed,
+ * or sits hidden in the event's own box, where the entry's `N more` stands for it. Into `program` or another box
+ * it is not drawn - the event starts nearly everything, and thirty lines out of it say nothing.
  *
  * A revealed leaf is drawn inside its method's frame (`CondensedView.frames`): a box with at least one of its
  * own leaves revealed is *open* and gets one, holding those leaves and, while it still has hidden members, its
@@ -106,10 +111,20 @@ function index(payload: Payload): Index {
 }
 
 /**
+ * Whether a payload edge is drawn, given what is revealed. Every kind but EVENT always; an EVENT edge only
+ * into a revealed leaf or into a leaf hidden in the source's own box - the entry's `N more`. Everything that
+ * decides what an edge stands for goes through here: `condensed`, `underlying`, the frontier in `tapChoices`.
+ */
+function counts(ix: Index, revealed: Set<Id>, edge: PayloadEdge): boolean {
+  return edge.kind !== 'EVENT' || revealed.has(edge.target) || ix.box.get(edge.target) === ix.box.get(edge.source);
+}
+
+/**
  * Hidden leaf -> where it is drawn: its box when that is an entry box or open, else `program`. Revealed
- * leaves are absent. A box is open when a leaf of it is revealed, or a hidden leaf of it has an edge
- * of any kind but EVENT to a revealed leaf, either direction (EVENT edges fan out from the entry event to nearly
- * everything it starts, and would open the whole opening).
+ * leaves are absent. A box is open when a leaf of it (or its own id) is revealed, or - a box that is not a
+ * boundary - a hidden leaf of it has an edge of any kind but EVENT to a revealed leaf, either direction (EVENT
+ * edges fan out from the entry event to nearly everything it starts, and would open the whole opening). A
+ * boundary box is opened only on request, so a flow into it leaves its leaf in `program`.
  */
 export function groupOf(payload: Payload, revealed: Set<Id>): Map<Id, Id> {
   const ix = index(payload);
@@ -122,8 +137,8 @@ export function groupOf(payload: Payload, revealed: Set<Id>): Map<Id, Id> {
   for (const e of payload.edges) {
     if (e.kind === 'EVENT') continue;
     const [a, b] = [revealed.has(e.source), revealed.has(e.target)];
-    if (a && !b) open.add(ix.box.get(e.target)!);
-    else if (b && !a) open.add(ix.box.get(e.source)!);
+    const contact = a && !b ? ix.box.get(e.target)! : b && !a ? ix.box.get(e.source)! : undefined;
+    if (contact !== undefined && ix.byId.get(contact)?.boundary !== true) open.add(contact);
   }
   // The entry method's box is drawn from the start; the methods it calls are in `program` until the reader opens them.
   const isRoot = (box: PayloadNode) => box.parent === undefined;
@@ -141,15 +156,16 @@ const isGroup = (ix: Index, id: Id) => id === PROGRAM || ix.members.has(id);
 
 /**
  * What the condensed view opens on, and what Reset returns to: per entry point (a METHOD with no
- * parent) its event, the returns of its own box and its parameters. What the event starts is left to
- * the reader's picker.
+ * parent) its event and the returns of its own box. Neither the parameters nor what the event starts are
+ * shown: the event's one edge, into the entry's `N more`, is where the reader clicks, and its picker lists
+ * the parameters first.
  */
 export function condensedOpening(payload: Payload): Set<Id> {
   const byId = new Map(payload.nodes.map((n) => [n.id, n]));
   const inRoot = (n: PayloadNode) => n.parent !== undefined && byId.get(n.parent)?.parent === undefined;
   const opening = new Set<Id>();
   for (const n of payload.nodes) {
-    if (n.type === 'EVENT' || ((n.type === 'RETURN' || n.type === 'FUNC_PARAM') && inRoot(n))) opening.add(n.id);
+    if (n.type === 'EVENT' || (n.type === 'RETURN' && inRoot(n))) opening.add(n.id);
   }
   return opening;
 }
@@ -211,6 +227,7 @@ export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
 
   const drawn = new Map<string, CondensedEdge>();
   for (const edge of payload.edges) {
+    if (!counts(ix, revealed, edge)) continue;
     const source = shown(edge.source);
     const target = shown(edge.target);
     if (source === target) continue;
@@ -237,8 +254,9 @@ export function condensedCaption(node: CondensedNode): string {
 
 /** The payload edges a drawn edge stands for, of every kind. */
 function underlying(payload: Payload, revealed: Set<Id>, [source, target]: [Id, Id]): PayloadEdge[] {
+  const ix = index(payload);
   const shown = shownAs(groupOf(payload, revealed), revealed);
-  return payload.edges.filter((e) => shown(e.source) === source && shown(e.target) === target);
+  return payload.edges.filter((e) => counts(ix, revealed, e) && shown(e.source) === source && shown(e.target) === target);
 }
 
 /** More than this many choices and a click asks which to show. */
@@ -257,7 +275,10 @@ export type Choice = { id: Id; label: string; section: string; source?: string; 
  *   hidden members with an edge to something drawn outside the box) or, with none, every hidden member,
  *   so that a click on a group always has something to show;
  * - `program`: `methods` - every box whose hidden members it holds - then `values`, the same;
- * - a drawn edge: `values` - the hidden endpoints of every payload edge it stands for.
+ * - a drawn edge: `parameters` - the hidden endpoints that are parameters - then `values`, the other hidden
+ *   endpoints, of every payload edge it stands for.
+ *
+ * A member is on a group's frontier only through an edge that is drawn (`counts`).
  */
 export function tapChoices(payload: Payload, revealed: Set<Id>, target: CondensedTarget): Choice[] {
   const ix = index(payload);
@@ -272,10 +293,10 @@ export function tapChoices(payload: Payload, revealed: Set<Id>, target: Condense
 
   if ('edge' in target) {
     for (const edge of underlying(payload, revealed, target.edge)) {
-      add(edge.source, 'values');
-      add(edge.target, 'values');
+      for (const end of [edge.source, edge.target]) add(end, ix.byId.get(end)!.type === 'FUNC_PARAM' ? 'parameters' : 'values');
     }
-    return choices;
+    // Parameters first, each section in payload order.
+    return [...choices.filter((c) => c.section === 'parameters'), ...choices.filter((c) => c.section !== 'parameters')];
   }
 
   const id = target.node;
@@ -294,7 +315,7 @@ export function tapChoices(payload: Payload, revealed: Set<Id>, target: Condense
 
   const inside = [...groups].filter(([, g]) => g === id).map(([m]) => m);
   const frontier = inside.filter((m) =>
-    (ix.touching.get(m) ?? []).some((e) => shown(e.source === m ? e.target : e.source) !== id));
+    (ix.touching.get(m) ?? []).some((e) => counts(ix, revealed, e) && shown(e.source === m ? e.target : e.source) !== id));
   for (const m of frontier.length > 0 ? frontier : inside) add(m, 'values');
   return choices;
 }

@@ -70,26 +70,39 @@ The only view (a boxed view, one box per method, was removed). Spec: `docs/super
 `condensed.ts` holds the rules as pure functions of
 `(payload, revealed)`, types the only import. `R` and the `Reset` button reset to the opening.
 
-**It opens on the entry's event, parameters and return.** A *root box* is a METHOD node with no
-`parent` - one per entry point, see `calls-and-dispatch.md`. `condensedOpening(payload)` reveals, per
-root: its `EVENT` leaf, every `RETURN` leaf of the root box and every `FUNC_PARAM` leaf of the root box
-(the entry's parameters) - no longer the targets of `EVENT` edges. The root box is drawn; a called box
-is drawn only when a revealed leaf touches it, everything else is in one `program` box until clicked.
-The reader picks calls and values from the entry box's picker (`tapChoices`, `PICK_AT`), so the opening
-can be small: 14 nodes on Fineract's repayment (7 groups, event, return, 5 parameters), 11 on
-capitalized-income and buy-down-fee, 17 on repayment-domain, against 43-50 when it also drew every direct
-call and what the event starts. Reset asks for the opening again, so it returns to the same set.
-The event is a leaf like any other: its edges into a group are one drawn edge with a count, and
-clicking it reveals what it starts. A leaf click is one hop, and a group's frontier gains the event's targets, which the event, drawn outside, makes
-members with an outside edge - one hop, as clicking the event would.
+**It opens on the entry's event and return, with one edge out of the event.** A *root box* is a METHOD
+node with no `parent` - one per entry point, see `calls-and-dispatch.md`. `condensedOpening(payload)`
+reveals, per root: its `EVENT` leaf and every `RETURN` leaf of the root box. Not the parameters (they
+were five more nodes and their edges into boundary boxes, before this), not the targets of `EVENT`
+edges. The root box is drawn (as `N more`); a called box is drawn only when a revealed leaf touches it,
+everything else is in one `program` box until clicked. On Fineract's repayment the opening is four
+nodes, `program (70)`, `51 more`, the event and the return, and the event has exactly one edge, into
+`51 more` (EVENT ×29), against 14 before and 43-50 before that. The reader clicks that edge: it lists
+what the event starts, parameters first (`parameters`, then `values`, payload order in each - every
+edge click, one rule), through the picker (`tapChoices`, `PICK_AT`). Reset asks for the opening again.
+A leaf click is one hop, so clicking the event reveals what it starts.
+
+**An EVENT edge is drawn only where the reader can follow it** (`counts(ix, revealed, edge)`, the one
+place that says so). Every other kind is always drawn. An EVENT edge counts when its target is revealed,
+or hidden in the source's own box - the entry's `N more`. Into `program` or a callee's box it is not
+drawn. Why: the event starts nearly everything (29 edges on repayment), every one landing on a
+different group made the opening a fan of dashed lines that said "the event starts things", which the
+event's node already says, and each was a place to click that listed nothing the entry's own edge does
+not. `counts` is used by `condensed` (drawn edges), `underlying` (edge-click choices and edge hover) and
+the frontier in `tapChoices` (an edge that is not drawn does not make a member a frontier member);
+`groupOf` already skipped EVENT edges.
 
 **Groups are read from the payload, never guessed.** `groupOf(payload, revealed)` puts every hidden leaf in
 `program` or in the METHOD box it sits directly in (`leaf.parent`; group id = the box's payload id,
 caption the method's simple name with the member count, payload order, `program` first). A box is drawn
-when it is a root box, when a member is revealed, or when a hidden member has a
-non-EVENT edge (either direction) to a revealed leaf (open); a direct callee with no contact is not drawn
-(it is listed under `calls` in the root box's picker); otherwise its members stay in `program`. A drawn boundary box keeps its purple outline. An EVENT edge alone
-opens nothing. Revealing the member that touched the screen keeps the box drawn. A nested call's box opens
+when it is a root box, when a member or its own id is revealed, or - a box that is not a
+boundary - when a hidden member has a non-EVENT edge (either direction) to a revealed leaf (open); a
+direct callee with no contact is not drawn (it is listed under `calls` in the root box's picker);
+otherwise its members stay in `program`. **A boundary box opens only on request**: its METHOD id
+revealed (the Boundaries list, a `calls`/`methods` choice) or one of its leaves revealed; a flow
+from a revealed leaf into it leaves its leaf in `program`. Why: a real page opened with 6 boundary
+boxes and ~30 edges just because the parameters flowed into them, and the reader asked for none. A
+drawn boundary box keeps its purple outline. An EVENT edge alone opens nothing. Revealing the member that touched the screen keeps the box drawn. A nested call's box opens
 on its own contacts, so two call sites of one method can differ. Boxes stay side by side: a nested call's box is a sibling of
 its caller's, never inside it; the values sit in their own method's frame (below). Merging a method's call sites into one group was rejected: it draws paths
 that do not exist (call 1's argument appears to reach call 2's result). A leaf with no parent box is an
@@ -106,7 +119,8 @@ show, as `Choice`s (`id`, `label`, `section`, `source`, `reveal`), only what is 
   every member, so a group click always has something to show - without that the walk stalls on a group
   with no outside edge;
 - `program`: `methods` (every box whose hidden members it holds), then `values` as for a box;
-- a drawn edge: `values`, the hidden endpoints of every payload edge it stands for, of every kind.
+- a drawn edge: `parameters` (the hidden endpoints that are `FUNC_PARAM`), then `values` (the other hidden
+  endpoints), of every payload edge it stands for that is drawn, of every kind.
 
 `tapCondensed` is `revealed` plus every choice's `reveal` ("Show all"); it only adds. **A METHOD id in
 `revealed` means "this box is open"** (`groupOf`): a `calls`/`methods` choice reveals the box id, which

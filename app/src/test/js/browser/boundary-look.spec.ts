@@ -6,14 +6,16 @@ const leaf = (page: Page, label: string) =>
   page.locator('.react-flow__node .cf-node').filter({ hasText: new RegExp(`^${label}( [↑↓].*)*$`) }).first();
 
 const openSave = async (page: Page) => {
-  // The first click has four choices, so it asks; the second has one.
+  // `first` is the entry box, drawn at the opening; `save` is a boundary box and appears with its call.
+  // The first click on `save` has four choices, so it asks; the second has one.
+  await tapGroupAll(page, 'first');
   await tapGroupAll(page, 'save');
   await tapGroup(page, 'save');
 };
 
 /**
  * How a boundary call and its order chain look on the page, asked of the DOM: the call's `call` in
- * `<strong>`, the token in the ORDER purple. `save` is a group at the opening; taking everything out of it
+ * `<strong>`, the token in the ORDER purple. `save` is a group once the entry box is open; taking everything out of it
  * (two clicks) shows `x`, the token, `call save`.
  */
 test.describe('boundaryRoots', () => {

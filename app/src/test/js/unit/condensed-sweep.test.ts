@@ -101,21 +101,15 @@ for (const mode of ['all', 'first'] as const) test(`the walk ends with every lea
   assert.deepEqual(short, [], short.join('\n'));
 });
 
-// The opening is the entry box, the event, the entry's return and its parameters on their own, and the
-// boxes a parameter flows into (a boundary method called twice is two groups: `boundary` calls
-// boundaryfunc2 and boundaryfunc3 twice each).
-test('a boundary fixture opens on the entry box, its parameters, return, event and the boxes they flow into', () => {
+// The opening is the entry box, the event and the entry's return, plus `program` for the rest: no parameter, and no
+// boundary box (`boundary` calls boundaryfunc2 and boundaryfunc3 twice each; they open only on request).
+test('a boundary fixture opens on the entry box, the event, the return and program', () => {
   const opening = (fixture: string) => {
     const { payload } = corpus.find((c) => c.name === fixture)!;
     return condensed(payload, condensedOpening(payload)).nodes.map((n) => `${n.label}:${n.type}`).sort();
   };
-  assert.deepEqual(opening('boundary'), [
-    'a:FUNC_PARAM', 'b:FUNC_PARAM',
-    'boundaryfunc1:GROUP', 'boundaryfunc2:GROUP', 'boundaryfunc2:GROUP', 'boundaryfunc3:GROUP', 'boundaryfunc3:GROUP',
-    'c:FUNC_PARAM', 'entrypoint:GROUP', 'entrypoint:RETURN', 'event entrypoint:EVENT',
-  ]);
+  assert.deepEqual(opening('boundary'), ['entrypoint:GROUP', 'entrypoint:RETURN', 'event entrypoint:EVENT', 'program:GROUP']);
   assert.deepEqual(opening('boundaryRoots'), [
-    'a:FUNC_PARAM', 'b:FUNC_PARAM', 'event first:EVENT', 'event second:EVENT', 'first:GROUP', 'first:RETURN',
-    'later:FUNC_PARAM', 'load:GROUP', 'save:GROUP', 'save:GROUP', 'second:GROUP', 'second:RETURN',
+    'event first:EVENT', 'event second:EVENT', 'first:GROUP', 'first:RETURN', 'program:GROUP', 'second:GROUP', 'second:RETURN',
   ]);
 });

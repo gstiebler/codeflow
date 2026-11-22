@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { drewAgain, frameOf, open, PICKER } from './page.ts';
+import { drewAgain, frameOf, open, PICKER, tapGroupAll, tapLeafAll } from './page.ts';
 
 const NODE = '.react-flow__node:not(.react-flow__node-condensedFrame)';
 const LEAF = '.react-flow__node .cf-node';
@@ -16,23 +16,22 @@ const leavesInside = (page: Page, label: string) => page.evaluate((name) => {
 }, label);
 
 /**
- * `boundary` at its opening: the entry method has values out, so it is a frame holding its five leaves
- * (the event, its return and the parameters a, b, c) and its rest node, `10 more`; the five boundary boxes
- * have none out and stay plain boxes, side by side with it.
+ * `boundary` at its opening: the entry method has values out, so it is a frame holding its two leaves
+ * (the event and its return) and its rest node, `13 more`; the boundary boxes are not drawn until asked for.
  */
 test.describe('frames on boundary', () => {
   test.beforeEach(open('boundary'));
 
-  test('the entry box is a frame, and its five leaves lie inside it', async ({ page }) => {
+  test('the entry box is a frame, and its two leaves lie inside it', async ({ page }) => {
     await expect(page.locator('.react-flow__node-condensedFrame')).toHaveCount(1);
     await expect(frameOf(page, 'entrypoint')).toHaveCount(1);
-    expect(await leavesInside(page, 'entrypoint')).toBe(5);
-    await expect(page.locator(LEAF)).toHaveCount(5);
+    expect(await leavesInside(page, 'entrypoint')).toBe(2);
+    await expect(page.locator(LEAF)).toHaveCount(2);
   });
 
   test('the rest node reads N more, and lies inside the frame too', async ({ page }) => {
     const rest = page.locator('.react-flow__node[data-id="b0"] .cf-group');
-    await expect(rest).toHaveText('10 more');
+    await expect(rest).toHaveText('13 more');
     const [inner, outer] = await Promise.all([rest.boundingBox(), frameOf(page, 'entrypoint').boundingBox()]);
     expect(inner!.x).toBeGreaterThanOrEqual(outer!.x);
     expect(inner!.y + inner!.height).toBeLessThanOrEqual(outer!.y + outer!.height);
@@ -50,13 +49,15 @@ test.describe('frames on boundary', () => {
   });
 
   test('a closed box is a plain box with its count, and has no frame', async ({ page }) => {
+    await expect(page.locator(NODE)).toHaveCount(4);
+    await tapGroupAll(page, 'entrypoint');
     await expect(frameOf(page, 'boundaryfunc1')).toHaveCount(0);
     await expect(page.locator(GROUP).filter({ hasText: /^boundaryfunc1 \(5\)$/ })).toHaveCount(1);
-    await expect(page.locator(NODE)).toHaveCount(11);
+    await expect(page.locator(NODE)).toHaveCount(17);
   });
 
   test('a boundary box that has a value out is a frame with the boundary outline', async ({ page }) => {
-    await drewAgain(page, () => page.locator(LEAF).filter({ hasText: 'event entrypoint' }).click());
+    await tapLeafAll(page, 'event entrypoint');
     await expect(frameOf(page, 'boundaryfunc1').locator('.cf-frame')).toHaveCSS('border-top-color', 'rgb(123, 31, 162)');
   });
 

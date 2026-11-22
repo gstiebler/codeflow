@@ -154,15 +154,20 @@ test('a hidden leaf belongs to the entry box, to its open box, or to program', (
   assert.equal(none.get('n10'), 'b0');
   assert.equal(none.get('n4'), 'program');
   assert.equal(none.size, 12);
+  // `fetch` (b5) is a boundary box: n11 flowing into it opens nothing, so n12 stays in program ...
   const opened = groupOf(PAYLOAD, new Set(['n11']));
-  assert.equal(opened.get('n12'), 'b5');
+  assert.equal(opened.get('n12'), 'program');
   assert.ok(!opened.has('n11'));
   assert.equal(opened.size, 11);
+  // ... until the box is asked for.
+  assert.equal(groupOf(PAYLOAD, new Set(['n11', 'b5'])).get('n12'), 'b5');
   const flowed = groupOf(PAYLOAD, new Set(['n1']));
   assert.equal(flowed.get('n10'), 'b0');
-  assert.equal(flowed.get('n4'), 'b1');
-  assert.equal(flowed.get('n7'), 'b2');
+  assert.equal(flowed.get('n4'), 'program');
+  assert.equal(flowed.get('n7'), 'program');
   assert.equal(flowed.get('n11'), 'program');
+  assert.equal(groupOf(PAYLOAD, new Set(['n1', 'b1', 'b2'])).get('n4'), 'b1');
+  assert.equal(groupOf(PAYLOAD, new Set(['n1', 'b1', 'b2'])).get('n7'), 'b2');
 });
 
 test('a boundary method called twice is two groups', () => {
@@ -188,17 +193,21 @@ test('a leaf without a box throws', () => {
 });
 
 test('a boundary box keeps the boundary look', () => {
-  const nodes = condensed(PAYLOAD, new Set(['n1'])).nodes;
+  const nodes = condensed(PAYLOAD, new Set(['n1', 'b1'])).nodes;
   assert.equal(nodes.find((n) => n.id === 'b1')!.boundary, true);
   assert.ok(!('boundary' in nodes.find((n) => n.id === 'program')!));
 });
 
 // From the opening only `main` (b0) is a box, the rest is `program`: the edges inside program (n4->n5,
-// n7->n8, n11->n12 ...) are not drawn, every one crossing between b0 and program is. With `n1` out,
-// `fetch` (b1) and `fetch` (b2) open on its flow and each edge crosses between boxes again.
+// n7->n8, n11->n12 ...) are not drawn, every one crossing between b0 and program is. With `n1` out, the
+// boundary boxes `fetch` (b1, b2) stay in program (a flow opens no boundary box); asked for, they are drawn
+// and each edge crosses between boxes again.
 test('an edge between two members of one group is not drawn, and every crossing edge is', () => {
   assert.deepEqual(sorted(condensed(PAYLOAD, new Set())).edges, ['b0->program:FLOW3x3', 'program->b0:FLOW1+TRUE1x2']);
   assert.deepEqual(sorted(condensed(PAYLOAD, new Set(['n1']))).edges, [
+    'b0->program:FLOW1x1', 'n1->program:FLOW2x2', 'program->b0:FLOW1+TRUE1x2',
+  ]);
+  assert.deepEqual(sorted(condensed(PAYLOAD, new Set(['n1', 'b1', 'b2']))).edges, [
     'b0->program:FLOW1x1', 'b1->b0:FLOW1x1', 'b1->b2:ORDER1x1', 'b1->program:ORDER1x1', 'b2->b0:TRUE1x1', 'n1->b1:FLOW1x1',
     'n1->b2:FLOW1x1',
   ].sort());
@@ -233,7 +242,11 @@ test('no two drawn edges share an ordered pair, on the hand-written payload and 
   // The pair: merging lost nothing - the counts add up to the crossing edges, kind by kind.
   const groups = groupOf(payload, condensedOpening(payload));
   const shown = (id: string) => (condensedOpening(payload).has(id) ? id : groups.get(id)!);
-  const crossing = payload.edges.filter((e) => shown(e.source) !== shown(e.target));
+  // An EVENT edge into a hidden leaf of another box is not drawn (it is `program`'s, or a callee's).
+  const parent = (id: string) => payload.nodes.find((n) => n.id === id)!.parent;
+  const drawnEdge = (e: { source: string; target: string; kind: string }) => e.kind !== 'EVENT' || condensedOpening(payload).has(e.target)
+    || parent(e.target) === parent(e.source);
+  const crossing = payload.edges.filter((e) => drawnEdge(e) && shown(e.source) !== shown(e.target));
   assert.ok(opening.edges.some((e) => Object.keys(e.kinds).length > 1), 'boundary\'s opening has no mixed pair');
   assert.equal(opening.edges.reduce((sum, e) => sum + e.count, 0), crossing.length);
   for (const e of opening.edges) {
@@ -257,7 +270,8 @@ test('clicking a group takes out its frontier and its callee boxes', () => {
 // What is left of `main` after its frontier came out touches nothing, so a click takes it all.
 test('clicking a group with no frontier takes out every member', () => {
   const after = tapCondensed(PAYLOAD, new Set(['n1', 'n2']), { node: 'b0' });
-  assert.deepEqual([...after].sort(), ['b4', 'n1', 'n10', 'n2', 'n3']);
+  // `fetch` and `save` (b1-b3, boundary boxes) are in program and are listed under calls.
+  assert.deepEqual([...after].sort(), ['b1', 'b2', 'b3', 'b4', 'n1', 'n10', 'n2', 'n3']);
 });
 
 test('clicking a drawn edge takes out the endpoints of the edges it stands for', () => {
@@ -268,9 +282,9 @@ test('clicking a drawn edge takes out the endpoints of the edges it stands for',
 // `save` has one member; once it is out the group is gone and its edges land on the leaf.
 test('a group whose last member came out is gone, and its edges arrive at the member', () => {
   const view = sorted(condensed(PAYLOAD, new Set(['n9'])));
-  assert.deepEqual(view.nodes.map((n) => n.id), ['b0', 'b1', 'n9', 'program']);
+  assert.deepEqual(view.nodes.map((n) => n.id), ['b0', 'n9', 'program']);
   assert.deepEqual(view.nodes.find((n) => n.id === 'n9'), { id: 'n9', label: 'x', type: 'FUNC_PARAM', frame: 'frame:b3' });
-  assert.ok(view.edges.includes('b1->n9:ORDER1x1'));
+  assert.ok(view.edges.includes('program->n9:ORDER1x1'), view.edges.join(' '));
   assert.ok(view.edges.includes('b0->n9:FLOW1x1'), view.edges.join(' '));
 });
 
@@ -343,7 +357,7 @@ test('hovering a leaf deep in calls shows its call stack', () => {
 
 // b1's members are in Gw.java's lines 3-4; main's remaining ones come from lines 2, 6 and 7.
 test('hovering a group shows its member count and its members\' methods and line ranges', () => {
-  assert.deepEqual(hoverText(PAYLOAD, new Set(['n1']), { node: 'b1' }), ['fetch: 3 nodes', 'Gw#fetch  Gw.java:3-4']);
+  assert.deepEqual(hoverText(PAYLOAD, new Set(['n1', 'b1']), { node: 'b1' }), ['fetch: 3 nodes', 'Gw#fetch  Gw.java:3-4']);
   assert.deepEqual(hoverText(PAYLOAD, new Set(['n1']), { node: 'b0' }), ['main: 3 nodes', 'App#main  App.java:2-7']);
 });
 
@@ -360,9 +374,9 @@ test('the group hover names the call site', () => {
 
 // n1 -> b1 is the one edge n1 -> n4, arriving on line 3 of Gw.java.
 test('hovering a drawn edge lists the distinct lines its values arrive on, after its kinds', () => {
-  assert.deepEqual(hoverText(PAYLOAD, new Set(['n1']), { edge: ['n1', 'b1'] }),
+  assert.deepEqual(hoverText(PAYLOAD, new Set(['n1', 'b1']), { edge: ['n1', 'b1'] }),
     ['flow ×1', 'Gw#fetch  Gw.java:3  static int fetch(int x) {']);
-  assert.deepEqual(hoverText(PAYLOAD, new Set(['n1']), { edge: ['b1', 'b0'] }),
+  assert.deepEqual(hoverText(PAYLOAD, new Set(['n1', 'b1']), { edge: ['b1', 'b0'] }),
     ['flow ×1', 'App#main  App.java:6  int b = fetch(a);']);
 });
 
@@ -417,8 +431,8 @@ test('a group is captioned with its member count, a leaf with its label', () => 
   assert.equal(condensedCaption({ id: 'n1', label: 'total', type: 'VARIABLE' }), 'total');
 });
 
-// The opening: the entry's event, its return and its parameters. A root box is a METHOD with no parent.
-test('opening reveals the event, the entry return and the entry parameters', () => {
+// The opening: the entry's event and its return, no parameters. A root box is a METHOD with no parent.
+test('opening reveals the event and the entry return, and no parameter', () => {
   const p: Payload = {
     nodes: [
       box('R', 'main', 'p.A#main()'), leaf('e', 'event', 'R', 'p/A.java:1:1', 'EVENT'),
@@ -429,8 +443,8 @@ test('opening reveals the event, the entry return and the entry parameters', () 
     ],
     edges: [edge('e', 'v', 'EVENT'), edge('e', 'c', 'EVENT')],
   };
-  // The literal/variable the event starts is not revealed; neither is a nested box's parameter or return.
-  assert.deepEqual([...condensedOpening(p)].sort(), ['e', 'ret', 'x']);
+  // The literal/variable the event starts is not revealed; neither is a parameter, nor a nested box's return.
+  assert.deepEqual([...condensedOpening(p)].sort(), ['e', 'ret']);
 });
 
 test('a direct callee with no contact stays in program; a flow from a revealed parameter draws it', () => {
@@ -444,8 +458,10 @@ test('a direct callee with no contact stays in program; a flow from a revealed p
   assert.equal(groupOf(apart, condensedOpening(apart)).get('c'), 'program');
   assert.equal(groupOf(apart, condensedOpening(apart)).get('d'), 'program');
   const touched: Payload = { nodes, edges: [edge('x', 'c')] };
-  assert.equal(groupOf(touched, condensedOpening(touched)).get('c'), 'C');
-  assert.equal(groupOf(touched, condensedOpening(touched)).get('d'), 'program');
+  const withX = new Set([...condensedOpening(touched), 'x']);
+  assert.equal(groupOf(touched, condensedOpening(touched)).get('c'), 'program');
+  assert.equal(groupOf(touched, withX).get('c'), 'C');
+  assert.equal(groupOf(touched, withX).get('d'), 'program');
 });
 
 test('the root box is drawn while it has hidden leaves, and its picker lists the hidden direct callees', () => {
@@ -461,22 +477,40 @@ test('the root box is drawn while it has hidden leaves, and its picker lists the
   assert.deepEqual(listed(p, ['e'], { node: 'R' }), ['calls:C:f', 'calls:D:g', 'values:r1:r1']);
 });
 
-test('a boundary box is not drawn until it is open', () => {
+test('a boundary box is not drawn until it is asked for: a flow into it, even from a revealed leaf, does not open it', () => {
   const p: Payload = {
     nodes: [
       box('R', 'main', 'p.A#main()'), leaf('e', 'event', 'R', 'p/A.java:1:1', 'EVENT'), leaf('a', 'a', 'R', 'p/A.java:2:1'),
       box('C', 'f', 'p.A#f()', 'R'), leaf('c', 'c', 'C', 'p/A.java:3:1'),
-      box('B', 'fetch', 'p.G#fetch()', 'C', true), leaf('x', 'x', 'B', 'p/G.java:1:1', 'FUNC_PARAM'),
+      box('B', 'fetch', 'p.G#fetch()', 'C', true), leaf('x', 'x', 'B', 'p/G.java:1:1', 'FUNC_PARAM'), leaf('y', 'y', 'B', 'p/G.java:2:1'),
     ],
-    edges: [edge('a', 'x')],
+    edges: [edge('a', 'x'), edge('y', 'a')],
   };
   assert.equal(groupOf(p, new Set(['e'])).get('x'), 'program');
   assert.ok(!groupsOf(p, ['e']).some(([id]) => id === 'B'));
-  const opened = condensed(p, new Set(['e', 'a'])).nodes.find((n) => n.id === 'B');
-  assert.deepEqual(opened, { id: 'B', label: 'fetch', type: 'GROUP', members: 1, boundary: true });
+  // Both directions: a -> x and y -> a.
+  assert.equal(groupOf(p, new Set(['e', 'a'])).get('x'), 'program');
+  assert.equal(groupOf(p, new Set(['e', 'a'])).get('y'), 'program');
+  assert.ok(!condensed(p, new Set(['e', 'a'])).nodes.some((n) => n.id === 'B'));
+  // The box's own id opens it ...
+  assert.deepEqual(condensed(p, new Set(['e', 'a', 'B'])).nodes.find((n) => n.id === 'B'),
+    { id: 'B', label: 'fetch', type: 'GROUP', members: 2, boundary: true });
+  // ... and so does one of its leaves, which opens it to the other.
+  assert.equal(groupOf(p, new Set(['e', 'a', 'x'])).get('y'), 'B');
 });
 
-test('a boundary box called directly by the entry is drawn once a revealed parameter flows into it', () => {
+test('the same flow into a box that is not a boundary opens it', () => {
+  const p: Payload = {
+    nodes: [
+      box('R', 'main', 'p.A#main()'), leaf('a', 'a', 'R', 'p/A.java:2:1'),
+      box('B', 'fetch', 'p.G#fetch()', 'R'), leaf('x', 'x', 'B', 'p/G.java:1:1', 'FUNC_PARAM'),
+    ],
+    edges: [edge('a', 'x')],
+  };
+  assert.deepEqual(condensed(p, new Set(['a'])).nodes.find((n) => n.id === 'B'), { id: 'B', label: 'fetch', type: 'GROUP', members: 1 });
+});
+
+test('a boundary box called directly by the entry is drawn only once it is asked for', () => {
   const p: Payload = {
     nodes: [
       box('R', 'main', 'p.A#main()'), leaf('e', 'event', 'R', 'p/A.java:1:1', 'EVENT'),
@@ -485,11 +519,13 @@ test('a boundary box called directly by the entry is drawn once a revealed param
     ],
     edges: [edge('a', 'x')],
   };
-  assert.deepEqual(condensed(p, condensedOpening(p)).nodes.find((n) => n.id === 'B'),
+  const withA = new Set([...condensedOpening(p), 'a']);
+  assert.equal(condensed(p, withA).nodes.find((n) => n.id === 'B'), undefined);
+  assert.deepEqual(condensed(p, new Set([...withA, 'B'])).nodes.find((n) => n.id === 'B'),
     { id: 'B', label: 'fetch', type: 'GROUP', members: 1, boundary: true });
 });
 
-test('two entry points each reveal their event, parameters and return, and each root box is drawn', () => {
+test('two entry points each reveal their event and return, and each root box is drawn', () => {
   const p: Payload = {
     nodes: [
       box('R1', 'one', 'p.A#one()'), leaf('e1', 'event', 'R1', 'p/A.java:1:1', 'EVENT'),
@@ -502,7 +538,7 @@ test('two entry points each reveal their event, parameters and return, and each 
     edges: [],
   };
   const opening = condensedOpening(p);
-  assert.deepEqual([...opening].sort(), ['e1', 'e2', 'r1', 'r2', 'x1', 'x2']);
+  assert.deepEqual([...opening].sort(), ['e1', 'e2', 'r1', 'r2']);
   assert.deepEqual(groupsOf(p, [...opening]).map(([id]) => id), ['R1', 'R2']);
 });
 
@@ -584,9 +620,10 @@ test('program lists the boxes whose members it holds under methods, then its val
 });
 
 test('a drawn edge lists the hidden endpoints of the edges it stands for', () => {
+  // Parameters first, then values, each in payload order.
   assert.deepEqual(listed(PAYLOAD, [], { edge: ['b0', 'program'] }),
-    ['values:n1:a', 'values:n4:x', 'values:n7:x', 'values:n2:b', 'values:n9:x']);
-  assert.deepEqual(listed(PAYLOAD, ['n1'], { edge: ['n1', 'b1'] }), ['values:n4:x']);
+    ['parameters:n4:x', 'parameters:n7:x', 'parameters:n9:x', 'values:n1:a', 'values:n2:b']);
+  assert.deepEqual(listed(PAYLOAD, ['n1', 'b1'], { edge: ['n1', 'b1'] }), ['parameters:n4:x']);
 });
 
 test('a click that stands for nothing lists nothing', () => {
@@ -672,14 +709,16 @@ test('a box with one revealed leaf has one frame; its leaf and its rest node sit
 });
 
 test('a box opened by an edge, and program, have no frame and keep their caption', () => {
-  const view = framesOf(['n1']);
-  // b1 is open (n1 flows into n4) but none of its leaves is revealed.
+  const view = framesOf(['n1', 'b1']);
+  // b1 is open (asked for) but none of its leaves is revealed.
   assert.equal(nodeOf(view, 'b1')!.frame, undefined);
   assert.equal(condensedCaption(nodeOf(view, 'b1')!), 'fetch (3)');
   const program = nodeOf(view, 'program')!;
   assert.equal(program.frame, undefined);
   assert.equal(condensedCaption(program), `program (${program.members})`);
   assert.deepEqual(view.frames.map((f) => f.box), ['b0']);
+  // A flow alone, into a boundary box, does not even draw it.
+  assert.equal(nodeOf(framesOf(['n1']), 'b1'), undefined);
 });
 
 test('a METHOD id revealed alone is the plain box it was, with no frame', () => {

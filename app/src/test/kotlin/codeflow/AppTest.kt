@@ -946,9 +946,9 @@ class AppTest {
         val graph = buildGraph("unsupported", listOf("App.java"))
         val types = nodeTypes(graph)
         val edges = edgeLabels(graph)
-        assertTrue("TYPE_CAST" to "UNMODELLED" in types, "the cast is not drawn as unmodelled: $types")
-        assertTrue("3L" to "TYPE_CAST" in edges, "the operand does not reach the cast: $edges")
-        assertTrue("TYPE_CAST" to "count" in edges, "the cast does not reach the variable: $edges")
+        assertTrue("DECONSTRUCTION_PATTERN" to "UNMODELLED" in types, "the pattern is not drawn as unmodelled: $types")
+        assertTrue("shape" to "DECONSTRUCTION_PATTERN" in edges, "the tested value does not reach the pattern: $edges")
+        assertTrue("\"point\"" to "println" in edges, "the run stopped at the gap: $edges")
     }
 
     /**
@@ -961,11 +961,11 @@ class AppTest {
      * node has to arrive on this path rather than the edge being dropped again.
      */
     @Test
-    fun anUnmodelledExpressionAssignedToAnObjectIsDrawnToo() {
+    fun aCastAssignedToAnObjectReachesTheVariable() {
         val graph = buildGraph("unsupportedAssignment", listOf("App.java"))
         val edges = edgeLabels(graph)
-        assertTrue("args" to "TYPE_CAST" in edges, "the operand does not reach the cast: $edges")
-        assertTrue("TYPE_CAST" to "cast" in edges, "the cast does not reach the variable: $edges")
+        assertTrue("args" to "cast" in edges, "the cast's operand does not reach the variable: $edges")
+        assertTrue("cast" to "hashCode" in edges, "the variable is not the receiver it was assigned: $edges")
     }
 
     /**
@@ -977,11 +977,10 @@ class AppTest {
      * drawn as reading nothing.
      */
     @Test
-    fun anUnmodelledReceiverStillReachesTheCall() {
+    fun aCastReceiverStillReachesTheCall() {
         val graph = buildGraph("unmodelledReceiver", listOf("App.java"))
         val edges = edgeLabels(graph)
-        assertTrue("args" to "TYPE_CAST" in edges, "the operand does not reach the cast: $edges")
-        assertTrue("TYPE_CAST" to "toString" in edges, "the cast does not reach the call: $edges")
+        assertTrue("args" to "toString" in edges, "the cast's operand does not reach the call: $edges")
     }
 
     /**
@@ -1815,7 +1814,7 @@ class AppTest {
         val testDirPath = testResourcesPath.resolve("unsupported")
         val reader = AstReader(testResourcesPath)
         reader.process(listOf(testDirPath.resolve("App.java")))
-        assertEquals(listOf("TYPE_CAST at unsupported/App.java:15:21"), reader.unmodelled)
+        assertEquals(listOf("DECONSTRUCTION_PATTERN at unsupported/App.java:18:30"), reader.unmodelled)
     }
 
     /**
@@ -1828,9 +1827,9 @@ class AppTest {
     fun summariesReportEachConstructTheyCouldNotModel() {
         val reader = AstReader(testResourcesPath)
         val summaries = reader.summarise(listOf(testResourcesPath.resolve("unsupported").resolve("App.java")))
-        assertEquals(listOf("TYPE_CAST at unsupported/App.java:15:21"), reader.unmodelled)
-        assertTrue(summaries.any { (_, s) -> s.gaps.any { it.kind == "unmodelled" && it.detail == "TYPE_CAST" } },
-            "the cast is not a gap in the document")
+        assertEquals(listOf("DECONSTRUCTION_PATTERN at unsupported/App.java:18:30"), reader.unmodelled)
+        assertTrue(summaries.any { (_, s) -> s.gaps.any { it.kind == "unmodelled" && it.detail == "DECONSTRUCTION_PATTERN" } },
+            "the pattern is not a gap in the document")
     }
 
     /** And says nothing when there was nothing to say, so the summary means something. */
@@ -1845,17 +1844,17 @@ class AppTest {
     /**
      * The node carries the construct's own line, not the enclosing statement's.
      *
-     * A reader who sees `TYPE_CAST` on the diagram has one question, and it is where to look. The
-     * label alone names the kind, which on a file with several casts narrows nothing.
+     * A reader who sees `DECONSTRUCTION_PATTERN` on the diagram has one question, and it is where to
+     * look. The label alone names the kind, which on a file with several patterns narrows nothing.
      */
     @Test
     fun anUnmodelledNodeSaysWhereTheConstructWas() {
-        val cast = jsonNodes(buildJson("unsupported", listOf("App.java")))
+        val pattern = jsonNodes(buildJson("unsupported", listOf("App.java")))
             .single { it.get("type").asString == "UNMODELLED" }
-        assertEquals("TYPE_CAST", jsonLabel(cast))
+        assertEquals("DECONSTRUCTION_PATTERN", jsonLabel(pattern))
         assertTrue(
-            jsonSource(cast)?.startsWith("unsupported/App.java:15:") == true,
-            "the cast on line 15 does not say so: ${jsonSource(cast)}"
+            jsonSource(pattern)?.startsWith("unsupported/App.java:18:") == true,
+            "the pattern on line 18 does not say so: ${jsonSource(pattern)}"
         )
     }
 
@@ -2696,6 +2695,25 @@ class AppTest {
     }
 
     /**
+     * A reference cast hands on the very object it was given, and a primitive cast converts a value.
+     *
+     * The object matters: `((Square) shape).edges` and `square.sides()` are answered by the object
+     * `new Square()` built, so a cast that stood for a fresh value would leave the field read with
+     * nothing in it and the call with nothing to dispatch on. A primitive cast changes the value -
+     * `(int) 7.9` is 7 - so it is an operator of its own rather than the value it was given.
+     */
+    @Test
+    fun castsKeepTheObjectAndConvertPrimitives() {
+        val graph = buildGraph("cast", listOf("App.java"))
+        val edges = edgeLabels(graph)
+        assertTrue(reaches(graph, "4", "count"), "the call through a cast did not dispatch on the object: $edges")
+        assertTrue(reaches(graph, "4", "fromField"), "the field read through a cast missed the object: $edges")
+        assertTrue("ratio" to "to int" in edges, "the cast value does not reach its conversion: $edges")
+        assertTrue("to int" to "whole" in edges, "the conversion does not reach the variable: $edges")
+        assertFalse("ratio" to "whole" in edges, "a primitive cast was drawn as the value itself: $edges")
+    }
+
+    /**
      * Two methods named `twice`, one taking an int and one a String. Which body runs at a call
      * site is decided by the argument types, so a lookup by name has to pick one and be wrong at
      * half the call sites - silently, since the body it inlines is real code that reads fine.
@@ -3004,6 +3022,7 @@ class AppTest {
     @Test fun nestedClass() = codeflow("nestedClass", listOf("App.java"))
     @Test fun arrayAccess() = codeflow("arrayAccess", listOf("App.java"))
     @Test fun instanceOf() = codeflow("instanceOf", listOf("App.java"))
+    @Test fun cast() = codeflow("cast", listOf("App.java"))
     @Test fun thisReference() = codeflow("thisReference", listOf("App.java"))
     @Test fun objectArgument() = codeflow("objectArgument", listOf("App.java"))
     @Test fun returnedObject() = codeflow("returnedObject", listOf("App.java"))

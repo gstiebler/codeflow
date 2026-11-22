@@ -701,6 +701,20 @@ class Lowering(
         }
 
         /**
+         * `(Square) shape` and `(int) ratio`.
+         *
+         * A reference cast is the object it was given, not a new value: handing back anything else
+         * leaves `((Square) shape).edges` reading a field of no object and `square.sides()` with
+         * nothing to dispatch on. A primitive cast converts - `(int) 7.9` is 7 - so it is an operator,
+         * or the graph would claim the variable holds the double.
+         */
+        override fun visitTypeCast(node: TypeCastTree, ctx: ProcessorContext): Val {
+            val value = evaluate(node.expression, ctx)
+            val type = node.type as? PrimitiveTypeTree ?: return value
+            return emit(UnOp("to ${type.primitiveTypeKind.name.lowercase()}", value, ctx.location(node)))
+        }
+
+        /**
          * `value instanceof String`, and `value instanceof String text`, which also binds `text`.
          *
          * The binding is not decoration: every later read of the name resolves to it, so leaving it
@@ -1248,7 +1262,7 @@ class Lowering(
             Tree.Kind.IDENTIFIER, Tree.Kind.MEMBER_SELECT, Tree.Kind.METHOD_INVOCATION,
             Tree.Kind.ASSIGNMENT, Tree.Kind.CONDITIONAL_EXPRESSION, Tree.Kind.PARENTHESIZED,
             Tree.Kind.SWITCH_EXPRESSION, Tree.Kind.NEW_CLASS,
-            Tree.Kind.ARRAY_ACCESS, Tree.Kind.INSTANCE_OF, Tree.Kind.LAMBDA_EXPRESSION,
+            Tree.Kind.ARRAY_ACCESS, Tree.Kind.INSTANCE_OF, Tree.Kind.TYPE_CAST, Tree.Kind.LAMBDA_EXPRESSION,
             Tree.Kind.MEMBER_REFERENCE, Tree.Kind.NEW_ARRAY
         )
 

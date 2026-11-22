@@ -22,6 +22,18 @@ diagram is not showing. Each one is also reported on stderr (`codeflow: N constr
 deduplicated, since a method is inlined once per call site) and makes the process exit non-zero —
 the document still goes to stdout in full.
 
+Casts are modelled since 2026-11-22 (`Lowering.visitTypeCast`, fixture `cast`), and they split by
+what the cast does. A **reference** cast `(Square) shape` hands back the operand's own `Val`: it is
+the same object, and anything else leaves `((Square) shape).edges` reading a field of no object and
+`square.sides()` with nothing to dispatch on — an `UnOp` drops the objects a `Val` carries. A
+**primitive** cast `(int) ratio` converts (`(int) 7.9` is 7), so it is a `UnOp` labelled `to int`,
+or the graph would say the variable holds the double. The split is syntax (`PrimitiveTypeTree`), so
+it needs no symbol lookup. The cast's type is not narrowed into dispatch: a `(Square)` on an object
+of unknown type does not make it a `Square`, because a cast that would fail at run time is exactly
+what a reader is checking for. With casts in, every value-producing `Tree.Kind` is modelled; the
+gap left is the record deconstruction pattern (`instanceof P(int x)`, `case P(int x)`), which the
+`unsupported` fixture now holds.
+
 The failure that stays hard is the one that really is the analysis having lost something: a local
 read with no reaching definition (`unassigned`). See "A name with no value" above.
 

@@ -4,14 +4,12 @@ flowchart TD
     n1[event main]:::EVENT
     n2[main]:::RETURN
     n3[args]:::FUNC_PARAM
-    n4[TYPE_CAST]:::UNMODELLED
-    n5[toString]:::EXTERNAL
-    n6[out]:::OBJ_VARIABLE
+    n4[toString]:::EXTERNAL
+    n5[out]:::OBJ_VARIABLE
     n1[event main]:::EVENT -. event .-> n2[main]:::RETURN
     n1[event main]:::EVENT -. event .-> n3[args]:::FUNC_PARAM
-    n3[args]:::FUNC_PARAM --> n4[TYPE_CAST]:::UNMODELLED
-    n4[TYPE_CAST]:::UNMODELLED --> n5[toString]:::EXTERNAL
-    n5[toString]:::EXTERNAL --> n6[out]:::OBJ_VARIABLE
+    n3[args]:::FUNC_PARAM --> n4[toString]:::EXTERNAL
+    n4[toString]:::EXTERNAL --> n5[out]:::OBJ_VARIABLE
   end
   linkStyle 0 stroke:#00897b,color:#00897b
   linkStyle 1 stroke:#00897b,color:#00897b

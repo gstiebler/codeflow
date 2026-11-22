@@ -567,19 +567,27 @@ class LoweringTest {
      *
      * The alternative is the one thing that must never happen: a scanner that walks the children and
      * hands back one of their results turns `(int) 3L` into the literal, and nothing downstream can
-     * tell that a cast was there. Drawn, that is a diagram which reads fine and is wrong.
+     * tell that a cast was there. Drawn, that is a diagram which reads fine and is wrong. Casts are
+     * modelled now; a record deconstruction pattern is the construct left, so it stands in here.
      */
     @Test
-    fun anUnmodelledExpressionIsAnInstructionRatherThanOneOfItsChildren() {
+    fun anUnmodelledConstructIsAnInstructionRatherThanOneOfItsChildren() {
         assertEquals(
             listOf(
                 "0: param args",
                 "1: readField static.out",
                 "2: const \"x\"",
                 "3: call println on 1 2",
-                "4: const 3L",
-                "5: unmodelled TYPE_CAST 4",
-                "6: write count <- 5"
+                "4: write shape <- 0",
+                "5: unmodelled DECONSTRUCTION_PATTERN 4",
+                "6: unOp instanceof 4",
+                "7: fieldFork if ? 6 [true, false]",
+                "8: readField static.out",
+                "9: const \"point\"",
+                "10: call println on 8 9",
+                "11: fieldArm 7",
+                "12: fieldArm 7",
+                "13: fieldJoin 7 arms=[0, 1] if ? 6 [true, false] close"
             ),
             lower("unsupported", listOf("App.java"), "App#main")
         )

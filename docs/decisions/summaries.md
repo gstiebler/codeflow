@@ -157,7 +157,7 @@ progressive-loan at `e048ee8b2b`, 2026-11-15.
   are writes on several holders. Chained calls named apart changed no Fineract pair and added no
   `depth` gap.
 - 658 against 687: the smoke passes `Class#method` names to `--from`, and overloads share one.
-- The 22 `TYPE_CAST` the graph run reports unmodelled are 22 of the `unmodelled` gaps.
+- The 22 `TYPE_CAST` the graph run reports unmodelled are 22 of the `unmodelled` gaps (measured before casts were modelled; see `constructs.md`).
   `--summaries` reports them on stderr too, and exits 1, as the graph run does.
 - 92% of the pairs are `ext:` → `ext-arg:`: an opaque call's result passed on to another one.
   That is most of the document's size.

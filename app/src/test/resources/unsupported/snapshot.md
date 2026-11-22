@@ -7,18 +7,23 @@ flowchart TD
     n4[out]:::EXTERNAL
     n5["x"]:::LITERAL
     n6[println]:::EXTERNAL
-    n7[3L]:::LITERAL
-    n8[TYPE_CAST]:::UNMODELLED
-    n9[count]:::VARIABLE
+    n7[shape]:::OBJ_VARIABLE
+    n8[DECONSTRUCTION_PATTERN]:::UNMODELLED
+    n9[instanceof]:::BIN_OP
+    n10["point"]:::LITERAL
+    n11[println]:::EXTERNAL
     n1[event main]:::EVENT -. event .-> n2[main]:::RETURN
     n1[event main]:::EVENT -. event .-> n3[args]:::FUNC_PARAM
     n1[event main]:::EVENT -. event .-> n4[out]:::EXTERNAL
     n1[event main]:::EVENT -. event .-> n5["x"]:::LITERAL
-    n1[event main]:::EVENT -. event .-> n7[3L]:::LITERAL
+    n1[event main]:::EVENT -. event .-> n10["point"]:::LITERAL
+    n3[args]:::FUNC_PARAM --> n7[shape]:::OBJ_VARIABLE
     n4[out]:::EXTERNAL --> n6[println]:::EXTERNAL
+    n4[out]:::EXTERNAL --> n11[println]:::EXTERNAL
     n5["x"]:::LITERAL --> n6[println]:::EXTERNAL
-    n7[3L]:::LITERAL --> n8[TYPE_CAST]:::UNMODELLED
-    n8[TYPE_CAST]:::UNMODELLED --> n9[count]:::VARIABLE
+    n7[shape]:::OBJ_VARIABLE --> n8[DECONSTRUCTION_PATTERN]:::UNMODELLED
+    n7[shape]:::OBJ_VARIABLE --> n9[instanceof]:::BIN_OP
+    n10["point"]:::LITERAL --> n11[println]:::EXTERNAL
   end
   linkStyle 0 stroke:#00897b,color:#00897b
   linkStyle 1 stroke:#00897b,color:#00897b

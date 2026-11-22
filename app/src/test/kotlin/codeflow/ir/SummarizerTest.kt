@@ -253,7 +253,7 @@ class SummarizerTest {
     fun anUnmodelledConstructIsAGap() =
         assertEquals(
             setOf("unmodelled"),
-            summarise("class A { int f(double d) { return (int) d; } }", "A#f").gaps.map { it.kind }.toSet()
+            summarise("record P(int x) {} class A { int f(Object o) { if (o instanceof P(int x)) return 1; return 0; } }", "A#f").gaps.map { it.kind }.toSet()
         )
 
     @Test
@@ -373,7 +373,7 @@ class SummarizerTest {
 
     @Test
     fun aCalleeGapIsInheritedByTheCaller() =
-        assertTrue(summarise("class A { int g(double d) { return (int) d; } int f(double d) { return g(d); } }", "A#f").gaps.any { it.kind == "unmodelled" })
+        assertTrue(summarise("record P(int x) {} class A { int g(Object o) { if (o instanceof P(int x)) return 1; return 0; } int f(Object o) { return g(o); } }", "A#f").gaps.any { it.kind == "unmodelled" })
 
     /**
      * The callee writes the field on one path only, so its effect carries the field's entry value;

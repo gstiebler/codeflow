@@ -1,0 +1,45 @@
+pr	comment_kind	codeflow_could_surface	reason
+55269	correctness/logic	1	pedroigor: cookie session must be LOGGED_IN like TokenManager check -> diverges between two session-lookup paths (PLANNED)
+55269	correctness/logic	0	rmartinc suggested restart-flow handling when cookie validation removes root auth session; runtime/state lifecycle
+55269	design/architecture	0	Copilot-origin brokering corner case deferred; scope decision
+55308	security	0	rmartinc: no cache entries for unknown users, one shared key; enumeration/timing/cache semantics
+55308	naming/style	0	mabartos: config property type String vs INTEGER
+55308	missing-case/edge	0	gaoyikeshuer: verify/update-email cooldown keys share the length limit; DB column size
+55308	test-request	0	concurrency test for putIfAbsent not needed; store-level test
+55315	design/architecture	0	kathari00: exposing all login themes as welcome themes can break rendering; theme files
+55315	test-request	0	test custom welcome theme inherits login templates
+55099	correctness/logic	1	default algorithm persisted in validateConfiguration instead of generateKeys: where a default reaches component config is a heap-write fact (summaries)
+55099	naming/style	0	class rename Sever->Server
+55099	missing-case/edge	0	stianst declined edge case that "will not happen in practice"
+55235	correctness/logic	0	ahus1: field numbers must be explicit; type not registered in marshaller -> serialization config
+55235	test-request	0	mixed-cluster test harness follow-up
+55248	design/architecture	0	health-check heuristic errs on healthy side; runtime timing
+55030	design/architecture	0	mabartos: pessimistic vs optimistic locking; transactions
+55030	test-request	0	test for change committed after credential loaded; DB isolation
+55030	design/architecture	1	same CAS approach could fix #54414 (HOTP/recovery codes): finding other read-validate-write paths on credentials is a slice of credential reads->updateCredential (PLANNED)
+55173	missing-case/edge	0	test page-object needs same wait; test-only
+55158	design/architecture	0	graziang: clientTemplate deprecated, fix main or only release branches
+55116	design/architecture	1	rmartinc: reuse authorization-endpoint PKCE validators at token endpoint -> two gates on the same client config diverge (PLANNED diverges)
+54268	correctness/logic	1	rmartinc: isSameEmail returns true on null so token email_verified applied with no email -> null path through gate visible in graph (EXISTING)
+54268	test-request	0	use InMemoryUserAdapter in unit test
+54268	correctness/logic	1	msdaly200: discard token email_verified when userinfo email differs -> which email a verified flag belongs to is a phi pairing
+53559	missing-case/edge	1	mposolda: validateConfig not called on client/scope create/update; call it for every mapper type -> reachability of validator from admin entry points (DI-resolved, PLANNED)
+53559	design/architecture	0	AdminRoot should not get mapper-specific exception handling
+53559	docs	0	release-notes file name for main
+53559	security	0	check other user session notes that disclose data: note names are runtime strings
+53559	security	0	DCR OIDC path cannot introduce the mapper (rep has no mapper field) - representation-shape fact, could be checked by slice but answered by reading
+54910	other	0	migration added to released version file; versioning
+54910	docs	0	upgrading guide for released version
+54910	other	0	rolling-upgrades-supported file
+54159	perf	0	lhanusov: artifact resolution blocks shared HTTP worker; thread pools
+54159	correctness/logic	0	rollback replaces response, losing security headers; transaction/runtime ordering
+54159	correctness/logic	1	prior CSP kept alongside realm headers (add vs putSingle): two writers to the same header; weakly a dataflow fact
+54006	security	1	mposolda: requiring manage permission here means all other places exposing publicKey/certificate must change -> slice_fwd of key attributes to REST outputs (PLANNED typed net:out)
+54837	security	0	equalsIgnoreCase treats dotless i as i; string semantics
+54837	test-request	0	assert stored email, verification status and recipient
+54774	design/architecture	1	pedroigor: keep sync-task cleanup in UserStorageManager covering all providers -> which removal paths reach cancel() (PLANNED, DI)
+51235	other	0	log exception not message
+51235	docs	0	comment does not earn its keep / wording
+54312	data-propagation	1	updateRealm skips null display names so cleanup was a no-op: null rep field does not reach model setter (gated phi in RepresentationToModel, EXISTING)
+53518	design/architecture	0	vramik: client-session note is shared mutable value overwritten by concurrent tabs; concurrency rationale
+51912	test-request	0	test with token exchange v2

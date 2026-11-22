@@ -1,0 +1,69 @@
+id	url	kind	root_cause	files_changed	D1	D2a	D2b	D3	D4	capability	reason
+PR55327	https://github.com/keycloak/keycloak/pull/55327	bugfix	wrong-value/arg	3	0	0	0	n/a	n/a	-	char-level pushback in a property-placeholder parser; string semantics, not dataflow
+PR55269	https://github.com/keycloak/keycloak/pull/55269	bugfix	condition/logic	7	1	0	1	n/a	n/a	PLANNED	attachSession call sites per grant visible; pedroigor state!=LOGGED_IN ask is a diverges vs TokenManager check, needs planned diverges
+PR55268	https://github.com/keycloak/keycloak/pull/55268	bugfix	other	7	0	0	0	n/a	n/a	-	SMTP server EHLO capability = external service behaviour
+PR55235	https://github.com/keycloak/keycloak/pull/55235	bugfix	config/wiring	2	0	0	0	n/a	n/a	-	ProtoStream schema registration/annotation processor; codeflow does not see generated schema
+PR54268	https://github.com/keycloak/keycloak/pull/54268	bugfix	missing-propagation	4	1	0	1	n/a	n/a	EXISTING	graph from extractIdentity shows gated phi (trial run); rmartinc null-equals catch is visible as an ungated null path in the new isSameEmail
+PR49604	https://github.com/keycloak/keycloak/pull/49604	bugfix	missing-propagation	3	1	0	0	n/a	n/a	PLANNED	trial run: SP->deployment flows all lost (unmodelled TYPE_CAST on parser result, untracked origin)
+PR54990	https://github.com/keycloak/keycloak/pull/54990	bugfix	missing-propagation	2	1	0	0	n/a	n/a	EXISTING	1-line missing onUpdate() call in patch(); summary lists patch calls, absence is readable either way
+PR54837	https://github.com/keycloak/keycloak/pull/54837	bugfix	condition/logic	2	1	0	0	n/a	n/a	-	review: equalsIgnoreCase dotless-i and test assertion asks = string semantics/test
+PR55027	https://github.com/keycloak/keycloak/pull/55027	bugfix	wrong-value/arg	3	1	0	0	n/a	n/a	EXISTING	trial --summaries: policyCheck has no flow from P0 (policy); encodedCredential P1 reaches stored iterations
+PR55030	https://github.com/keycloak/keycloak/pull/55030	bugfix	concurrency	12	1	0	0	n/a	n/a	-	compare-and-swap + pessimistic lock; review is locking strategy; D1 for SPI implementer list only
+PR54205	https://github.com/keycloak/keycloak/pull/54205	bugfix	state/persistence mismatch	1	0	0	0	n/a	n/a	-	auth-note written on FORK resumes the wrong execution; string-keyed note on interface session
+PR54604	https://github.com/keycloak/keycloak/pull/54604	bugfix	condition/logic	5	0	0	0	n/a	n/a	-	feature-flag gate missing on discovery metadata; trivial to read
+PR54761	https://github.com/keycloak/keycloak/pull/54761	bugfix	concurrency	2	1	0	1	n/a	n/a	EXISTING	summary: setClaim passes P1.config into Map.put = mapper mutates its (cached) input; race itself invisible
+PR55220	https://github.com/keycloak/keycloak/pull/55220	bugfix	sql/schema/migration	2	0	0	0	n/a	n/a	-	DB identifier case folding via Hibernate
+PR55283	https://github.com/keycloak/keycloak/pull/55283	bugfix	null/missing-guard	2	0	0	0	n/a	n/a	-	empty config string treated as present; string/config
+PR54910	https://github.com/keycloak/keycloak/pull/54910	bugfix	state/persistence mismatch	6	0	0	0	n/a	n/a	-	component config key secretSize absent; migration placement review (versions/docs)
+PR53722	https://github.com/keycloak/keycloak/pull/53722	bugfix	condition/logic	2	1	0	0	n/a	n/a	EXISTING	gated phi on authSessionId choice in createOrJoinLogoutSession
+PR55116	https://github.com/keycloak/keycloak/pull/55116	security	null/missing-guard	4	1	0	1	n/a	n/a	PLANNED	rmartinc: reuse the authorization-endpoint validator = diverges between two PKCE gates
+PR53559	https://github.com/keycloak/keycloak/pull/53559	security	other	18	1	0	1	n/a	n/a	PLANNED	mposolda: validateConfig not called on client create/update = reachability of a validator from admin entry points (DI-resolved, EXTERNAL today)
+PR54643	https://github.com/keycloak/keycloak/pull/54643	security	null/missing-guard	2	1	0	0	n/a	n/a	PLANNED	gate of detachFromUserSession lacks client-ownership condition
+PR54753	https://github.com/keycloak/keycloak/pull/54753	security	condition/logic	3	1	0	0	n/a	n/a	PLANNED	session-state gates on refresh path
+PR54369	https://github.com/keycloak/keycloak/pull/54369	security	state/persistence mismatch	3	0	0	0	n/a	n/a	-	authNote vs clientNote: restart clears auth notes; string-keyed notes
+PR55158	https://github.com/keycloak/keycloak/pull/55158	security	null/missing-guard	4	1	0	0	n/a	n/a	PLANNED	review was about deprecation scope (design)
+PR54006	https://github.com/keycloak/keycloak/pull/54006	security	other	1	1	0	1	n/a	n/a	PLANNED	mposolda: other places expose publicKey/certificate = slice_fwd of key attributes to REST outputs
+PR54159	https://github.com/keycloak/keycloak/pull/54159	security	other	7	0	0	0	n/a	n/a	-	JAX-RS AsyncResponse vs filter ordering, worker pools; runtime
+PR55308	https://github.com/keycloak/keycloak/pull/55308	security	-	11	1	0	0	n/a	n/a	-	cooldown feature; review on cache keys, enumeration timing, property type
+PR55246	https://github.com/keycloak/keycloak/pull/55246	perf	-	2	0	0	0	n/a	n/a	-	query count (N+1-like); out of scope
+PR55099	https://github.com/keycloak/keycloak/pull/55099	feature	-	9	1	0	0	n/a	n/a	-	new key provider; review on naming/where default is persisted
+PR54774	https://github.com/keycloak/keycloak/pull/54774	bugfix	missing-propagation	6	0	0	0	n/a	n/a	-	event swallowed by early return in DI-dispatched listener
+PR52080	https://github.com/keycloak/keycloak/pull/52080	bugfix	state/persistence mismatch	2	1	0	0	n/a	n/a	PLANNED	anonymous HashMap override missing remove(); dispatch on constructed type would show remove() going to JDK
+PR54401	https://github.com/keycloak/keycloak/pull/54401	bugfix	missing-propagation	4	1	0	0	n/a	n/a	PLANNED	default value of read-only UP attribute never reaches user.setAttribute on create
+PR53684	https://github.com/keycloak/keycloak/pull/53684	bugfix	missing-propagation	2	1	0	0	n/a	n/a	PLANNED	act claim in otherClaims not copied into introspection token
+PR53518	https://github.com/keycloak/keycloak/pull/53518	bugfix	wrong-value/arg	3	1	0	0	n/a	n/a	PLANNED	review: client-session note is shared mutable value (concurrency rationale)
+PR51912	https://github.com/keycloak/keycloak/pull/51912	bugfix	condition/logic	2	0	0	0	n/a	n/a	-	missing enum cases in executor switch; review = test framework style
+PR52238	https://github.com/keycloak/keycloak/pull/52238	bugfix	state/persistence mismatch	2	1	0	0	n/a	n/a	PLANNED	computed attribute round-trips model->rep->model
+PR53993	https://github.com/keycloak/keycloak/pull/53993	bugfix	api-contract/serialization	2	0	0	0	n/a	n/a	-	config property declarations filter the rep; string names
+I53633	https://github.com/keycloak/keycloak/issues/53633	bugfix(issue; fix PR55027)	wrong-value/arg	-	n/a	n/a	n/a	1	1	EXISTING	fact: policyCheck ignores policy param while encodedCredential honours iterations<=100 (verified via --summaries); D4 needs a declared diverges pair
+I49601	https://github.com/keycloak/keycloak/issues/49601	bugfix(issue; fix PR49604)	missing-propagation	-	n/a	n/a	n/a	1	1	PLANNED	fact: SP.turnOffChangeSessionIdOnLogin written by parser, never read into deployment; trial lost it to TYPE_CAST + parser origin
+I54565	https://github.com/keycloak/keycloak/issues/54565	bugfix(issue; fix PR54990)	missing-propagation	-	n/a	n/a	n/a	1	1	PLANNED	patch() path never reaches onUpdate/lastModified while update() does: diverges
+I54775	https://github.com/keycloak/keycloak/issues/54775	bugfix(issue; fix PR54837)	condition/logic	-	n/a	n/a	n/a	1	0	PLANNED	slice_back from EMAIL_CHANGED auth note points at the old/new compare; the UP lower-casing is in another module behind an interface
+I53471	https://github.com/keycloak/keycloak/issues/53471	bugfix(issue; fix PR54268)	missing-propagation	-	n/a	n/a	n/a	2	1	EXISTING	DECISIVE once rooted at extractIdentity (verified trial graph): gated phi: when userInfoEmail!=null, ID-token email_verified replaced by userinfo value (null if absent); Map hop to setEmailVerified invisible
+I54245	https://github.com/keycloak/keycloak/issues/54245	bugfix(issue; fix PR54268)	missing-propagation	-	n/a	n/a	n/a	1	0	EXISTING	custom IdPs bypass default extractIdentity; contextData map key EMAIL_VERIFIED never written -> setEmailVerified fallback; Map with string key
+I54733	https://github.com/keycloak/keycloak/issues/54733	bugfix(issue; fix PR54761)	concurrency	-	n/a	n/a	n/a	1	1	EXISTING	summary: setClaim mutates P1 config (Map.put on param); reaches-assert "mappers never write their model" could gate
+I54176	https://github.com/keycloak/keycloak/issues/54176	bugfix(issue; fix PR54205)	state/persistence mismatch	-	n/a	n/a	n/a	0	0	-	auth note keyed by constant crosses flow restart; notes are string-keyed maps on interface sessions
+I54339	https://github.com/keycloak/keycloak/issues/54339	bugfix(issue; fix PR54369)	state/persistence mismatch	-	n/a	n/a	n/a	1	0	PLANNED	needs constant-keyed note slots + restart clearing auth notes; would show write via authNote, read after clear
+I54485	https://github.com/keycloak/keycloak/issues/54485	bugfix(issue; fix PR54643)	null/missing-guard	-	n/a	n/a	n/a	1	1	PLANNED	slice_back from detachFromUserSession: only gate is isIllegalCode, no client==cs.client condition
+I54484	https://github.com/keycloak/keycloak/issues/54484	bugfix(issue; fix PR54753)	condition/logic	-	n/a	n/a	n/a	1	0	PLANNED	gates on refresh issuance lack user/client session state; absence of a condition is hard to spot
+I54456	https://github.com/keycloak/keycloak/issues/54456	bugfix(issue; fix PR55158)	null/missing-guard	-	n/a	n/a	n/a	1	1	PLANNED	slice_fwd rep.clientTemplate -> scope attached to client, bypassing checkClientScopesAllowed (policy loop is DI/EXTERNAL today)
+I49240	https://github.com/keycloak/keycloak/issues/49240	bugfix(issue; fix PR54006)	other	-	n/a	n/a	n/a	1	1	PLANNED	slice_fwd client private-key attribute -> getKeystore response body (net:out) under view permission
+I53545	https://github.com/keycloak/keycloak/issues/53545	bugfix(issue; fix PR53559)	other	-	n/a	n/a	n/a	0	0	-	sensitive note reaches claim via admin-configured note name (runtime string) - not static
+I55028	https://github.com/keycloak/keycloak/issues/55028	bugfix(issue; fix PR55030)	concurrency	-	n/a	n/a	n/a	0	0	-	lost update across transactions
+I55149	https://github.com/keycloak/keycloak/issues/55149	bugfix(issue; fix PR55269)	condition/logic	-	n/a	n/a	n/a	1	0	PLANNED	which user session attachSession picks (parent id vs cookie) is a gated phi; cross-request auth-session expiry is runtime
+I55326	https://github.com/keycloak/keycloak/issues/55326	bugfix(issue; fix PR55327)	wrong-value/arg	-	n/a	n/a	n/a	0	0	-	byte-level parser state
+I55267	https://github.com/keycloak/keycloak/issues/55267	bugfix(issue; fix PR55268)	other	-	n/a	n/a	n/a	0	0	-	external SMTP behaviour
+I55238	https://github.com/keycloak/keycloak/issues/55238	bugfix(issue; fix PR55235)	config/wiring	-	n/a	n/a	n/a	0	0	-	annotation-processor schema registration
+I54836	https://github.com/keycloak/keycloak/issues/54836	bugfix(issue; fix PR55220)	sql/schema/migration	-	n/a	n/a	n/a	0	0	-	identifier case in DB metadata
+I54600	https://github.com/keycloak/keycloak/issues/54600	bugfix(issue; fix PR55283)	null/missing-guard	-	n/a	n/a	n/a	0	0	-	empty node-name config -> cluster invalidation; runtime/config
+I54016	https://github.com/keycloak/keycloak/issues/54016	bugfix(issue; fix PR54910)	state/persistence mismatch	-	n/a	n/a	n/a	0	0	-	component config map key absent; UI default
+I53682	https://github.com/keycloak/keycloak/issues/53682	bugfix(issue; fix PR53722)	condition/logic	-	n/a	n/a	n/a	1	0	EXISTING	gated phi on authSessionId choice shows LOGGING_OUT action not consulted
+I52038	https://github.com/keycloak/keycloak/issues/52038	bugfix(issue; fix PR52080)	state/persistence mismatch	-	n/a	n/a	n/a	1	0	PLANNED	remove() on anonymous HashMap subclass dispatches to JDK, never to model.removeNote; path goes through Infinispan change queues
+I50505	https://github.com/keycloak/keycloak/issues/50505	bugfix(issue; fix PR54401)	missing-propagation	-	n/a	n/a	n/a	1	0	PLANNED	AttributeMetadata.defaultValue reaches setAttribute only for writable attrs; UP engine is lambdas+interfaces
+I53029	https://github.com/keycloak/keycloak/issues/53029	bugfix(issue; fix PR53684)	missing-propagation	-	n/a	n/a	n/a	1	1	PLANNED	token.otherClaims[act] does not reach introspection token; needs constant-keyed map slots; blastRadius on the transform PR would show GONE
+I53497	https://github.com/keycloak/keycloak/issues/53497	bugfix(issue; fix PR53518)	wrong-value/arg	-	n/a	n/a	n/a	1	1	PLANNED	sibling mapper (fixed in #43339) reads context.getOrganization, this one a client-session note: diverges
+I52173	https://github.com/keycloak/keycloak/issues/52173	bugfix(issue; fix PR52238)	state/persistence mismatch	-	n/a	n/a	n/a	1	1	PLANNED	ModelToRepresentation put(REALM_CLIENT, computed) -> rep.attributes -> RepresentationToModel setAttribute: NEW computed->db:out row
+I51137	https://github.com/keycloak/keycloak/issues/51137	bugfix(issue; fix PR51912)	condition/logic	-	n/a	n/a	n/a	0	0	-	missing enum cases; absence in a switch
+I53989	https://github.com/keycloak/keycloak/issues/53989	bugfix(issue; fix PR53993)	api-contract/serialization	-	n/a	n/a	n/a	0	0	-	config props filtered by declared names
+I54744	https://github.com/keycloak/keycloak/issues/54744	bugfix(issue; fix PR54774)	missing-propagation	-	n/a	n/a	n/a	0	0	-	event-listener dispatch via DI; early return
+I55064	https://github.com/keycloak/keycloak/issues/55064	bugfix(issue; fix PR55116)	null/missing-guard	-	n/a	n/a	n/a	1	1	PLANNED	reset-credentials path issues a code without challenge; PKCE gate at token reads only stored note; cross-request

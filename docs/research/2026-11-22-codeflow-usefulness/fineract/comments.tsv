@@ -1,0 +1,49 @@
+pr	comment_kind	codeflow_could_surface	reason
+6846	design/architecture	2	shared saveAndFlush helper gained installment saveAll -> NEW db:out row on every caller root (PLANNED blastRadius)
+6846	design/architecture	0	@ConditionalOnMissingBean overriders silently lose the workaround: DI wiring
+6846	design/architecture	0	duplicated helper copies: clone detection
+6954	correctness/logic	2	accountTransferDetails only ever null at 17 constructions -> removed branches dead (field-writers/slice_back, PLANNED)
+6954	design/architecture	0	breaking API for custom modules
+6951	correctness/logic	1	import path reaches SavingsAccount.deposit not RD override: dispatch fact, but via injected interfaces (EXTERNAL without DI fallback)
+6951	correctness/logic	1	new isNotActive branch unreachable, caller already rejects: gate visible only if caller is in the root
+6868	missing-case/edge	2	rescheduleNextInstallments also feeds interest-recalc regeneration and prepayment amount: blastRadius rows on other roots (PLANNED)
+6849	correctness/logic	1	null guard changes NPE into silent null; validator ignoreIfNull lets it through; implicit NPE not modelled
+6880	correctness/logic	1	down-payment due date still becomes previousDueDate (found via E2E); gated phi shows it if you ask
+6880	design/architecture	1	new loop duplicates reprocessInstallments with different rules (diverges, PLANNED, unvalidated)
+6887	question/clarification	1	does validation still run at the same places? exceptions-as-outputs diff
+6864	question/clarification	1	same question for interest chart validation
+7001	question/clarification	1	pure-move check (84 identical bodies, @Transactional kept): empty diff helps, annotations invisible, git --color-moved equal
+6860	question/clarification	1	pure-move check, as 7001
+6929	correctness/logic	1	per-issuer usernameClaim never read: find-usages; value comes from config binding
+6929	correctness/logic	1	user service looks issuer up only in issuers[], resolver prefers per-tenant DB config: two Spring beans, no common root
+6929	missing-case/edge	1	second attempt fails -> 500 not 401: exception escape (PLANNED), Spring translation invisible
+6929	missing-case/edge	0	non-string claim via toString: string semantics
+6929	correctness/logic	0	duplicate-key race on user creation: concurrency
+6929	perf	0	uncached miss on every request
+6935	security	0	rules skip the 2FA catch-all: Spring Security DSL
+6935	correctness/logic	0	permission code typos (READ_WORKINGDAYS): strings
+6935	missing-case/edge	0	permissions not seeded: SQL migration
+6940	missing-case/edge	0	query.limit(0) throws IllegalArgumentException -> 500: library behaviour
+6952	correctness/logic	0	search was a SQL syntax error on develop
+6952	docs	0	Swagger type changes
+6962	question/clarification	0	tagId quirk
+6962	correctness/logic	1	Long truncated through intValue: operator on the path
+6982	correctness/logic	0	Instant micros vs Date millis in end_time: precision is not a dataflow fact
+6982	naming/style	0	wildcard imports
+6985	test-request	0	locale-dependent test
+6993	test-request	1	test pins an NPE (issue opened): null path visible
+6937	test-request	0	test externalId empty->null
+6964	test-request	0	mock RETURNS_SELF does not verify the where filter
+6921	docs	0	comment on = ANY(?)
+6969	correctness/logic	0	old SQL vs QueryDSL equivalence checked by rendering SQL
+6977	correctness/logic	0	same, SQL equivalence
+6930	design/architecture	0	use JwtAudienceValidator; fallback untested
+6928	test-request	0	expired-token test
+6943	design/architecture	0	error-code prefix coordination
+6947	design/architecture	1	two counting-column definitions would drift (diverges, weak)
+6947	test-request	0	test does not exercise the handler
+6847	design/architecture	0	platform-wide transaction manager change
+6847	correctness/logic	0	double processing of items: concurrency
+6970	design/architecture	0	batch limit
+6974	other	0	settings.gradle order
+6960	naming/style	0	@RequiredArgsConstructor

@@ -1,0 +1,55 @@
+pr	comment_kind	codeflow_could_surface	reason
+24003	naming/style	0	mjsax: double-negation readability of readiness return
+24003	test-request	0	chickenchickenlove: add tests for pending-callback readiness cases
+24269	design/architecture	0	squah: factor out duplicated preferred-assignor logic (structurally identical; bug was map order)
+24269	design/architecture	0	dajac: break ties by broker config order, not name
+24269	design/architecture	1	squah: default fallback config.get(0) duplicated in several places; slice_fwd of the default shows each use (PLANNED)
+24268	perf	0	lucasbru: missing partition retried in a tight listConsumerGroupOffsets loop
+24256	design/architecture	0	mjsax: let it NPE instead of null-guarding to surface caller bugs
+24256	missing-case/edge	1	chia7712: handleTaskCorruptedException lacks the paused-task handling its sibling has (diverges, PLANNED)
+24256	correctness/logic	1	Copilot: removed null guard; per-call-site graph could confirm callers only pass tasks present in the map
+24240	missing-case/edge	0	lucasbru: initialize() has the same interrupt-status problem
+24240	design/architecture	1	lucasbru: clear once in StateConsumer.close since both paths reach it; inlined graph shows both paths into close
+24240	other	0	(concurrency) Copilot: Thread.interrupted clears caller thread's status (thread semantics)
+24240	correctness/logic	0	lucasbru: claim about fetch sessions left open is wrong; runtime network behaviour
+23530	data-propagation	1	rishi-rana: removeMember never touches targetAssignment so it stays stale; field-write summary of removeMember (EXISTING)
+23530	missing-case/edge	1	dajac: same needed for streams groups? (diverges across group types, PLANNED)
+23530	missing-case/edge	1	dajac: memberEpoch Integer null when only metadata record replayed; field never written on that replay path (PLANNED)
+23530	design/architecture	0	squah: replay synthetic tombstones instead of duplicating logic
+23530	other	0	dajac: WARN level users cannot act on
+21457	data-propagation	1	lianetm: retainAll means only a subset reaches the flag-clearing call (EXISTING; collection mutation partly opaque)
+21457	correctness/logic	1	lianetm: branch always false since shouldClear=true only from currentLag with time 0; per-call-site constants visible (EXISTING)
+21457	missing-case/edge	0	lianetm: missing in-flight request check
+21457	design/architecture	0	lianetm: should not change leader-retry logic
+21457	naming/style	0	lianetm: method name suggests updating offsets not a flag
+21457	design/architecture	0	AndrewJSchofield: too twisty, set and clear the flag in one method
+24216	missing-case/edge	0	Copilot: endpoint-less member keeps empty routing map after topic recovery (protocol epoch semantics)
+24216	correctness/logic	1	chickenchickenlove/lucasbru: endpointInformationEpoch is soft state not restored on replay; summaries of replay show no write (PLANNED)
+24216	test-request	0	bbejeck: ready->not-ready bump untested
+24195	data-propagation	1	lucasbru: helper reads replayed group.members() so this heartbeat's updatedMember never reaches it (EXISTING)
+24195	perf	0	chia7712: skip scan when warm-ups disabled
+24195	question/clarification	1	lucasbru: is AssignmentRefiner change behaviour-neutral? a blastRadius diff would answer (PLANNED)
+24187	design/architecture	1	squah: subscription-parsing rule duplicated with deserializeSubscription (diverges, PLANNED)
+24187	other	0	squah: assumes every protocol carries same subscription (protocol contract)
+24108	missing-case/edge	2	dajac: refresh metadata here like consumerGroupHeartbeat and classicGroupJoinToConsumerGroup do -> became KAFKA-21458; per-path write summary diff shows it (PLANNED diverges)
+24108	test-request	0	dajac: test helper does not replay returned records
+23659	correctness/logic	0	AndrewJSchofield: drop reserved DLQ headers in all cases (spec decision)
+24166	data-propagation	1	mjsax: everyMemberHeardFrom must reach both analyzeTasks and planWarmups (split brain); graph shows one consumer only
+24166	docs	1	mjsax: comment misdescribes condition (only applies when task has an owner); gated condition visible
+24166	naming/style	0	Copilot: -1 sentinel should be a named constant
+24146	design/architecture	0	squah: fix at snapshot level so deltas apply once
+24146	correctness/logic	0	squah: capacity invariant easy to break
+24223	data-propagation	2	OmniaGM: coordinator partition hashed from toString(), so a toString change silently remaps partitions; direct path toString->hash->partition (EXISTING)
+24223	docs	2	clolov: method can throw InvalidMirrorException but javadoc says IAE; exceptions-as-outputs lists it (PLANNED)
+24223	other	0	m1a2st: valid names cannot contain ':' so split always yields 3 tokens (string semantics)
+24223	design/architecture	0	TaiJuWu/clolov: reuse Topic.validate
+24153	missing-case/edge	1	dajac: StreamsGroup.removeMember NPEs for unknown id because removeStaticMember has no null check
+24153	missing-case/edge	1	squah: missing this check in the streams version? (diverges, PLANNED)
+24189	correctness/logic	1	Copilot: peak only observed at reset so deletes hide it; field write sites (EXISTING summaries)
+24189	question/clarification	0	bbejeck: why a factor of 4
+24121	test-request	1	frankvicky: getTopicPartitionInfo does not go through maybeSleep; slice_fwd of backoff shows which sleeps use it (PLANNED)
+24121	docs	0	frankvicky: upgrade guide note for retry timing
+24110	other	0	(concurrency) muralibasani: InterruptedException caught without restoring interrupt flag
+24110	correctness/logic	1	muralibasani: non-retriable errors (auth, invalid config) now retried; typed exceptions-as-outputs would list them (PLANNED)
+24114	question/clarification	0	jolshan: suppressed exceptions chain (Scala)
+24272	test-request	0	Copilot/bbejeck: RocksDB resources leak when TopologyTestDriver ctor throws

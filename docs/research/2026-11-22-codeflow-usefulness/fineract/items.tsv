@@ -1,0 +1,63 @@
+id	url	kind	root_cause	files_changed	D1	D2a	D2b	D3	D4	capability	reason
+PR#6834	https://github.com/apache/fineract/pull/6834	bugfix	wrong-value/arg	2	1	1	1	2	2	PLANNED	publishHookEvent got gson.toJson(errorInfo) (String) so instanceof ErrorInfo gate never true; status/response never reach webhook payload; blastRadius on FINERACT-1744 = GONE row
+PR#6846	https://github.com/apache/fineract/pull/6846	refactor	-	10	1	2	2	n/a	n/a	PLANNED	'split' added loanRepaymentScheduleInstallmentRepository.saveAll to shared saveAndFlush helper: NEW db:out row at root=impl method; reviewer found by hand ('not a refactor anymore')
+PR#7001	https://github.com/apache/fineract/pull/7001	refactor	-	11	1	1	1	n/a	n/a	PLANNED	pure move of 84 methods; empty boundary diff would confirm, but reviewer's check (identical bodies, @Transactional) is git --color-moved + annotations
+PR#6860	https://github.com/apache/fineract/pull/6860	refactor	-	7	1	1	1	n/a	n/a	PLANNED	extract disbursement ops; move-verification as 7001
+PR#6954	https://github.com/apache/fineract/pull/6954	refactor	-	20	1	1	2	n/a	n/a	PLANNED	reviewer: AccountTransferDTO.accountTransferDetails is null at all 17 constructions so removed branches were dead; field-writers / slice_back fact
+PR#6868	https://github.com/apache/fineract/pull/6868	bugfix	missing-propagation	2	1	1	2	2	1	PLANNED	retained-installment loop never writes actualRepaymentDate from adjustedDateDetailsDTO while full generation does (loop-carried, diverges); reviewer listed other callers of rescheduleNextInstallments = blastRadius roots
+PR#6849	https://github.com/apache/fineract/pull/6849	refactor	null/missing-guard	3	1	1	1	n/a	n/a	EXISTING	null guard turns unboxing NPE into silent null lock-in; reachable because validator ignoreIfNull lets frequency type through (cross-module); implicit NPE not modelled
+PR#6880	https://github.com/apache/fineract/pull/6880	bugfix	condition/logic	9	1	1	1	1	0	EXISTING	re-age/reschedule keeps settled extra installments; down-payment due date still flows into previousDueDate (found by E2E); gated phi shows it only if you look
+PR#6887	https://github.com/apache/fineract/pull/6887	refactor	-	8	1	1	1	n/a	n/a	PLANNED	validation moved entity->validator; 'runs at same places' = boundary diff of exceptions-as-outputs
+PR#6864	https://github.com/apache/fineract/pull/6864	refactor	-	8	1	1	1	n/a	n/a	PLANNED	same as 6887 for interest rate chart
+PR#6893	https://github.com/apache/fineract/pull/6893	security	condition/logic	5	1	0	1	1	1	PLANNED	journal search missed office hierarchy filter; reaches(user office -> query predicate) query, partly SQL text
+PR#6896	https://github.com/apache/fineract/pull/6896	bugfix	wrong-value/arg	10	0	1	1	2	1	EXISTING	4 String args to parameterError bound to wrong params ('transactionDate' -> defaultUserMessage); arg->param binding is javac-resolved; IDE param hints show same
+PR#6951	https://github.com/apache/fineract/pull/6951	bugfix	wrong-value/arg	3	1	1	1	1	0	EXISTING	blocking review: import path reaches SavingsAccount.deposit, not the RD override, so the fix was in the wrong method; dispatch fact but crosses injected interfaces -> EXTERNAL
+PR#6897	https://github.com/apache/fineract/pull/6897	bugfix	exception-handling	2	0	1	1	1	1	PLANNED	catch only logged, import never marked failed; exceptions-as-outputs
+PR#6903	https://github.com/apache/fineract/pull/6903	bugfix	wrong-value/arg	2	0	0	0	1	0	EXISTING	end time set at creation; slice_back(endTime) shows the write site
+PR#6900	https://github.com/apache/fineract/pull/6900	bugfix	concurrency	4	0	0	0	0	0	-	thread-local leak via CallerRunsPolicy
+PR#6895	https://github.com/apache/fineract/pull/6895	bugfix	other	4	0	0	0	0	0	-	POI sheet names / template
+PR#6927	https://github.com/apache/fineract/pull/6927	bugfix	config/wiring	2	0	0	0	0	0	-	circular bean reference
+PR#6961	https://github.com/apache/fineract/pull/6961	bugfix	config/wiring	14	0	0	0	0	0	-	Spring Security filter chain with 2FA
+PR#6956	https://github.com/apache/fineract/pull/6956	bugfix	sql/schema/migration	2	0	0	0	0	0	-	PG smallint binding
+PR#6975	https://github.com/apache/fineract/pull/6975	bugfix	condition/logic	3	0	0	0	0	0	-	validation annotation bound (age 0)
+PR#6872	https://github.com/apache/fineract/pull/6872	bugfix	config/wiring	3	0	0	0	0	0	-	transaction manager semantics
+PR#6943	https://github.com/apache/fineract/pull/6943	bugfix	null/missing-guard	4	0	0	0	0	0	-	upload validation + extension case; string semantics
+PR#6947	https://github.com/apache/fineract/pull/6947	bugfix	condition/logic	3	0	0	1	0	0	PLANNED	two definitions of counted columns could drift (diverges, weak)
+PR#6831	https://github.com/apache/fineract/pull/6831	bugfix	condition/logic	3	1	0	1	1	1	EXISTING	selectAccountId only reached when !backdatedTxnsAllowedTill (gated); job path booked no GL
+PR#6929	https://github.com/apache/fineract/pull/6929	feature	-	10	1	1	1	n/a	n/a	PLANNED	OIDC roles: per-issuer usernameClaim never read; issuer lookup differs from resolver; second failure -> 500. find-usages / config binding / Spring exception translation dominate
+PR#6935	https://github.com/apache/fineract/pull/6935	security	-	17	0	0	0	n/a	n/a	-	Spring Security DSL + permission strings
+PR#6930	https://github.com/apache/fineract/pull/6930	feature	-	6	0	0	0	n/a	n/a	-	JWT validator choice
+PR#6970	https://github.com/apache/fineract/pull/6970	feature	-	8	1	0	0	n/a	n/a	-	mark-as-fraud WC loan; review = design/style
+PR#6940	https://github.com/apache/fineract/pull/6940	refactor	-	2	0	0	0	n/a	n/a	-	native SQL -> QueryDSL; equivalence is SQL; limit(0) throw is library
+PR#6952	https://github.com/apache/fineract/pull/6952	refactor	-	12	0	0	0	n/a	n/a	-	QueryDSL; SQL syntax bug + Swagger types
+PR#6962	https://github.com/apache/fineract/pull/6962	refactor	-	3	0	0	1	n/a	n/a	EXISTING	Long narrowed via intValue is a visible operator on the path
+PR#6977	https://github.com/apache/fineract/pull/6977	refactor	-	3	0	0	0	n/a	n/a	-	SQL equivalence by rendered SQL
+PR#6982	https://github.com/apache/fineract/pull/6982	refactor	-	14	0	0	1	n/a	n/a	PLANNED	Date->Instant: PATH-changed row would flag end_time, not the micros/millis precision
+PR#6993	https://github.com/apache/fineract/pull/6993	refactor	-	6	1	0	1	n/a	n/a	EXISTING	JsonCommand removal; test pins an NPE path
+PR#6847	https://github.com/apache/fineract/pull/6847	perf	-	63	1	0	0	n/a	n/a	-	COB writer: tx-manager and double-processing concerns
+FINERACT-2917/#6627	https://issues.apache.org/jira/browse/FINERACT-2917	bugfix	wrong-value/arg	3	1	n/a	n/a	2	2	PLANNED	findById(request.getEntityId()) gets groupId not meetingId; attendees added to a local copy never reach meeting field; introduced by FINERACT-2548 refactor -> PATH-changed + GONE rows
+FINERACT-3022/#6788	https://issues.apache.org/jira/browse/FINERACT-3022	bugfix	wrong-value/arg	2	1	n/a	n/a	2	1	EXISTING	account.activateWithBalance vs reinvestAccount: new FD deposit slices back to the matured account
+FINERACT-2993/#6740	https://issues.apache.org/jira/browse/FINERACT-2993	bugfix	wrong-value/arg	2	1	n/a	n/a	2	1	EXISTING	outer-scope fee/penalty portions reused for next installment: stale loop-carried def
+FINERACT-2990/#6733	https://issues.apache.org/jira/browse/FINERACT-2990	bugfix	wrong-value/arg	2	1	n/a	n/a	1	1	EXISTING	duplicate payPrincipalComponent overwrites principalPortion with 0 (killed def)
+FINERACT-3012/#6764	https://issues.apache.org/jira/browse/FINERACT-3012	bugfix	wrong-value/arg	2	0	n/a	n/a	1	1	PLANNED	DAYS.between args reversed by 2022 Date->LocalDate refactor; API semantics, diff noisy
+FINERACT-2996/#6741	https://issues.apache.org/jira/browse/FINERACT-2996	bugfix	missing-propagation	5	1	n/a	n/a	2	1	PLANNED	min/max cap applied on charge but not in 4 schedule paths: diverges
+FINERACT-2909/#6761	https://issues.apache.org/jira/browse/FINERACT-2909	bugfix	missing-propagation	5	1	n/a	n/a	2	1	PLANNED	job path never lets overdraftAmount reach GL booking while manual processors split it: reaches=false + diverges
+FINERACT-2705/#6174	https://issues.apache.org/jira/browse/FINERACT-2705	bugfix	state/persistence mismatch	6	1	n/a	n/a	1	0	EXISTING	guard on product mappings, insert uses txn-level account id; flows through Object[]/JDBC + SQL
+FINERACT-2953/#6663	https://issues.apache.org/jira/browse/FINERACT-2953	bugfix	condition/logic	8	1	n/a	n/a	2	1	PLANNED	office-scope check on apptableId, DELETE/UPDATE keyed on datatableId: guard value != sink value (taint-style reaches)
+FINERACT-3009/#6759	https://issues.apache.org/jira/browse/FINERACT-3009	bugfix	wrong-value/arg	11	0	n/a	n/a	1	1	PLANNED	3-arg extractor uses Locale.US not request locale; grep finds it as fast
+FINERACT-2961/#6790	https://issues.apache.org/jira/browse/FINERACT-2961	bugfix	condition/logic	9	0	n/a	n/a	1	0	EXISTING	bcrypt hash compared with equals: hash semantics
+FINERACT-2950/#6651	https://issues.apache.org/jira/browse/FINERACT-2950	bugfix	condition/logic	2	0	n/a	n/a	0	0	-	BigDecimal.equals scale
+FINERACT-2988/#6731	https://issues.apache.org/jira/browse/FINERACT-2988	bugfix	wrong-value/arg	2	0	n/a	n/a	1	1	PLANNED	double arithmetic on money; 'money never via doubleValue' reaches-assertion
+FINERACT-3017/#6782	https://issues.apache.org/jira/browse/FINERACT-3017	bugfix	wrong-value/arg	3	1	n/a	n/a	1	0	PLANNED	compoundInterestValues carried across split periods: loop-carried heap write->read (SCC)
+FINERACT-2881/#6547	https://issues.apache.org/jira/browse/FINERACT-2881	bugfix	condition/logic	2	0	n/a	n/a	0	0	-	month-equality condition
+FINERACT-2999/#6745	https://issues.apache.org/jira/browse/FINERACT-2999	bugfix	missing-propagation	5	1	n/a	n/a	1	0	PLANNED	NPA flag never cleared on settle; field-writers query shows only NPA job writes it
+FINERACT-2910/#6606	https://issues.apache.org/jira/browse/FINERACT-2910	bugfix	config/wiring	2	0	n/a	n/a	0	0	-	model update lived in event listener; events off -> missing; DI/events invisible
+FINERACT-2915/#6619	https://issues.apache.org/jira/browse/FINERACT-2915	bugfix	wrong-value/arg	3	0	n/a	n/a	1	0	EXISTING	paging cursor += pageSize+1 plus SQL ORDER BY
+FINERACT-2921/#6724	https://issues.apache.org/jira/browse/FINERACT-2921	bugfix	sql/schema/migration	2	0	n/a	n/a	0	0	-	wrong column name in SQL
+FINERACT-2944/#6644	https://issues.apache.org/jira/browse/FINERACT-2944	bugfix	api-contract/serialization	6	0	n/a	n/a	0	0	-	Jackson DTO drops top-level fields
+FINERACT-2893/#6583	https://issues.apache.org/jira/browse/FINERACT-2893	bugfix	api-contract/serialization	3	0	n/a	n/a	0	0	-	JSON key spelling
+FINERACT-2914/#6618	https://issues.apache.org/jira/browse/FINERACT-2914	bugfix	exception-handling	3	0	n/a	n/a	0	0	-	withDayOfMonth throws / MONTHS.between truncation: library semantics
+FINERACT-2916/#6620	https://issues.apache.org/jira/browse/FINERACT-2916	bugfix	exception-handling	-	0	n/a	n/a	1	1	PLANNED	tasklet swallowed exceptions; exceptions-as-outputs
+FINERACT-754/#6192	https://issues.apache.org/jira/browse/FINERACT-754	bugfix	state/persistence mismatch	15	1	n/a	n/a	1	0	EXISTING	reverse+copy broke transfer link (new txn lacks link field)
+FINERACT-3016/#6776	https://issues.apache.org/jira/browse/FINERACT-3016	bugfix	condition/logic	3	0	n/a	n/a	0	0	-	re-age algorithm
+FINERACT-3196	https://issues.apache.org/jira/browse/FINERACT-3196	bugfix	concurrency	-	0	n/a	n/a	0	0	-	REPEATABLE_READ snapshot; looks like stale value, is isolation

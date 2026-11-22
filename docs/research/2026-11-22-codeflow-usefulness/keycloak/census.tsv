@@ -1,0 +1,101 @@
+pr	kind	lang	files	prod_java_files	backport	title
+55352	docs	none	2	0		Add CLAUDE.md and tighten PR description guidance in AGENTS.md
+55349	test-only	java-test	1	0		Fix flaky RealmInvalidationClusterTest by waiting for cluster cache sync
+55327	bugfix	java-prod	3	1		Keep a '$' that does not start a placeholder intact in StringPropertyReplacer
+55325	docs	none	3	0		Fix broken links in contributor docs
+55318	docs	ts	85	0		Make cross-document references work in upstream and downstream
+55317	feature	java-prod	1	1	backport	[26.8] Admin client: expose Jackson 3 JSON mapper
+55316	refactor	none	1	0		Unify registration button with login button macros
+55315	feature	java-prod	44	5		Default welcome theme extends new login theme
+55308	security	java-prod	11	2		Add a cooldown for reset password emails
+55302	config	none	2	0		Disable Hibernate second-level cache to avoid SimpleTimestamper busy loop
+55299	test-only	java-test	1	0	backport	[26.6] wait for AppPage to load
+55289	test-only	java-test	1	0		Wait for browser-driven changes in OrganizationInvitationTokenTest
+55288	test-only	java-test	1	0		Wait for browser-driven changes in OrganizationInvitationTokenTest
+55283	bugfix	java-prod	2	1		Treat empty Infinispan node name as absent in NodeInfo
+55282	bugfix	java-prod	2	1		Treat empty Infinispan node name as absent in NodeInfo
+55281	bugfix	java-prod	2	1		Resolve db-schema case via Hibernate in DatabaseIndexChecker
+55279	test-only	java-test	2	0		Fix flaky VerifyProfileTest#testCustomValidationLastName
+55277	docs	none	1	0		task: clarify backport label and issue type guidance in AGENTS.md
+55271	refactor	java-prod	3	1		Remove deprecated AuthenticatedClientSessionModel- CurrentRefreshToken
+55269	bugfix	java-prod	7	3		Recover correct user session when auth session expired
+55268	bugfix	java-prod	7	3		Check SMTPUTF8 support before sending internationalized email
+55256	bugfix	java-prod	2	1		Treat empty Infinispan node name as absent in NodeInfo
+55250	feature	java-prod	3	1		Support KEYCLOAK_JDBC_PING2 in custom JGroups stacks by injecting the connection factory
+55248	bugfix	java-prod	3	1		Ignore a left coordinator in the JDBC_PING2 health check until it writes again
+55247	perf	java-prod	7	4		Skip authentication session expiration for realms without authentication sessions
+55246	perf	java-prod	3	2		When expiring sessions, check if sessions exist to avoid a lot of extra queries
+55242	test-only	java-test	1	0		Fix flaky OrganizationInvitationTokenTest by waiting for the invitation to be consumed
+55235	bugfix	java-prod	2	2		Register ClockSkewTimestampSample in the marshalling schema
+55231	bugfix	java-prod	4	3		Add marshalling for clock skew timestamp sample for mixed cluster compatibility
+55229	docs	none	4	0	backport	Document non-browser authentication grants do not manage step-up authn (26.6)
+55228	docs	none	3	0	backport	Document non-browser authentication grants do not manage step-up authn (26.8)
+55221	refactor	java-prod	16	14		Code deprecated during cache-embedded-remote-store feature removal
+55220	bugfix	java-prod	2	1		Resolve db-schema case via Hibernate in DatabaseIndexChecker
+55217	feature	java-prod	1	1		Admin client: expose Jackson 3 JSON mapper
+55203	bugfix	java-prod	5	1	backport	fix(oidc): omit PAR discovery metadata when disabled (26.8)
+55202	build/CI/deps	java-prod	1	1		[Quarkus 4] Remove the H2 conflict translator workaround fixed in Hib…
+55200	build/CI/deps	java-prod	3	1		[Quarkus 4] Remove the async-commit rollback workaround fixed in Hibe…
+55198	build/CI/deps	java-prod	2	2		[Quarkus 4] Use entity types in criteria joins
+55196	build/CI/deps	none	1	0		[Quarkus 4] Exclude optional Quarkus Dev UI observability modules
+55194	build/CI/deps	none	1	0		[Quarkus 4] Restore the Jackson YAML dependency for Admin CLI OpenAPI…
+55192	build/CI/deps	java-prod	1	1		[Quarkus 4] Update the persistence-unit contribution build item import
+55188	build/CI/deps	none	3	0		Upgrade Azure CI VM to Ubuntu 26.04 and update Ansible compatibility
+55179	build/CI/deps	none	1	0		Bump Maven Assembly Plugin to 3.8.0
+55175	build/CI/deps	none	9	0		Use default OpenJDK version (25) in the SAST check
+55173	test-only	java-test	2	0		Fix flaky VerifyProfileTest#testCustomValidationLastName
+55171	bugfix	java-prod	2	2		Close limited SOAP request streams in SAML endpoints
+55165	bugfix	java-prod	5	1		Preserve email_verified from ID token when userinfo omits it.  Closes…
+55164	test-only	java-test	5	0		Log multi-line output of the managed Keycloak server as a single record
+55163	bugfix	ts	1	0		Show the spinner from the first render in KeycloakDataTable
+55158	security	java-prod	4	1		Check legacy client templates against allowed scopes
+55157	bugfix	java-prod	3	1	backport	[26.8] Propagate SAML session ID change setting in DeploymentBuilder
+55156	bugfix	java-prod	2	1		SCIM: PATCH on a group does not update meta.lastModified
+55154	security	java-prod	5	3	backport	[CVE-2026-118030] Concurrent credential updates (26.6)
+55153	security	java-prod	4	3	backport	[CVE-2026-118030] Concurrent credential updates (26.8)
+55151	security	java-prod	4	1		Escape backslashes in jboss logging event message values.
+55144	build/CI/deps	none	5	0		Make it possible to identify the issue template used when labels are not added
+55117	other	none	19	0		Translations update from Hosted Weblate
+55116	security	java-prod	4	3		Enforce client level PKCE at the token endpoint
+55115	feature	java-prod	26	2		Align Keycloak v3 login pages with PatternFly 6
+55113	bugfix	java-prod	5	1	backport	Custom OIDC identity providers parse email_verified from validated tokens when not pre-populated in context (26.6)
+55107	build/CI/deps	none	1	0		[Quarkus 4] Retarget QOSDK checkout to next branch in quarkus-next wo…
+55105	security	java-prod	4	3		[CVE-2026-118030] Concurrent credential updates
+55100	bugfix	java-prod	4	1	backport	Custom OIDC identity providers parse email_verified from validated tokens when not pre-populated in context (26.8)
+55099	feature	java-prod	9	6		Add generated keys provider for ML-DSA
+55098	security	java-prod	11	3		Enforce SAML OneTimeUse Condition to Prevent Assertion Replay
+55092	test-only	ts	1	0		Wait for the row in the Admin UI E2E clickTableRowItem helper
+55090	build/CI/deps	none	1	0	backport	[26.8] Upgrade to Quarkus 3.40.1.2
+55089	build/CI/deps	none	1	0	backport	[26.6] Upgrade to Quarkus 3.33.4.2
+55088	build/CI/deps	none	1	0		Upgrade to Quarkus 3.40.1.2
+55085	test-only	ts	1	0		Wait for the row in the Admin UI E2E clickTableRowItem helper
+55083	bugfix	java-prod	2	1		Trust Email is not applied when the IdP sends an email with uppercase letters and Review Profile is shown
+55082	build/CI/deps	none	1	0		Ignore developer.linkedin.com in the external links check
+55081	build/CI/deps	none	1	0		Ignore developer.linkedin.com in the external links check
+55080	build/CI/deps	none	1	0		Ignore developer.linkedin.com in the external links check
+55078	refactor	java-prod	4	3		Remove the non-atomic default implementations of the credential update methods
+55063	bugfix	java-prod	10	3		fix: addressing manual migration issues due to TEST (#54580)
+55062	bugfix	java-prod	2	1		fix(SCIM): Correcting SCIM NPE
+55056	bugfix	java-prod	3	1		Use policy iterations in Argon2 policyCheck
+55054	bugfix	java-prod	3	1		Use policy iterations in Argon2 policyCheck
+55053	bugfix	java-prod	13	11		Replace a credential only if unchanged when re-hashing a password
+55052	bugfix	java-prod	13	11		Replace a credential only if unchanged when re-hashing a password
+55051	bugfix	java-prod	2	1		Correcting SCIM NPE
+55050	security	java-prod	24	7	backport	[26.6] Fix of getting client keystore without private pem.
+55048	security	java-prod	1	1	backport	[26.8] Fix of getting client keystore without private pem.
+55047	security	java-prod	3	2	backport	[26.8] Saml ForceAuthn requirement fix
+55046	security	java-prod	3	1	backport	[26.8] Reject online refresh tokens for sessions in logout states
+55045	docs	none	1	0		Separate includes with blank lines in server admin topics
+55044	docs	none	1	0		Separate includes with blank lines in server admin topics
+55043	security	java-prod	8	5	backport	BACKPORT: Apply browser security headers on SP-initiated SAML endpoints (#54159)
+55042	security	java-prod	2	1	backport	Forged authorization code lets any client detach another client's client session (26.6)
+55041	security	java-prod	2	1	backport	Forged authorization code lets any client detach another client's client session (26.8)
+55040	security	java-prod	19	8	backport	Client uris validation improvements (26.8)
+55036	security	java-prod	20	10	backport	Backport 26.6: Add validation for blocked session note names in UserSessionNoteMappe…
+55033	bugfix	java-prod	7	2	backport	[26.8] Record existing AES key sizes to prevent key regeneration
+55032	docs	none	1	0		Warning that not all OIDC Dynamic client options are supported by Key…
+55030	bugfix	java-prod	12	11		Replace a credential only if unchanged when re-hashing a password
+55027	bugfix	java-prod	3	1		Use policy iterations in Argon2 policyCheck
+55025	bugfix	java-prod	1	1	backport	Do not assign CURRENT_AUTHENTICATION_EXECUTION on fork (26.6)
+55024	bugfix	java-prod	1	1	backport	Do not assign CURRENT_AUTHENTICATION_EXECUTION on fork (26.8)
+55021	bugfix	ts	7	0		Fix multiselect chip clear for labeled user profile options

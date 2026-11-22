@@ -1,0 +1,35 @@
+pr	comment_kind	codeflow_could_surface	py_feasible	reason
+295862	data-propagation	1	partial	DjamelTouati: with_context(self.env.context) needed because mrp sets global_horizon_days=0 in the rules' context; a context-key flow, visible only if env.context is modelled as a keyed dict
+295862	data-propagation	2	partial	DjamelTouati review: orderpoint only added to values in some callers, so lead_horizon_date and the subtraction may use different horizons; reaches(orderpoint, _get_lead_days) per call site
+293634	test-request	0	-	Quant in WH/Stock irrelevant to the scenario; test setup advice
+293634	question/clarification	0	-	Whenrow: test passes in 20.0 without the patch (ORM change); version behaviour
+292503	security	0	-	sudo() removal is a security fix needing its own test (restricted field writable under sudo); access semantics
+298279	question/clarification	0	-	Why active_test=False? context flag intent
+298279	perf	0	-	Early exit unneeded since ORM skips Domain.FALSE queries; ORM internals
+294816	missing-case	1	yes	svfu-odoo: some UserErrors still raised without the proxy id; listing raise sites reachable from _call_peppol_proxy (planned exceptions-as-outputs)
+289166	correctness/logic	0	-	lase-odoo: self.value compare to 0 wrong for a monetary field; currency rounding semantics
+289166	correctness/logic	1	partial	lase-odoo: fix holds only when standard_price*qty equals the move's own base plus its landed costs; the value-composition graph shows the terms, the arithmetic insight is the reviewer's
+288845	missing-case	1	partial	lase-odoo: why did the sibling journal hook not need the same change; both feed only _prepare_exchange_difference_move_vals (callers fact; diverges)
+288845	correctness/logic	0	-	Explanation of partial_amount behaviour when rates invert; accounting semantics
+302036	data-propagation	1	partial	nipl-odoo: _unsync_so_lines change unneeded since invoice AALs are no longer linked and the method is only reached from the services view; caller/reachability fact
+302036	test-request	0	-	Unnecessary test
+296973	missing-case	0	no	anko-odoo: portal page still shows the wrong amount; consumer is a QWeb template
+274607	correctness/logic	1	yes	svs-odoo: search uses quantity=1 while the compute uses >0, so search and compute disagree; compute=/search= pair is a natural diverges target
+260037	missing-case	0	-	amoyaux: only count on-hand quants; business rule
+289196	missing-case	1	partial	dhha-odoo: skip zero-quantity by-product lines or cost_share still enters unit MO cost (BoM overview already does); diverges between two reports
+289196	data-propagation	1	partial	dhha-odoo: pass cost_share through _get_byproducts_data where it is already computed; where-is-this-computed fact across mrp/mrp_account dict keys
+289196	design/architecture	0	-	tpma-odoo: put the cost-share helper in mrp_account; module scoping
+288134	test-request	0	-	clesgow: test covers only the second modified line; coverage, not dataflow
+301251	design/architecture	0	-	Whenrow: unwrap origins only, not references; design choice
+280406	other	0	-	Sehnde: already fixed in 19.3, backport that commit
+287577	design/architecture	0	no	Feyensv: handle in applyProduct to avoid two updates; JS
+287577	missing-case	0	no	agr-odoo: change applies to every product change, not just variant selection; JS
+299418	design/architecture	0	no	yolannsabaux: template change breaks stable for customisations; XML stable policy
+294456	correctness/logic	1	partial	alialfie: _action_open_bank_reconciliation_widget exists only in enterprise; an unresolved-method error over the community addon set (lint-level)
+252141	missing-case	1	partial	lordkrandel (unmerged PR): switching tax->allowance leaves tax exemption fields populated; per-branch field-write sets of the onchange/write
+252141	correctness/logic	2	yes	jva-odoo (unmerged PR): method never called with in_foreign_currency=False; values reaching a parameter over all call sites
+252141	design/architecture	1	yes	jva-odoo (unmerged PR): record param used only to take its company; summary of which attributes of a param are read
+252141	correctness/logic	0	partial	lordkrandel (unmerged PR): is_used compute has no @api.depends because it reads via SQL, so cache goes stale; SQL-backed
+252141	design/architecture	0	-	smetl (unmerged PR): logic must stay at invoice-line level, out of spec; product scope
+252141	design/architecture	0	-	lordkrandel (unmerged PR): keep charge_indicator a bool until export; typing style
+252141	design/architecture	1	yes	jva-odoo (unmerged PR): return the tax from _retrieve_taxes instead of re-searching; value already available upstream

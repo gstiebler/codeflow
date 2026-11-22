@@ -1,0 +1,101 @@
+pr	source	kind	language	merged	files	modules	title
+304565	fw	bugfix	po/other	True	2	purchase	[FIX] purchase: rename "Deco Addict" to "Acme Corporation"
+304551	fw	bugfix	py	True	2	website_crm	[FIX] website_crm: follow leads setting for public contact form
+304541	fw	bugfix	py	True	2	website_crm	[FIX] website_crm: follow leads setting for public contact form
+304540	fw	bugfix	py	True	2	project,sale_project	[FIX] sale_project: prevent duplicate creation messages in chatter
+304534	fw	bugfix	py	True	1	purchase_mrp	[FIX] purchase_mrp: show all the POs linked to the MO
+304527	fw	bugfix	py	True	2	website_crm	[FIX] website_crm: follow leads setting for public contact form
+304526	fw	bugfix	py	True	3	website	[FIX] website: serve fallback menu when homepage is unpublished
+304521	fw	bugfix	js	True	2	pos_sale	[FIX] pos_sale: settle picked-up rental orders
+304517	fw	bugfix	py	True	2	project,sale_project	[FIX] sale_project: prevent duplicate creation messages in chatter
+304510	fw	bugfix	py	True	1	purchase_mrp	[FIX] purchase_mrp: show all the POs linked to the MO
+304498	fw	bugfix	po/other	True	2	purchase	[FIX] purchase: rename "Deco Addict" to "Acme Corporation"
+304497	fw	bugfix	py	True	2	project,sale_project	[FIX] sale_project: prevent duplicate creation messages in chatter
+304493	fw	bugfix	mixed(py+xml)	True	5	account	[FIX] account: hide the journal entries and items from invoicing users
+304487	fw	perf	py	True	2	pos_stock	[PERF] point_of_sale: lock contention on concurrent order sync
+304484	fw	bugfix	py	True	2	odoo	[FIX] orm: show warning when cannot lock in http
+304481	fw	bugfix	py	True	2	account	[FIX] account: restore account type filter in cash KPI
+304477	fw	bugfix	py	True	1	purchase_mrp	[FIX] purchase_mrp: show all the POs linked to the MO
+304473	fw	bugfix	py	True	2	project,sale_project	[FIX] sale_project: prevent duplicate creation messages in chatter
+304465	fw	bugfix	py	True	1	purchase_mrp	[FIX] purchase_mrp: show all the POs linked to the MO
+304461	fw	bugfix	py	True	2	point_of_sale	[FIX] point_of_sale: ignore archived partners in limited loading
+304460	fw	test-only	test-only	True	1	test_mail	[PERF] test_mail: adapt query counts
+304455	fw	bugfix	xml	True	2	sale	[FIX] sale: hide UoM when the feature is disabled
+304448	fw	bugfix	py	True	2	website_crm	[FIX] website_crm: follow leads setting for public contact form
+304435	fw	bugfix	py	True	3	l10n_fr_pdp	[FIX] l10n_fr_pdp: report actual invoice billing periods
+304432	fw	perf	py	True	2	stock_account	[PERF] stock_account: scope inventory valuation to relevant products
+304427	fw	feature	po/other	True	1	skills	[IMP] skills: odoo-git: find the oldest affected version from git
+304426	fw	bugfix	css	True	2	doc,web	[FIX] web: show kanban card colored stripe in community
+304413	fw	bugfix	py	True	2	website_crm	[FIX] website_crm: follow leads setting for public contact form
+304401	fw	perf	py	True	2	stock_account	[PERF] stock_account: scope inventory valuation to relevant products
+304399	fw	bugfix	py	True	3	website	[FIX] website: serve fallback menu when homepage is unpublished
+304398	fw	bugfix	mixed(py+xml)	True	2	product	[FIX] product: fix product category ordering
+304397	fw	bugfix	py	True	3	l10n_fr_pdp	[FIX] l10n_fr_pdp: report actual invoice billing periods
+304371	human	bugfix	js	True	7	calendar,l10n_id_pos,point_of_sale	[FIX] calendar, point_of_sale, l10n_id_pos: stop modifying the user context
+304366	fw	bugfix	po/other	True	1	spreadsheet_dashboard_account	[FIX] spreadsheet_dashboard_account: show ratio as percentage
+304361	fw	bugfix	py	True	3	l10n_fr_pdp	[FIX] l10n_fr_pdp: report actual invoice billing periods
+304359	fw	bugfix	js	True	2	mail	[FIX] mail: keep the composer usable when posting fails
+304351	fw	bugfix	py	True	2	point_of_sale	[FIX] point_of_sale: rounding line sign in foreign currency
+304348	fw	feature	mixed(py+xml)	True	15	l10n_pl_edi_batch	[ADD] l10n_pl_edi_batch: download KSeF bills in batches
+304347	fw	feature	mixed(py+xml)	True	15	l10n_pl_edi_batch	[ADD] l10n_pl_edi_batch: download KSeF bills in batches
+304345	fw	feature	mixed(py+xml)	True	15	l10n_pl_edi_batch	[ADD] l10n_pl_edi_batch: download KSeF bills in batches
+304344	fw	feature	mixed(py+xml)	True	16	l10n_pl_edi_batch	[ADD] l10n_pl_edi_batch: download KSeF bills in batches
+304342	fw	feature	mixed(py+xml)	True	16	l10n_pl_edi_batch	[ADD] l10n_pl_edi_batch: download KSeF bills in batches
+304334	fw	bugfix	py	True	3	l10n_fr_pdp	[FIX] l10n_fr_pdp: report actual invoice billing periods
+304330	fw	bugfix	py	True	2	account_edi_ubl_cii	[FIX] account_edi_ubl_cii: use commercial partner name as CII buyer name
+304328	fw	bugfix	py	True	3	l10n_it_edi,purchase	[FIX] purchase: preserve discounts when matching EDI bills
+304327	fw	perf	py	True	1	account	[PERF] account: speed up chart template loading
+304326	fw	feature	py	True	1	account	[IMP] account: aggregate the account balance over the selected companies
+304324	fw	bugfix	py	True	4	hr_holidays	[FIX] hr_holidays: simplify time off write
+304321	fw	bugfix	py	True	1	hr_work_entry	[FIX] hr_work_entry: changed the company to the export multi comp
+304319	fw	bugfix	py	True	2	mrp,stock	[FIX] mrp, stock: allow scrapping a lot already reserved
+304316	fw	bugfix	css	True	1	hr_attendance	[FIX] hr_attendance: keep kiosk buttons visible on mobile
+304310	human	bugfix	js	False	7	calendar,l10n_id_pos,point_of_sale	[FIX] calendar, point_of_sale, l10n_id_pos: stop modifying the user context
+304305	fw	bugfix	mixed(py+xml)	True	3	account_edi_ubl_cii	[FIX] account_edi_ubl_cii: use commercial partner name as CII buyer name
+304303	fw	bugfix	py	True	2	account_peppol,l10n_fr_pdp	[FIX] account_peppol: allow reset to draft and prevent deletion
+304302	fw	bugfix	py	True	4	hr_holidays	[FIX] hr_holidays: simplify time off write
+304297	fw	feature	py	True	2	account,odoo	[IMP] account: search on account number in bank statement lines
+304296	fw	feature	py	True	2	account	[IMP] account: search on account number in bank statement lines
+304295	fw	feature	py	True	2	account	[IMP] account: search on account number in bank statement lines
+304294	fw	feature	py	True	2	account	[IMP] account: search on account number in bank statement lines
+304292	human	test-only	test-only	True	1	html_editor	[FIX] html_editor: fix expected font size in preview navigation test
+304289	human	bugfix	py	True	2	account	[FIX] account: restore account type filter in cash KPI
+304286	human	bugfix	css	True	2	doc,web	[FIX] web: show kanban card colored stripe in community
+304285	fw	bugfix	py	True	2	l10n_it_edi_doi	[FIX] l10n_it_edi_doi: no threshold warning on a cancelled order
+304284	fw	bugfix	js	True	2	mail	[FIX] mail: reset chatter search when closing with the icon
+304282	fw	bugfix	js	True	2	web	[FIX] web: release the page when a hidden modal is removed
+304281	fw	bugfix	py	True	2	account_peppol,l10n_fr_pdp	[FIX] account_peppol: allow reset to draft and prevent deletion
+304277	fw	bugfix	css	True	1	website	[FIX] website: improve focus outline for social icons
+304276	fw	bugfix	mixed(js+py)	True	13	html_builder,html_editor,odoo	[FIX] html_editor, html_builder, base: don't save the editing ZWS
+304274	fw	bugfix	py	True	2	mrp,stock	[FIX] mrp, stock: allow scrapping a lot already reserved
+304271	human	other	mixed(js+py+xml)	False	40	mail,point_of_sale,portal,pos_self_order,project,spreadsheet	Master split offline plugin jpp
+304270	human	feature	py	True	1	account	[IMP] account: search on account number in bank statement lines
+304269	fw	bugfix	py	True	2	mail,test_mail	[FIX] mail: do not use unrelated messages as references ancestors
+304268	human	bugfix	py	True	2	hr_holidays_attendance	[FIX] hr_holidays_attendance: keep the attendances of a working time …
+304266	fw	bugfix	py	True	1	purchase_stock	[FIX] purchase_stock: error at install
+304265	human	refactor	py	True	1	project	[CLN] project: drop the dead mixin path of the lazy bundle
+304264	fw	bugfix	mixed(css+xml)	True	3	web	[FIX] web: give views opened in a dialog a height on small screens
+304262	human	bugfix	xml	True	1	account	[FIX] account: Change hotkey for Print invoice button
+304260	fw	bugfix	py	True	2	partnership	[FIX] partnership: add fallback partners_label for smart button
+304253	human	bugfix	py	True	2	l10n_it_edi_doi	[FIX] l10n_it_edi_doi: no threshold warning on a cancelled order
+304252	human	bugfix	py	False	2	account	[FIX] account: restore account type filter in cash KPI
+304249	fw	bugfix	py	True	2	partnership	[FIX] partnership: add fallback partners_label for smart button
+304247	human	bugfix	py	True	1	base_geolocalize	[FIX] base_geolocalize: update new partners without write()
+304244	fw	bugfix	py	True	1	account	[FIX] account: narrow invoice partner name dependency
+304243	fw	bugfix	py	True	2	partnership	[FIX] partnership: add fallback partners_label for smart button
+304241	fw	bugfix	py	True	1	odoo	[FIX] tools: convert PDFs with simple fonts to PDF/A
+304240	fw	bugfix	py	True	2	mrp	[FIX] mrp: count blocked work orders in the work center load
+304239	fw	bugfix	mixed(js+xml)	True	4	html_editor,mass_mailing	[FIX] web_editor: prevent crash when inlining cross-origin images
+304237	fw	bugfix	js	True	7	pos_self_order	[FIX] pos_self_order: menu card shows the price of the first variant
+304236	fw	test-only	test-only	True	1	event_sale	[FIX] event_sale: ignore registration order in cancellation test
+304235	fw	bugfix	py	True	2	partnership	[FIX] partnership: add fallback partners_label for smart button
+304232	fw	bugfix	py	True	1	account	[FIX] account: narrow invoice partner name dependency
+304231	fw	bugfix	py	True	5	account_edi_ubl_cii,l10n_ae_ubl_pint	[FIX] account_edi_ubl_cii, l10n_ae_ubl_pint: cash rounding and line discounts in PINT
+304230	fw	bugfix	py	True	3	purchase_mrp	[FIX] purchase_mrp: link MO and PO bought through MTSO
+304229	fw	bugfix	py	True	1	odoo	[FIX] tools: convert PDFs with simple fonts to PDF/A
+304228	fw	bugfix	none	False	0		[FIX] pos_loyalty: free product earns points with an unmet rule
+304227	fw	bugfix	py	True	2	mrp	[FIX] mrp: count blocked work orders in the work center load
+304226	fw	bugfix	mixed(js+xml)	True	4	html_editor,mass_mailing	[FIX] web_editor: prevent crash when inlining cross-origin images
+304225	fw	bugfix	py	True	2	hr_recruitment	[FIX] hr_recruitment: keep the applicant contact when refusing with CC
+304224	fw	bugfix	js	True	7	pos_self_order	[FIX] pos_self_order: menu card shows the price of the first variant
+304223	fw	bugfix	py	True	2	partnership	[FIX] partnership: add fallback partners_label for smart button

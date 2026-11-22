@@ -12,6 +12,8 @@ alone is not enough for #4.
 - Every PR was squash-merged, so the pre-fix code is the merge commit's parent, fetched with
   `gh api repos/apache/kafka/contents/<path>?ref=<parent>`.
 - Line numbers refer to that ref.
+- **The "Today?" paragraphs are predictions** from reading the code and the summary format. Only case 2 was
+  run ([review.md](review.md)); the other five were not.
 - Dropped from the earlier pass: #24153. It is a performance refactor, not a fix. Its review exposed a latent
   NPE in `StreamsGroup.removeMember` that nobody fixed.
 
@@ -145,6 +147,12 @@ and reaches three `maybeUpdate*` methods; A only reads.
 `TimelineHashMap` is in `server-common`, so without those sources the write is `ext-arg:put` on
 `this.members`, not a field effect. The query must count "an opaque mutator on a `this.<field>` receiver" as a
 write.
+
+**Measured** (`--summaries` on `ConsumerGroup`, `ShareGroup`, `ModernGroup` at `8e75faf`; exit 0, 132 methods,
+5 gaps). Sinks only `ShareGroup`'s override has: `put`, `set`, `compute`, plus six reads (`size`, `isEmpty`,
+`values`, `forEach`, `memberId`, `byNameCount`). `ConsumerGroup`'s override has none of its own. Field writes
+are empty for both, as predicted. So the omission shows today, but 6 of the 9 rows are noise: a raw sink diff
+needs the mutator vocabulary. Details in [review.md](review.md#kafka-24128-run-on-the-pre-fix-sources).
 
 ---
 
@@ -359,6 +367,7 @@ pairing the roots needs co-occurrence mining over effects.
 | `stem:*GroupHeartbeat*` | name-stem siblings in one class | #1 |
 | `anchor:M` | blocks that call one anchor; compare what follows it | #4 |
 | `cowrite:F` | writers of field F; mine effects that co-occur in ≥ k of n | #6 |
+| `fields:C` | the fields of class C, compared by which of them one method reads | Keycloak #49604 ([review.md](review.md)) |
 
 **Effect vocabulary per root.** Transitive, read from summaries, instantiated through in-source callees:
 1. In-source methods reached, by `Element`.

@@ -77,7 +77,7 @@ summary cannot follow becomes a gap with a kind, a `file:line:col` and a detail.
   limit, or a call made an object under a name the method already holds. Two objects became one,
   so their fields join.
 - **`unmodelled`**: an `Unmodelled` instruction, or a field read or written through an object with
-  no tracked origin (a foreach element, a catch parameter), or a callee's effect on an object this
+  no tracked origin (a foreach element, a catch parameter, the stored result of an opaque call), or a callee's effect on an object this
   method has no name for. An `Unmodelled` instruction is also recorded where the builder records
   it, so `--summaries` prints the same "constructs not modelled" lines and exits non-zero.
 - **`body`**: lowering threw. Callers see an opaque call plus this gap.
@@ -159,6 +159,19 @@ progressive-loan at `e048ee8b2b`, 2026-11-15.
 - 658 against 687: the smoke passes `Class#method` names to `--from`, and overloads share one.
 - The 22 `TYPE_CAST` the graph run reports unmodelled are 22 of the `unmodelled` gaps (measured before casts were modelled; see `constructs.md`).
   `--summaries` reports them on stderr too, and exits 1, as the graph run does.
+- **After casts were modelled** (`d449caa`, CI smoke of 2026-11-22): 860,619 pairs (+1,464) and 35,483
+  gap rows, of which 18,742 `unmodelled` (−452). Every other kind is unchanged, and the graph run
+  reports no unmodelled construct. The table above is the earlier measurement.
+- **So `unmodelled` counts no construct here.** Its 18,742 rows, 53% of all gap rows, are field
+  reads and writes through an object with no tracked origin, and callee effects on an object the
+  caller cannot name. The kind's name misleads when the numbers are read. A kind of its own is
+  proposed, not built: `docs/research/2026-11-22-codeflow-usefulness/review.md`.
+- **Those rows still carry a fact.** `SP.forceAuthentication read on an object with no tracked origin`
+  says the field is read, and where. In Keycloak's SAML `DeploymentBuilder#build`, `sp` is
+  `adapter.getSps().get(0)`, an opaque result stored in a local. The value of each `sp.isX()` is
+  dropped, so no `SP → deployment` pair exists, with or without casts. But the 15 rows name 13 of
+  `SP`'s 14 fields as read, and the 14th is the setter that fix #49604 added. Read a gap row as
+  "something is read here that I cannot follow", not as "nothing here".
 - 92% of the pairs are `ext:` → `ext-arg:`: an opaque call's result passed on to another one.
   That is most of the document's size.
 - **Parity, by hand** (`CODEFLOW_PARITY_SRC`): 421 methods with a result, 506 `P<i> → RET`

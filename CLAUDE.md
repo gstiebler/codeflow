@@ -95,7 +95,8 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
    Anything unlisted becomes an `UNMODELLED` node, is counted on stderr, and exits non-zero.
 3. A new `Insn` needs a branch in `Frame.draw` (sealed `when`, so the compiler tells you).
 4. A statement that **binds a name** needs a visitor even if it produces no value (emit a `Bind`
-   with the right `Identity`).
+   with the right `Identity`). An unmodelled construct that binds names binds them to its own
+   `UNMODELLED` value (`Lowering.bindPattern`), and its fixture reads them.
 5. Use `evaluate(tree, ctx)`, not `tree.accept(...)`, for anything that needs a value.
 6. Operator labels go through `binaryOperatorLabel` / `unaryOperatorLabel` /
    `compoundAssignmentLabel` — raw `/`, `|`, `&` corrupt Mermaid.

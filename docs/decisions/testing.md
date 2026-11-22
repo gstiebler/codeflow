@@ -35,6 +35,19 @@ than reading diffs: normalise old (`git show HEAD:<path>`) and new to sorted mul
 `label:TYPE` nodes and `label:TYPE -> label:TYPE` edges with ids stripped, and diff those. Anything
 left over is a real change and needs explaining.
 
+**Which assertion can see a bug is found by trying wrong implementations, not by reasoning about
+it.** The names a record pattern binds (`Lowering.bindPattern`) had three candidate behaviours: no
+definition, the tested value, the gap node. A `SummarizerTest` on pairs passed for all three: the
+`instanceof` gate already carries `P0 > RET`, so the pair is there whatever the names hold. The
+summary's gap kind tells "no definition" from the other two (`body` against `unmodelled`). Only
+`edgeLabels` on the graph tells the tested value from the gap: `"shape" to "x"` absent,
+`"DECONSTRUCTION_PATTERN" to "x"` present. So that fix has a test at each level, and each was
+watched failing against the mutation it is there for.
+
+**A fixture for a construct that binds a name must read the name.** `unsupported/App.java` bound
+`x` and `y` and printed a constant, so for as long as it existed it could not show that reading `x`
+ended the run. The read is the half of a binding that fails.
+
 `app/build.gradle` sets `maxHeapSize = '2g'` on the test task because two suites sweep every fixture
 directory, so a javac task per fixture is live at once and Gradle's 512m default ran out. It failed as
 the *worker* dying after every test had already reported passing, which reads as infrastructure rather

@@ -16,6 +16,9 @@ A Python port is worth building only as an Odoo-specific tool, and not before th
 All scores are one model rater's judgement against [RUBRIC.md](RUBRIC.md). Codeflow was actually run only on
 4 Keycloak fixes. Treat the numbers as rough proportions; they are not measurements.
 
+**Reviewed the same day: [review.md](review.md).** It re-ran three cases. One claim here was wrong (casts did
+not hide Keycloak #49604), and the order to build in changed. Corrections are marked in place below.
+
 ## Sample
 
 | Repo | Kind | Census | Deep-dived items | Review comments |
@@ -135,9 +138,9 @@ reader" bugs barely exist there.
 
 | # | Change | Why (evidence) | Cost |
 |---|---|---|---|
-| 1 | ~~**Model `TYPE_CAST`**~~ **done 2026-11-22**: a reference cast is the same object, a primitive cast is a `to int` operator (`docs/decisions/constructs.md`). Not used as a dispatch hint, since a cast that would fail is what a reader checks for. | Was missing from `MODELLED_EXPRESSIONS` (`Lowering.kt:1229`): any method with a cast exits non-zero. It hid Keycloak #49604, a textbook missing setter, and OIDCIdentityProvider has 18 casts. | small |
+| 1 | ~~**Model `TYPE_CAST`**~~ **done 2026-11-22**: a reference cast is the same object, a primitive cast is a `to int` operator (`docs/decisions/constructs.md`). Not narrowed into dispatch: `Frame.resolve` asks the constructed type, and a cast is only the author's claim. | Was missing from `MODELLED_EXPRESSIONS`: any method with a cast exited non-zero (22 in Fineract's smoke; OIDCIdentityProvider has 18). **Corrected:** it did not hide Keycloak #49604. A before/after run shows no flow changed; see row 13 and [review.md](review.md#keycloak-49604-run-before-and-after-casts). | small |
 | 2 | **Ship blastRadius as a PR check, with a "refactor purity" mode**: NEW/GONE boundary rows on a PR that claims to be a refactor | The #1 way bugs are introduced in all 4 repos. Fineract #6846, FINERACT-2917/3197, KAFKA-21033. Covers D2a, D2b and D4 at once. | medium (already designed) |
-| 3 | **diverges / per-path effect comparison**: which fields, boundary calls and exceptions handler A writes that its sibling B doesn't | Kafka: 7 bugs and about 6 comments. Keycloak: 4 best cases. Odoo #286555. The only capability that turns several 1s into 2s. | medium |
+| 3 | **diverges / per-path effect comparison**: which fields, boundary calls and exceptions handler A writes that its sibling B doesn't | Kafka: 7 bugs and about 6 comments. Keycloak: 4 best cases. Odoo #286555. The only capability that turns several 1s into 2s. **Measured:** a script over today's `--summaries` finds Kafka #24128 ([review.md](review.md#kafka-24128-run-on-the-pre-fix-sources)). | medium; a script first |
 | 4 | **Resolve DI-injected interface fields** when the corpus has exactly one implementation, or an `@Bean`/`@Service` returning it. Draw it as an *assumed implementation* with its own label, so the frontier stays visible. | Every Fineract REST→service→domain chain is `EXTERNAL` today. Tension: `calls-and-dispatch.md` calls picking one implementation a guess. The label keeps it honest; reusing the existing "assumed implementation" boundary path may be enough. | medium |
 | 5 | **Constant-keyed map slots**: `put/get`, `setNote/getNote` and `getAttribute` with a compile-time constant key become a named heap slot | Keycloak: 9 of 32 issues turn on auth/client notes, `contextData`, claims or attributes. The same shape appears in Odoo's vals and context. | medium |
 | 6 | **Exceptions as outputs**: a throw escaping to a root becomes a boundary row | Kafka #24216, #24187, #24151, KAFKA-16304; Fineract FINERACT-3197-like paths. Already planned. | medium |
@@ -145,14 +148,18 @@ reader" bugs barely exist there.
 | 8 | **Root discovery**: REST resources, command handlers, `@Scheduled`, or "every public method of the changed classes" | Roots are named one by one with `--from`. A PR check needs them derived from the diff. | small |
 | 9 | **Generated and Lombok sources without manual setup**: generated source dirs on the path, delombok run automatically | Kafka `*RequestData` is generated from JSON, so every request/response field becomes Opaque. Lombok touches 2,594 of Fineract's 5,585 main files. | small–medium |
 | 10 | **Split control from data dependence in `--summaries`** | Keycloak: 25 sources reach one `put`, too many to point at anything. The graph already has CONDITION vs FLOW; the summary loses it. | small |
-| 11 | **`writers(field)` query** | Fineract and Odoo writer/reader mismatches. Fits the DolphinScheduler finding that an index must cover writers as well as readers. | small once the queries exist |
+| 11 | **`writers(field)` and `readers(field)` queries** | Fineract and Odoo writer/reader mismatches. Fits the DolphinScheduler finding that an index must cover writers as well as readers. **Measured:** Keycloak #49604 is a `readers` answer. `build` reads 13 of `SP`'s 14 fields and the 14th is the bug, read off today's gap rows. | small; a script today |
 | 12 | **Agent-first surface**: MCP queries returning small JSON with file:line | Copilot and Claude reviewers already comment on most Kafka PRs. Codeflow fits best as the deterministic evidence those reviewers cite, not as a second reviewer. | medium |
+| 13 | **Field reads through an object with no tracked origin** (added by the review). First give them their own gap kind, so `unmodelled` means a construct again. Then keep the value, as an atom naming the origin and the field. | The largest wall measured: 18,742 gap rows in Fineract, about half of all. It is what hides Keycloak #49604 (`SP sp = adapter.getSps().get(0)`). | small for the kind; unknown for the value, which needs a design in `docs/decisions/summaries.md` |
 
-**Order I'd take:**
+**Order I'd take** (revised by [review.md](review.md#where-i-lean); the first version put 2 + 8 before 3, on
+judged evidence):
 - 1 is done.
+- Then 3 and 11 as scripts over today's `--summaries` JSON. Two real bugs came out that way; none has yet for 2.
+- Then 13's gap kind, so the numbers can be read.
 - Then 2 + 8, which make a usable PR check on Fineract refactors.
-- Then 3.
 - 4 and 5 widen how much the graph reaches; 6–7 deepen it.
+- From now on a row gets its rank from a before/after run on the case it cites, not from a judgement.
 
 **What not to build:** concurrency, SQL equivalence, config semantics. They are the biggest blocks of review
 work, but a value-dataflow graph cannot see them, and an imitation would be the "silently wrong graph" this
@@ -181,7 +188,7 @@ instantiating it transitively per root and adding gates, mutator writes and exce
 | Use | Comparison | Dimension | Evidence |
 |---|---|---|---|
 | **PR check** (blastRadius + refactor purity) | the same roots, before vs after the diff; roots derived from changed classes (#8) | D2a, D2b, D4 | Fineract #6846, FINERACT-2917/3197, KAFKA-21033: the #1 bug source in all 4 repos |
-| **`diverges`** | sibling roots against each other (overrides, call sites, name stems, co-writers), ranked by majority vote | D2b, D3, D4 | 6 Kafka cases, 4 Keycloak, Odoo #286555 |
+| **`diverges`** | sibling roots against each other (overrides, call sites, name stems, co-writers), or the fields of one class against each other, ranked by majority vote | D2b, D3, D4 | 6 Kafka cases, 4 Keycloak, Odoo #286555. Measured by script: Kafka #24128, Keycloak #49604 |
 | **Agent queries** (MCP, small JSON) | one root's rows, or `writers(field)` | D1, D3 | AI reviewers already comment on most Kafka PRs; this gives them evidence to cite |
 
 **The rule that keeps it honest.** A row missing from a root with a gap on a path that could reach it is
@@ -190,15 +197,25 @@ says "pure refactor" because both sides go `EXTERNAL` at the same interface, whi
 answer this project exists to avoid.
 
 **Then widen what it sees, in the order the study hit the walls:**
-1. Lambda parameters of `forEach`/`Optional`/`stream` bound to the element origin. Today they are
+1. Field reads through an object with no tracked origin (improvement 13). Added by the review: it is the
+   largest gap kind measured, and the wall on Keycloak #49604.
+2. Lambda parameters of `forEach`/`Optional`/`stream` bound to the element origin. Today they are
    `Identity.Unknown`, and Kafka #3, #5 and #6 all go through them.
-2. DI interface fields with one implementation in the corpus, drawn as an **assumed implementation** (the
+3. DI interface fields with one implementation in the corpus, drawn as an **assumed implementation** (the
    Fineract REST→service→domain chains).
-3. Constant-keyed map slots (Keycloak notes and attributes, Odoo vals).
-4. Generated and Lombok sources set up automatically (Kafka `*Data`, Fineract Lombok).
+4. Constant-keyed map slots (Keycloak notes and attributes, Odoo vals).
+5. Generated and Lombok sources set up automatically (Kafka `*Data`, Fineract Lombok).
+
+**Start as a script.** Both measured cases came out of today's `--summaries` JSON with under 20 lines of Python
+each ([review.md](review.md)). So the first version of `diverges` is a script over that JSON, run on the cases
+below. The engine work starts where the script stops finding them.
 
 **Acceptance: real cases, not new fixtures.** The engine is done when each of these comes out from the pre-fix
-source with no hand-picked roots:
+source with no hand-picked roots. Only the two marked "found by script" have been run; the rest are predictions.
+- **Kafka #24128** (found by script): `diverges overrides:getOrMaybeCreateMember` shows `put` on `this.members`
+  in `ShareGroup` only.
+- **Keycloak #49604** (found by script): `diverges fields:SP` shows `turnOffChangeSessionIdOnLogin` as the one
+  field `DeploymentBuilder#build` never reads.
 - **Fineract #6846:** the effects diff shows a **NEW** `saveAll` db write on a PR titled as a refactor.
 - **KAFKA-21458:** `diverges stem:*GroupHeartbeat*` flags `classicGroupHeartbeatToConsumerGroup` for missing
   `updateSubscriptionMetadata`/`maybeUpdateTargetAssignment`.
@@ -214,6 +231,8 @@ with file:line, that a human or an AI reviewer can check in one click.
 
 ## Caveats
 - One model rater per repo, and hindsight risk on D4: introducing PRs were scored from the fix's description.
-- Codeflow was run only on Keycloak (4 cases); every other score is a judgement about it.
+- Codeflow was run on 4 Keycloak cases in the study. The review re-ran one of them (#49604, before and after
+  casts) and ran Kafka #24128. Every other score is a judgement about it, and no score was revised.
+- The "Today?" paragraphs in [kafka-sibling-paths.md](kafka-sibling-paths.md) are predictions, except case 2.
 - Each census is a 2–3 week window. Fineract's window was dominated by refactor series, which contradicts an
   earlier 40-commit pass that found about half of commits were docs/CI/deps/tests.

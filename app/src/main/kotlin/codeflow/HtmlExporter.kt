@@ -18,7 +18,11 @@ import java.nio.file.Path
  * lives in JsonExporter, where the tests are. The bundles are built by `npm run build:viewer` and
  * committed, so this never needs npm.
  */
-class HtmlExporter(private val bundle: String, private val sourceRoot: Path) {
+class HtmlExporter(
+    private val bundle: String,
+    private val sourceRoot: Path,
+    private val initialLevel: String? = null
+) {
     private fun asset(name: String): String =
         javaClass.getResource("/viewer/$name")?.readText()
         // A page whose libraries are missing renders as an empty canvas, which is indistinguishable
@@ -27,7 +31,7 @@ class HtmlExporter(private val bundle: String, private val sourceRoot: Path) {
 
     fun processMainMethod(roots: List<GraphBuilderBlock>, writer: (String) -> Unit) {
         val payload = StringBuilder()
-        JsonExporter(sourceRoot).processMainMethod(roots) { payload.append(it).append("\n") }
+        JsonExporter(sourceRoot, initialLevel).processMainMethod(roots) { payload.append(it).append("\n") }
 
         // Literal replacement, not regex: the bundle is full of $ and \ that Regex.replace would
         // read as group references and mangle.

@@ -9,6 +9,7 @@ import codeflow.graph.MemPos
 import codeflow.graph.Method
 import codeflow.graph.NodeType
 import codeflow.graph.PosStack
+import codeflow.java.Semantics
 import codeflow.java.ids.JNodeId
 import codeflow.java.processors.GlobalContext
 import javax.lang.model.element.Element
@@ -278,8 +279,13 @@ class IrGraphBuilder(val globalCtx: GlobalContext) {
     fun build(root: Method, firstSerial: Int = 0): GraphBuilderBlock {
         journal.clear()
         openForks.clear()
+        val declaring = globalCtx.findClass(root.element.enclosingElement)
         val block = GraphBuilderBlock(
-            null, root, PosStack(), emptySet(), root.ctx, root.ctx.location(root.name), globalCtx.isBoundary(root), firstSerial
+            null, root, PosStack(), emptySet(), root.ctx, root.ctx.location(root.name), globalCtx.isBoundary(root), firstSerial,
+            assumed = false,
+            classRole = declaring?.let { Semantics.classRole(it.tree) },
+            boundaryRole = declaring?.let { Semantics.boundaryRole(it.tree) },
+            entryLabel = Semantics.entrypointLabel(root, declaring)
         )
         Frame(this, block, PosStack(), emptySet(), null).invoke(emptyList(), emptyList())
         startFromEvent(block)
@@ -532,6 +538,12 @@ class Frame(
             insn.value?.let { block.addReturnNode(run.node(it), run.objects(it)) }
             null
         }
+
+        is Throw -> {
+            val caption = "$THROW_LEAD ${insn.exceptionType}"
+            block.addThrow(base(labelId(caption, insn), insn, lead = THROW_LEAD), run.node(insn.value))
+            null
+        }
     }
 
     /**
@@ -590,10 +602,11 @@ class Frame(
         val values = holders.ifEmpty { setOf(null) }
             .map { readFrom(it, name, element, isPrimitive, written, insn) }
         values.singleOrNull()?.let { return it }
+        val fieldOwner = Semantics.fieldOwnerName(element)
         return Value(
             // Plain flow throughout: nothing on the page chose which object the name pointed at.
             block.addJoin(
-                base(labelId(name, insn), insn),
+                base(labelId(name, insn), insn, fieldOwner = fieldOwner, fieldOp = if (fieldOwner != null) "read" else null),
                 values.mapNotNull { it.node }.map { it to EdgeKind.FLOW },
                 isPrimitive
             ),
@@ -615,7 +628,8 @@ class Frame(
         // registers itself in its block whether or not the builder still holds it.
         val node = (if (holder != null) builder.fieldNode(holder, id) else block.getVariable(id)?.lastNode)
             ?: if (holder == null && written) {
-                block.addExternal(base(id, insn), emptyList())
+                val fieldOwner = Semantics.fieldOwnerName(element)
+                block.addExternal(base(id, insn, fieldOwner = fieldOwner, fieldOp = if (fieldOwner != null) "read" else null), emptyList())
             } else {
                 unassigned(id, name, element, isPrimitive, setOfNotNull(holder), insn).also {
                     if (holder != null && holder === builder.heap.staticHolder(element, insn.source)) {
@@ -691,12 +705,14 @@ class Frame(
     ): Value {
         val written = if (isPrimitive) emptySet()
         else valueObjects.ifEmpty { setOf(builder.heap.allocate(insn.source)) }
+        val fieldOwner = Semantics.fieldOwnerName(element)
+        val fieldOp = if (fieldOwner != null) "write" else null
         val nodes = holders.ifEmpty { setOf(null) }.map { holder ->
             val owning = setOfNotNull(holder)
             val id = JNodeId(stack, name, element, owning)
             val key = if (journal && builder.forking) FieldKey(holder?.id, id, block.takeIf { holder == null }, isPrimitive) else null
             val before = key?.let { builder.fieldState(it) }
-            val node = builder.record(draw(base(id, insn)), owning)
+            val node = builder.record(draw(base(id, insn, fieldOwner = fieldOwner, fieldOp = fieldOp)), owning)
             block.addAssignment(node, valueNode, kind)
             if (!isPrimitive) builder.heap.setObjects(id, written)
             key?.let { builder.journalWrite(it, before) }
@@ -823,7 +839,11 @@ class Frame(
                     key.isPrimitive, NodeType.BOUNDARIES
                 )
             } else {
-                block.addJoin(base(key.id, insn), chosen?.let { listOf(it to EdgeKind.FLOW) } ?: paths, key.isPrimitive)
+                val fieldOwner = merge.reaching.firstNotNullOfOrNull { it.state.node.fieldOwner }
+                block.addJoin(
+                    base(key.id, insn, fieldOwner = fieldOwner, fieldOp = if (fieldOwner != null) "join" else null),
+                    chosen?.let { listOf(it to EdgeKind.FLOW) } ?: paths, key.isPrimitive
+                )
             }
             val objects = if (key.isPrimitive) emptySet() else merge.reaching.flatMapTo(HashSet()) { it.state.objects }
             builder.setFieldState(key, FieldState(node, objects), before)
@@ -898,17 +918,27 @@ class Frame(
      */
     private fun call(insn: Call, run: Run): Value {
         val receiverMemPos = receiverObjects(insn, run)
-        val method = resolve(insn, receiverMemPos)
+        val resolution = resolveWithAssumptions(insn, receiverMemPos)
+        val method = resolution?.method
         if (method == null || isBeingInlined(method)) {
             val receiverNode = (insn.receiver as? Receiver.Value)?.let { run.node(it.value) }
             // The order token a boundary call takes is not an argument any value flows through.
             val (order, data) = insn.args.partition { it.index in run.orderReads }
             val inputs = listOfNotNull(receiverNode) + data.map { run.node(it) }
-            val external = block.addExternal(base(labelId(insn.name, insn), insn, lead = insn.lead), inputs)
+            val callRole = Semantics.callRole(insn.target, insn.name, globalCtx)
+                ?: if (insn.lead == BOUNDARY_CALL_LEAD) block.boundaryRole else null
+            val external = block.addExternal(
+                base(labelId(insn.name, insn), insn, lead = insn.lead, role = callRole),
+                inputs
+            )
             order.forEach { run.node(it).addEdge(external, run.orderReads.getValue(it.index)) }
             return Value(external)
         }
-        val child = enter(method, receiverMemPos, insn)
+        if (resolution.assumed) {
+            val declared = insn.target
+            globalCtx.recordAssumed("${declared?.enclosingElement?.simpleName}#${declared?.simpleName} -> ${method.element.enclosingElement.simpleName}#${method.element.simpleName}")
+        }
+        val child = enter(method, receiverMemPos, insn, assumed = resolution.assumed)
         child.invoke(insn.args.map { run.node(it) }, insn.args.map { run.objects(it) })
         return Value(child.block.returnNode, child.block.returnedMemPos)
     }
@@ -922,9 +952,9 @@ class Frame(
         is Receiver.Value -> run.objects(insn.receiver.value)
     }
 
-    /** The rule is shared with the summarizer; see [Dispatch.resolve]. */
-    private fun resolve(insn: Call, objects: Set<MemPos>): Method? =
-        Dispatch.resolve(globalCtx, insn, objects.mapNotNull { it.type }.distinct())
+    /** The rule is shared with the summarizer; see [Dispatch.resolveWithAssumptions]. */
+    private fun resolveWithAssumptions(insn: Call, objects: Set<MemPos>): Dispatch.Resolution? =
+        Dispatch.resolveWithAssumptions(globalCtx, insn, objects.mapNotNull { it.type }.distinct())
 
     /**
      * Whether this method is already open further up the chain of call sites being inlined.
@@ -992,10 +1022,14 @@ class Frame(
     }
 
     /** The frame a call site opens: a block nested in this one, on the objects the callee runs on. */
-    private fun enter(method: Method, memPos: Set<MemPos>, insn: Insn): Frame {
+    private fun enter(method: Method, memPos: Set<MemPos>, insn: Insn, assumed: Boolean = false): Frame {
         val childStack = stack.push(insn.source)
+        val declaring = globalCtx.findClass(method.element.enclosingElement)
         val childBlock = GraphBuilderBlock(
-            block, method, childStack, memPos, method.ctx, insn.source, globalCtx.isBoundary(method)
+            block, method, childStack, memPos, method.ctx, insn.source, globalCtx.isBoundary(method),
+            assumed = assumed,
+            classRole = declaring?.let { Semantics.classRole(it.tree) },
+            boundaryRole = declaring?.let { Semantics.boundaryRole(it.tree) }
         )
         block.addCalledMethod(childBlock)
         return Frame(builder, childBlock, childStack, memPos, this)
@@ -1025,16 +1059,24 @@ class Frame(
         if (element?.kind != ElementKind.FIELD) {
             throw GraphException("'$name' at ${insn.source} has no value in ${block.getMethodName()}")
         }
+        val fieldOwner = Semantics.fieldOwnerName(element)
         return if (isPrimitive) {
-            builder.record(block.addPrimitiveVariable(base(id, insn)), holder)
+            builder.record(block.addPrimitiveVariable(base(id, insn, fieldOwner = fieldOwner, fieldOp = "read")), holder)
         } else {
-            builder.record(block.addObjectVariable(base(id, insn)), holder)
+            builder.record(block.addObjectVariable(base(id, insn, fieldOwner = fieldOwner, fieldOp = "read")), holder)
         }
     }
 
     /** A node that stands for an occurrence rather than for a variable: an operator, a literal. */
     private fun labelId(label: String, insn: Insn) = GraphNodeId(stack.push(insn.source), label)
 
-    private fun base(id: GraphNodeId, insn: Insn, caption: String? = null, lead: String? = null) =
-        GraphNode.Base(id, insn.source, caption, lead)
+    private fun base(
+        id: GraphNodeId,
+        insn: Insn,
+        caption: String? = null,
+        lead: String? = null,
+        fieldOwner: String? = null,
+        fieldOp: String? = null,
+        role: String? = null
+    ) = GraphNode.Base(id, insn.source, caption, lead, fieldOwner, fieldOp, role)
 }

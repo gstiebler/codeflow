@@ -29,7 +29,16 @@ export const PALETTE: Partial<Record<NodeType, string>> = {
   BOUNDARIES:   'rgba(123, 31, 162, 0.25)',
   // The entry point's event, in the EVENT edges' teal: what set the root going.
   EVENT:        'rgba(0, 137, 123, 0.25)',
+  // An exception thrown out of normal flow, matching MermaidExporter's classDef THROW.
+  THROW:        'rgba(211, 47, 47, 0.19)',
 };
+
+/** Fill and outline for high-level conceptual cards (Entity state cards, Decision nodes, Assumed DI boxes). */
+export const ENTITY_FILL = 'rgba(21, 101, 192, 0.12)';
+export const ENTITY_OUTLINE = '#1565c0';
+export const DECISION_FILL = 'rgba(245, 124, 0, 0.16)';
+export const DECISION_OUTLINE = '#ef6c00';
+export const ASSUMED_OUTLINE = '#e65100';
 
 /** What a node with no colour of its own is filled with. */
 export const NODE_DEFAULT = '#ddd';
@@ -109,7 +118,9 @@ export function edgeStyle(kind: EdgeKind): { colour: string; label: string | und
 export function condensedEdgeStyle(edge: CondensedEdge): { colour: string; label: string | undefined; dashed: boolean } {
   const kinds = Object.keys(edge.kinds) as EdgeKind[];
   const { colour, dashed } = edgeStyle(kinds.length === 1 ? kinds[0] : 'FLOW');
-  return { colour, label: edge.count > 1 ? `×${edge.count}` : undefined, dashed };
+  const countLabel = edge.count > 1 ? `×${edge.count}` : undefined;
+  const label = edge.caption ?? countLabel;
+  return { colour, label, dashed };
 }
 
 /**
@@ -127,6 +138,7 @@ export const NODE_MEANINGS: Partial<Record<NodeType, string>> = {
   UNMODELLED:   'a construct codeflow does not model: the graph is incomplete here',
   BOUNDARIES:   'the order token: which boundary call ran before which',
   EVENT:        "the entry point's event: what set it going",
+  THROW:        'an exception thrown out of normal flow',
 };
 
 /** What each edge kind means. */
@@ -159,6 +171,9 @@ export function legend(payload: Payload): { leaves: LegendLeaf[]; boxes: LegendL
     { name: 'method', fill: GROUP_FILL, outline: GROUP_OUTLINE, meaning: "a method call's body, folded; click to open" },
     { name: 'frame', fill: FRAME_FILL, outline: FRAME_OUTLINE, meaning: "a method's values, inside it; its `N more` box opens the rest" },
     { name: 'boundary', fill: GROUP_FILL, outline: BOUNDARY_OUTLINE, meaning: 'a boundary method: its body is not read' },
+    ...(payload.nodes.some((n) => n.assumed) ? [{ name: 'assumed', fill: GROUP_FILL, outline: ASSUMED_OUTLINE, meaning: 'dispatched via assumed single implementation' }] : []),
+    ...(payload.nodes.some((n) => n.fieldOwner !== undefined) ? [{ name: 'entity', fill: ENTITY_FILL, outline: ENTITY_OUTLINE, meaning: 'domain state card (aggregated field reads/writes)' }] : []),
+    { name: 'decision', fill: DECISION_FILL, outline: DECISION_OUTLINE, meaning: 'contracted if/switch/ternary choice (Workflow view)' },
     { name: 'just appeared', fill: GROUP_FILL, outline: NEW_RING, meaning: 'new since the last click (fades)' },
     { name: 'clicked', fill: GROUP_FILL, outline: CLICKED_OUTLINE, meaning: 'the node last clicked' },
   ];

@@ -199,6 +199,9 @@ fun spell(obj: PathObj): String {
 /** The sink an opaque call at [site] is, as [Summary.sinks] keys it. */
 fun extArg(label: String, site: String) = "ext-arg:$label@$site"
 
+/** The sink an escaping `throw` at [site] is, as [Summary.sinks] keys it. */
+fun throwSink(exceptionType: String, site: String) = "throw:$exceptionType@$site"
+
 /** The declaring class's qualified name, then the field's: `pkg.Loan.rate`. Taken from the element. */
 internal fun qualifiedField(field: Element): String {
     val owner = field.enclosingElement

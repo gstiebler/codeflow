@@ -2,6 +2,8 @@ package codeflow
 
 import codeflow.graph.GraphBuilderBlock
 import codeflow.graph.GraphNode
+import codeflow.graph.NodeType
+import codeflow.java.Semantics
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.TreeMap
@@ -19,7 +21,7 @@ import java.util.TreeSet
  * [sourceRoot] is what every node's `source` path is relative to - the directory AstReader was
  * pointed at - so that the lines those sources name can be read back for the page's hover.
  */
-class JsonExporter(private val sourceRoot: Path) {
+class JsonExporter(private val sourceRoot: Path, private val initialLevel: String? = null) {
     // The same `n` and `b` prefixes the other exporters use, so a node found in one document can be
     // found in the others by the serial that identifies it.
     private fun nodeId(node: GraphNode) = "n${node.serial}"
@@ -45,14 +47,103 @@ class JsonExporter(private val sourceRoot: Path) {
         }
     }
 
+    /**
+     * Compact effect summary for one call-site block (including its inlined callees), used by the
+     * viewer's Summary Cards and hover tooltips.
+     */
+    private class BlockSummary(
+        val reads: LinkedHashSet<String> = LinkedHashSet(),
+        val writes: LinkedHashSet<String> = LinkedHashSet(),
+        val boundaries: LinkedHashSet<String> = LinkedHashSet(),
+        val throws: LinkedHashSet<String> = LinkedHashSet(),
+        var gaps: Int = 0
+    )
+
+    private fun computeSummaries(roots: List<GraphBuilderBlock>): Map<Int, BlockSummary> {
+        val blockOfNode = HashMap<Int, Int>()
+        val allBlocks = ArrayList<GraphBuilderBlock>()
+        fun index(block: GraphBuilderBlock) {
+            allBlocks.add(block)
+            block.graph.getNodes().forEach { blockOfNode[it.serial] = block.serial }
+            block.calledMethods.forEach { index(it) }
+        }
+        roots.forEach { index(it) }
+
+        // Fields written in a caller/constructor and read inside a callee have an incoming edge from
+        // the writer's field node into the callee's block. Record those per target block.
+        val externalReadsByBlock = HashMap<Int, LinkedHashSet<String>>()
+        for (block in allBlocks) {
+            for (node in block.graph.getNodes()) {
+                val owner = node.fieldOwner ?: continue
+                val shortField = "${owner.substringAfterLast('.')}.${node.label}"
+                for (edge in node.edgesIterator()) {
+                    val targetBlock = blockOfNode[edge.target.serial] ?: continue
+                    if (targetBlock != block.serial || node.fieldOp == "read") {
+                        externalReadsByBlock.getOrPut(targetBlock) { LinkedHashSet() }.add(shortField)
+                    }
+                }
+            }
+        }
+
+        val result = HashMap<Int, BlockSummary>()
+        fun summarise(block: GraphBuilderBlock): BlockSummary {
+            val s = BlockSummary()
+            externalReadsByBlock[block.serial]?.let { s.reads.addAll(it) }
+            for (node in block.graph.getNodes()) {
+                val owner = node.fieldOwner
+                if (owner != null) {
+                    val shortField = "${owner.substringAfterLast('.')}.${node.label}"
+                    when (node.fieldOp) {
+                        "read" -> s.reads.add(shortField)
+                        "write", "join" -> s.writes.add(shortField)
+                    }
+                }
+                when (node.getType()) {
+                    NodeType.EXTERNAL -> {
+                        val feedsOnlyThrow = node.edgesIterator().asSequence().toList().let { outs ->
+                            outs.isNotEmpty() && outs.all { it.target.getType() == NodeType.THROW }
+                        }
+                        if (node.fieldOwner == null && !feedsOnlyThrow && node.role != Semantics.ROLE_NOISE) {
+                            val clean = node.label.removePrefix("call ").trim()
+                            val entry = if (node.role != null) "${node.role}: $clean" else clean
+                            s.boundaries.add(entry)
+                        }
+                    }
+                    NodeType.THROW -> s.throws.add(node.label.removePrefix("throw ").trim())
+                    NodeType.UNMODELLED -> s.gaps += 1
+                    else -> {}
+                }
+            }
+            for (child in block.calledMethods) {
+                val cs = summarise(child)
+                s.reads.addAll(cs.reads)
+                s.writes.addAll(cs.writes)
+                s.boundaries.addAll(cs.boundaries)
+                s.throws.addAll(cs.throws)
+                s.gaps += cs.gaps
+            }
+            result[block.serial] = s
+            return s
+        }
+        roots.forEach { summarise(it) }
+        return result
+    }
+
+    private fun jsonStringArray(items: Collection<String>): String =
+        items.joinToString(", ", "[", "]") { """"${escape(it)}"""" }
+
     fun processMainMethod(roots: List<GraphBuilderBlock>, writer: (String) -> Unit) {
         val nodes = ArrayList<String>()
         val edges = ArrayList<String>()
         val sources = ArrayList<String>()
-        roots.forEach { collect(it, null, nodes, edges, sources) }
+        val summaries = computeSummaries(roots)
+        roots.forEach { collect(it, null, nodes, edges, sources, summaries) }
         val lines = linesOf(sources)
 
         writer("{")
+        if (initialLevel != null) {
+            writer("""  "initialLevel": "${escape(initialLevel)}",""")
+        }
         writer("""  "nodes": [""")
         nodes.forEachIndexed { index, node ->
             writer("    $node${if (index < nodes.size - 1) "," else ""}")
@@ -104,22 +195,35 @@ class JsonExporter(private val sourceRoot: Path) {
         parentId: String?,
         nodes: MutableList<String>,
         edges: MutableList<String>,
-        sources: MutableList<String>
+        sources: MutableList<String>,
+        summaries: Map<Int, BlockSummary>
     ) {
         val ownId = blockId(block)
         val boundary = if (block.boundary) """, "boundary": true""" else ""
+        val assumed = if (block.assumed) """, "assumed": true""" else ""
+        val classRole = block.classRole?.let { """, "classRole": "${escape(it)}"""" } ?: ""
+        val boundaryRole = block.boundaryRole?.let { """, "boundaryRole": "${escape(it)}"""" } ?: ""
+        val entryLabel = block.entryLabel?.let { """, "entry": "${escape(it)}"""" } ?: ""
         // Where this block was called from: the hover's stack. A root was called by nothing, and its
         // `openedAt` is its own declaration, so it carries none - absent meaning "the root".
         val called = if (parentId == null) "" else """, "called": "${escape(block.openedAt)}""""
+        val s = summaries[block.serial]
+        val summaryJson = if (s != null && (s.reads.isNotEmpty() || s.writes.isNotEmpty() || s.boundaries.isNotEmpty() || s.throws.isNotEmpty() || s.gaps > 0)) {
+            """, "summary": {"reads": ${jsonStringArray(s.reads)}, "writes": ${jsonStringArray(s.writes)}, """ +
+                """"boundaries": ${jsonStringArray(s.boundaries)}, "throws": ${jsonStringArray(s.throws)}, "gaps": ${s.gaps}}"""
+        } else ""
         nodes.add(
             entry(ownId, block.getMethodName(), "METHOD", block.getSource(), parentId) +
-                    """, "method": "${escape(block.method.key())}"$boundary$called}"""
+                    """, "method": "${escape(block.method.key())}"$boundary$assumed$classRole$boundaryRole$entryLabel$called$summaryJson}"""
         )
         sources.add(block.getSource())
         if (parentId != null) sources.add(block.openedAt)
 
         for (node in block.graph.getNodes()) {
-            nodes.add(entry(nodeId(node), node.label, node.getType().toString(), node.source, ownId, node.lead) + "}")
+            val fieldOwner = node.fieldOwner?.let { """, "fieldOwner": "${escape(it)}"""" } ?: ""
+            val fieldOp = node.fieldOp?.let { """, "fieldOp": "${escape(it)}"""" } ?: ""
+            val role = node.role?.let { """, "role": "${escape(it)}"""" } ?: ""
+            nodes.add(entry(nodeId(node), node.label, node.getType().toString(), node.source, ownId, node.lead) + "$fieldOwner$fieldOp$role}")
             sources.add(node.source)
             for (edge in node.edgesIterator()) {
                 // `kind` is on every edge, plain ones included, for the same reason `source` is on
@@ -131,7 +235,7 @@ class JsonExporter(private val sourceRoot: Path) {
             }
         }
         for (calledMethod in block.calledMethods) {
-            collect(calledMethod, ownId, nodes, edges, sources)
+            collect(calledMethod, ownId, nodes, edges, sources, summaries)
         }
     }
 

@@ -11,6 +11,7 @@ import javax.lang.model.element.ElementKind
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.TypeElement
 import javax.lang.model.util.Elements
+import javax.lang.model.util.Types
 import javax.lang.model.type.TypeKind
 import javax.lang.model.type.TypeMirror
 
@@ -28,6 +29,7 @@ import javax.lang.model.type.TypeMirror
  */
 class Symbols private constructor(
     private val elementUtils: Elements,
+    private val typeUtils: Types,
     private val elements: IdentityHashMap<Tree, Element>,
     private val types: IdentityHashMap<Tree, TypeMirror>,
     /** See [isDeclaredInSources]. */
@@ -55,6 +57,16 @@ class Symbols private constructor(
 
     /** Whether the tree's type is a primitive, and so holds a value rather than a reference. */
     fun isPrimitive(tree: Tree): Boolean = types[tree]?.kind?.isPrimitive ?: false
+
+    /** The type javac attributed to [tree], or null if unresolved. */
+    fun typeOf(tree: Tree): TypeMirror? = types[tree]
+
+    /**
+     * Whether [sub] is a subtype of [sup] (erased, so generic interfaces like `Repo<Loan>` match
+     * `RepoImpl` without comparing type arguments). Asked of javac, never matched by string.
+     */
+    fun isSubtype(sub: TypeElement, sup: TypeElement): Boolean =
+        typeUtils.isSubtype(typeUtils.erasure(sub.asType()), typeUtils.erasure(sup.asType()))
 
     /**
      * Whether this declaration is one of the analysed sources', rather than one javac loaded from
@@ -113,6 +125,7 @@ class Symbols private constructor(
         fun collect(
             trees: Trees,
             elementUtils: Elements,
+            typeUtils: Types,
             compilationUnits: Iterable<CompilationUnitTree>
         ): Symbols {
             val elements = IdentityHashMap<Tree, Element>()
@@ -148,7 +161,7 @@ class Symbols private constructor(
             }
             compilationUnits.forEach { collector.scan(it, null) }
 
-            return Symbols(elementUtils, elements, types, declared, unresolved, total)
+            return Symbols(elementUtils, typeUtils, elements, types, declared, unresolved, total)
         }
     }
 }

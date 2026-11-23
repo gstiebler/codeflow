@@ -204,7 +204,11 @@ export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
     if (box.type !== 'METHOD' || !(ix.members.get(box.id) ?? []).some((m) => revealed.has(m))) continue;
     const id = `frame:${box.id}`;
     framed.set(box.id, id);
-    frames.push({ id, box: box.id, label: ix.label.get(box.id)!, ...(box.boundary ? { boundary: true as const } : {}) });
+    frames.push({
+      id, box: box.id, label: ix.label.get(box.id)!,
+      ...(box.boundary ? { boundary: true as const } : {}),
+      ...(box.assumed ? { assumed: true as const } : {}),
+    });
   }
 
   const nodes: CondensedNode[] = [];
@@ -212,9 +216,12 @@ export function condensed(payload: Payload, revealed: Set<Id>): CondensedView {
   for (const id of [PROGRAM, ...ix.members.keys()]) {
     const count = left.get(id) ?? 0;
     if (count === 0) continue;
+    const raw = ix.byId.get(id);
     nodes.push({
       id, label: ix.label.get(id)!, type: 'GROUP', members: count,
-      ...(ix.byId.get(id)?.boundary ? { boundary: true } : {}), ...(framed.has(id) ? { frame: framed.get(id) } : {}),
+      ...(raw?.boundary ? { boundary: true } : {}),
+      ...(raw?.assumed ? { assumed: true } : {}),
+      ...(framed.has(id) ? { frame: framed.get(id) } : {}),
     });
   }
   for (const leaf of ix.leaves) {
@@ -474,6 +481,14 @@ export function hoverText(payload: Payload, revealed: Set<Id>, target: Condensed
     if (Number.isNaN(low)) return head;
     return `${head}  ${name}:${low === high ? low : `${low}-${high}`}`;
   });
-  const at = where(ix.byId.get(target.node)?.called);
-  return [`${ix.label.get(target.node)}: ${inside.length} nodes`, ...(at ? [`called at ${at.name}:${at.line}`] : []), ...capped(entries)];
+  const box = ix.byId.get(target.node);
+  const at = where(box?.called);
+  const extra: string[] = [];
+  if (box?.assumed) extra.push('assumed: single impl');
+  if (box?.summary) {
+    if (box.summary.writes.length > 0) extra.push(`writes: ${box.summary.writes.slice(0, 3).join(', ')}`);
+    if (box.summary.boundaries.length > 0) extra.push(`calls: ${box.summary.boundaries.slice(0, 3).join(', ')}`);
+    if (box.summary.throws.length > 0) extra.push(`throws: ${box.summary.throws.slice(0, 3).join(', ')}`);
+  }
+  return [`${ix.label.get(target.node)}: ${inside.length} nodes`, ...(at ? [`called at ${at.name}:${at.line}`] : []), ...extra, ...capped(entries)];
 }

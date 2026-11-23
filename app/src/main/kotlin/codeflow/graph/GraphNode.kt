@@ -18,7 +18,10 @@ enum class NodeType {
      * root's block. It feeds, by [EdgeKind.EVENT], every node of that root nothing else feeds, so
      * the graph shows what the entry point sets going. The builder's, not an instruction's.
      */
-    EVENT
+    EVENT,
+
+    /** An exception thrown out of normal flow (`throw new ...`). */
+    THROW
 }
 
 /**
@@ -84,6 +87,18 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
     val source: String
         get() = base.source
 
+    /** Qualified class name owning this field node, when the node represents a field read/write/join. */
+    val fieldOwner: String?
+        get() = base.fieldOwner
+
+    /** Whether a field node is a `"read"`, `"write"`, or `"join"`, or null for non-field nodes. */
+    val fieldOp: String?
+        get() = base.fieldOp
+
+    /** Semantic role of this node (`"DB"`, `"HTTP"`, `"EVENT"`, `"NOISE"`), when classified by AST metadata. */
+    val role: String?
+        get() = base.role
+
     open fun getType() = NodeType.BASE
 
     /**
@@ -109,7 +124,15 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
      *   Carried as a fact rather than found in the text, so that only what [codeflow.ir.Call.lead]
      *   marked is ever bold. It must be where the label starts; anything else is a builder bug.
      */
-    class Base(val id: GraphNodeId, val source: String, caption: String? = null, val lead: String? = null) {
+    class Base(
+        val id: GraphNodeId,
+        val source: String,
+        caption: String? = null,
+        val lead: String? = null,
+        val fieldOwner: String? = null,
+        val fieldOp: String? = null,
+        val role: String? = null
+    ) {
         val label: String = caption ?: id.label
 
         init {
@@ -165,6 +188,7 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
                 NodeType.UNMODELLED -> Unmodelled(base, serial)
                 NodeType.BOUNDARIES -> Boundaries(base, serial)
                 NodeType.EVENT -> Event(base, serial)
+                NodeType.THROW -> ThrowNode(base, serial)
                 NodeType.BASE -> throw GraphException("BASE is the abstract case and has no node")
             }
 
@@ -210,6 +234,10 @@ abstract class GraphNode(private val base: Base, val serial: Int) {
     /** What starts an entry point; see [NodeType.EVENT]. */
     class Event(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.EVENT
+    }
+    /** An exception thrown out of normal flow; see [NodeType.THROW]. */
+    class ThrowNode(base: Base, serial: Int) : GraphNode(base, serial) {
+        override fun getType() = NodeType.THROW
     }
     class MethodReturn(base: Base, serial: Int) : GraphNode(base, serial) {
         override fun getType() = NodeType.RETURN

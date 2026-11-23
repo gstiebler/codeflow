@@ -276,3 +276,28 @@ carries `cf-moving` while a move runs, for the browser tests (`animation.spec.ts
 **No `extent: 'parent'`.** React Flow clamps a child to its parent's *measured* size, and a box resized
 this frame has not been measured yet: every frame of a move drew its children in its top-left corner.
 Nothing is draggable, so the extent bought nothing. The 40 px anchor test is what caught it.
+
+## High-level zoom levels (`highlevel.ts`)
+
+Spec: `docs/superpowers/specs/2026-11-23-high-level-concepts-design.md`.
+
+Beside `condensed.ts` (Expressions, Level 3 — default when `--level` is omitted), `highlevel.ts`
+defines two pure, DOM-free projections returning the same `CondensedView` shape so ELK layout,
+orthogonal/curved routing, motion, and Mermaid export work uniformly across all three levels:
+
+- **Architecture (Level 1, `architectureView`, key `1`):** Entrypoints (`EVENT` with annotated route/job
+  caption) → Method/Component **Summary Cards** (`writes:`, `reads:`, `calls:`, `throws:`, `gaps`,
+  dashed amber `assumed: single impl` when entered via `--assume-single-impl`) → **Domain Entity State
+  Cards** (`ENTITY`, aggregating reads and writes by `fieldOwner`) → Typed Boundaries (`DB`, `HTTP`,
+  `EVENT`), Exceptions (`THROW`), and `UNMODELLED` gaps. Clicking a Service or Entity drills into Level 2.
+- **Workflow (Level 2, `workflowView` + `contractExpressions`, key `2`):** Contracts pure expression
+  chains (`LITERAL`, non-decision `BIN_OP`, ephemeral local variables, and hidden `NOISE` calls) between
+  anchors (`EVENT`, `FUNC_PARAM`, domain fields, gated `DECISION` nodes captioned with their source
+  predicate, boundaries, `THROW`, `RETURN`, `UNMODELLED`) into click-to-expand derived edges while
+  preserving exact anchor-to-anchor reachability. Folded callees render as Summary Cards; clicking a
+  callee card opens it, and clicking a contracted edge reveals its collapsed expression nodes.
+- **Expressions (Level 3, `condensed.ts`, key `3`):** The progressive-reveal condensed dataflow view.
+
+A `Noise` toolbar button toggles `hideNoise` in Architecture and Workflow views when the payload
+contains `NOISE`-classified calls or boundaries. `--level architecture|workflow|expressions` sets
+`Payload.initialLevel` for `--html` and `--json`.

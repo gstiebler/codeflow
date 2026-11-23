@@ -646,6 +646,26 @@ class Lowering(
             returnValue(node.expression?.let { evaluate(it, ctx) }, node, ctx)
 
         /**
+         * `throw expr;` — evaluates the thrown value and records a [Throw] instruction carrying
+         * its exception type so escaping exceptions appear in the graph and in `--summaries`.
+         */
+        override fun visitThrow(node: ThrowTree, ctx: ProcessorContext): Val? {
+            val expr = node.expression
+            val value = evaluate(expr, ctx)
+            val exceptionType = when {
+                expr is NewClassTree -> lastName(expr.identifier).substringBefore('<')
+                else -> {
+                    val mirror = symbols.typeOf(expr)
+                    val declared = mirror as? javax.lang.model.type.DeclaredType
+                    val name = declared?.asElement()?.simpleName?.toString()
+                    if (name != null && mirror.kind != TypeKind.ERROR) name else "Exception"
+                }
+            }
+            emit(Throw(value, exceptionType, ctx.location(node)))
+            return null
+        }
+
+        /**
          * `class Doubler { ... }` written inside a method body, which runs nothing where it stands.
          *
          * Its methods run when something calls them, and that call site reaches the declaration the

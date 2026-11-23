@@ -108,3 +108,12 @@ Operator labels go through `binaryOperatorLabel` / `unaryOperatorLabel` / `compo
 which map symbols that are also Mermaid syntax to words (`/` → `div`, `|` → `bitOr`, `&` → `bitAnd`,
 and `?:` → `ternary`). A raw symbol corrupts the diagram rather than just looking odd.
 
+## `throw` statements
+
+`Lowering.visitThrow` emits `Insn.Throw(value, exceptionType, source)`, preserving the thrown
+expression's flow and its simple exception type name (from `NewClassTree` syntax or javac's
+attributed `TypeMirror`). `IrGraphBuilder` draws a `NodeType.THROW` box (`throw <ExceptionType>`,
+bold `throw` lead; `classDef THROW` emitted in Mermaid only when present), and `Summarizer` records
+a `throw:<ExceptionType>@<source>` sink so escaping exceptions appear in `--summaries`, Summary
+Cards, and Architecture/Workflow views.
+

@@ -6,6 +6,8 @@ import codeflow.graph.GraphNode
 import codeflow.graph.NodeType
 import codeflow.ir.boundaryOrderCaption
 import codeflow.ir.BOUNDARY_CALL_LEAD
+import codeflow.ir.THROW_LEAD
+import codeflow.ir.Throw
 import codeflow.ir.BinOp
 import codeflow.ir.Bind
 import codeflow.ir.Call
@@ -137,6 +139,7 @@ class InvariantsTest {
         is New -> insn.typeName
         is Opaque -> insn.label
         is Unmodelled -> insn.kind
+        is Throw -> "$THROW_LEAD ${insn.exceptionType}"
         // Captioned after the root the chain was opened from, inlined callees' writes included.
         is WriteBoundaryOrder -> boundaryOrderCaption(root.getMethodName())
         // Read like a field: the box the last boundary call left, and only the first read draws one.

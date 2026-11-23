@@ -37,7 +37,7 @@ class HeapTest {
             unit.typeDecls.filterIsInstance<ClassTree>().flatMap { it.members }
                 .mapNotNull { trees.getElement(trees.getPath(unit, it)) }
         }.filter { it.kind == ElementKind.FIELD }
-        return Symbols.collect(trees, task.elements, units) to fields
+        return Symbols.collect(trees, task.elements, task.types, units) to fields
     }
 
     @Test

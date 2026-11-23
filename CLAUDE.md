@@ -21,6 +21,10 @@ UPDATE_SNAPSHOTS=1 ./gradlew test    # rewrite the golden files
 ./gradlew run --args="path/to/java/dir --summaries"            # every method's summary, as JSON
 ./gradlew run --args="path/to/java/dir --boundary Gateway"     # Gateway's methods not read: params → call <name> → return; repeatable
 ./gradlew run --args="path/to/java/dir --pure Parser"          # as --boundary, but its calls stay out of the order chain (no writes, no throws)
+./gradlew run --args="path/to/java/dir --assume-single-impl"   # traverse single-impl interfaces/abstract methods (visibly marked as assumed)
+./gradlew run --args="path/to/java/dir --auto-boundaries"      # auto-classify @Repository/DB, HTTP, Event boundaries and Logger/boilerplate noise
+./gradlew run --args="path/to/java/dir --discover-roots"       # discover annotated entrypoints (@PostMapping, @Scheduled, listeners, @CommandType)
+./gradlew run --args="path/to/java/dir --html --level workflow" # initial viewer zoom level: architecture | workflow | expressions
 ./gradlew run --args="path/to/java/dir @roots.args --html"     # @file: its lines' arguments in place (# comments, blank lines skipped)
 scripts/smoke.sh app/build/install/app/bin/app path/to/java/dir  # every method a root; fails on a crash or a skipped root
 scripts/diverges.py summaries.json overrides:NAME                # what one sibling does and another does not; also stem:, fields:, sink:, or methods named
@@ -69,6 +73,8 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
 - **Drop what javac added, not what the author wrote** — `Symbols.isWrittenInSource`.
 - **Dispatch on the object.** `Frame.resolve` asks the receiver's constructed type; several
   implementations or untyped objects → `EXTERNAL`, never a guess. `super.f()` does not dispatch.
+  Behind `--assume-single-impl`, a non-boundary interface/abstract method with *exactly one* concrete
+  subtype in the sources resolves to it and marks the block/summary as `assumed` (reported on stderr).
   → `docs/decisions/calls-and-dispatch.md`
 - **Two identities, never conflated.** `GraphNode.serial` = which box (per occurrence);
   `JNodeId` = which variable (per declaration × object). **Never derive a rendered id by hashing
@@ -80,8 +86,13 @@ which box a value is drawn as is per call site. → `docs/decisions/pipeline.md`
   no write is a value with nothing flowing in. Do not widen either gate.
 - **Mermaid placement:** `MermaidExporter.placeEdges` writes each edge in the innermost block
   enclosing both endpoints, and `linkStyle` indexes are global — moving an edge renumbers the rest.
-- **Viewer: `condensed.ts` decides, the renderer draws.** Every visibility decision is a pure function
-  of `(payload, revealed)`; `revealed` is the only state. ELK options are **strings**.
+- **Viewer: `condensed.ts` and `highlevel.ts` decide, the renderer draws.** Every visibility and
+  contraction decision is a pure function of the payload and UI state; ELK options are **strings**.
+  Three zoom levels (`Architecture`, `Workflow`, `Expressions`; keys `1`/`2`/`3`, or `--level`):
+  Architecture projects Entrypoints → Service Summary Cards → Domain Entity State Cards → Typed Boundaries/Throws;
+  Workflow contracts pure expressions between anchors into click-to-expand derived edges and readable decisions;
+  Expressions is the progressive-reveal condensed view (`condensed.ts`, default when `--level` is omitted).
+  → `docs/decisions/viewer.md`, `docs/superpowers/specs/2026-11-23-high-level-concepts-design.md`
   The `Boundaries` toolbar list (`boundaryChoices`) adds one boundary call box per click.
   Lines are square (ELK ORTHOGONAL) or, via the `Curved` toolbar toggle, ELK SPLINES drawn by `curvedPath`.
   A box with a value out is a frame (`CondensedView.frames`) holding its values and its `N more` rest node; boxes stay side by side.

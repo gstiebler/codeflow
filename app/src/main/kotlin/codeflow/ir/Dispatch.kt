@@ -17,6 +17,12 @@ import javax.lang.model.element.TypeElement
  */
 object Dispatch {
     /**
+     * The resolved target of a call, plus whether it relied on an assumption (`--assume-single-impl`)
+     * rather than a proven concrete receiver or static declaration.
+     */
+    data class Resolution(val method: Method, val assumed: Boolean = false)
+
+    /**
      * Which body this call runs, which is a question about the receiver rather than about the name.
      *
      * javac resolves a call against the *declared* type, so `Base b = new Sub(); b.f(7)` comes back
@@ -33,15 +39,30 @@ object Dispatch {
      * - it needs a box saying "one of these" - and picking one of them would be the guess this whole
      * change exists to stop. So several takes the opaque EXTERNAL path, as does a receiver whose
      * objects say nothing about their class.
+     *
+     * When `--assume-single-impl` is enabled (`globalCtx.assumeSingleImpl`), a virtual call to a
+     * non-boundary abstract/interface method with no tracked receiver type resolves to the sole
+     * concrete implementation in the sources — marked `assumed = true` so every downstream view and
+     * summary renders and reports the assumption visibly.
      */
-    fun resolve(globalCtx: GlobalContext, insn: Call, types: List<Element>): Method? {
+    fun resolveWithAssumptions(globalCtx: GlobalContext, insn: Call, types: List<Element>): Resolution? {
         val declared = insn.target as? ExecutableElement ?: return null
-        boundary(globalCtx, declared)?.let { return it }
+        boundary(globalCtx, declared)?.let { return Resolution(it, assumed = false) }
         val statically = globalCtx.findMethod(declared)
-        if (!isVirtual(insn.receiver, declared)) return statically
-        if (types.isEmpty()) return statically
+        if (!isVirtual(insn.receiver, declared)) return statically?.let { Resolution(it, assumed = false) }
+        if (types.isEmpty()) {
+            if (statically != null) return Resolution(statically, assumed = false)
+            if (globalCtx.assumeSingleImpl) {
+                return globalCtx.singleImplementation(declared)?.let { Resolution(it, assumed = true) }
+            }
+            return null
+        }
         return types.map { globalCtx.implementation(declared, it) }.distinct().singleOrNull()
+            ?.let { Resolution(it, assumed = false) }
     }
+
+    fun resolve(globalCtx: GlobalContext, insn: Call, types: List<Element>): Method? =
+        resolveWithAssumptions(globalCtx, insn, types)?.method
 
     /**
      * The boundary method a call javac resolved to [declared] is, whatever objects its receiver holds.

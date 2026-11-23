@@ -56,6 +56,61 @@ function bigBoundary() {
   return dir;
 }
 
+function highLevelSample() {
+  const dir = resolve('build/viewer-test/src/highLevel');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(`${dir}/Loan.java`, [
+    'package highLevel;',
+    '@Entity',
+    'public class Loan { public int balance; }',
+  ].join('\n'));
+  writeFileSync(`${dir}/LoanRepository.java`, [
+    'package highLevel;',
+    '@Repository',
+    'public interface LoanRepository { void save(Loan loan); }',
+  ].join('\n'));
+  writeFileSync(`${dir}/Logger.java`, [
+    'package highLevel;',
+    'public class Logger { public void info(String msg) {} }',
+  ].join('\n'));
+  writeFileSync(`${dir}/LoanService.java`, [
+    'package highLevel;',
+    'public interface LoanService { int apply(Loan loan, int amount); }',
+  ].join('\n'));
+  writeFileSync(`${dir}/LoanServiceImpl.java`, [
+    'package highLevel;',
+    '@Service',
+    'public class LoanServiceImpl implements LoanService {',
+    '  private LoanRepository repo;',
+    '  @Override',
+    '  public int apply(Loan loan, int amount) {',
+    '    int next = loan.balance - amount;',
+    '    loan.balance = next;',
+    '    repo.save(loan);',
+    '    return loan.balance;',
+    '  }',
+    '}',
+  ].join('\n'));
+  writeFileSync(`${dir}/LoanController.java`, [
+    'package highLevel;',
+    '@RestController',
+    '@RequestMapping("/loans")',
+    'public class LoanController {',
+    '  private LoanService service;',
+    '  private Logger log;',
+    '  @PostMapping("/repay")',
+    '  public int repay(Loan loan, int amount) {',
+    '    log.info("repaying");',
+    '    if (amount <= 0) {',
+    '      throw new IllegalArgumentException("bad");',
+    '    }',
+    '    return service.apply(loan, amount);',
+    '  }',
+    '}',
+  ].join('\n'));
+  return dir;
+}
+
 export default function globalSetup() {
   mkdirSync('build/viewer-test', { recursive: true });
   const big = bigBoundary();
@@ -64,6 +119,12 @@ export default function globalSetup() {
     { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] },
   );
   writeFileSync('build/viewer-test/bigBoundary.html', html);
+  const hl = highLevelSample();
+  const hlHtml = execSync(
+    `./gradlew -q run --args="${hl} --html --assume-single-impl --auto-boundaries --discover-roots --level architecture"`,
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] },
+  );
+  writeFileSync('build/viewer-test/highLevel.html', hlHtml);
   for (const [name, flags] of Object.entries(FIXTURES)) {
     const html = execSync(
       `./gradlew -q run --args="${resolve(`app/src/test/resources/${name}`)} --html ${flags}"`,

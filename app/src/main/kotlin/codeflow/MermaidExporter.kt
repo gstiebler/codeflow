@@ -31,13 +31,16 @@ class MermaidExporter() {
      * The token's class is written only into a flowchart that draws a token, as an ORDER edge's
      * `linkStyle` is: a run without `--boundary` is the flowchart it was before there were boundaries.
      */
-    private fun getClasses(roots: List<GraphBuilderBlock>) =
-        if (roots.any { drawsBoundaries(it) }) baseClasses() + "classDef BOUNDARIES fill:#7B1FA240"
-        else baseClasses()
+    private fun getClasses(roots: List<GraphBuilderBlock>): List<String> {
+        val classes = ArrayList(baseClasses())
+        if (roots.any { drawsType(it, NodeType.BOUNDARIES) }) classes.add("classDef BOUNDARIES fill:#7B1FA240")
+        if (roots.any { drawsType(it, NodeType.THROW) }) classes.add("classDef THROW fill:#D32F2F30,stroke:#C62828")
+        return classes
+    }
 
-    private fun drawsBoundaries(block: GraphBuilderBlock): Boolean =
-        block.graph.getNodes().any { it.getType() == NodeType.BOUNDARIES } ||
-                block.calledMethods.any { drawsBoundaries(it) }
+    private fun drawsType(block: GraphBuilderBlock, type: NodeType): Boolean =
+        block.graph.getNodes().any { it.getType() == type } ||
+                block.calledMethods.any { drawsType(it, type) }
 
     private fun baseClasses() = listOf(
         "classDef LITERAL fill:#00FF0030",

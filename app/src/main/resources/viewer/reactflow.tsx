@@ -19,19 +19,22 @@ import {
   boundaryChoices, boundaryDrawn, captionParts, choiceAt, choiceText, condensed, condensedCaption, condensedOpening, hoverText, PICK_AT, tapChoices,
   type Choice,
 } from './condensed.ts';
+import { architectureView, highLevelHoverText, workflowView } from './highlevel.ts';
 import { condensedMermaid } from './mermaid.ts';
 import {
   captionAt, curvedPath, flatEdgeId, flatElkGraph, positions, roundedPath, routes, NODE_HEIGHT,
   type LineStyle, type Point, type Positioned,
 } from './layout.ts';
 import {
-  PALETTE, NODE_DEFAULT, NODE_OUTLINE, GROUP_FILL, BOUNDARY_OUTLINE, CLICKED_OUTLINE, FRAME_FILL, FRAME_OUTLINE, GROUP_OUTLINE, NEW_RING, LABEL_BG, condensedEdgeStyle, legend,
+  ASSUMED_OUTLINE, BOUNDARY_OUTLINE, CLICKED_OUTLINE, DECISION_FILL, DECISION_OUTLINE,
+  ENTITY_FILL, ENTITY_OUTLINE, FRAME_FILL, FRAME_OUTLINE, GROUP_FILL, GROUP_OUTLINE,
+  LABEL_BG, NEW_RING, NODE_DEFAULT, NODE_OUTLINE, PALETTE, condensedEdgeStyle, legend,
 } from './theme.ts';
 import {
   absolute, diffViews, easeOut, frame, HIGHLIGHT_MS, MOTION_CUTOFF, MOVE_MS, type Drawn,
 } from './transition.ts';
 import type {
-  CondensedFrame, CondensedNode, CondensedTarget, CondensedView, Id, NodeType, Payload,
+  CondensedFrame, CondensedNode, CondensedTarget, CondensedView, Id, NodeType, Payload, ZoomLevel,
 } from './types.ts';
 
 /** The popup's width and tallest height, in pixels; where it opens is kept inside the window by these. */
@@ -44,10 +47,25 @@ function installStyles() {
   style.textContent = `${css}
     .cf-node { border: 1px solid ${NODE_OUTLINE}; border-radius: 4px; font: 11px system-ui, sans-serif;
                display: flex; align-items: center; justify-content: center; box-sizing: border-box;
-               width: 100%; height: 100%; }
+               width: 100%; height: 100%; gap: 4px; padding: 0 4px; }
     .cf-group { border: 2px solid ${GROUP_OUTLINE}; border-radius: 4px; background: ${GROUP_FILL};
-                font: bold 11px system-ui, sans-serif; display: flex; align-items: center;
-                justify-content: center; box-sizing: border-box; width: 100%; height: 100%; }
+                font: bold 11px system-ui, sans-serif; display: flex; flex-direction: column;
+                align-items: center; justify-content: center; box-sizing: border-box;
+                width: 100%; height: 100%; padding: 2px 6px; }
+    .cf-card-head { display: flex; align-items: center; gap: 4px; }
+    .cf-card-sub { font: 10px ui-monospace, monospace; font-weight: normal; color: #444;
+                   line-height: 14px; text-align: left; width: 100%; white-space: nowrap;
+                   overflow: hidden; text-overflow: ellipsis; }
+    .cf-badge { font: bold 9px system-ui, sans-serif; padding: 1px 4px; border-radius: 3px;
+                background: #0001; color: #333; letter-spacing: 0.02em; }
+    .cf-entity { border: 2px solid ${ENTITY_OUTLINE}; border-radius: 6px; background: ${ENTITY_FILL};
+                 font: bold 11px system-ui, sans-serif; display: flex; flex-direction: column;
+                 align-items: center; justify-content: center; box-sizing: border-box;
+                 width: 100%; height: 100%; padding: 2px 6px; }
+    .cf-decision { border: 2px solid ${DECISION_OUTLINE}; border-radius: 12px; background: ${DECISION_FILL};
+                   font: 11px system-ui, sans-serif; display: flex; align-items: center;
+                   justify-content: center; box-sizing: border-box; width: 100%; height: 100%; padding: 0 6px; }
+    .cf-toolbar-sep { width: 1px; background: #ccc; margin: 2px 3px; }
     .cf-frame { border: 1px solid ${FRAME_OUTLINE}; border-radius: 8px; background: ${FRAME_FILL};
                 box-sizing: border-box; width: 100%; height: 100%; padding: 6px 10px;
                 font: bold 11px system-ui, sans-serif; color: #555; }
@@ -108,12 +126,35 @@ function installStyles() {
  */
 function LeafNode({ data }: NodeProps) {
   const node = data as unknown as CondensedNode;
+  if (node.type === 'ENTITY') {
+    return (
+      <div className="cf-entity">
+        <Handle type="target" position={Position.Top} />
+        <div className="cf-card-head">
+          <span>{node.label}</span>
+          <span className="cf-badge">ENTITY</span>
+        </div>
+        {node.subtitle?.map((line, i) => <div key={i} className="cf-card-sub">{line}</div>)}
+        <Handle type="source" position={Position.Bottom} />
+      </div>
+    );
+  }
+  if (node.type === 'DECISION') {
+    return (
+      <div className="cf-decision">
+        <Handle type="target" position={Position.Top} />
+        <span>{node.label}</span>
+        <Handle type="source" position={Position.Bottom} />
+      </div>
+    );
+  }
   const caption = captionParts(node);
   return (
     <div className="cf-node" style={{ background: PALETTE[node.type as NodeType] ?? NODE_DEFAULT }}>
       <Handle type="target" position={Position.Top} />
       {/* One span: as a flex item of its own, `rest` would lose its leading space - `callfetch`. */}
       <span>{caption.lead !== undefined && <strong>{caption.lead}</strong>}{caption.rest}</span>
+      {node.role && <span className="cf-badge">{node.role}</span>}
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
@@ -302,22 +343,38 @@ function useMotion(flow: ReactFlowInstance | null, target: Target | null) {
 /** What a view is handed by the page: the payload and its own `revealed`, which the page keeps. */
 type Revealing = { payload: Payload; revealed: Set<Id>; setRevealed: Dispatch<SetStateAction<Set<Id>>> };
 
-/** A group: its caption - label and count - with an outline saying whose it is. */
+/** A group or Summary Card: its caption (plus optional role badge and summary subtitle) with its owner's outline. */
 function GroupNode({ data }: NodeProps) {
   const node = data as unknown as CondensedNode;
+  const borderColor = node.boundary ? BOUNDARY_OUTLINE : (node.assumed ? ASSUMED_OUTLINE : GROUP_OUTLINE);
+  const borderStyle = node.assumed ? 'dashed' : 'solid';
+  const hasCard = (node.subtitle?.length ?? 0) > 0;
   return (
-    <div className="cf-group" style={{ borderColor: node.boundary ? BOUNDARY_OUTLINE : GROUP_OUTLINE }}>
+    <div className="cf-group" style={{ borderColor, borderStyle }}>
       <Handle type="target" position={Position.Top} />
-      {condensedCaption(node)}
+      {hasCard ? (
+        <>
+          <div className="cf-card-head">
+            <span>{node.label}</span>
+            {node.role && <span className="cf-badge">{node.role}</span>}
+          </div>
+          {node.subtitle!.map((line, i) => <div key={i} className="cf-card-sub">{line}</div>)}
+        </>
+      ) : (
+        condensedCaption(node)
+      )}
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
 }
 
-/** A method's frame: its name, at the top left, over the values drawn inside it. Nothing else to say. */
+/** A method's frame: its name, at the top left, over the values drawn inside it. */
 function FrameNode({ data }: NodeProps) {
   const frame = data as unknown as CondensedFrame;
-  return <div className="cf-frame" style={frame.boundary ? { borderColor: BOUNDARY_OUTLINE } : undefined}>{frame.label}</div>;
+  const style = frame.boundary
+    ? { borderColor: BOUNDARY_OUTLINE }
+    : (frame.assumed ? { borderColor: ASSUMED_OUTLINE, borderStyle: 'dashed' } : undefined);
+  return <div className="cf-frame" style={style}>{frame.label}{frame.assumed ? ' (assumed)' : ''}</div>;
 }
 
 // Not `group`: React Flow has a built-in node type of that name.
@@ -537,7 +594,11 @@ function Boundaries({ payload, revealed, onAdd, onClose }: {
  * The view: flat, laid out by ELK, with a tooltip saying where a node lives. Every decision is
  * condensed.ts's; this writes it out.
  */
-function CondensedGraph({ payload, revealed, setRevealed, view, lineStyle, boundaries, closeBoundaries }: Revealing & {
+function CondensedGraph({
+  payload, revealed, setRevealed, view, level, onHighLevelTap, lineStyle, boundaries, closeBoundaries,
+}: Revealing & {
+  level: ZoomLevel;
+  onHighLevelTap: (target: CondensedTarget) => void;
   lineStyle: LineStyle; boundaries: boolean; closeBoundaries: () => void; view: CondensedView;
 }) {
   // Null until ELK first answers, so that the layout counter counts only real layouts: a probe
@@ -549,9 +610,16 @@ function CondensedGraph({ payload, revealed, setRevealed, view, lineStyle, bound
   const picks = useRef(0);
   const previous = useRef<Map<Id, Point>>(undefined);
   const click = useRef<Click | undefined>(undefined);
+  const prevLevel = useRef<ZoomLevel>(level);
 
   useEffect(() => {
     let current = true;
+    // Switching zoom levels produces a different graph topology, so reset previous layout seeding.
+    if (prevLevel.current !== level) {
+      previous.current = undefined;
+      click.current = undefined;
+      prevLevel.current = level;
+    }
     new ELK().layout(flatElkGraph(view, condensedCaption, previous.current, lineStyle)).then((result) => {
       if (!current) return;
       const laid = positions(result);
@@ -561,7 +629,7 @@ function CondensedGraph({ payload, revealed, setRevealed, view, lineStyle, bound
       click.current = undefined;
     });
     return () => { current = false; };
-  }, [view, lineStyle]);
+  }, [view, lineStyle, level]);
 
   // Motion, refit and the layout counter - see useMotion.
   const { drawing, moving } = useMotion(flow, target);
@@ -583,6 +651,13 @@ function CondensedGraph({ payload, revealed, setRevealed, view, lineStyle, bound
 
   // A click that could show more than PICK_AT things asks which; otherwise it shows them all.
   const tapOn = useCallback((on: CondensedTarget, at: { clientX: number; clientY: number }) => {
+    if (level !== 'expressions') {
+      setHover(null);
+      setPick(null);
+      click.current = 'node' in on ? { id: on.node } : {};
+      onHighLevelTap(on);
+      return;
+    }
     const choices = tapChoices(payload, revealed, on);
     if (choices.length <= PICK_AT) return show(on, choices.flatMap((c) => c.reveal));
     const caption = (id: Id) => {
@@ -596,7 +671,7 @@ function CondensedGraph({ payload, revealed, setRevealed, view, lineStyle, bound
       n: picks.current, target: on, choices, x: at.clientX, y: at.clientY,
       title: 'node' in on ? caption(on.node) : `${caption(on.edge[0])} → ${caption(on.edge[1])}`,
     });
-  }, [payload, revealed, view, show]);
+  }, [level, onHighLevelTap, payload, revealed, view, show]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -609,6 +684,9 @@ function CondensedGraph({ payload, revealed, setRevealed, view, lineStyle, bound
   }, [closeBoundaries]);
 
   const edgeTarget = (edge: Edge): CondensedTarget => ({ edge: [edge.source, edge.target] });
+  const tooltipLines = hover
+    ? (level === 'expressions' ? hoverText(payload, revealed, hover.target) : highLevelHoverText(payload, view, hover.target))
+    : [];
 
   return (
     <>
@@ -626,9 +704,9 @@ function CondensedGraph({ payload, revealed, setRevealed, view, lineStyle, bound
       </ReactFlow>
       {pick && <Picker key={pick.n} payload={payload} pick={pick} onShow={(ids) => show(pick.target, ids)} onClose={() => setPick(null)} />}
       {boundaries && <Boundaries payload={payload} revealed={revealed} onAdd={(id) => show({ node: id }, [id])} onClose={closeBoundaries} />}
-      {hover && (
+      {hover && tooltipLines.length > 0 && (
         <div className="cf-tooltip" style={{ left: hover.x + 12, top: hover.y + 12 }}>
-          {hoverText(payload, revealed, hover.target).map((line, i) => <div key={i}>{line}</div>)}
+          {tooltipLines.map((line, i) => <div key={i}>{line}</div>)}
         </div>
       )}
     </>
@@ -681,22 +759,71 @@ function Page({ payload }: { payload: Payload }) {
   const [boundariesOpen, setBoundariesOpen] = useState(false);
   const closeBoundaries = useCallback(() => setBoundariesOpen(false), []);
   const hasBoundaries = useMemo(() => boundaryChoices(payload, new Set()).length > 0, [payload]);
+  const hasNoise = useMemo(
+    () => payload.nodes.some((n) => n.role === 'NOISE' || n.boundaryRole === 'NOISE'),
+    [payload],
+  );
   // Square or curved lines; changing it re-lays-out the same view, so `shown` stays.
   const [lineStyle, setLineStyle] = useState<LineStyle>('square');
+  const [level, setLevel] = useState<ZoomLevel>(() => payload.initialLevel ?? 'expressions');
+  const [hideNoise, setHideNoise] = useState(true);
+  const [workflowExpanded, setWorkflowExpanded] = useState<Set<Id>>(() => new Set());
+  const [focusBox, setFocusBox] = useState<Id | undefined>(undefined);
   const [shown, setShown] = useState<Set<Id>>(() => condensedOpening(payload));
-  // Here rather than in CondensedGraph so that the Mermaid button exports the very view drawn.
-  const condensedView = useMemo(() => condensed(payload, shown), [payload, shown]);
+
+  const activeView = useMemo(() => {
+    if (level === 'architecture') return architectureView(payload, { hideNoise });
+    if (level === 'workflow') return workflowView(payload, { hideNoise, expanded: workflowExpanded, focusBox });
+    return condensed(payload, shown);
+  }, [payload, level, hideNoise, workflowExpanded, focusBox, shown]);
+
+  const onHighLevelTap = useCallback((target: CondensedTarget) => {
+    if ('edge' in target) {
+      const [s, t] = target.edge;
+      const edge = activeView.edges.find((e) => e.source === s && e.target === t);
+      if (edge?.contractedIds && edge.contractedIds.length > 0) {
+        setWorkflowExpanded((was) => new Set([...was, ...edge.contractedIds!]));
+      }
+      return;
+    }
+    const id = target.node;
+    if (level === 'architecture') {
+      const raw = payload.nodes.find((n) => n.id === id);
+      if (raw?.type === 'METHOD') {
+        setFocusBox(id);
+        setWorkflowExpanded(new Set());
+        setLevel('workflow');
+      } else if (id.startsWith('entity:')) {
+        const owner = id.slice('entity:'.length);
+        const fieldNodes = payload.nodes.filter((n) => n.fieldOwner === owner).map((n) => n.id);
+        setFocusBox(undefined);
+        setWorkflowExpanded(new Set(fieldNodes));
+        setLevel('workflow');
+      }
+    } else if (level === 'workflow') {
+      const raw = payload.nodes.find((n) => n.id === id);
+      if (raw?.type === 'METHOD') {
+        setWorkflowExpanded((was) => new Set([...was, id]));
+      }
+    }
+  }, [activeView, level, payload]);
 
   // The condensed view folds nothing, so without this the only way back is a reload, which re-runs
   // the whole layout.
   const reset = useCallback(() => {
     setShown(condensedOpening(payload));
+    setWorkflowExpanded(new Set());
+    setFocusBox(undefined);
   }, [payload]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       // Not while typing in the popup's filter.
-      if ((event.key === 'r' || event.key === 'R') && !(event.target instanceof HTMLInputElement)) reset();
+      if (event.target instanceof HTMLInputElement) return;
+      if (event.key === 'r' || event.key === 'R') reset();
+      else if (event.key === '1') setLevel('architecture');
+      else if (event.key === '2') setLevel('workflow');
+      else if (event.key === '3') setLevel('expressions');
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -706,15 +833,27 @@ function Page({ payload }: { payload: Payload }) {
     <>
       <div className="cf-toolbar">
         <button type="button" onClick={reset}>Reset</button>
-        <button type="button" onClick={() => download(condensedView)}>Mermaid</button>
+        <button type="button" onClick={() => download(activeView)}>Mermaid</button>
         <button type="button" aria-pressed={legendOpen} onClick={() => setLegendOpen((open) => !open)}>Legend</button>
         <button type="button" aria-pressed={boundariesOpen} disabled={!hasBoundaries}
                 onClick={() => setBoundariesOpen((open) => !open)}>Boundaries</button>
         <button type="button" aria-pressed={lineStyle === 'curved'}
                 onClick={() => setLineStyle((style) => (style === 'curved' ? 'square' : 'curved'))}>Curved</button>
+        <span className="cf-toolbar-sep" aria-hidden="true" />
+        <button type="button" aria-pressed={level === 'architecture'}
+                onClick={() => setLevel('architecture')}>Architecture</button>
+        <button type="button" aria-pressed={level === 'workflow'}
+                onClick={() => { setFocusBox(undefined); setLevel('workflow'); }}>Workflow</button>
+        <button type="button" aria-pressed={level === 'expressions'}
+                onClick={() => setLevel('expressions')}>Expressions</button>
+        {hasNoise && level !== 'expressions' && (
+          <button type="button" aria-pressed={!hideNoise}
+                  onClick={() => setHideNoise((h) => !h)}>Noise</button>
+        )}
       </div>
       {legendOpen && <Legend payload={payload} />}
-      <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={condensedView}
+      <CondensedGraph payload={payload} revealed={shown} setRevealed={setShown} view={activeView}
+                      level={level} onHighLevelTap={onHighLevelTap}
                       lineStyle={lineStyle}
                       boundaries={boundariesOpen} closeBoundaries={closeBoundaries} />
     </>

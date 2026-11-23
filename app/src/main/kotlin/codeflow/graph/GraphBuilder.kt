@@ -31,7 +31,15 @@ class GraphBuilderBlock(
      */
     val boundary: Boolean,
     /** Where a root's serials start, so that a second root in one document continues the first's. */
-    firstSerial: Int = 0
+    firstSerial: Int = 0,
+    /** True when this block was entered through assumed single-implementation DI dispatch (`--assume-single-impl`). */
+    val assumed: Boolean = false,
+    /** Semantic class role (`CONTROLLER`, `SERVICE`, `REPOSITORY`, `ENTITY`), when present on the declaring class. */
+    val classRole: String? = null,
+    /** Semantic boundary role (`DB`, `HTTP`, `EVENT`, `NOISE`), when classified from the declaring class. */
+    val boundaryRole: String? = null,
+    /** Annotated entrypoint caption (`POST /loans/{id}/repay`, `SCHEDULED poll`), or null for plain roots. */
+    val entryLabel: String? = null
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -70,7 +78,8 @@ class GraphBuilderBlock(
      * edges are added once the root is built, see `IrGraphBuilder.build`.
      */
     val event: GraphNode? = if (parent != null) null else graph.createGraphNode(
-        NodeType.EVENT, GraphNode.Base(GraphNodeId(stack, "event ${method.displayName()}"), openedAt)
+        NodeType.EVENT,
+        GraphNode.Base(GraphNodeId(stack, entryLabel ?: "event ${method.displayName()}"), openedAt)
     )
 
     val calledMethods = ArrayList<GraphBuilderBlock>()
@@ -236,6 +245,14 @@ class GraphBuilderBlock(
         setLastNode(externalNode)
         inputs.forEach { it.addEdge(externalNode) }
         return externalNode
+    }
+
+    /** An exception thrown out of the method (`throw expr;`). */
+    fun addThrow(base: GraphNode.Base, thrown: GraphNode): GraphNode {
+        val throwNode = graph.createGraphNode(NodeType.THROW, base)
+        setLastNode(throwNode)
+        thrown.addEdge(throwNode)
+        return throwNode
     }
 
     /**

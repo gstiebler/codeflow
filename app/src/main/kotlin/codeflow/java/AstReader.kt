@@ -31,26 +31,30 @@ class AstReader(private val basePath: Path) {
     var unmodelled: List<String> = emptyList()
         private set
 
-    /**
-     * The graph: parse, attribute, lower to instructions, draw.
-     *
-     * The lowering and the drawing are separate passes because they answer separate questions, and
-     * doing both at once is what made the tree walker hard to hold in one head. What a name means is
-     * a question about the source and is asked once per method; which box a value is drawn as is a
-     * question about a call site and is asked once per call site. See `codeflow.ir`.
-     */
+    /** Assumed single-implementation dispatches made during [process] or [summarise]. */
+    var assumed: List<String> = emptyList()
+        private set
+
     fun process(
         fileNames: List<Path>,
         entryPoints: List<String> = emptyList(),
         boundaries: List<String> = emptyList(),
-        pures: List<String> = emptyList()
+        pures: List<String> = emptyList(),
+        assumeSingleImpl: Boolean = false,
+        autoBoundaries: Boolean = false,
+        discoverRoots: Boolean = false
     ): List<GraphBuilderBlock> {
-        val analysis = analyse(fileNames, boundaries, pures)
-        val entries = if (entryPoints.isEmpty()) listOf(selectEntry(analysis.globalCtx, null))
-        else entryPoints.map { selectEntry(analysis.globalCtx, it) }
+        val analysis = analyse(fileNames, boundaries, pures, assumeSingleImpl, autoBoundaries)
+        val entries = when {
+            entryPoints.isNotEmpty() -> entryPoints.map { selectEntry(analysis.globalCtx, it) }
+            discoverRoots -> discoverEntries(analysis.globalCtx)
+            else -> listOf(selectEntry(analysis.globalCtx, null))
+        }
         val root = IrGraphBuilder(analysis.globalCtx).build(entries)
         unmodelled = analysis.globalCtx.unmodelled()
+        assumed = analysis.globalCtx.assumed()
         reportUnmodelled()
+        reportAssumed()
         analysis.close()
         return root
     }
@@ -66,9 +70,11 @@ class AstReader(private val basePath: Path) {
         fileNames: List<Path>,
         entryPoints: List<String> = emptyList(),
         boundaries: List<String> = emptyList(),
-        pures: List<String> = emptyList()
+        pures: List<String> = emptyList(),
+        assumeSingleImpl: Boolean = false,
+        autoBoundaries: Boolean = false
     ): List<Pair<Method, Summary>> {
-        val analysis = analyse(fileNames, boundaries, pures)
+        val analysis = analyse(fileNames, boundaries, pures, assumeSingleImpl, autoBoundaries)
         entryPoints.forEach { analysis.method(it) }
         val builder = IrGraphBuilder(analysis.globalCtx)
         val all = Summarizer(analysis.globalCtx, builder::bodyOf, builder::initializersOf).summariseAll()
@@ -76,23 +82,20 @@ class AstReader(private val basePath: Path) {
             .filter { (method, _) -> entryPoints.isEmpty() || entryPoints.any { MethodSpec.matches(method, it) } }
             .map { it.key to it.value }
         unmodelled = analysis.globalCtx.unmodelled()
+        assumed = analysis.globalCtx.assumed()
         reportUnmodelled()
+        reportAssumed()
         analysis.close()
         return chosen
     }
 
-    /**
-     * Everything javac has to say about these sources, and nothing built on top of it yet.
-     *
-     * Split out from [process] because parse-and-attribute is the input to more than one thing: the
-     * graph is one consumer, the lowering to IR (`codeflow.ir`) is another, and a test of what a
-     * method *means* should not have to render a diagram to ask.
-     *
-     * [boundaries] are the classes `--boundary` names, whose methods are lowered as the assumed
-     * implementation rather than read - see [GlobalContext.isBoundary]. [pures] are the classes
-     * `--pure` names: boundaries whose calls take no part in the order they ran in.
-     */
-    fun analyse(fileNames: List<Path>, boundaries: List<String> = emptyList(), pures: List<String> = emptyList()): Analysis {
+    fun analyse(
+        fileNames: List<Path>,
+        boundaries: List<String> = emptyList(),
+        pures: List<String> = emptyList(),
+        assumeSingleImpl: Boolean = false,
+        autoBoundaries: Boolean = false
+    ): Analysis {
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
@@ -130,11 +133,11 @@ class AstReader(private val basePath: Path) {
         // where "javac cannot tell me what this is" is already an answer Symbols has. That is a
         // decision about what a partly attributed corpus may be drawn as, and is not taken yet.
         task.analyze()
-        val symbols = Symbols.collect(trees, task.elements, compUnitTrees)
+        val symbols = Symbols.collect(trees, task.elements, task.types, compUnitTrees)
         System.err.println(
             "codeflow: ${symbols.unresolved} of ${symbols.total} references unresolved"
         )
-        val globalCtx = GlobalContext(symbols)
+        val globalCtx = GlobalContext(symbols, assumeSingleImpl = assumeSingleImpl)
         for (compUnitTree in compUnitTrees) {
             val ctx = getContext(compUnitTree, sourcePositions)
             compUnitTree.accept(AstProcessor(globalCtx), ctx)
@@ -144,6 +147,19 @@ class AstReader(private val basePath: Path) {
         // Both flags on one class: whether its calls are ordered is not ours to guess.
         val both = ordered.intersect(pure)
         if (both.isNotEmpty()) throw GraphException("${both.joinToString(", ")} named by both --boundary and --pure")
+        if (autoBoundaries) {
+            for (cls in globalCtx.sourceClasses()) {
+                if (cls in ordered || cls in pure) continue
+                val role = globalCtx.findClass(cls)?.let { Semantics.boundaryRole(it.tree) } ?: continue
+                if (role == Semantics.ROLE_NOISE) {
+                    pure.add(cls)
+                    System.err.println("codeflow: auto-pure '$cls' ($role)")
+                } else {
+                    ordered.add(cls)
+                    System.err.println("codeflow: auto-boundary '$cls' ($role)")
+                }
+            }
+        }
         globalCtx.markBoundaries(ordered + pure, pure)
         return Analysis(globalCtx, manager)
     }
@@ -160,6 +176,23 @@ class AstReader(private val basePath: Path) {
         val plural = if (unmodelled.size == 1) "construct" else "constructs"
         System.err.println("codeflow: ${unmodelled.size} $plural not modelled")
         unmodelled.forEach { System.err.println("codeflow:   $it") }
+    }
+
+    private fun reportAssumed() {
+        if (assumed.isEmpty()) return
+        val plural = if (assumed.size == 1) "dispatch" else "dispatches"
+        System.err.println("codeflow: ${assumed.size} assumed single-implementation $plural")
+        assumed.forEach { System.err.println("codeflow:   $it") }
+    }
+
+    private fun discoverEntries(globalCtx: GlobalContext): List<Method> {
+        val found = globalCtx.annotatedEntrypoints()
+        if (found.isEmpty()) return listOf(selectEntry(globalCtx, null))
+        found.forEach {
+            val label = Semantics.entrypointLabel(it, globalCtx.findClass(it.element.enclosingElement))
+            System.err.println("codeflow: discovered root '${MethodSpec.of(it)}' ($label) in ${it.ctx.path}")
+        }
+        return found
     }
 
     /**

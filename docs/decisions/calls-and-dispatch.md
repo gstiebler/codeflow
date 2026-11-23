@@ -157,7 +157,8 @@ outside call that merely is named `call` has no lead and stays plain. Several ro
 own chain, named after them and tied only by `SHARED` edges: fixture `boundaryRoots`.
 
 **Each root has an entry event.** An entry point is something that happens - a request, a job,
-`main` - so every root gets one `NodeType.EVENT` node, `event <root simple name>`, created first in
+`main` - so every root gets one `NodeType.EVENT` node, `event <root simple name>` (or the annotated
+entrypoint label such as `POST /loans/{id}/repay` when present; see `Semantics.entrypointLabel`), created first in
 the root's block (the root's lowest serial; the builder's, not an instruction's, so Lowering,
 `--summaries` and `SummaryParityTest` are unchanged). Once the root is built, and before `build(roots)`
 adds `SHARED` edges, `IrGraphBuilder.startFromEvent` gives it an `EdgeKind.EVENT` edge to every node
@@ -170,3 +171,29 @@ fill:#00897B40` (always - every root has one), `-. event .->` with `#00897b`; `P
 the same stroke in the viewer. Spec: `docs/superpowers/specs/2026-11-15-entry-event-design.md`.
 `InvariantsTest` holds that each root has exactly its one event and every other node has something
 arriving.
+
+## Assumed single-implementation DI dispatch (`--assume-single-impl`)
+
+Enterprise Java services reach collaborators through interface-typed fields (`private LoanService service;`)
+that are never constructed with `new` in the sources. Strict dispatch leaves every such call `EXTERNAL`,
+cutting REST → service → domain → repository chains into disconnected single-class islands.
+
+Behind the explicit `--assume-single-impl` flag, `Dispatch.resolveWithAssumptions` checks
+`GlobalContext.singleImplementation(declared)` for a non-boundary virtual call with no concrete receiver
+types and no static body. It asks javac's `Types.isSubtype` (erased) for every concrete source class
+implementing the declaring type, resolves each overriding method, and resolves **only when exactly one**
+concrete implementation exists. Zero or two or more implementations remain `EXTERNAL` / `dispatch` gap —
+never a guess among siblings.
+
+Every assumed hop is marked visibly rather than drawn as proven fact:
+- reported on stderr (`codeflow: N assumed single-implementation dispatch(es)`);
+- `GraphBuilderBlock.assumed = true` → `"assumed": true` in `JsonExporter` → dashed amber outline
+  (`#e65100`) and `assumed: single impl` badge in the viewer and Mermaid export;
+- `Summarizer` records `Gap("assumed", at, "Interface#m -> Impl#m (single implementation)")`, so
+  `diverges.py` and summary diffs always know the result rests on an assumption.
+
+`--auto-boundaries` complements this by automatically marking detected `DB`/`HTTP`/`EVENT` classes
+(from `@Repository`, `*Repository`, `JdbcTemplate`, `RestTemplate`, `KafkaTemplate`, etc., in
+`codeflow.java.Semantics`) as ordered boundaries and `NOISE` classes (`Logger`, `Objects`, etc.) as
+pure boundaries out of the `ORDER` chain. `--discover-roots` selects all annotated entrypoints
+(`@GetMapping`/`@PostMapping`/`@Path`, `@Scheduled`, `@EventListener`/`@KafkaListener`, `@CommandType`).

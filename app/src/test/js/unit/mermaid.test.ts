@@ -114,7 +114,7 @@ test('every node is in one class, filled and outlined as the page draws it, one 
     const def = classDefs.get(classOf.get(`n${i}`)!)!;
     const want = node.type === 'GROUP'
       ? { fill: hex(GROUP_FILL), stroke: hex(node.boundary ? BOUNDARY_OUTLINE : GROUP_OUTLINE), width: 2 }
-      : { fill: hex(PALETTE[node.type] ?? NODE_DEFAULT), stroke: hex(NODE_OUTLINE), width: 1 };
+      : { fill: hex((PALETTE as Record<string, string | undefined>)[node.type] ?? NODE_DEFAULT), stroke: hex(NODE_OUTLINE), width: 1 };
     assert.deepEqual(def, want, node.label);
     looks.add(JSON.stringify(want));
   });

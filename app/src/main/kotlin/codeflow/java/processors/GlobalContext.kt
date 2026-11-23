@@ -13,7 +13,7 @@ import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.util.ElementFilter
 
-class GlobalContext(val symbols: Symbols) {
+class GlobalContext(val symbols: Symbols, val assumeSingleImpl: Boolean = false) {
     /**
      * Keyed by the declaration javac resolved, not by the method's name.
      *
@@ -44,6 +44,12 @@ class GlobalContext(val symbols: Symbols) {
      * knows to look.
      */
     private val unmodelledConstructs = LinkedHashSet<String>()
+
+    /** Assumed single-implementation dispatches made during this run, reported on stderr so nothing is silent. */
+    private val assumedDispatches = LinkedHashSet<String>()
+
+    /** Memoised single-implementation lookup per abstract/interface method. */
+    private val singleImplCache = HashMap<ExecutableElement, Method?>()
 
     class SourceClass(val tree: ClassTree, val ctx: ProcessorContext)
 
@@ -98,6 +104,44 @@ class GlobalContext(val symbols: Symbols) {
 
     /** See [unmodelledConstructs]. */
     fun unmodelled(): List<String> = unmodelledConstructs.toList()
+
+    /** Records an assumed single-implementation dispatch so the CLI reports it on stderr. */
+    fun recordAssumed(description: String) {
+        assumedDispatches.add(description)
+    }
+
+    /** Every assumed single-implementation dispatch made during this run. */
+    fun assumed(): List<String> = assumedDispatches.toList()
+
+    /**
+     * The sole concrete implementation of [declared] in the analysed sources, or null when zero or
+     * several concrete implementations exist.
+     *
+     * Used only when `--assume-single-impl` is enabled (`assumeSingleImpl = true`) for an interface
+     * or abstract method whose receiver has no tracked constructed type (e.g. a Spring-injected
+     * service field). Never picks among multiple implementations.
+     */
+    fun singleImplementation(declared: ExecutableElement): Method? =
+        singleImplCache.getOrPut(declared) {
+            val owner = declared.enclosingElement as? TypeElement ?: return@getOrPut null
+            val impls = LinkedHashMap<Element, Method>()
+            for (elem in classes.keys) {
+                val type = elem as? TypeElement ?: continue
+                if (type.kind == ElementKind.INTERFACE || type.kind == ElementKind.ANNOTATION_TYPE) continue
+                if (Modifier.ABSTRACT in type.modifiers) continue
+                if (!symbols.isSubtype(type, owner)) continue
+                implementation(declared, type)?.let { impls[it.element] = it }
+            }
+            impls.values.singleOrNull()
+        }
+
+    /**
+     * Methods in the analysed sources annotated as entrypoints (HTTP routes, `@Scheduled`, event/queue
+     * listeners, `@CommandType`), ordered deterministically as [sourceMethods] is.
+     */
+    fun annotatedEntrypoints(): List<Method> = sourceMethods().filter { method ->
+        codeflow.java.Semantics.entrypointLabel(method, findClass(method.element.enclosingElement)) != null
+    }
 
     fun addMethod(methodTree: MethodTree, element: ExecutableElement, ctx: ProcessorContext) {
         methods[element] = Method(methodTree, ctx, element)

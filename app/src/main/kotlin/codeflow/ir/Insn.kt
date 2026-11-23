@@ -369,6 +369,9 @@ fun boundaryOrderCaption(rootName: String) = "$BOUNDARY_ORDER $rootName"
 /** The part of a boundary call's label drawn bold - `call` in `call fetch`. See [Call.lead]. */
 const val BOUNDARY_CALL_LEAD = "call"
 
+/** The part of a throw node's label drawn bold - `throw` in `throw IllegalStateException`. */
+const val THROW_LEAD = "throw"
+
 /**
  * A read of the boundary-order token, which a boundary call takes after its parameters.
  *
@@ -516,4 +519,16 @@ class Unmodelled(val kind: String, override val inputs: List<Val>, source: Strin
 class Return(val value: Val?, source: String) : Insn(source) {
     override val inputs get() = listOfNotNull(value)
     override fun render() = "return" + (value?.let { " $it" } ?: "")
+}
+
+/**
+ * `throw expr;` — an exception leaving the normal flow.
+ *
+ * Carrying [exceptionType] (the simple exception class name when known from syntax or attribution)
+ * lets both the graph and `--summaries` show what leaves the method instead of letting the
+ * constructed exception sit as an unconnected dead end.
+ */
+class Throw(val value: Val, val exceptionType: String, source: String) : Insn(source) {
+    override val inputs get() = listOf(value)
+    override fun render() = "throw $exceptionType $value"
 }

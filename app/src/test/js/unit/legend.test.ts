@@ -7,7 +7,7 @@ import type { EdgeKind, NodeType, Payload } from '../../../main/resources/viewer
 
 const LEAVES: NodeType[] = [
   'LITERAL', 'VARIABLE', 'OBJ_VARIABLE', 'BIN_OP', 'FUNC_PARAM', 'RETURN', 'EXTERNAL', 'UNMODELLED',
-  'BOUNDARIES', 'EVENT',
+  'BOUNDARIES', 'EVENT', 'THROW',
 ];
 const KINDS: EdgeKind[] = ['FLOW', 'TRUE', 'FALSE', 'CONDITION', 'ORDER', 'SHARED', 'EVENT'];
 

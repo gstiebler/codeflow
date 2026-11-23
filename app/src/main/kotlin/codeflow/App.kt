@@ -23,6 +23,8 @@ private class Args(given: Array<String>) {
     val boundaries = ArrayList<String>()
     val pures = ArrayList<String>()
     val flags = HashSet<String>()
+    var level: String? = null
+        private set
 
     init {
         val argv = expandArgumentFiles(given)
@@ -45,12 +47,23 @@ private class Args(given: Array<String>) {
                     i++
                 }
                 arg.startsWith("--pure=") -> pures.add(arg.removePrefix("--pure="))
+                arg == "--level" -> {
+                    val value = argv.getOrNull(i + 1) ?: throw IllegalArgumentException("--level needs one of ${LEVELS.sorted()}")
+                    require(value in LEVELS) { "unknown level '$value'; expected one of ${LEVELS.sorted()}" }
+                    level = value
+                    i++
+                }
+                arg.startsWith("--level=") -> {
+                    val value = arg.removePrefix("--level=")
+                    require(value in LEVELS) { "unknown level '$value'; expected one of ${LEVELS.sorted()}" }
+                    level = value
+                }
                 // An unknown flag is refused rather than ignored. The exporter chain ends in Mermaid,
                 // so a flag nobody recognises used to produce a complete, plausible document that is
                 // not the one asked for - a mistyped `--html`, or `--html-cytoscape` after the second
                 // renderer was removed, and nothing on stdout or stderr saying so.
                 arg.startsWith("--") -> {
-                    require(arg in FORMATS) { "unknown flag $arg; expected one of ${FORMATS.sorted()}" }
+                    require(arg in KNOWN_FLAGS) { "unknown flag $arg; expected one of ${KNOWN_FLAGS.sorted()}" }
                     flags.add(arg)
                 }
                 directory == null -> directory = arg
@@ -61,6 +74,9 @@ private class Args(given: Array<String>) {
 
     companion object {
         val FORMATS = setOf("--html", "--json", "--graphml", "--summaries")
+        val OPTIONS = setOf("--assume-single-impl", "--auto-boundaries", "--discover-roots")
+        val KNOWN_FLAGS = FORMATS + OPTIONS
+        val LEVELS = setOf("architecture", "workflow", "expressions")
     }
 }
 
@@ -101,21 +117,26 @@ internal fun runCli(argv: Array<String>): Int {
 
     val filesPaths = generateListOfJavaFilesFromDir(javaRootDirPath)
     val reader = AstReader(javaRootDirPath)
+    val assumeSingleImpl = args.flags.contains("--assume-single-impl")
+    val autoBoundaries = args.flags.contains("--auto-boundaries")
+    val discoverRoots = args.flags.contains("--discover-roots")
     if (args.flags.contains("--summaries")) {
-        val document = SummariesExporter().document(reader.summarise(filesPaths, args.from, args.boundaries, args.pures))
+        val document = SummariesExporter().document(
+            reader.summarise(filesPaths, args.from, args.boundaries, args.pures, assumeSingleImpl, autoBoundaries)
+        )
         println(document.text)
         System.err.println("codeflow: summarised ${document.methods} methods, ${document.pairs} pairs, ${document.gaps} gaps")
         return if (reader.unmodelled.isNotEmpty()) 1 else 0
     }
-    val roots = reader.process(filesPaths, args.from, args.boundaries, args.pures)
+    val roots = reader.process(filesPaths, args.from, args.boundaries, args.pures, assumeSingleImpl, autoBoundaries, discoverRoots)
 
     val result = ArrayList<String>()
     // Both renderings go to stdout, which is the document; the diagnostics AstReader prints are on
     // stderr, so redirecting stdout to a file gives something a viewer can open directly.
     if (args.flags.contains("--html")) {
-        HtmlExporter("reactflow.bundle.js", javaRootDirPath).processMainMethod(roots) { result.add(it) }
+        HtmlExporter("reactflow.bundle.js", javaRootDirPath, args.level).processMainMethod(roots) { result.add(it) }
     } else if (args.flags.contains("--json")) {
-        JsonExporter(javaRootDirPath).processMainMethod(roots) { result.add(it) }
+        JsonExporter(javaRootDirPath, args.level).processMainMethod(roots) { result.add(it) }
     } else if (args.flags.contains("--graphml")) {
         GraphmlExporter().processMainMethod(roots) { result.add(it) }
     } else {

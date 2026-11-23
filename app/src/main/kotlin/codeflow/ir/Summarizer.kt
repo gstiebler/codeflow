@@ -392,6 +392,10 @@ class Summarizer(
                     globalCtx.recordUnmodelled("${insn.kind} at ${insn.source}")
                 }
                 is Return -> EMPTY.also { insn.value?.let { ret += v(it) } }
+                is Throw -> EMPTY.also {
+                    val key = throwSink(insn.exceptionType, insn.source)
+                    sinks[key] = (sinks[key] ?: EMPTY) + AbsVal(v(insn.value).flows)
+                }
                 is Call -> call(insn, index, values)
                 is New -> construct(insn, index, values)
                 is Delegate -> delegate(insn, index, values)
@@ -418,6 +422,13 @@ class Summarizer(
             }
             val types = receiver.mapNotNull { typeOf(it) }.distinct()
             val virtual = Dispatch.isVirtual(insn.receiver, declared)
+            val resolution = Dispatch.resolveWithAssumptions(globalCtx, insn, types)
+            if (resolution != null && resolution.assumed) {
+                gaps.add(Gap("assumed", insn.source, "${label(declared)} -> ${label(resolution.method.element)} (single implementation)"))
+                globalCtx.recordAssumed("${label(declared)} -> ${label(resolution.method.element)}")
+                val resolvedType = resolution.method.element.enclosingElement
+                return enter(resolution.method, resolvedType, receiver, insn.args.map { values[it.index] }, insn, index) ?: opaque()
+            }
             // A boundary is not dispatched past (see Dispatch.boundary), so no body can be undecided.
             if (virtual && Dispatch.boundary(globalCtx, declared) == null && overriddenInSources(declared)) {
                 val undecided = receiver.filter { typeOf(it) == null }
@@ -428,7 +439,7 @@ class Summarizer(
                     if (receiver.isEmpty() || undecided.any { it != PathObj(This) }) return opaque()
                 }
             }
-            val method = Dispatch.resolve(globalCtx, insn, types)
+            val method = resolution?.method
             if (method == null) {
                 if (virtual && types.map { globalCtx.implementation(declared, it) }.distinct().size > 1) {
                     gaps.add(Gap("dispatch", insn.source, "${label(declared)} has several implementations on ${types.joinToString { it.simpleName }}"))

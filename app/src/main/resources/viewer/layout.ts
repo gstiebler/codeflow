@@ -37,8 +37,22 @@ export type ElkNode = {
 const CHAR_WIDTH = 6.5;
 const PADDING = 16;
 export const NODE_HEIGHT = 26;
+const SUBTITLE_LINE_HEIGHT = 14;
 
 export const nodeWidth = (caption: string) => Math.round(caption.length * CHAR_WIDTH) + PADDING;
+
+/** Size for a drawn node or multi-line Summary / Entity card. */
+export function nodeSize(node: CondensedNode, caption: string): { width: number; height: number } {
+  const roleExtra = node.role ? ` [${node.role}]` : '';
+  const headerWidth = nodeWidth(`${caption}${roleExtra}`);
+  const sub = node.subtitle ?? [];
+  if (sub.length === 0) return { width: headerWidth, height: NODE_HEIGHT };
+  const subWidth = Math.max(...sub.map((line) => Math.round(line.length * 5.8) + PADDING));
+  return {
+    width: Math.max(headerWidth, subWidth, 120),
+    height: NODE_HEIGHT + sub.length * SUBTITLE_LINE_HEIGHT + 8,
+  };
+}
 
 /**
  * The view, for ELK: one level, no method boxes. Group and leaf alike are sized from the caption
@@ -81,7 +95,7 @@ export function flatElkGraph(
   view: CondensedView, caption: (node: CondensedNode) => string, previous?: Map<Id, Point>,
   style: LineStyle = 'square',
 ): ElkNode {
-  const leaf = (node: CondensedNode): ElkNode => ({ id: node.id, width: nodeWidth(caption(node)), height: NODE_HEIGHT });
+  const leaf = (node: CondensedNode): ElkNode => ({ id: node.id, ...nodeSize(node, caption(node)) });
   const routing = style === 'curved' ? 'SPLINES' : 'ORTHOGONAL';
   const options = { ...FLAT_OPTIONS, 'elk.edgeRouting': routing };
   const root: ElkNode = {

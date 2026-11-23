@@ -9,7 +9,8 @@
  */
 import { condensedCaption } from './condensed.ts';
 import {
-  BOUNDARY_OUTLINE, GROUP_FILL, GROUP_OUTLINE, NODE_DEFAULT, NODE_OUTLINE, PALETTE, condensedEdgeStyle,
+  ASSUMED_OUTLINE, BOUNDARY_OUTLINE, DECISION_FILL, DECISION_OUTLINE, ENTITY_FILL, ENTITY_OUTLINE,
+  GROUP_FILL, GROUP_OUTLINE, NODE_DEFAULT, NODE_OUTLINE, PALETTE, condensedEdgeStyle,
 } from './theme.ts';
 import type { CondensedNode, CondensedView } from './types.ts';
 
@@ -33,10 +34,27 @@ export function escapeLabel(label: string): string {
 
 /** What the renderer paints a display node with: a group white in its owner's outline, a leaf its type's fill. */
 function look(node: CondensedNode): string {
+  if (node.type === 'ENTITY') {
+    return `fill:${hex(ENTITY_FILL)},stroke:${hex(ENTITY_OUTLINE)},stroke-width:2px`;
+  }
+  if (node.type === 'DECISION') {
+    return `fill:${hex(DECISION_FILL)},stroke:${hex(DECISION_OUTLINE)},stroke-width:2px`;
+  }
   if (node.type === 'GROUP') {
-    return `fill:${hex(GROUP_FILL)},stroke:${hex(node.boundary ? BOUNDARY_OUTLINE : GROUP_OUTLINE)},stroke-width:2px`;
+    const stroke = node.boundary ? BOUNDARY_OUTLINE : (node.assumed ? ASSUMED_OUTLINE : GROUP_OUTLINE);
+    const dash = node.assumed ? ',stroke-dasharray:4 3' : '';
+    return `fill:${hex(GROUP_FILL)},stroke:${hex(stroke)},stroke-width:2px${dash}`;
   }
   return `fill:${hex(PALETTE[node.type] ?? NODE_DEFAULT)},stroke:${hex(NODE_OUTLINE)},stroke-width:1px`;
+}
+
+function mermaidCaption(node: CondensedNode): string {
+  const head = node.type === 'GROUP' && node.subtitle && node.subtitle.length > 0
+    ? node.label
+    : condensedCaption(node);
+  const withRole = node.role ? `${head} [${node.role}]` : head;
+  if (!node.subtitle || node.subtitle.length === 0) return withRole;
+  return [withRole, ...node.subtitle].join(' / ');
 }
 
 /**
@@ -50,7 +68,7 @@ export function condensedMermaid(view: CondensedView): string {
 
   const classes = new Map<string, { name: string; nodes: string[] }>();
   for (const node of view.nodes) {
-    lines.push(`  ${id.get(node.id)}["${escapeLabel(condensedCaption(node))}"]`);
+    lines.push(`  ${id.get(node.id)}["${escapeLabel(mermaidCaption(node))}"]`);
     const style = look(node);
     if (!classes.has(style)) classes.set(style, { name: `c${classes.size}`, nodes: [] });
     classes.get(style)!.nodes.push(id.get(node.id)!);

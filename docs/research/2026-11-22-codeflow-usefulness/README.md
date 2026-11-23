@@ -26,6 +26,13 @@ not hide Keycloak #49604), and the order to build in changed. Corrections are ma
 dropped its receiver with no gap counted. Re-run: 3 found, 1 split visible, 2 missed.
 [What moved](review.md#fixed-in-d66e869-and-what-moved).
 
+**Reviewed again, by running 12 of the scored cases: [review-2.md](review-2.md).** Not yet applied below:
+- The runs found the same bug in the tool (fixed in `d66e869`, above): 120 of 1,604 call sites in one Fineract
+  file lost their receiver chain; after the fix, 0 of 1,814.
+- Fineract's decisive bugs are 6 of 44 (one in seven), not 9 of 44, all six on today's tool.
+- Neither D4=2 score survives a run.
+- Improvement 4 (single implementation) has to come before the PR check, and `stem:` leaves the acceptance list.
+
 ## Sample
 
 | Repo | Kind | Census | Deep-dived items | Review comments |
